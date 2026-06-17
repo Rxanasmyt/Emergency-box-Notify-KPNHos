@@ -1,0 +1,1926 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Emergency Box Management & Alert System</title>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: 'IBM Plex Sans Thai', sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
+
+  /* ===== Scrollbar ===== */
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(155,175,195,.35); border-radius: 100px; border: 2px solid transparent; background-clip: content-box; transition: background .2s; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(130,155,180,.55); background-clip: content-box; }
+
+  /* ===== Global interactive transitions ===== */
+  input, select, button, textarea { font-family: inherit; transition: border-color .2s cubic-bezier(.4,0,.2,1), box-shadow .2s cubic-bezier(.4,0,.2,1), background .2s cubic-bezier(.4,0,.2,1), color .15s, transform .18s cubic-bezier(.34,1.56,.64,1), opacity .2s; }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: #1A6FA3 !important; box-shadow: 0 0 0 3.5px rgba(26,111,163,.12), 0 1px 2px rgba(0,0,0,.06) !important; }
+  input:hover, select:hover { border-color: #9CBDD6 !important; }
+  button { -webkit-tap-highlight-color: transparent; }
+  button:active { transform: scale(.965) !important; }
+
+  /* ===== Spring-physics keyframes ===== */
+  @keyframes fadeUp { 0% { opacity: 0; transform: translateY(18px) scale(.98); } 60% { opacity: 1; transform: translateY(-3px) scale(1.005); } 100% { transform: translateY(0) scale(1); } }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes slideInRight { 0% { opacity: 0; transform: translateX(24px); } 60% { transform: translateX(-2px); } 100% { opacity: 1; transform: translateX(0); } }
+  @keyframes scaleIn { 0% { opacity: 0; transform: scale(.92); } 60% { transform: scale(1.02); } 100% { opacity: 1; transform: scale(1); } }
+  @keyframes barIn { 0% { transform: scaleX(0); } 70% { transform: scaleX(1.03); } 100% { transform: scaleX(1); } }
+  @keyframes barUp { 0% { transform: scaleY(0); } 70% { transform: scaleY(1.04); } 100% { transform: scaleY(1); } }
+  @keyframes pulseRed { 0% { box-shadow: 0 0 0 0 rgba(224,62,62,.4); } 70% { box-shadow: 0 0 0 10px rgba(224,62,62,0); } 100% { box-shadow: 0 0 0 0 rgba(224,62,62,0); } }
+  @keyframes blinkDot { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .3; transform: scale(.65); } }
+  @keyframes sweep { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  @keyframes toastIn { 0% { opacity: 0; transform: translate(-50%, 28px) scale(.94); } 50% { transform: translate(-50%, -4px) scale(1.01); } 100% { opacity: 1; transform: translate(-50%, 0) scale(1); } }
+  @keyframes toastOut { to { opacity: 0; transform: translate(-50%, 16px) scale(.96); } }
+  @keyframes ringGrow { from { stroke-dasharray: 0 999; } }
+  @keyframes shakeX { 0%,100% { transform: translateX(0); } 15% { transform: translateX(-10px) rotate(-.5deg); } 30% { transform: translateX(9px) rotate(.4deg); } 45% { transform: translateX(-7px); } 60% { transform: translateX(5px); } 75% { transform: translateX(-3px); } }
+  @keyframes modalPop { 0% { opacity: 0; transform: translateY(20px) scale(.93); } 50% { transform: translateY(-4px) scale(1.01); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
+  @keyframes overlayIn { from { opacity: 0; backdrop-filter: blur(0px); } to { opacity: 1; backdrop-filter: blur(4px); } }
+  @keyframes floatY { 0%,100% { transform: translateY(0) rotate(0deg); } 33% { transform: translateY(-14px) rotate(1deg); } 66% { transform: translateY(6px) rotate(-0.5deg); } }
+  @keyframes pulseRing { 0% { transform: scale(.7); opacity: .6; } 100% { transform: scale(2.6); opacity: 0; } }
+  @keyframes breathe { 0%,100% { opacity: .7; } 50% { opacity: 1; } }
+  @keyframes countUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+  @keyframes chipPop { 0% { transform: scale(.88); } 50% { transform: scale(1.06); } 100% { transform: scale(1); } }
+  @keyframes successPop { 0% { transform: scale(0); } 60% { transform: scale(1.2); } 100% { transform: scale(1); } }
+  @keyframes gradientShift { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+
+  /* ===== Selection ===== */
+  ::selection { background: rgba(26,111,163,.18); }
+</style>
+</helmet>
+
+<!-- ===================== LOGIN ===================== -->
+<sc-if value="{{ notAuthed }}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; height: 100vh; min-height: 720px; background: #0E2A3C; color: #15242E; overflow: hidden; font-family: 'IBM Plex Sans Thai', sans-serif;">
+
+  <!-- Left brand panel -->
+  <div style="position: relative; width: 46%; min-width: 420px; flex-shrink: 0; background: linear-gradient(155deg, #14506E 0%, #1A6FA3 45%, #168C84 100%); color: #fff; display: flex; flex-direction: column; padding: 52px 56px; overflow: hidden;">
+    <!-- decorative -->
+    <div style="position: absolute; top: -120px; right: -120px; width: 340px; height: 340px; border-radius: 50%; background: radial-gradient(circle, rgba(255,255,255,.14), transparent 70%);"></div>
+    <div style="position: absolute; bottom: -90px; left: -60px; width: 260px; height: 260px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,.12); animation: floatY 7s ease-in-out infinite;"></div>
+    <div style="position: absolute; bottom: 40px; right: 60px; width: 120px; height: 120px; border-radius: 30px; border: 1.5px solid rgba(255,255,255,.1); transform: rotate(18deg); animation: floatY 9s ease-in-out infinite;"></div>
+
+    <div style="position: relative; display: flex; align-items: center; gap: 13px;">
+      <div style="width: 48px; height: 48px; border-radius: 14px; background: rgba(255,255,255,.16); backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; border: 1px solid rgba(255,255,255,.25);">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M12 7v10M7 12h10" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/><rect x="3.5" y="3.5" width="17" height="17" rx="4.5" stroke="#fff" stroke-width="1.7" opacity=".6"/></svg>
+      </div>
+      <div style="line-height: 1.25;">
+        <div style="font-size: 16px; font-weight: 700;">Emergency Box Management</div>
+        <div style="font-size: 12px; opacity: .8;">&amp; Alert System · ฝ่ายเภสัชกรรม</div>
+      </div>
+    </div>
+
+    <div style="position: relative; margin-top: auto;">
+      <div style="font-size: 13px; font-weight: 600; letter-spacing: .5px; opacity: .85; margin-bottom: 14px;">โรงพยาบาลกรงปินัง · จังหวัดยะลา</div>
+      <h1 style="margin: 0; font-size: 36px; font-weight: 700; line-height: 1.2; letter-spacing: -.5px;">บริหาร Emergency Box<br>ปลอดภัย ตรวจสอบย้อนหลังได้ 100%</h1>
+      <p style="font-size: 15px; line-height: 1.7; opacity: .82; margin: 18px 0 0; max-width: 440px;">ลดปัญหายาในกล่องฉุกเฉินหมดอายุ ด้วยการแจ้งเตือนล่วงหน้า 15 วัน และระบบควบคุมสิทธิ์ตามบทบาทผู้ใช้งาน</p>
+    </div>
+
+    <div style="position: relative; margin-top: 40px; display: flex; flex-direction: column; gap: 16px;">
+      <div style="display: flex; align-items: center; gap: 14px; animation: slideInRight .5s cubic-bezier(.34,1.56,.64,1) .3s both;">
+        <span style="width: 40px; height: 40px; flex-shrink: 0; border-radius: 11px; background: rgba(255,255,255,.14); display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3z" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 12l2 2 4-4" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <div><div style="font-size: 14px; font-weight: 600;">ควบคุมสิทธิ์ตามบทบาท (RBAC)</div><div style="font-size: 12.5px; opacity: .75;">Admin กำหนดสิทธิ์เภสัชกร · จพ. · พยาบาล</div></div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 14px; animation: slideInRight .5s cubic-bezier(.34,1.56,.64,1) .45s both;">
+        <span style="width: 40px; height: 40px; flex-shrink: 0; border-radius: 11px; background: rgba(255,255,255,.14); display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="4.5" y="10" width="15" height="10" rx="2.5" stroke="#fff" stroke-width="1.8"/><path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+        <div><div style="font-size: 14px; font-weight: 600;">เข้ารหัสข้อมูล &amp; บันทึก Audit Log</div><div style="font-size: 12.5px; opacity: .75;">ทุกการเข้าระบบและทำรายการถูกบันทึก</div></div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 14px; animation: slideInRight .5s cubic-bezier(.34,1.56,.64,1) .6s both;">
+        <span style="width: 40px; height: 40px; flex-shrink: 0; border-radius: 11px; background: rgba(255,255,255,.14); display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6z" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/><path d="M10 20a2 2 0 0 0 4 0" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+        <div><div style="font-size: 14px; font-weight: 600;">แจ้งเตือนยาใกล้หมดอายุอัตโนมัติ</div><div style="font-size: 12.5px; opacity: .75;">ผ่าน LINE Notify และ Email</div></div>
+      </div>
+    </div>
+
+    <div style="position: relative; margin-top: 36px; padding-top: 18px; border-top: 1px solid rgba(255,255,255,.16);">
+      <div style="font-size: 12.5px; font-weight: 600; opacity: .95;">ฝ่ายเภสัชกรรม โรงพยาบาลกรงปินัง จังหวัดยะลา</div>
+      <div style="font-size: 11.5px; opacity: .7; margin-top: 4px; line-height: 1.6;">จัดทำโดย ภก.อนัส มะยีแต · เภสัชกร ฝ่ายเภสัชกรรมและคุ้มครองผู้บริโภค<br>© 2569 โรงพยาบาลกรงปินัง · เวอร์ชัน 2.0</div>
+    </div>
+  </div>
+
+  <!-- Right form panel -->
+  <div style="flex: 1; background: #F4F8FB; display: flex; align-items: center; justify-content: center; padding: 32px; overflow-y: auto;">
+    <div style="width: 100%; max-width: 408px; animation: fadeUp .6s cubic-bezier(.34,1.56,.64,1) .15s both;">
+      <div style="width: 52px; height: 52px; border-radius: 15px; background: linear-gradient(150deg, #1A6FA3, #169C7F); display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 28px rgba(26,111,163,.3), 0 2px 6px rgba(22,140,132,.12); margin-bottom: 20px; animation: scaleIn .5s cubic-bezier(.34,1.56,.64,1) .25s both;">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><rect x="4.5" y="10" width="15" height="10" rx="2.5" stroke="#fff" stroke-width="1.9"/><path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="#fff" stroke-width="1.9" stroke-linecap="round"/><circle cx="12" cy="15" r="1.6" fill="#fff"/></svg>
+      </div>
+      <h2 style="margin: 0; font-size: 25px; font-weight: 700; letter-spacing: -.4px; color: #15242E;">เข้าสู่ระบบ</h2>
+      <p style="margin: 6px 0 24px; font-size: 14px; color: #6B7C8A;">ลงชื่อเข้าใช้ด้วยบัญชีเจ้าหน้าที่ห้องยา</p>
+
+      {{ loginAlertEl }}
+
+      <label style="display: block; font-size: 12.5px; font-weight: 600; color: #4A5C6A; margin-bottom: 7px;">รหัสพนักงาน / Username</label>
+      <div style="position: relative; margin-bottom: 16px;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%);"><circle cx="12" cy="8" r="4" stroke="#9AAAB8" stroke-width="1.8"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0" stroke="#9AAAB8" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <input type="text" value="{{ loginUser }}" onInput="{{ setLoginUser }}" placeholder="เช่น admin หรือ pharm01" autocomplete="username" style="width: 100%; height: 50px; border: 1.5px solid #DBE4EB; border-radius: 12px; padding: 0 14px 0 42px; font-size: 14.5px; color: #15242E; background: #fff; outline: none;">
+      </div>
+
+      <label style="display: block; font-size: 12.5px; font-weight: 600; color: #4A5C6A; margin-bottom: 7px;">รหัสผ่าน</label>
+      <div style="position: relative; margin-bottom: 8px;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); z-index: 1;"><rect x="4.5" y="10" width="15" height="10" rx="2.5" stroke="#9AAAB8" stroke-width="1.8"/><path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="#9AAAB8" stroke-width="1.8" stroke-linecap="round"/></svg>
+        {{ passFieldEl }}
+        {{ passToggleEl }}
+      </div>
+      {{ capsWarnEl }}
+
+      <div style="display: flex; align-items: center; justify-content: space-between; margin: 14px 0 20px;">
+        <button onClick="{{ toggleRemember }}" style="display: flex; align-items: center; gap: 9px; background: none; border: none; cursor: pointer; padding: 0; font-family: inherit;">
+          {{ rememberBoxEl }}
+          <span style="font-size: 13px; color: #4A5C6A;">จดจำการเข้าใช้</span>
+        </button>
+        <a href="#" style="font-size: 13px; color: #1A6FA3; font-weight: 600; text-decoration: none;">ลืมรหัสผ่าน?</a>
+      </div>
+
+      {{ loginBtnEl }}
+
+      <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 18px; font-size: 12px; color: #8A99A6;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="4.5" y="10" width="15" height="10" rx="2.5" stroke="#169C7F" stroke-width="1.9"/><path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="#169C7F" stroke-width="1.9" stroke-linecap="round"/></svg>
+        การเชื่อมต่อปลอดภัย · เข้ารหัสแบบ end-to-end
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 12px; margin: 24px 0 16px;">
+        <span style="flex: 1; height: 1px; background: #DDE6ED;"></span>
+        <span style="font-size: 12px; color: #9AAAB8;">บัญชีทดลอง (คลิกเพื่อกรอก)</span>
+        <span style="flex: 1; height: 1px; background: #DDE6ED;"></span>
+      </div>
+      <div style="display: flex; gap: 10px;">{{ demoAccountsEl }}</div>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+<!-- ===================== APP ===================== -->
+<sc-if value="{{ authed }}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; height: 100vh; min-height: 720px; background: #EDF2F7; color: #15242E; overflow: hidden;">
+
+  <!-- ===================== SIDEBAR ===================== -->
+  <aside style="width: 260px; flex-shrink: 0; background: rgba(255,255,255,.82); backdrop-filter: blur(20px) saturate(1.6); -webkit-backdrop-filter: blur(20px) saturate(1.6); border-right: 1px solid rgba(226,233,240,.7); display: flex; flex-direction: column; padding: 22px 16px;">
+    <div style="display: flex; align-items: center; gap: 12px; padding: 6px 8px 22px 8px;">
+      <div style="width: 42px; height: 42px; border-radius: 12px; background: linear-gradient(150deg, #1A6FA3, #169C7F); display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 18px rgba(26,111,163,.28); transition: transform .3s cubic-bezier(.34,1.56,.64,1), box-shadow .3s;" style-hover="transform: scale(1.08) rotate(-3deg); box-shadow: 0 8px 24px rgba(26,111,163,.35);">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 7v10M7 12h10" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><rect x="3.5" y="3.5" width="17" height="17" rx="4.5" stroke="#fff" stroke-width="1.7" opacity=".55"/></svg>
+      </div>
+      <div style="line-height: 1.15;">
+        <div style="font-size: 14.5px; font-weight: 700; letter-spacing: -.2px;">Emergency Box</div>
+        <div style="font-size: 10.5px; color: #7B8D9C; font-weight: 500;">Management &amp; Alert System</div>
+      </div>
+    </div>
+
+    <div style="font-size: 11px; font-weight: 600; color: #9AAAB8; letter-spacing: .6px; padding: 6px 10px 8px;">เมนูหลัก</div>
+    <nav style="display: flex; flex-direction: column; gap: 4px;">{{ navEl }}</nav>
+
+    <div style="margin-top: auto; display: flex; flex-direction: column; gap: 14px;">
+      <div style="background: #F4F8FA; border: 1px solid #E5EEF2; border-radius: 14px; padding: 14px;">
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+          <span style="width: 8px; height: 8px; border-radius: 50%; background: #169C7F; box-shadow: 0 0 0 3px rgba(22,156,127,.16);"></span>
+          <span style="font-size: 12px; font-weight: 600; color: #15242E;">LINE Notify &amp; Email</span>
+        </div>
+        <div style="font-size: 11.5px; color: #7B8D9C; line-height: 1.5;">แจ้งเตือนล่วงหน้า <b style="color:#1A6FA3;">15 วัน</b> ก่อนยาหมดอายุ · เชื่อมต่ออยู่</div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 11px; padding: 8px 8px; border-radius: 12px; background: #F7FAFC; border: 1px solid #EAF0F5;">
+        <div style="width: 38px; height: 38px; flex-shrink: 0; border-radius: 50%; background: {{ userAvatarBg }}; color: {{ userAvatarColor }}; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px;">{{ userInitials }}</div>
+        <div style="line-height: 1.25; min-width: 0; flex: 1;">
+          <div style="font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ userName }}</div>
+          <div style="font-size: 11px; color: #7B8D9C;">{{ userRoleLabel }}</div>
+        </div>
+        <button onClick="{{ doLogout }}" title="ออกจากระบบ" style="width: 32px; height: 32px; flex-shrink: 0; border-radius: 9px; border: 1px solid #E2E9F0; background: #fff; color: #7B8D9C; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M14 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 12h10m0 0l-3-3m3 3l-3 3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+      <div style="text-align: center; font-size: 10px; color: #AEBBC6; line-height: 1.55; padding: 2px 4px 0;">รพ.กรงปินัง จ.ยะลา · จัดทำโดย ภก.อนัส มะยีแต</div>
+    </div>
+  </aside>
+
+  <!-- ===================== MAIN ===================== -->
+  <main style="flex: 1; display: flex; flex-direction: column; min-width: 0;">
+    <!-- Topbar -->
+    <header style="height: 72px; flex-shrink: 0; background: rgba(255,255,255,.75); backdrop-filter: blur(16px) saturate(1.5); -webkit-backdrop-filter: blur(16px) saturate(1.5); border-bottom: 1px solid rgba(226,233,240,.6); display: flex; align-items: center; gap: 18px; padding: 0 28px;">
+      <div style="min-width: 0;">
+        <h1 style="margin: 0; font-size: 19px; font-weight: 700; letter-spacing: -.3px;">{{ pageTitle }}</h1>
+        <div style="font-size: 12.5px; color: #7B8D9C; margin-top: 1px;">{{ pageSub }}</div>
+      </div>
+      <div style="margin-left: auto; display: flex; align-items: center; gap: 14px;">
+        <div style="display: flex; align-items: center; gap: 8px; background: #F1F5F8; border: 1px solid #E5EEF2; border-radius: 10px; padding: 8px 12px; font-size: 12.5px; color: #4A5C6A; font-weight: 500;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><rect x="3.5" y="5" width="17" height="16" rx="3" stroke="#7B8D9C" stroke-width="1.8"/><path d="M3.5 9.5h17M8 3v4M16 3v4" stroke="#7B8D9C" stroke-width="1.8" stroke-linecap="round"/></svg>
+          วันนี้ · 15 มิ.ย. 2569
+        </div>
+        <div style="position: relative;">
+          <button style="width: 42px; height: 42px; border-radius: 11px; background: #F1F5F8; border: 1px solid #E5EEF2; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all .22s cubic-bezier(.34,1.56,.64,1);" style-hover="transform: scale(1.08); background: #E5EEF5; box-shadow: 0 4px 14px rgba(20,40,55,.1);" style-active="transform: scale(.94);">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6z" stroke="#4A5C6A" stroke-width="1.8" stroke-linejoin="round"/><path d="M10 20a2 2 0 0 0 4 0" stroke="#4A5C6A" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </button>
+          <span style="position: absolute; top: -5px; right: -5px; min-width: 19px; height: 19px; padding: 0 5px; border-radius: 10px; background: #E03E3E; color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; border: 2px solid #fff; animation: pulseRed 1.8s infinite;">4</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Scroll content -->
+    <div style="flex: 1; overflow-y: auto; padding: 26px 28px 40px;">
+
+      <!-- ============ DASHBOARD ============ -->
+      <sc-if value="{{ isDashboard }}" hint-placeholder-val="{{ true }}">
+      <div style="max-width: 1240px; margin: 0 auto;">
+
+        <!-- Critical alert banner -->
+        <div style="animation: fadeUp .55s cubic-bezier(.34,1.56,.64,1) both; background: linear-gradient(100deg, #FCEDED, #FDF4EC); border: 1px solid #F4C9C9; border-radius: 18px; padding: 18px 20px; margin-bottom: 22px; display: flex; align-items: center; gap: 16px; transition: transform .25s cubic-bezier(.34,1.56,.64,1), box-shadow .25s;" style-hover="transform: translateY(-1px); box-shadow: 0 6px 20px rgba(224,62,62,.1);">
+          <div style="width: 46px; height: 46px; flex-shrink: 0; border-radius: 13px; background: #E03E3E; display: flex; align-items: center; justify-content: center; animation: pulseRed 1.8s infinite;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 3.5l9 16H3l9-16z" stroke="#fff" stroke-width="2" stroke-linejoin="round"/><path d="M12 10v4.5M12 17.3v.2" stroke="#fff" stroke-width="2.1" stroke-linecap="round"/></svg>
+          </div>
+          <div style="min-width: 0;">
+            <div style="font-size: 15.5px; font-weight: 700; color: #B42121; display: flex; align-items: center; gap: 9px;">
+              <span style="width: 9px; height: 9px; border-radius: 50%; background: #E03E3E; animation: blinkDot 1s infinite;"></span>
+              ต้องส่งคืนด่วน · 4 กล่อง เกินกำหนดหรือถึงกำหนดวันนี้
+            </div>
+            <div style="font-size: 13px; color: #9A5B4C; margin-top: 3px;">EB-1, EB-2, EB-3 เกินกำหนดส่งคืนแล้ว และ EB-4 ครบกำหนดวันนี้ — ระบบได้ส่ง LINE Notify ไปยังห้องยาแล้ว</div>
+          </div>
+          <button onClick="{{ goEntry }}" style="margin-left: auto; flex-shrink: 0; background: #E03E3E; color: #fff; border: none; border-radius: 11px; padding: 11px 18px; font-size: 13.5px; font-weight: 600; cursor: pointer; box-shadow: 0 6px 18px rgba(224,62,62,.3); transition: all .22s cubic-bezier(.34,1.56,.64,1);" style-hover="transform: translateY(-2px); box-shadow: 0 10px 28px rgba(224,62,62,.4);" style-active="transform: scale(.96);">บันทึกรับคืน →</button>
+        </div>
+
+        <!-- KPI cards -->
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 22px;">
+          <div style="animation: fadeUp .5s cubic-bezier(.34,1.56,.64,1) .04s both; background: #fff; border: 1px solid #E7EEF3; border-radius: 16px; padding: 18px 20px; transition: transform .28s cubic-bezier(.34,1.56,.64,1), box-shadow .28s cubic-bezier(.4,0,.2,1); cursor: default;" style-hover="transform: translateY(-3px); box-shadow: 0 8px 24px rgba(20,40,55,.08), 0 2px 6px rgba(20,40,55,.04);">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <span style="font-size: 13px; color: #7B8D9C; font-weight: 500;">กล่อง EB ทั้งหมด</span>
+              <span style="width: 34px; height: 34px; border-radius: 10px; background: #E8F0F6; color: #1A6FA3; display: flex; align-items: center; justify-content: center;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M3.5 7.5L12 3l8.5 4.5v9L12 21l-8.5-4.5v-9z" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/><path d="M3.5 7.5L12 12m0 9V12m8.5-4.5L12 12" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></svg></span>
+            </div>
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 34px; font-weight: 600; margin-top: 10px; letter-spacing: -1px;">10</div>
+            <div style="font-size: 12px; color: #9AAAB8; margin-top: 2px;">EB-1 ถึง EB-10</div>
+          </div>
+          <div style="animation: fadeUp .5s cubic-bezier(.34,1.56,.64,1) .09s both; background: #fff; border: 1px solid #E7EEF3; border-radius: 16px; padding: 18px 20px; transition: transform .28s cubic-bezier(.34,1.56,.64,1), box-shadow .28s cubic-bezier(.4,0,.2,1); cursor: default;" style-hover="transform: translateY(-3px); box-shadow: 0 8px 24px rgba(20,40,55,.08), 0 2px 6px rgba(20,40,55,.04);">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <span style="font-size: 13px; color: #7B8D9C; font-weight: 500;">ถูกเบิกออก (ใช้งาน)</span>
+              <span style="width: 34px; height: 34px; border-radius: 10px; background: #E4F4EF; color: #169C7F; display: flex; align-items: center; justify-content: center;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M3 13l4 4L21 5" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            </div>
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 34px; font-weight: 600; margin-top: 10px; letter-spacing: -1px;">7</div>
+            <div style="font-size: 12px; color: #9AAAB8; margin-top: 2px;">ER 3 · WARD 2 · LR 2</div>
+          </div>
+          <div style="animation: fadeUp .5s cubic-bezier(.34,1.56,.64,1) .14s both; background: #fff; border: 1px solid #F4C9C9; border-radius: 16px; padding: 18px 20px; position: relative; overflow: hidden; transition: transform .28s cubic-bezier(.34,1.56,.64,1), box-shadow .28s cubic-bezier(.4,0,.2,1); cursor: default;" style-hover="transform: translateY(-3px); box-shadow: 0 8px 24px rgba(224,62,62,.1), 0 2px 6px rgba(224,62,62,.06);">
+            <div style="position: absolute; inset: 0; background: linear-gradient(180deg, rgba(224,62,62,.05), transparent 60%);"></div>
+            <div style="display: flex; align-items: center; justify-content: space-between; position: relative;">
+              <span style="font-size: 13px; color: #B42121; font-weight: 600;">ต้องส่งคืนด่วน</span>
+              <span style="width: 34px; height: 34px; border-radius: 10px; background: #FCE3E3; color: #E03E3E; display: flex; align-items: center; justify-content: center; animation: pulseRed 1.8s infinite;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M12 3.5l9 16H3l9-16z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 10v4.5M12 17.3v.2" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/></svg></span>
+            </div>
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 34px; font-weight: 600; margin-top: 10px; letter-spacing: -1px; color: #E03E3E; position: relative;">4</div>
+            <div style="font-size: 12px; color: #C77; margin-top: 2px; position: relative;">เกินกำหนด / ครบวันนี้</div>
+          </div>
+          <div style="animation: fadeUp .5s cubic-bezier(.34,1.56,.64,1) .19s both; background: #fff; border: 1px solid #F4DEC2; border-radius: 16px; padding: 18px 20px; transition: transform .28s cubic-bezier(.34,1.56,.64,1), box-shadow .28s cubic-bezier(.4,0,.2,1); cursor: default;" style-hover="transform: translateY(-3px); box-shadow: 0 8px 24px rgba(20,40,55,.08), 0 2px 6px rgba(20,40,55,.04);">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <span style="font-size: 13px; color: #B5740F; font-weight: 600;">ใกล้หมดอายุ ≤15 วัน</span>
+              <span style="width: 34px; height: 34px; border-radius: 10px; background: #FBEDD7; color: #EE8A2B; display: flex; align-items: center; justify-content: center;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M12 7v5l3 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.8"/></svg></span>
+            </div>
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 34px; font-weight: 600; margin-top: 10px; letter-spacing: -1px; color: #D9810F;">7</div>
+            <div style="font-size: 12px; color: #C99; margin-top: 2px;">รวมที่เกินกำหนดแล้ว</div>
+          </div>
+        </div>
+
+        <!-- Mid row: critical list + status donut -->
+        <div style="display: grid; grid-template-columns: 1.55fr 1fr; gap: 16px; margin-bottom: 22px;">
+          <!-- Critical alerts list -->
+          <div style="animation: fadeUp .5s cubic-bezier(.34,1.56,.64,1) .14s both; background: #fff; border: 1px solid #E7EEF3; border-radius: 18px; padding: 20px; transition: transform .28s cubic-bezier(.34,1.56,.64,1), box-shadow .28s cubic-bezier(.4,0,.2,1);" style-hover="transform: translateY(-2px); box-shadow: 0 12px 32px rgba(20,40,55,.07);">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px;">
+              <span style="width: 9px; height: 9px; border-radius: 50%; background: #E03E3E; animation: blinkDot 1s infinite;"></span>
+              <h3 style="margin: 0; font-size: 15px; font-weight: 700;">Critical Alerts · ต้องรีบเปลี่ยน</h3>
+              <span style="margin-left: auto; font-size: 12px; color: #9AAAB8;">เรียงตามความเร่งด่วน</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 9px;">
+              <sc-for list="{{ criticalList }}" as="row" hint-placeholder-count="4">
+                <div style="display: flex; align-items: center; gap: 14px; padding: 12px 14px; border-radius: 13px; border: 1px solid {{ row.border }}; background: {{ row.soft }};">
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 14px; color: {{ row.color }}; background: #fff; border: 1px solid {{ row.border }}; border-radius: 9px; padding: 6px 10px; min-width: 58px; text-align: center;">{{ row.id }}</div>
+                  <div style="min-width: 0; flex: 1;">
+                    <div style="font-size: 13.5px; font-weight: 600; color: #1B2A34; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ row.nearDrug }}</div>
+                    <div style="font-size: 12px; color: #7B8D9C; margin-top: 2px;">หน่วยงาน {{ row.dept }} · หมดอายุ {{ row.expiryText }}</div>
+                  </div>
+                  <div style="text-align: right; flex-shrink: 0;">
+                    <span style="display: inline-block; font-size: 11.5px; font-weight: 700; color: {{ row.color }}; background: #fff; border: 1px solid {{ row.border }}; border-radius: 20px; padding: 4px 11px;">{{ row.daysText }}</span>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <!-- Status donut -->
+          <div style="animation: fadeUp .5s cubic-bezier(.34,1.56,.64,1) .2s both; background: #fff; border: 1px solid #E7EEF3; border-radius: 18px; padding: 20px; display: flex; flex-direction: column; transition: transform .28s cubic-bezier(.34,1.56,.64,1), box-shadow .28s cubic-bezier(.4,0,.2,1);" style-hover="transform: translateY(-2px); box-shadow: 0 12px 32px rgba(20,40,55,.07);">
+            <h3 style="margin: 0 0 6px; font-size: 15px; font-weight: 700;">สถานะกล่องทั้งหมด</h3>
+            <div style="font-size: 12px; color: #9AAAB8; margin-bottom: 10px;">ภาพรวม 10 กล่อง</div>
+            <div style="display: flex; align-items: center; justify-content: center; flex: 1; min-height: 160px;">
+              <div style="position: relative; width: 168px; height: 168px; border-radius: 50%; background: {{ donutGradient }};">
+                <div style="position: absolute; inset: 22px; background: #fff; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 32px; font-weight: 600; color: #E03E3E; line-height: 1;">4</div>
+                  <div style="font-size: 11.5px; color: #7B8D9C; margin-top: 3px;">ต้องดำเนินการ</div>
+                </div>
+              </div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 14px;">
+              <div style="display: flex; align-items: center; gap: 9px; font-size: 12.5px;"><span style="width: 11px; height: 11px; border-radius: 3px; background: #E03E3E;"></span> วิกฤต / เกินกำหนด <b style="margin-left: auto; font-family: 'IBM Plex Mono', monospace;">4</b></div>
+              <div style="display: flex; align-items: center; gap: 9px; font-size: 12.5px;"><span style="width: 11px; height: 11px; border-radius: 3px; background: #EE8A2B;"></span> ใกล้กำหนด (≤15 วัน) <b style="margin-left: auto; font-family: 'IBM Plex Mono', monospace;">3</b></div>
+              <div style="display: flex; align-items: center; gap: 9px; font-size: 12.5px;"><span style="width: 11px; height: 11px; border-radius: 3px; background: #169C7F;"></span> ปกติ / พร้อมใช้ <b style="margin-left: auto; font-family: 'IBM Plex Mono', monospace;">3</b></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bottom row: dept chart + recent tx -->
+        <div style="display: grid; grid-template-columns: 1fr 1.4fr; gap: 16px;">
+          <!-- Dept bar chart -->
+          <div style="animation: fadeUp .5s cubic-bezier(.34,1.56,.64,1) .24s both; background: #fff; border: 1px solid #E7EEF3; border-radius: 18px; padding: 20px; transition: transform .28s cubic-bezier(.34,1.56,.64,1), box-shadow .28s cubic-bezier(.4,0,.2,1);" style-hover="transform: translateY(-2px); box-shadow: 0 12px 32px rgba(20,40,55,.07);">
+            <h3 style="margin: 0 0 4px; font-size: 15px; font-weight: 700;">EB ที่เบิกตามหน่วยงาน</h3>
+            <div style="font-size: 12px; color: #9AAAB8; margin-bottom: 20px;">กล่องที่กำลังถูกใช้งาน · รวม 7 กล่อง</div>
+            <div style="display: flex; flex-direction: column; gap: 18px;">
+              <sc-for list="{{ deptBars }}" as="bar" hint-placeholder-count="3">
+                <div>
+                  <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 7px;">
+                    <span style="font-size: 13px; font-weight: 600;">{{ bar.label }}</span>
+                    <span style="font-size: 12px; color: #7B8D9C;">{{ bar.sub }}</span>
+                  </div>
+                  <div style="height: 13px; background: #F0F4F7; border-radius: 7px; overflow: hidden;">
+                    <div style="height: 100%; width: {{ bar.pct }}; background: {{ bar.color }}; border-radius: 7px; transform-origin: left; animation: barIn .9s cubic-bezier(.2,.8,.2,1) both;"></div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <!-- Recent transactions -->
+          <div style="animation: fadeUp .5s cubic-bezier(.34,1.56,.64,1) .28s both; background: #fff; border: 1px solid #E7EEF3; border-radius: 18px; padding: 20px; transition: transform .28s cubic-bezier(.34,1.56,.64,1), box-shadow .28s cubic-bezier(.4,0,.2,1);" style-hover="transform: translateY(-2px); box-shadow: 0 12px 32px rgba(20,40,55,.07);">
+            <div style="display: flex; align-items: center; margin-bottom: 14px;">
+              <h3 style="margin: 0; font-size: 15px; font-weight: 700;">ประวัติการเบิก-จ่ายล่าสุด</h3>
+              <button onClick="{{ goHistory }}" style="margin-left: auto; background: none; border: none; color: #1A6FA3; font-size: 12.5px; font-weight: 600; cursor: pointer; transition: all .2s cubic-bezier(.34,1.56,.64,1); padding: 4px 8px; border-radius: 8px;" style-hover="background: #E8F2F8; transform: translateX(2px);">ดูทั้งหมด →</button>
+            </div>
+            <div style="display: flex; flex-direction: column;">
+              <sc-for list="{{ recentTx }}" as="tx" hint-placeholder-count="5">
+                <div style="display: flex; align-items: center; gap: 13px; padding: 11px 6px; border-bottom: 1px solid #F0F4F7; border-radius: 10px; transition: background .18s, transform .22s cubic-bezier(.34,1.56,.64,1);" style-hover="background: #F7FAFC; transform: translateX(3px);">
+                  <span style="width: 32px; height: 32px; flex-shrink: 0; border-radius: 9px; background: {{ tx.soft }}; color: {{ tx.color }}; display: flex; align-items: center; justify-content: center;">{{ tx.icon }}</span>
+                  <div style="min-width: 0; flex: 1;">
+                    <div style="font-size: 13px; font-weight: 600;"><span style="font-family: 'IBM Plex Mono', monospace;">{{ tx.eb }}</span> · {{ tx.action }} <span style="color: #9AAAB8; font-weight: 500;">→ {{ tx.dept }}</span></div>
+                    <div style="font-size: 11.5px; color: #7B8D9C; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ tx.person }} · {{ tx.drug }}</div>
+                  </div>
+                  <span style="font-size: 11.5px; color: #9AAAB8; flex-shrink: 0; font-family: 'IBM Plex Mono', monospace;">{{ tx.time }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- ============ ENTRY FORM ============ -->
+      <sc-if value="{{ isEntry }}" hint-placeholder-val="{{ true }}">
+      <div style="max-width: 960px; margin: 0 auto; animation: fadeUp .45s ease both;">
+
+        <!-- Flow stepper -->
+        <div style="display: flex; align-items: stretch; gap: 0; margin-bottom: 22px; background: #fff; border: 1px solid #E7EEF3; border-radius: 16px; padding: 8px; overflow-x: auto;">{{ modeToggleEl }}</div>
+
+        <div style="background: #fff; border: 1px solid #E7EEF3; border-radius: 20px; padding: 26px 28px; box-shadow: 0 2px 8px rgba(20,40,55,.04), 0 0 0 1px rgba(226,233,240,.5); transition: box-shadow .3s cubic-bezier(.4,0,.2,1);">
+          <div style="display: flex; align-items: center; gap: 11px; margin-bottom: 22px; padding-bottom: 18px; border-bottom: 1px solid #EFF3F6;">
+            {{ formHeaderIconEl }}
+            <div>
+              <div style="font-size: 16px; font-weight: 700;">{{ formHeading }}</div>
+              <div style="font-size: 12.5px; color: #7B8D9C;">{{ formSubheading }}</div>
+            </div>
+          </div>
+
+          <!-- ===== STEP 1: REGISTER / PREPARE ===== -->
+          <sc-if value="{{ isRegister }}" hint-placeholder-val="{{ true }}">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 18px;">
+              <div>
+                <label style="display: block; font-size: 12.5px; font-weight: 600; color: #4A5C6A; margin-bottom: 7px;">รหัส EB <span style="color:#E03E3E;">*</span></label>
+                {{ regEBSelectEl }}
+              </div>
+              <div>
+                <label style="display: block; font-size: 12.5px; font-weight: 600; color: #4A5C6A; margin-bottom: 7px;">วันที่ผลิต (Lot)</label>
+                <input type="date" value="{{ regMfg }}" onChange="{{ setRegMfg }}" style="width: 100%; height: 46px; border: 1.5px solid #DBE4EB; border-radius: 11px; padding: 0 14px; font-size: 14px; color: #15242E; background: #fff;">
+              </div>
+            </div>
+
+            <!-- Per-drug data table (qty + expiry) -->
+            <div style="margin-bottom: 18px;">
+              <label style="display: block; font-size: 12.5px; font-weight: 600; color: #4A5C6A; margin-bottom: 10px;">ข้อมูลยาในกล่อง · กรอกจำนวนและวันหมดอายุรายตัว <span style="font-weight: 400; color: #9AAAB8;">(<span style="color:#C2410C; font-weight:600;">HAD</span> = High Alert Drug)</span></label>
+              <div style="border: 1px solid #E7EEF3; border-radius: 14px; overflow: hidden;">{{ regDrugTableEl }}</div>
+            </div>
+
+            <!-- Auto-detected near drug + return date -->
+            <div style="margin-bottom: 22px;">{{ regAutoDetectEl }}</div>
+
+            <!-- Two signers: preparer (จพ.) + checker (เภสัชกร) -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 26px;">
+              <div>
+                <label style="display: block; font-size: 12.5px; font-weight: 600; color: #4A5C6A; margin-bottom: 7px;">ผู้จัดเตรียม · จพ.เภสัชกรรม <span style="color:#E03E3E;">*</span></label>
+                <input type="text" value="{{ regPreparer }}" onInput="{{ setRegPreparer }}" placeholder="ลงชื่อผู้จัดยา" style="width: 100%; height: 46px; border: 1.5px solid #DBE4EB; border-radius: 11px; padding: 0 14px; font-size: 14px; color: #15242E;">
+              </div>
+              <div>
+                <label style="display: block; font-size: 12.5px; font-weight: 600; color: #4A5C6A; margin-bottom: 7px;">เภสัชกรผู้ตรวจสอบ <span style="color:#E03E3E;">*</span></label>
+                <input type="text" value="{{ regChecker }}" onInput="{{ setRegChecker }}" placeholder="ลงชื่อเภสัชกรตรวจสอบความถูกต้อง" style="width: 100%; height: 46px; border: 1.5px solid #DBE4EB; border-radius: 11px; padding: 0 14px; font-size: 14px; color: #15242E;">
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px;">
+              {{ submitEl }}
+              <button onClick="{{ resetForm }}" style="height: 50px; padding: 0 22px; border: 1.5px solid #DBE4EB; background: #fff; color: #4A5C6A; border-radius: 13px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all .22s cubic-bezier(.34,1.56,.64,1);" style-hover="background: #F4F8FB; border-color: #C3DDEC; transform: translateY(-1px);">ล้างฟอร์ม</button>
+              <div style="margin-left: auto; font-size: 12.5px; color: #9AAAB8;">บันทึกแล้วกล่องเข้าคลัง · สถานะ “พร้อมจ่าย”</div>
+            </div>
+          </sc-if>
+
+          <!-- ===== STEP 2: DISPENSE / SWAP ===== -->
+          <sc-if value="{{ isDispense }}" hint-placeholder-val="{{ false }}">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 18px;">
+              <div>
+                <label style="display: block; font-size: 12.5px; font-weight: 600; color: #4A5C6A; margin-bottom: 7px;">กล่องที่จ่าย (จากคลัง) <span style="color:#E03E3E;">*</span></label>
+                {{ dispEBSelectEl }}
+                {{ dispHintEl }}
+              </div>
+              <div>
+                <label style="display: block; font-size: 12.5px; font-weight: 600; color: #4A5C6A; margin-bottom: 7px;">หน่วยงานที่เบิก <span style="color:#E03E3E;">*</span></label>
+                <div style="display: flex; gap: 8px;">{{ deptChipsEl }}</div>
+              </div>
+            </div>
+
+            {{ dispBoxInfoEl }}
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin: 18px 0 22px;">
+              <div>
+                <label style="display: block; font-size: 12.5px; font-weight: 600; color: #4A5C6A; margin-bottom: 7px;">วันที่จ่าย Emergency Box <span style="color:#E03E3E;">*</span></label>
+                <input type="date" value="{{ dispDate }}" onChange="{{ setDispDate }}" style="width: 100%; height: 46px; border: 1.5px solid #DBE4EB; border-radius: 11px; padding: 0 14px; font-size: 14px; color: #15242E;">
+              </div>
+              <div>
+                <label style="display: block; font-size: 12.5px; font-weight: 600; color: #4A5C6A; margin-bottom: 7px;">ลงชื่อผู้จ่าย <span style="color:#E03E3E;">*</span></label>
+                <input type="text" value="{{ dispenser }}" onInput="{{ setDispenser }}" placeholder="ลงชื่อผู้จ่าย" style="width: 100%; height: 46px; border: 1.5px solid #DBE4EB; border-radius: 11px; padding: 0 14px; font-size: 14px; color: #15242E;">
+              </div>
+            </div>
+
+            <!-- Optional swap-return -->
+            <div style="border: 1.5px dashed #D2DEE8; border-radius: 14px; padding: 16px 18px; margin-bottom: 22px; background: #FBFCFD;">
+              <button onClick="{{ toggleSwap }}" style="display: flex; align-items: center; gap: 11px; width: 100%; background: none; border: none; cursor: pointer; padding: 0; text-align: left;">
+                {{ swapCheckEl }}
+                <div>
+                  <div style="font-size: 13.5px; font-weight: 600; color: #15242E;">รับคืนกล่องเก่าจากหน่วยงานนี้พร้อมกัน (การเปลี่ยนกล่อง)</div>
+                  <div style="font-size: 12px; color: #7B8D9C; margin-top: 1px;">ตามขั้นตอนจริง: นำกล่องในคลังมาเปลี่ยนกับกล่องเก่าที่หน่วยงาน</div>
+                </div>
+              </button>
+              <sc-if value="{{ swapReturn }}" hint-placeholder-val="{{ false }}">
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin-top: 16px; padding-top: 16px; border-top: 1px solid #ECF1F5;">
+                  <div>
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: #4A5C6A; margin-bottom: 7px;">กล่องเก่าที่รับคืน <span style="color:#E03E3E;">*</span></label>
+                    {{ swapEBSelectEl }}
+                  </div>
+                  <div>
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: #4A5C6A; margin-bottom: 7px;">วันที่รับคืน</label>
+                    <input type="date" value="{{ swapReturnDate }}" onChange="{{ setSwapReturnDate }}" style="width: 100%; height: 44px; border: 1.5px solid #DBE4EB; border-radius: 10px; padding: 0 12px; font-size: 13.5px; color: #15242E;">
+                  </div>
+                  <div>
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: #4A5C6A; margin-bottom: 7px;">ลงชื่อผู้รับคืน <span style="color:#E03E3E;">*</span></label>
+                    <input type="text" value="{{ swapReceiver }}" onInput="{{ setSwapReceiver }}" placeholder="ผู้รับคืน" style="width: 100%; height: 44px; border: 1.5px solid #DBE4EB; border-radius: 10px; padding: 0 12px; font-size: 13.5px; color: #15242E;">
+                  </div>
+                </div>
+              </sc-if>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 12px;">
+              {{ submitEl }}
+              <button onClick="{{ resetForm }}" style="height: 50px; padding: 0 22px; border: 1.5px solid #DBE4EB; background: #fff; color: #4A5C6A; border-radius: 13px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all .22s cubic-bezier(.34,1.56,.64,1);" style-hover="background: #F4F8FB; border-color: #C3DDEC; transform: translateY(-1px);">ล้างฟอร์ม</button>
+              <div style="margin-left: auto; font-size: 12.5px; color: #9AAAB8;">บันทึกลง Audit Log อัตโนมัติทุกครั้ง</div>
+            </div>
+          </sc-if>
+
+          <!-- ===== STEP 3: RETURN ===== -->
+          <sc-if value="{{ isReturn }}" hint-placeholder-val="{{ false }}">
+            <div style="margin-bottom: 18px;">
+              <label style="display: block; font-size: 12.5px; font-weight: 600; color: #4A5C6A; margin-bottom: 7px;">กล่องที่รับคืน (ค้างที่หน่วยงาน) <span style="color:#E03E3E;">*</span></label>
+              {{ retEBSelectEl }}
+              {{ retHintEl }}
+            </div>
+
+            {{ retBoxInfoEl }}
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin: 18px 0 26px;">
+              <div>
+                <label style="display: block; font-size: 12.5px; font-weight: 600; color: #4A5C6A; margin-bottom: 7px;">วันที่รับคืน Emergency Box <span style="color:#E03E3E;">*</span></label>
+                <input type="date" value="{{ retDate }}" onChange="{{ setRetDate }}" style="width: 100%; height: 46px; border: 1.5px solid #DBE4EB; border-radius: 11px; padding: 0 14px; font-size: 14px; color: #15242E;">
+              </div>
+              <div>
+                <label style="display: block; font-size: 12.5px; font-weight: 600; color: #4A5C6A; margin-bottom: 7px;">ลงชื่อผู้รับคืน <span style="color:#E03E3E;">*</span></label>
+                <input type="text" value="{{ retReceiver }}" onInput="{{ setRetReceiver }}" placeholder="ลงชื่อผู้รับคืน" style="width: 100%; height: 46px; border: 1.5px solid #DBE4EB; border-radius: 11px; padding: 0 14px; font-size: 14px; color: #15242E;">
+              </div>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 12px;">
+              {{ submitEl }}
+              <button onClick="{{ resetForm }}" style="height: 50px; padding: 0 22px; border: 1.5px solid #DBE4EB; background: #fff; color: #4A5C6A; border-radius: 13px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all .22s cubic-bezier(.34,1.56,.64,1);" style-hover="background: #F4F8FB; border-color: #C3DDEC; transform: translateY(-1px);">ล้างฟอร์ม</button>
+              <div style="margin-left: auto; font-size: 12.5px; color: #9AAAB8;">รับคืนแล้ว นำกล่องเข้าตรวจสอบ/จัดเตรียมใหม่</div>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- ============ EB DETAIL ============ -->
+      <sc-if value="{{ isDetail }}" hint-placeholder-val="{{ true }}">
+      <div style="max-width: 1180px; margin: 0 auto; animation: fadeUp .45s ease both;">
+        <!-- EB selector chips -->
+        <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 22px;">{{ ebChipsEl }}</div>
+
+        <div style="display: grid; grid-template-columns: 286px 1fr; gap: 18px;">
+          <!-- Box info -->
+          <div style="display: flex; flex-direction: column; gap: 16px;">
+            <div style="background: #fff; border: 1px solid #E7EEF3; border-radius: 18px; padding: 22px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px;">
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 26px; font-weight: 600; letter-spacing: -.5px; white-space: nowrap;">{{ box.id }}</span>
+                <span style="font-size: 12px; font-weight: 700; color: {{ box.color }}; background: {{ box.soft }}; border: 1px solid {{ box.border }}; border-radius: 20px; padding: 5px 12px; white-space: nowrap;">{{ box.statusLabel }}</span>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 13px;">
+                <div style="display: flex; justify-content: space-between; font-size: 13px;"><span style="color: #7B8D9C;">หน่วยงานที่เบิก</span><b>{{ box.dept }}</b></div>
+                <div style="display: flex; justify-content: space-between; font-size: 13px;"><span style="color: #7B8D9C;">วันที่ผลิต</span><b style="font-family: 'IBM Plex Sans Thai';">{{ box.mfgText }}</b></div>
+                <div style="display: flex; justify-content: space-between; font-size: 13px;"><span style="color: #7B8D9C;">วันที่ยาหมดอายุ</span><b style="color: {{ box.color }};">{{ box.expiryText }}</b></div>
+                <div style="display: flex; justify-content: space-between; gap: 14px; font-size: 13px;"><span style="color: #7B8D9C; flex-shrink: 0;">ยาที่ใกล้หมดอายุสุด</span><b style="text-align: right;">{{ box.nearDrug }}</b></div>
+                <div style="height: 1px; background: #EFF3F6;"></div>
+                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 13px; background: {{ box.soft }}; margin: -2px -8px; padding: 10px 8px; border-radius: 9px;"><span style="color: {{ box.color }}; font-weight: 600;">ต้องส่งคืนภายใน</span><b style="color: {{ box.color }};">{{ box.returnText }}</b></div>
+              </div>
+            </div>
+            <!-- Dispense/return record -->
+            <div style="background: #fff; border: 1px solid #E7EEF3; border-radius: 18px; padding: 22px;">
+              <h4 style="margin: 0 0 14px; font-size: 13.5px; font-weight: 700; color: #4A5C6A;">บันทึกการจ่าย-รับคืน</h4>
+              <div style="display: flex; gap: 12px; align-items: flex-start; margin-bottom: 14px;">
+                <span style="width: 30px; height: 30px; flex-shrink: 0; border-radius: 8px; background: #E4F4EF; color: #169C7F; display: flex; align-items: center; justify-content: center;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M4 12h13m0 0l-5-5m5 5l-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+                <div><div style="font-size: 13px; font-weight: 600;">จ่ายเมื่อ {{ box.dispenseText }}</div><div style="font-size: 12px; color: #7B8D9C; margin-top: 2px;">โดย {{ box.dispenser }}</div></div>
+              </div>
+              <div style="display: flex; gap: 12px; align-items: flex-start;">
+                <span style="width: 30px; height: 30px; flex-shrink: 0; border-radius: 8px; background: {{ box.returnSoft }}; color: {{ box.returnColor }}; display: flex; align-items: center; justify-content: center;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M20 12H7m0 0l5-5m-5 5l5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+                <div><div style="font-size: 13px; font-weight: 600;">{{ box.returnStateText }}</div><div style="font-size: 12px; color: #7B8D9C; margin-top: 2px;">{{ box.receiver }}</div></div>
+              </div>
+            </div>
+            <!-- Box edit history -->
+            <div style="background: #fff; border: 1px solid #E7EEF3; border-radius: 18px; padding: 22px;">
+              <h4 style="margin: 0 0 12px; font-size: 13.5px; font-weight: 700; color: #4A5C6A; display: flex; align-items: center; gap: 8px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1M3.5 4.5V9H8" stroke="#7B8D9C" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 8v4.2l3 1.8" stroke="#7B8D9C" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                ประวัติการแก้ไขกล่องนี้
+              </h4>
+              {{ boxHistEl }}
+            </div>
+          </div>
+
+          <!-- Drug list -->
+          <div style="background: #fff; border: 1px solid #E7EEF3; border-radius: 18px; padding: 22px; min-width: 0;">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;">
+              <h3 style="margin: 0; font-size: 15px; font-weight: 700;">รายการยาในกล่อง · 10 รายการ</h3>
+              <span style="font-size: 12px; color: #C2410C; background: #FCEEE3; border: 1px solid #F3D8C2; border-radius: 7px; padding: 4px 10px; font-weight: 600;">HAD = High Alert Drug</span>
+              <div style="margin-left: auto;">{{ editToggleEl }}</div>
+            </div>
+            {{ drugTableEl }}
+            {{ drugFooterEl }}
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- ============ HISTORY / AUDIT LOG ============ -->
+      <sc-if value="{{ isHistory }}" hint-placeholder-val="{{ true }}">
+      <div style="max-width: 1240px; margin: 0 auto; animation: fadeUp .45s ease both;">
+        <!-- Filter bar -->
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 18px; flex-wrap: wrap;">
+          <div style="position: relative; flex: 1; min-width: 240px;">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%);"><circle cx="11" cy="11" r="7" stroke="#9AAAB8" stroke-width="1.9"/><path d="M20 20l-4-4" stroke="#9AAAB8" stroke-width="1.9" stroke-linecap="round"/></svg>
+            <input type="text" value="{{ query }}" onInput="{{ setQuery }}" placeholder="ค้นหา EB, หน่วยงาน, ผู้ทำรายการ, ชื่อยา…" style="width: 100%; height: 46px; border: 1.5px solid #DBE4EB; border-radius: 12px; padding: 0 14px 0 42px; font-size: 13.5px; background: #fff;">
+          </div>
+          <div style="display: flex; gap: 7px;">{{ filterChipsEl }}</div>
+          <button style="height: 46px; padding: 0 16px; border: 1.5px solid #DBE4EB; background: #fff; color: #4A5C6A; border-radius: 12px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all .22s cubic-bezier(.34,1.56,.64,1);" style-hover="transform: translateY(-2px); box-shadow: 0 6px 18px rgba(20,40,55,.08); border-color: #C3DDEC;" style-active="transform: scale(.96);">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 19h14" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            ส่งออก CSV
+          </button>
+        </div>
+
+        <!-- Table -->
+        <div style="background: #fff; border: 1px solid #E7EEF3; border-radius: 18px; overflow: hidden;">
+          <div style="overflow-x: auto;">
+          <div style="display: grid; grid-template-columns: 158px 104px 74px 84px 168px minmax(180px,1fr); gap: 0; min-width: 780px; background: #F6F9FB; border-bottom: 1px solid #E7EEF3; padding: 13px 22px; font-size: 11.5px; font-weight: 600; color: #7B8D9C;">
+            <span>วันที่-เวลา</span><span>รายการ</span><span>EB</span><span>หน่วยงาน</span><span>ผู้ทำรายการ</span><span>ยาที่ใกล้หมดอายุ</span>
+          </div>
+          <div>
+            <sc-for list="{{ filteredAudit }}" as="r" hint-placeholder-count="10">
+              <div style="display: grid; grid-template-columns: 158px 104px 74px 84px 168px minmax(180px,1fr); gap: 0; min-width: 780px; align-items: center; padding: 14px 22px; border-bottom: 1px solid #F4F7F9; font-size: 13px;">
+                <span style="color: #4A5C6A; font-family: 'IBM Plex Mono', monospace; font-size: 12.5px;">{{ r.datetime }}</span>
+                <span><span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: {{ r.color }}; background: {{ r.soft }}; border-radius: 20px; padding: 4px 11px; white-space: nowrap;">{{ r.icon }} {{ r.action }}</span></span>
+                <span style="font-family: 'IBM Plex Mono', monospace; font-weight: 600;">{{ r.eb }}</span>
+                <span><span style="font-size: 11.5px; font-weight: 600; color: #4A5C6A; background: #F0F4F7; border-radius: 6px; padding: 3px 9px;">{{ r.dept }}</span></span>
+                <span style="font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 10px;">{{ r.person }}</span>
+                <span style="color: #4A5C6A; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ r.drug }}</span>
+              </div>
+            </sc-for>
+          </div>
+          </div>
+          <div style="padding: 14px 22px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 12.5px; color: #7B8D9C;">
+            <span>แสดง {{ auditCount }} รายการ · บันทึกครบ 100% เพื่อการตรวจสอบย้อนหลัง</span>
+            <span style="margin-left: auto; display: flex; align-items: center; gap: 6px; color: #169C7F; font-weight: 600;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #169C7F;"></span>Audit Log พร้อมเชื่อม Looker Studio / Grafana</span>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- ============ USER MANAGEMENT (admin) ============ -->
+      <sc-if value="{{ isUsers }}" hint-placeholder-val="{{ false }}">
+      <div style="max-width: 1240px; margin: 0 auto; animation: fadeUp .45s ease both;">
+
+        <!-- Role summary cards -->
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px;">{{ roleSummaryEl }}</div>
+
+        <!-- Toolbar -->
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="width: 36px; height: 36px; border-radius: 10px; background: #FCEDED; color: #B42121; display: flex; align-items: center; justify-content: center;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            <div>
+              <div style="font-size: 14px; font-weight: 700;">บัญชีผู้ใช้งานทั้งหมด</div>
+              <div style="font-size: 12px; color: #9AAAB8;">เฉพาะผู้ดูแลระบบ (Admin) เท่านั้นที่จัดการได้</div>
+            </div>
+          </div>
+          <button onClick="{{ openAddUser }}" style="margin-left: auto; display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 18px; border: none; border-radius: 11px; background: linear-gradient(135deg, #1A6FA3, #168C84); color: #fff; font-family: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; box-shadow: 0 8px 22px rgba(26,111,163,.26); transition: all .22s cubic-bezier(.34,1.56,.64,1);" style-hover="transform: translateY(-2px); box-shadow: 0 12px 32px rgba(26,111,163,.35);" style-active="transform: scale(.96);">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>
+            เพิ่มผู้ใช้งาน
+          </button>
+        </div>
+
+        <!-- Users table -->
+        <div style="background: #fff; border: 1px solid #E7EEF3; border-radius: 18px; overflow: hidden;">
+          <div style="overflow-x: auto;">
+            <div style="min-width: 920px;">
+              <div style="display: grid; grid-template-columns: 1.4fr 1fr 1.3fr 1fr 1.4fr 150px; gap: 0; background: #F6F9FB; border-bottom: 1px solid #E7EEF3; padding: 13px 22px; font-size: 11.5px; font-weight: 600; color: #7B8D9C;">
+                <span>ชื่อ-สกุล</span><span>Username</span><span>บทบาท (สิทธิ์)</span><span>หน่วยงาน</span><span>เข้าระบบล่าสุด</span><span style="text-align: right;">จัดการ</span>
+              </div>
+              {{ usersTableEl }}
+            </div>
+          </div>
+        </div>
+
+        <!-- Permissions legend -->
+        <div style="margin-top: 18px; background: #fff; border: 1px solid #E7EEF3; border-radius: 16px; padding: 18px 20px;">
+          <div style="font-size: 13px; font-weight: 700; margin-bottom: 12px;">สิทธิ์การใช้งานตามบทบาท (RBAC)</div>
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;">{{ permMatrixEl }}</div>
+        </div>
+      </div>
+      </sc-if>
+
+    </div>
+  </main>
+
+  <!-- Success toast -->
+  <sc-if value="{{ showToast }}" hint-placeholder-val="{{ false }}">
+    <div style="position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: rgba(21,36,46,.92); backdrop-filter: blur(16px) saturate(1.6); -webkit-backdrop-filter: blur(16px) saturate(1.6); color: #fff; border-radius: 16px; padding: 14px 22px; display: flex; align-items: center; gap: 12px; box-shadow: 0 16px 48px rgba(20,40,55,.35), 0 4px 12px rgba(20,40,55,.15); animation: toastIn .5s cubic-bezier(.34,1.56,.64,1) both; z-index: 100;">
+      <span style="width: 26px; height: 26px; border-radius: 50%; background: #169C7F; display: flex; align-items: center; justify-content: center; animation: successPop .4s cubic-bezier(.34,1.56,.64,1) .15s both;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      <div><div style="font-size: 13.5px; font-weight: 600;">{{ toastTitle }}</div><div style="font-size: 11.5px; color: #B6C6D0;">บันทึกลง Audit Log แล้ว · ตั้งแจ้งเตือน LINE &amp; Email เรียบร้อย</div></div>
+    </div>
+  </sc-if>
+
+  <!-- Action message toast (user mgmt) -->
+  <sc-if value="{{ showActionMsg }}" hint-placeholder-val="{{ false }}">
+    <div style="position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: rgba(21,36,46,.92); backdrop-filter: blur(16px) saturate(1.6); -webkit-backdrop-filter: blur(16px) saturate(1.6); color: #fff; border-radius: 16px; padding: 13px 20px; display: flex; align-items: center; gap: 11px; box-shadow: 0 16px 48px rgba(20,40,55,.35), 0 4px 12px rgba(20,40,55,.15); animation: toastIn .5s cubic-bezier(.34,1.56,.64,1) both; z-index: 120;">
+      <span style="width: 24px; height: 24px; border-radius: 50%; background: #1A6FA3; display: flex; align-items: center; justify-content: center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      <span style="font-size: 13.5px; font-weight: 600;">{{ actionMsg }}</span>
+    </div>
+  </sc-if>
+
+  <!-- Add-user modal -->
+  <sc-if value="{{ showAddUser }}" hint-placeholder-val="{{ false }}">
+    <div style="position: fixed; inset: 0; background: rgba(14,42,60,.5); backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; z-index: 200; animation: overlayIn .2s ease both;" onClick="{{ closeAddUser }}">
+      <div onClick="{{ stop }}" style="width: 100%; max-width: 480px; background: rgba(255,255,255,.96); backdrop-filter: blur(20px) saturate(1.5); -webkit-backdrop-filter: blur(20px) saturate(1.5); border-radius: 22px; padding: 26px 28px; box-shadow: 0 32px 80px rgba(14,42,60,.35), 0 8px 24px rgba(14,42,60,.12); animation: modalPop .4s cubic-bezier(.34,1.56,.64,1) both;">
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 22px;">
+          <span style="width: 42px; height: 42px; border-radius: 12px; background: linear-gradient(135deg, #1A6FA3, #168C84); color: #fff; display: flex; align-items: center; justify-content: center;">
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none"><circle cx="10" cy="8" r="3.4" stroke="#fff" stroke-width="1.9"/><path d="M4 19a6 6 0 0 1 12 0" stroke="#fff" stroke-width="1.9" stroke-linecap="round"/><path d="M19 7v6M22 10h-6" stroke="#fff" stroke-width="1.9" stroke-linecap="round"/></svg>
+          </span>
+          <div><div style="font-size: 17px; font-weight: 700;">เพิ่มผู้ใช้งานใหม่</div><div style="font-size: 12.5px; color: #7B8D9C;">กำหนดบทบาทและสิทธิ์การเข้าถึงระบบ</div></div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+          <div>
+            <label style="display: block; font-size: 12px; font-weight: 600; color: #4A5C6A; margin-bottom: 6px;">ชื่อ-สกุล <span style="color:#E03E3E;">*</span></label>
+            <input type="text" value="{{ nu_name }}" onInput="{{ setNuName }}" placeholder="เช่น ภก. สมศรี" style="width: 100%; height: 44px; border: 1.5px solid #DBE4EB; border-radius: 10px; padding: 0 12px; font-size: 13.5px;">
+          </div>
+          <div>
+            <label style="display: block; font-size: 12px; font-weight: 600; color: #4A5C6A; margin-bottom: 6px;">Username <span style="color:#E03E3E;">*</span></label>
+            <input type="text" value="{{ nu_username }}" onInput="{{ setNuUsername }}" placeholder="เช่น pharm03" style="width: 100%; height: 44px; border: 1.5px solid #DBE4EB; border-radius: 10px; padding: 0 12px; font-size: 13.5px; font-family: 'IBM Plex Mono', monospace;">
+          </div>
+        </div>
+
+        <div style="margin-bottom: 14px;">
+          <label style="display: block; font-size: 12px; font-weight: 600; color: #4A5C6A; margin-bottom: 6px;">บทบาท (สิทธิ์)</label>
+          <div style="display: flex; flex-wrap: wrap; gap: 8px;">{{ nuRoleChipsEl }}</div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 24px;">
+          <div>
+            <label style="display: block; font-size: 12px; font-weight: 600; color: #4A5C6A; margin-bottom: 6px;">หน่วยงาน</label>
+            <input type="text" value="{{ nu_dept }}" onInput="{{ setNuDept }}" placeholder="เช่น ห้องยา / ER" style="width: 100%; height: 44px; border: 1.5px solid #DBE4EB; border-radius: 10px; padding: 0 12px; font-size: 13.5px;">
+          </div>
+          <div>
+            <label style="display: block; font-size: 12px; font-weight: 600; color: #4A5C6A; margin-bottom: 6px;">รหัสผ่านชั่วคราว</label>
+            <input type="text" value="{{ nu_pass }}" onInput="{{ setNuPass }}" placeholder="เว้นว่าง = 1234" style="width: 100%; height: 44px; border: 1.5px solid #DBE4EB; border-radius: 10px; padding: 0 12px; font-size: 13.5px; font-family: 'IBM Plex Mono', monospace;">
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 10px;">
+          <button onClick="{{ submitAddUser }}" style="flex: 1; height: 48px; border: none; border-radius: 12px; background: linear-gradient(135deg, #1A6FA3, #168C84); color: #fff; font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer; box-shadow: 0 8px 22px rgba(26,111,163,.26); transition: all .22s cubic-bezier(.34,1.56,.64,1);" style-hover="transform: translateY(-2px); box-shadow: 0 12px 32px rgba(26,111,163,.35);" style-active="transform: scale(.97);">บันทึกผู้ใช้งาน</button>
+          <button onClick="{{ closeAddUser }}" style="height: 48px; padding: 0 20px; border: 1.5px solid #DBE4EB; background: #fff; color: #4A5C6A; border-radius: 12px; font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer; transition: all .22s cubic-bezier(.34,1.56,.64,1);" style-hover="background: #F4F8FB; border-color: #C3DDEC;">ยกเลิก</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- Confirm dialog / idle warning -->
+  <sc-if value="{{ showConfirm }}" hint-placeholder-val="{{ false }}">{{ confirmEl }}</sc-if>
+  <sc-if value="{{ showIdle }}" hint-placeholder-val="{{ false }}">{{ idleEl }}</sc-if>
+
+</div>
+</sc-if>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = {
+    // auth
+    authed: false,
+    currentUser: null,
+    loginUser: '',
+    loginPass: '',
+    showPass: false,
+    remember: true,
+    capsOn: false,
+    loginError: '',
+    attempts: 0,
+    locked: false,
+    // user management
+    showAddUser: false,
+    nu_name: '', nu_username: '', nu_role: 'technician', nu_dept: 'ห้องยา', nu_pass: '',
+    actionMsg: '',
+    screen: 'dashboard',
+    // entry form
+    formMode: 'register',
+    // step 1: register / prepare
+    regEB: 'EB-9',
+    regMfg: '',
+    regExpiry: '',
+    selectedDrugs: ['Dopamine inj. 250mg/10ml'],
+    regPreparer: '',
+    regChecker: '',
+    regHadConfirm: false,
+    // step 2: dispense / swap
+    dispEB: 'EB-9',
+    formDept: 'ER',
+    dispDate: '2026-06-16',
+    dispenser: '',
+    swapReturn: false,
+    swapEB: 'EB-1',
+    swapReturnDate: '2026-06-16',
+    swapReceiver: '',
+    // step 3: return
+    retEB: 'EB-1',
+    retDate: '2026-06-16',
+    retReceiver: '',
+    showToast: false,
+    toastTitle: '',
+    // detail
+    selectedEB: 'EB-4',
+    boxDrugs: null,
+    editDrugs: false,
+    boxMeta: {},
+    // history
+    query: '',
+    filter: 'all',
+    auditLog: null,
+    boxHist: {},
+    // confirm dialog
+    confirm: null,
+    // session
+    idleWarn: false,
+    reauth: null,
+    reauthPass: '',
+    reauthError: '',
+    users: [
+      { id: 1, name: 'ผู้ดูแลระบบ', username: 'admin', password: '1234', role: 'admin', dept: 'IT / ห้องยา', status: 'active', lastLogin: '16 มิ.ย. 2569 08:10' },
+      { id: 2, name: 'ภก. สมหญิง รักษา', username: 'pharm01', password: '1234', role: 'pharmacist', dept: 'ห้องยา', status: 'active', lastLogin: '16 มิ.ย. 2569 07:42' },
+      { id: 3, name: 'ภก. ธนพล ศรีสุข', username: 'pharm02', password: '1234', role: 'pharmacist', dept: 'ห้องยา', status: 'active', lastLogin: '15 มิ.ย. 2569 20:15' },
+      { id: 4, name: 'จพ. กนกพร ใจงาม', username: 'tech01', password: '1234', role: 'technician', dept: 'ห้องยา', status: 'active', lastLogin: '15 มิ.ย. 2569 16:30' },
+      { id: 5, name: 'พว. อนงค์ ใจดี', username: 'nurse01', password: '1234', role: 'nurse', dept: 'WARD', status: 'active', lastLogin: '14 มิ.ย. 2569 09:05' },
+      { id: 6, name: 'พว. ชุติมา แสงทอง', username: 'nurse02', password: '1234', role: 'nurse', dept: 'ER', status: 'suspended', lastLogin: '02 มิ.ย. 2569 11:20' },
+    ],
+  };
+
+  ROLES = {
+    admin:      { label: 'ผู้ดูแลระบบ',   short: 'Admin',      color: '#B42121', soft: '#FCEDED', border: '#F4C9C9' },
+    pharmacist: { label: 'เภสัชกร',        short: 'Pharmacist', color: '#1A6FA3', soft: '#E8F0F6', border: '#C3DDEC' },
+    technician: { label: 'จพ.เภสัชกรรม',  short: 'Technician', color: '#7C5CD6', soft: '#EFEAFB', border: '#D8CCF2' },
+    nurse:      { label: 'พยาบาล / หน่วยงาน', short: 'Nurse',  color: '#169C7F', soft: '#E4F4EF', border: '#C4E7DB' },
+  };
+
+  TH_MONTHS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  TODAY = new Date('2026-06-16T00:00:00');
+
+  DRUGS = [
+    { name: 'Adrenaline inj. 1mg/ml', had: true, par: 10 },
+    { name: 'Adenosine inj. 6mg/2ml', had: true, par: 3 },
+    { name: 'Amiodarone inj. 150mg/3ml', had: true, par: 2 },
+    { name: 'Atropine inj. 0.6mg/ml', had: false, par: 2 },
+    { name: '10% Ca gluconate inj. 10ml/amp', had: false, par: 2 },
+    { name: 'Dopamine inj. 250mg/10ml', had: true, par: 2 },
+    { name: '50% Glucose 50ml 25g/50ml', had: false, par: 1 },
+    { name: '7.5% Sodium Bicarb inj. 3.75g/50ml', had: false, par: 1 },
+    { name: 'Levophed inj. 4mg/4ml', had: true, par: 2 },
+    { name: 'Diazepam inj. 10mg/2ml', had: false, par: 5 },
+  ];
+
+  BOXES = [
+    { id: 'EB-1', dept: 'ER',   mfg: '2025-08-20', expiry: '2026-06-20', dispense: '2026-05-02', dispenser: 'ภก. สมชาย วงศ์ไทย',  receiver: '', nearDrug: 'Adrenaline inj. 1mg/ml' },
+    { id: 'EB-2', dept: 'WARD', mfg: '2025-08-25', expiry: '2026-06-25', dispense: '2026-05-10', dispenser: 'ภก. สมหญิง รักษา',   receiver: '', nearDrug: 'Atropine inj. 0.6mg/ml' },
+    { id: 'EB-3', dept: 'LR',   mfg: '2025-09-01', expiry: '2026-06-28', dispense: '2026-05-15', dispenser: 'ภก. ธนพล ศรีสุข',     receiver: '', nearDrug: 'Amiodarone inj. 150mg/3ml' },
+    { id: 'EB-4', dept: 'ER',   mfg: '2025-09-03', expiry: '2026-06-30', dispense: '2026-05-18', dispenser: 'ภก. สมหญิง รักษา',   receiver: '', nearDrug: 'Levophed inj. 4mg/4ml' },
+    { id: 'EB-5', dept: 'WARD', mfg: '2025-09-08', expiry: '2026-07-02', dispense: '2026-05-20', dispenser: 'ภก. สมชาย วงศ์ไทย',  receiver: '', nearDrug: 'Dopamine inj. 250mg/10ml' },
+    { id: 'EB-6', dept: 'ER',   mfg: '2025-09-12', expiry: '2026-07-08', dispense: '2026-05-25', dispenser: 'ภก. ธนพล ศรีสุข',     receiver: '', nearDrug: 'Adenosine inj. 6mg/2ml' },
+    { id: 'EB-7', dept: 'LR',   mfg: '2025-09-18', expiry: '2026-07-14', dispense: '2026-06-01', dispenser: 'ภก. สมหญิง รักษา',   receiver: '', nearDrug: '10% Ca gluconate inj. 10ml/amp' },
+    { id: 'EB-8', dept: 'WARD', mfg: '2025-10-10', expiry: '2026-08-10', dispense: '2026-04-12', dispenser: 'ภก. สมชาย วงศ์ไทย',  receiver: 'พว. อนงค์ ใจดี', nearDrug: 'Diazepam inj. 10mg/2ml' },
+    { id: 'EB-9', dept: 'ER',   mfg: '2025-11-05', expiry: '2026-09-05', dispense: '', dispenser: '', receiver: '', nearDrug: 'Dopamine inj. 250mg/10ml' },
+    { id: 'EB-10',dept: 'LR',   mfg: '2025-12-12', expiry: '2026-10-12', dispense: '', dispenser: '', receiver: '', nearDrug: 'Atropine inj. 0.6mg/ml' },
+  ];
+
+  AUDIT = [
+    { date: '2026-06-15', time: '08:42', action: 'จ่าย',   eb: 'EB-4', dept: 'ER',   person: 'ภก. สมหญิง รักษา',  drug: 'Levophed inj. 4mg/4ml' },
+    { date: '2026-06-15', time: '07:15', action: 'รับคืน', eb: 'EB-8', dept: 'WARD', person: 'พว. อนงค์ ใจดี',      drug: '—' },
+    { date: '2026-06-14', time: '21:30', action: 'จ่าย',   eb: 'EB-6', dept: 'ER',   person: 'ภก. ธนพล ศรีสุข',    drug: 'Adenosine inj. 6mg/2ml' },
+    { date: '2026-06-14', time: '16:05', action: 'รับคืน', eb: 'EB-9', dept: 'ER',   person: 'พว. ชุติมา แสงทอง',   drug: '—' },
+    { date: '2026-06-13', time: '11:48', action: 'จ่าย',   eb: 'EB-7', dept: 'LR',   person: 'ภก. สมหญิง รักษา',   drug: '10% Ca gluconate inj. 10ml/amp' },
+    { date: '2026-06-12', time: '14:20', action: 'จ่าย',   eb: 'EB-3', dept: 'LR',   person: 'ภก. ธนพล ศรีสุข',    drug: 'Amiodarone inj. 150mg/3ml' },
+    { date: '2026-06-11', time: '09:05', action: 'รับคืน', eb: 'EB-10',dept: 'LR',   person: 'พว. อนงค์ ใจดี',      drug: '—' },
+    { date: '2026-06-10', time: '19:32', action: 'จ่าย',   eb: 'EB-2', dept: 'WARD', person: 'ภก. สมหญิง รักษา',   drug: 'Atropine inj. 0.6mg/ml' },
+    { date: '2026-06-09', time: '13:11', action: 'จ่าย',   eb: 'EB-5', dept: 'WARD', person: 'ภก. สมชาย วงศ์ไทย',  drug: 'Dopamine inj. 250mg/10ml' },
+    { date: '2026-06-08', time: '08:50', action: 'จ่าย',   eb: 'EB-1', dept: 'ER',   person: 'ภก. สมชาย วงศ์ไทย',  drug: 'Adrenaline inj. 1mg/ml' },
+    { date: '2026-06-07', time: '15:40', action: 'รับคืน', eb: 'EB-6', dept: 'ER',   person: 'พว. ชุติมา แสงทอง',   drug: '—' },
+    { date: '2026-06-06', time: '10:25', action: 'จ่าย',   eb: 'EB-6', dept: 'ER',   person: 'ภก. ธนพล ศรีสุข',    drug: 'Adenosine inj. 6mg/2ml' },
+  ];
+
+  // ---------- date helpers ----------
+  parse(iso) { return iso ? new Date(iso + 'T00:00:00') : null; }
+  addDays(iso, n) { const d = this.parse(iso); d.setDate(d.getDate() + n); return d; }
+  fmt(d) { if (!d) return '—'; return `${d.getDate()} ${this.TH_MONTHS[d.getMonth()]} ${d.getFullYear() + 543}`; }
+  fmtISO(iso) { return iso ? this.fmt(this.parse(iso)) : '—'; }
+  returnDateISO(expiry) { const d = this.addDays(expiry, -15); const m = String(d.getMonth()+1).padStart(2,'0'); const day = String(d.getDate()).padStart(2,'0'); return `${d.getFullYear()}-${m}-${day}`; }
+  daysBetween(d) { return Math.round((d - this.TODAY) / 86400000); }
+  isoOf(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+
+  // par quantities now live in DRUGS[].par
+  buildBoxDrugs() {
+    const bd = {};
+    this.BOXES.forEach(box => {
+      bd[box.id] = this.DRUGS.map((d, i) => {
+        const isNear = d.name === box.nearDrug;
+        const exp = isNear ? this.parse(box.expiry) : this.addDays(box.expiry, 40 + i * 12);
+        // each drug starts with 1 lot at full par qty
+        return { name: d.name, had: d.had, par: d.par, lots: [{ qty: d.par, expiry: this.isoOf(exp) }] };
+      });
+    });
+    return bd;
+  }
+  // total qty across lots
+  drugQty(d) { return (d.lots || []).reduce((s, l) => s + (l.qty || 0), 0); }
+  // earliest expiry across lots
+  drugMinExp(d) { const exps = (d.lots || []).filter(l => l.expiry).map(l => l.expiry); return exps.length ? exps.sort()[0] : '2099-12-31'; }
+  boxExpiryISO(id, BD) {
+    const list = (BD || this.state.boxDrugs || {})[id];
+    if (!list || !list.length) { const b = this.BOXES.find(x => x.id === id); return b ? b.expiry : null; }
+    return list.reduce((min, d) => { const e = this.drugMinExp(d); return e < min ? e : min; }, this.drugMinExp(list[0]));
+  }
+  nearDrugOf(id, BD) {
+    const list = (BD || this.state.boxDrugs || {})[id];
+    if (!list || !list.length) { const b = this.BOXES.find(x => x.id === id); return b ? b.nearDrug : ''; }
+    return list.reduce((m, d) => this.drugMinExp(d) < this.drugMinExp(m) ? d : m, list[0]).name;
+  }
+
+  // status from expiry → based on RETURN date (15d before expiry)
+  statusOf(expiry) {
+    const ret = this.addDays(expiry, -15);
+    const days = this.daysBetween(ret);
+    if (days <= 0) return { key: 'critical', label: 'ต้องส่งคืนด่วน', color: '#E03E3E', soft: '#FCEDED', border: '#F4C9C9' };
+    if (days <= 15) return { key: 'warning', label: 'ใกล้กำหนด', color: '#D9810F', soft: '#FBF1E0', border: '#F4DEC2' };
+    return { key: 'ok', label: 'ปกติ', color: '#169C7F', soft: '#E4F4EF', border: '#C4E7DB' };
+  }
+  daysText(expiry) {
+    const ret = this.addDays(expiry, -15);
+    const days = this.daysBetween(ret);
+    if (days < 0) return `เกิน ${Math.abs(days)} วัน`;
+    if (days === 0) return 'วันนี้';
+    return `อีก ${days} วัน`;
+  }
+
+  // ---------- nav ----------
+  navStyle(key) {
+    const active = this.state.screen === key;
+    return [
+      'display:flex','align-items:center','gap:12px','width:100%',
+      'padding:11px 12px','border:none','border-radius:11px','cursor:pointer',
+      'font-family:inherit','font-size:13.5px','text-align:left','transition:all .15s',
+      active ? 'background:#E8F2F8' : 'background:transparent',
+      active ? 'color:#1A6FA3' : 'color:#5A6B79',
+      active ? 'font-weight:600' : 'font-weight:500',
+    ].join(';');
+  }
+
+  go(screen) { this.setState({ screen }); }
+  go2(formMode) { this.setState({ formMode }); }
+
+  componentDidMount() {
+    const patch = {};
+    if (!this.state.boxDrugs) patch.boxDrugs = this.buildBoxDrugs();
+    if (!this.state.auditLog) patch.auditLog = this.AUDIT.map(a => ({ ...a, cat: a.action === 'จ่าย' ? 'dispense' : (a.action === 'รับคืน' ? 'return' : 'other') }));
+    if (Object.keys(patch).length) this.setState(patch);
+    this._idleEvents = ['mousemove', 'keydown', 'click', 'touchstart'];
+    this._resetIdle = () => this.bumpIdle();
+    this._idleEvents.forEach(ev => window.addEventListener(ev, this._resetIdle, true));
+    this.bumpIdle();
+  }
+  componentWillUnmount() {
+    (this._idleEvents || []).forEach(ev => window.removeEventListener(ev, this._resetIdle, true));
+    clearTimeout(this._idleT); clearTimeout(this._idleWarnT);
+  }
+
+  // ---------- idle / session ----------
+  IDLE_WARN_MS = 4 * 60 * 1000;   // warn at 4 min
+  IDLE_OUT_MS = 60 * 1000;        // logout 1 min after warn
+  bumpIdle() {
+    if (!this.state.authed) return;
+    if (this.state.idleWarn) this.setState({ idleWarn: false });
+    clearTimeout(this._idleT); clearTimeout(this._idleWarnT);
+    this._idleT = setTimeout(() => {
+      if (!this.state.authed) return;
+      this.setState({ idleWarn: true });
+      this._idleWarnT = setTimeout(() => { if (this.state.authed) { this.logAction({ cat: 'auth', action: 'ออกระบบ', eb: '—', dept: '—', drug: 'หมดเวลาใช้งาน (auto logout)' }); this.logout(); } }, this.IDLE_OUT_MS);
+    }, this.IDLE_WARN_MS);
+  }
+  staySignedIn() { this.setState({ idleWarn: false }); this.bumpIdle(); }
+
+  // ---------- audit log ----------
+  nowTime() { const d = new Date(); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
+  logAction(entry) {
+    const person = entry.person || (this.state.currentUser ? this.state.currentUser.name : 'ระบบ');
+    const row = { date: this.isoOf(this.TODAY), time: this.nowTime(), person, ...entry };
+    this.setState(s => ({ auditLog: [row, ...(s.auditLog || [])] }));
+  }
+  logBoxHist(boxId, text) {
+    const who = this.state.currentUser ? this.state.currentUser.name : 'ระบบ';
+    const stamp = `${this.fmt(this.TODAY)} ${this.nowTime()}`;
+    this.setState(s => { const bh = { ...(s.boxHist || {}) }; bh[boxId] = [{ text, who, stamp }, ...((bh[boxId]) || [])].slice(0, 8); return { boxHist: bh }; });
+  }
+
+  // ---------- confirm dialog ----------
+  askConfirm(cfg) { this.setState({ confirm: cfg }); }
+  closeConfirm() { this.setState({ confirm: null }); }
+  runConfirm() { const c = this.state.confirm; this.setState({ confirm: null }); if (c && c.onYes) c.onYes(); }
+
+  // ---------- edit box drugs (qty + expiry) ----------
+  startEditDrugs() {
+    const bd = this.state.boxDrugs || this.buildBoxDrugs();
+    this._bdBackup = JSON.parse(JSON.stringify(bd));
+    this.setState({ editDrugs: true, boxDrugs: bd });
+  }
+  cancelEditDrugs() {
+    this.setState({ editDrugs: false, boxDrugs: this._bdBackup || this.state.boxDrugs });
+  }
+  saveEditDrugs() {
+    const id = this.state.selectedEB;
+    this.setState({ editDrugs: false });
+    this.flash('บันทึกข้อมูลยาในกล่องแล้ว · คำนวณวันหมดอายุและวันส่งคืนใหม่อัตโนมัติ');
+    const near = this.nearDrugOf(id);
+    this.logAction({ cat: 'edit', action: 'แก้ไขยา', eb: id, dept: '—', drug: `ปรับจำนวน/วันหมดอายุ · ใกล้หมดอายุสุด: ${near}` });
+    this.logBoxHist(id, 'แก้ไขจำนวน/วันหมดอายุยา');
+  }
+  setDrugField(boxId, idx, field, value) {
+    this.setState(s => {
+      const base = s.boxDrugs || this.buildBoxDrugs();
+      const bd = { ...base };
+      bd[boxId] = bd[boxId].map((d, i) => i === idx ? { ...d, [field]: value } : d);
+      return { boxDrugs: bd };
+    });
+  }
+  setLotField(boxId, drugIdx, lotIdx, field, value) {
+    this.setState(s => {
+      const base = s.boxDrugs || this.buildBoxDrugs();
+      const bd = { ...base };
+      bd[boxId] = bd[boxId].map((d, i) => {
+        if (i !== drugIdx) return d;
+        const lots = d.lots.map((l, j) => j === lotIdx ? { ...l, [field]: value } : l);
+        return { ...d, lots };
+      });
+      return { boxDrugs: bd };
+    });
+  }
+  addLot(boxId, drugIdx) {
+    this.setState(s => {
+      const base = s.boxDrugs || this.buildBoxDrugs();
+      const bd = { ...base };
+      bd[boxId] = bd[boxId].map((d, i) => {
+        if (i !== drugIdx) return d;
+        return { ...d, lots: [...d.lots, { qty: 0, expiry: '' }] };
+      });
+      return { boxDrugs: bd };
+    });
+  }
+  removeLot(boxId, drugIdx, lotIdx) {
+    this.setState(s => {
+      const base = s.boxDrugs || this.buildBoxDrugs();
+      const bd = { ...base };
+      bd[boxId] = bd[boxId].map((d, i) => {
+        if (i !== drugIdx || d.lots.length <= 1) return d;
+        return { ...d, lots: d.lots.filter((_, j) => j !== lotIdx) };
+      });
+      return { boxDrugs: bd };
+    });
+  }
+
+  iconBtn(kind, title, color, soft, onClick) {
+    const SVG = {
+      reset: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M4 4v5h5M20 20v-5h-5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/><path d="M19 9a7.5 7.5 0 0 0-13-2.5L4 9M5 15a7.5 7.5 0 0 0 13 2.5L20 15" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      lock: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none"><rect x="4.5" y="10.5" width="15" height="9.5" rx="2.5" stroke="currentColor" stroke-width="1.9"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>',
+      unlock: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none"><rect x="4.5" y="10.5" width="15" height="9.5" rx="2.5" stroke="currentColor" stroke-width="1.9"/><path d="M8 10.5V7a4 4 0 0 1 7.5-2" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>',
+      trash: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M5 7h14M10 7V5a1.5 1.5 0 0 1 1.5-1.5h1A1.5 1.5 0 0 1 14 5v2M6.5 7l.7 12a2 2 0 0 0 2 1.9h5.6a2 2 0 0 0 2-1.9l.7-12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    };
+    return React.createElement('button', {
+      key: kind, onClick, title,
+      style: { width: 34, height: 34, borderRadius: 9, border: 'none', background: soft, color, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .15s' },
+      dangerouslySetInnerHTML: { __html: SVG[kind] },
+    });
+  }
+
+  // ---------- auth ----------
+  doLogin() {
+    if (this.state.locked) return;
+    const u = this.state.users.find(x => x.username.toLowerCase() === this.state.loginUser.trim().toLowerCase());
+    if (!u || u.password !== this.state.loginPass) {
+      const attempts = this.state.attempts + 1;
+      const left = 5 - attempts;
+      if (attempts >= 5) {
+        this.setState({ attempts, locked: true, loginError: 'บัญชีถูกล็อกชั่วคราวเนื่องจากกรอกผิดเกิน 5 ครั้ง · กรุณาติดต่อผู้ดูแลระบบ' });
+      } else {
+        this.setState({ attempts, loginError: `รหัสพนักงานหรือรหัสผ่านไม่ถูกต้อง · เหลืออีก ${left} ครั้ง` });
+      }
+      return;
+    }
+    if (u.status === 'suspended') {
+      this.setState({ loginError: 'บัญชีนี้ถูกระงับการใช้งาน · กรุณาติดต่อผู้ดูแลระบบ' });
+      return;
+    }
+    this.setState({ authed: true, currentUser: u, loginError: '', attempts: 0, locked: false, loginPass: '', screen: 'dashboard',
+      users: this.state.users.map(x => x.id === u.id ? { ...x, lastLogin: `${this.fmt(this.TODAY)} ${this.nowTime()}` } : x) });
+    setTimeout(() => { this.logAction({ cat: 'auth', action: 'เข้าระบบ', eb: '—', dept: u.dept, drug: 'เข้าสู่ระบบสำเร็จ' }); this.bumpIdle(); }, 0);
+  }
+  logout() {
+    this.setState({ authed: false, currentUser: null, loginUser: '', loginPass: '', showPass: false, screen: 'dashboard' });
+  }
+  fillDemo(username) {
+    this.setState({ loginUser: username, loginPass: '1234', loginError: '' });
+  }
+  capsCheck(e) {
+    try { this.setState({ capsOn: e.getModifierState && e.getModifierState('CapsLock') }); } catch (_) {}
+  }
+
+  // ---------- user management (admin) ----------
+  flash(msg) {
+    this.setState({ actionMsg: msg });
+    clearTimeout(this._a);
+    this._a = setTimeout(() => this.setState({ actionMsg: '' }), 3200);
+  }
+  setUserRole(id, role) {
+    const u = this.state.users.find(x => x.id === id);
+    this.setState(s => ({ users: s.users.map(u => u.id === id ? { ...u, role } : u) }));
+    this.flash('อัปเดตบทบาทผู้ใช้แล้ว');
+    if (u) this.logAction({ cat: 'user', action: 'แก้สิทธิ์', eb: '—', dept: u.dept, drug: `เปลี่ยนบทบาท ${u.name} → ${this.ROLES[role].label}` });
+  }
+  toggleUserStatus(id) {
+    let label = '', changed = null;
+    this.setState(s => ({ users: s.users.map(u => {
+      if (u.id !== id) return u;
+      const status = u.status === 'active' ? 'suspended' : 'active';
+      label = status === 'active' ? 'เปิดใช้งานบัญชีแล้ว' : 'ระงับบัญชีแล้ว';
+      changed = { ...u, status };
+      return changed;
+    }) }));
+    this.flash(label);
+    if (changed) this.logAction({ cat: 'user', action: 'จัดการผู้ใช้', eb: '—', dept: changed.dept, drug: `${changed.status === 'active' ? 'เปิดใช้งาน' : 'ระงับ'}บัญชี ${changed.name}` });
+  }
+  resetUserPw(id) {
+    const u = this.state.users.find(x => x.id === id);
+    this.setState(s => ({ users: s.users.map(u => u.id === id ? { ...u, password: '1234' } : u) }));
+    this.flash('รีเซ็ตรหัสผ่านเป็นค่าเริ่มต้น (1234) แล้ว');
+    if (u) this.logAction({ cat: 'user', action: 'รีเซ็ตรหัส', eb: '—', dept: u.dept, drug: `รีเซ็ตรหัสผ่าน ${u.name}` });
+  }
+  deleteUser(id) {
+    const u = this.state.users.find(x => x.id === id);
+    this.setState(s => ({ users: s.users.filter(u => u.id !== id) }));
+    this.flash('ลบบัญชีผู้ใช้แล้ว');
+    if (u) this.logAction({ cat: 'user', action: 'ลบผู้ใช้', eb: '—', dept: u.dept, drug: `ลบบัญชี ${u.name} (${u.username})` });
+  }
+  addUser() {
+    const { nu_name, nu_username, nu_role, nu_dept, nu_pass, users } = this.state;
+    if (!nu_name.trim() || !nu_username.trim()) { this.flash('กรุณากรอกชื่อและ username'); return; }
+    if (users.some(u => u.username.toLowerCase() === nu_username.trim().toLowerCase())) { this.flash('username นี้มีอยู่แล้ว'); return; }
+    const id = Math.max(0, ...users.map(u => u.id)) + 1;
+    const nu = { id, name: nu_name.trim(), username: nu_username.trim(), password: nu_pass.trim() || '1234', role: nu_role, dept: nu_dept.trim() || '-', status: 'active', lastLogin: 'ยังไม่เคยเข้าระบบ' };
+    this.setState({ users: [...users, nu], showAddUser: false, nu_name: '', nu_username: '', nu_role: 'technician', nu_dept: 'ห้องยา', nu_pass: '' });
+    this.flash('เพิ่มผู้ใช้ใหม่เรียบร้อย');
+    this.logAction({ cat: 'user', action: 'จัดการผู้ใช้', eb: '—', dept: nu.dept, drug: `เพิ่มผู้ใช้ใหม่ ${nu.name} (${this.ROLES[nu_role].label})` });
+  }
+
+  // ---------- entry form ----------
+  toggleDrug(name) {
+    const s = new Set(this.state.selectedDrugs);
+    s.has(name) ? s.delete(name) : s.add(name);
+    this.setState({ selectedDrugs: [...s] });
+  }
+  // validation: returns array of missing/invalid messages for current mode
+  regNearISOof(id) {
+    const list = (this.state.boxDrugs || this.buildBoxDrugs())[id] || [];
+    if (!list.length) return null;
+    return list.reduce((min, d) => { const e = this.drugMinExp(d); return e < min ? e : min; }, this.drugMinExp(list[0]));
+  }
+  validateForm() {
+    const st = this.state, errs = [];
+    if (st.formMode === 'register') {
+      if (!st.regPreparer.trim()) errs.push('ลงชื่อผู้จัดเตรียม (จพ.)');
+      if (!st.regChecker.trim()) errs.push('ลงชื่อเภสัชกรผู้ตรวจสอบ');
+      const near = this.regNearISOof(st.regEB);
+      if (near && near < this.isoOf(this.TODAY)) errs.push('มียาหมดอายุแล้ว — แก้วันหมดอายุก่อนบันทึก');
+      if (st.regMfg && near && st.regMfg > near) errs.push('วันผลิตต้องมาก่อนวันหมดอายุ');
+      const list = (st.boxDrugs || this.buildBoxDrugs())[st.regEB] || [];
+      if (list.some(d => d.had) && !st.regHadConfirm) errs.push('ยืนยันการตรวจสอบยา HAD');
+    } else if (st.formMode === 'dispense') {
+      if (!st.dispenser.trim()) errs.push('ลงชื่อผู้จ่าย');
+      if (!st.dispDate) errs.push('วันที่จ่าย');
+      if (st.swapReturn && !st.swapReceiver.trim()) errs.push('ลงชื่อผู้รับคืนกล่องเก่า');
+    } else {
+      if (!st.retReceiver.trim()) errs.push('ลงชื่อผู้รับคืน');
+      if (!st.retDate) errs.push('วันที่รับคืน');
+    }
+    return errs;
+  }
+  trySubmit() {
+    const errs = this.validateForm();
+    if (errs.length) { this.flash('กรอกไม่ครบ: ' + errs.join(' · ')); return; }
+    // clinical safety: dispensing a near-expiry (critical) box → confirm
+    if (this.state.formMode === 'dispense') {
+      const near = this.regNearISOof(this.state.dispEB);
+      const status = near ? this.statusOf(near) : null;
+      if (status && status.key === 'critical') {
+        this.askConfirm({
+          tone: 'danger', icon: 'warn',
+          title: 'กล่องนี้ใกล้หมดอายุ — ยืนยันการจ่าย?',
+          body: `${this.state.dispEB} ถึง/เกินกำหนดส่งคืนแล้ว (หมดอายุ ${this.fmtISO(near)}) ไม่ควรจ่ายออกหน่วยงาน แนะนำให้เปลี่ยนกล่องใหม่ก่อน`,
+          yesLabel: 'ยืนยันจ่ายทั้งที่ใกล้หมดอายุ', noLabel: 'ยกเลิก',
+          onYes: () => this.submit(),
+        });
+        return;
+      }
+    }
+    this.submit();
+  }
+  submit() {
+    const m = this.state.formMode;
+    let msg;
+    if (m === 'register') {
+      const { regEB } = this.state;
+      const BD = this.state.boxDrugs || this.buildBoxDrugs();
+      const near = this.nearDrugOf(regEB, BD);
+      const meta = { ...(this.state.boxMeta || {}) };
+      meta[regEB] = { mfg: this.state.regMfg, preparer: this.state.regPreparer, checker: this.state.regChecker, registeredAt: this.isoOf(this.TODAY) };
+      this.setState({ boxMeta: meta, regHadConfirm: false });
+      msg = `ลงทะเบียน ${regEB} สำเร็จ · ตรวจพบยาใกล้หมดอายุสุด: ${near}`;
+      this.logAction({ cat: 'register', action: 'ลงทะเบียน', eb: regEB, dept: '—', drug: `จัดยาเข้าคลัง · ใกล้หมดอายุสุด: ${near}` });
+      this.logBoxHist(regEB, `ลงทะเบียนเข้าคลัง (จัดโดย ${this.state.regPreparer || '-'}, ตรวจโดย ${this.state.regChecker || '-'})`);
+    }
+    else if (m === 'dispense') {
+      const { dispEB, formDept, swapReturn, swapEB } = this.state;
+      msg = swapReturn ? `เปลี่ยนกล่อง: จ่าย ${dispEB} → ${formDept} · รับคืน ${swapEB} สำเร็จ` : `จ่าย ${dispEB} → ${formDept} สำเร็จ`;
+      this.logAction({ cat: 'dispense', action: 'จ่าย', eb: dispEB, dept: formDept, drug: this.nearDrugOf(dispEB) });
+      this.logBoxHist(dispEB, `จ่ายให้ ${formDept} (โดย ${this.state.dispenser || '-'})`);
+      if (swapReturn) { this.logAction({ cat: 'return', action: 'รับคืน', eb: swapEB, dept: formDept, drug: '—' }); this.logBoxHist(swapEB, `รับคืนจาก ${formDept} (โดย ${this.state.swapReceiver || '-'})`); }
+    }
+    else {
+      const { retEB, retReceiver } = this.state;
+      msg = `รับคืน ${retEB} เข้าห้องยาสำเร็จ`;
+      this.logAction({ cat: 'return', action: 'รับคืน', eb: retEB, dept: '—', drug: '—' });
+      this.logBoxHist(retEB, `รับคืนเข้าห้องยา (โดย ${retReceiver || '-'})`);
+    }
+    this.setState({ showToast: true, toastTitle: msg });
+    clearTimeout(this._t);
+    this._t = setTimeout(() => this.setState({ showToast: false }), 3600);
+  }
+  resetForm() {
+    const m = this.state.formMode;
+    if (m === 'register') this.setState({ regMfg: '', regPreparer: '', regChecker: '', regHadConfirm: false });
+    else if (m === 'dispense') this.setState({ dispenser: '', swapReturn: false, swapReceiver: '' });
+    else this.setState({ retReceiver: '' });
+  }
+
+  renderVals() {
+    const st = this.state;
+    const screen = st.screen;
+    const h = React.createElement;
+    const ic = (svg, sz) => h('span', { style: { display: 'flex', alignItems: 'center', width: sz || 19, height: sz || 19, flexShrink: 0 }, dangerouslySetInnerHTML: { __html: svg } });
+    const ICONS = {
+      dashboard: '<svg width="19" height="19" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7" rx="2" stroke="currentColor" stroke-width="1.9"/><rect x="14" y="3" width="7" height="7" rx="2" stroke="currentColor" stroke-width="1.9"/><rect x="3" y="14" width="7" height="7" rx="2" stroke="currentColor" stroke-width="1.9"/><rect x="14" y="14" width="7" height="7" rx="2" stroke="currentColor" stroke-width="1.9"/></svg>',
+      entry: '<svg width="19" height="19" viewBox="0 0 24 24" fill="none"><path d="M16.5 3.5l4 4L8 20l-4.5 1L4.5 16.5 16.5 3.5z" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></svg>',
+      detail: '<svg width="19" height="19" viewBox="0 0 24 24" fill="none"><path d="M3.5 7.5L12 3l8.5 4.5v9L12 21l-8.5-4.5v-9z" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/><path d="M3.5 7.5L12 12m0 9V12m8.5-4.5L12 12" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></svg>',
+      history: '<svg width="19" height="19" viewBox="0 0 24 24" fill="none"><path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1M3.5 4.5V9H8" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 8v4.2l3 1.8" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      arrowR: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M4 12h13m0 0l-5-5m5 5l-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      arrowL: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M20 12H7m0 0l5-5m-5 5l5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      pen: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M16.5 3.5l4 4L8 20l-4.5 1L4.5 16.5 16.5 3.5z" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></svg>',
+      check: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      clipboard: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="5" y="4" width="14" height="17" rx="3" stroke="currentColor" stroke-width="1.8"/><path d="M9 4.5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2V6H9V4.5z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      users: '<svg width="19" height="19" viewBox="0 0 24 24" fill="none"><circle cx="9" cy="8" r="3.2" stroke="currentColor" stroke-width="1.9"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><path d="M16 5.2a3.2 3.2 0 0 1 0 5.6M17.5 19a5.5 5.5 0 0 0-3-4.9" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>',
+    };
+    const titles = {
+      dashboard: ['ภาพรวมระบบ Emergency Box', 'ติดตามสถานะ การแจ้งเตือน และสถิติการเบิก-จ่ายแบบเรียลไทม์'],
+      entry:     ['บันทึกการจ่าย / รับคืน EB', 'กรอกข้อมูลรวดเร็ว · คำนวณวันส่งคืนและตั้งแจ้งเตือนอัตโนมัติ'],
+      detail:    ['รายละเอียดกล่อง Emergency Box', 'ตรวจสอบยา 10 รายการ วันหมดอายุ และประวัติการใช้งานรายกล่อง'],
+      history:   ['ประวัติย้อนหลัง · Audit Log', 'บันทึกการทำรายการทุกครั้ง 100% ตรวจสอบย้อนหลังและส่งออกได้'],
+      users:     ['จัดการผู้ใช้งานระบบ', 'ผู้ดูแลระบบกำหนดบทบาท สิทธิ์ รีเซ็ตรหัสผ่าน และระงับบัญชี'],
+    };
+
+    const vals = {
+      isDashboard: screen === 'dashboard',
+      isEntry: screen === 'entry',
+      isDetail: screen === 'detail',
+      isHistory: screen === 'history',
+      isUsers: screen === 'users',
+      pageTitle: (titles[screen] || titles.dashboard)[0],
+      pageSub: (titles[screen] || titles.dashboard)[1],
+      goDashboard: () => this.go('dashboard'),
+      goEntry: () => this.go('entry'),
+      goDetail: () => this.go('detail'),
+      goHistory: () => this.go('history'),
+      showToast: st.showToast,
+      toastTitle: st.toastTitle,
+      // auth
+      authed: st.authed,
+      notAuthed: !st.authed,
+    };
+
+    // ===== LOGIN SCREEN =====
+    vals.loginUser = st.loginUser;
+    vals.setLoginUser = (e) => this.setState({ loginUser: e.target.value, loginError: '' });
+    vals.toggleRemember = () => this.setState(s => ({ remember: !s.remember }));
+
+    // password field (type switches → render as element keyed by showPass)
+    vals.passFieldEl = h('input', {
+      key: 'pf_' + st.showPass,
+      type: st.showPass ? 'text' : 'password',
+      value: st.loginPass,
+      onInput: (e) => this.setState({ loginPass: e.target.value, loginError: '' }),
+      onKeyUp: (e) => { this.capsCheck(e); if (e.key === 'Enter') this.doLogin(); },
+      placeholder: '••••••••',
+      autoComplete: 'current-password',
+      style: { width: '100%', height: 50, border: '1.5px solid #DBE4EB', borderRadius: 12, padding: '0 46px 0 42px', fontSize: 14.5, color: '#15242E', background: '#fff', outline: 'none' },
+    });
+    vals.passToggleEl = h('button', {
+      key: 'pt_' + st.showPass,
+      onClick: () => this.setState(s => ({ showPass: !s.showPass })),
+      type: 'button',
+      style: { position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', width: 34, height: 34, border: 'none', background: 'none', cursor: 'pointer', color: '#7B8D9C', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
+      dangerouslySetInnerHTML: { __html: st.showPass
+        ? '<svg width="19" height="19" viewBox="0 0 24 24" fill="none"><path d="M3 3l18 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M10.6 6.2A9.7 9.7 0 0 1 12 6c5 0 9 5 9 6 0 .6-1 2-2.6 3.3M6.2 7.4C4 8.8 3 10.6 3 12c0 1 4 6 9 6 1 0 2-.2 2.9-.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M9.5 10.5a3 3 0 0 0 4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
+        : '<svg width="19" height="19" viewBox="0 0 24 24" fill="none"><path d="M3 12s4-6 9-6 9 6 9 6-4 6-9 6-9-6-9-6z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="12" r="2.6" stroke="currentColor" stroke-width="1.8"/></svg>' },
+    });
+
+    vals.capsWarnEl = st.capsOn ? h('div', { style: { display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, color: '#B5740F', marginTop: 2 } },
+      h('span', { dangerouslySetInnerHTML: { __html: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 4l7 7h-4v5H9v-5H5l7-7z" stroke="#EE8A2B" stroke-width="1.8" stroke-linejoin="round"/><rect x="9" y="18" width="6" height="2.6" rx="1" stroke="#EE8A2B" stroke-width="1.8"/></svg>' }, style: { display: 'flex' } }),
+      h('span', null, 'Caps Lock เปิดอยู่')) : null;
+
+    const err = st.loginError;
+    vals.loginAlertEl = err ? h('div', {
+      key: 'err_' + st.attempts + (st.locked ? '_l' : ''),
+      style: { display: 'flex', alignItems: 'flex-start', gap: 10, background: '#FCEDED', border: '1px solid #F4C9C9', borderRadius: 12, padding: '12px 14px', marginBottom: 18, animation: 'shakeX .4s ease both' },
+    },
+      h('span', { style: { color: '#E03E3E', flexShrink: 0, display: 'flex', marginTop: 1 }, dangerouslySetInnerHTML: { __html: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/><path d="M12 7.5V13M12 16v.2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>' } }),
+      h('span', { style: { fontSize: 13, color: '#B42121', fontWeight: 500, lineHeight: 1.5 } }, err)
+    ) : null;
+
+    vals.rememberBoxEl = h('span', { key: 'rm_' + st.remember, style: { width: 20, height: 20, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', border: st.remember ? '1.5px solid #1A6FA3' : '1.5px solid #C4D0DA', background: st.remember ? '#1A6FA3' : '#fff' } },
+      st.remember ? h('span', { style: { display: 'flex' }, dangerouslySetInnerHTML: { __html: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></svg>' } }) : null);
+
+    vals.loginBtnEl = h('button', {
+      key: 'lb_' + st.locked,
+      onClick: () => this.doLogin(),
+      disabled: st.locked,
+      style: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9, width: '100%', height: 52, border: 'none', borderRadius: 13, fontFamily: 'inherit', fontSize: 15.5, fontWeight: 600, color: '#fff', cursor: st.locked ? 'not-allowed' : 'pointer', background: st.locked ? '#A7B8C6' : 'linear-gradient(135deg, #1A6FA3, #168C84, #1A6FA3)', backgroundSize: st.locked ? '100% 100%' : '200% 200%', animation: st.locked ? 'none' : 'gradientShift 4s ease infinite', boxShadow: st.locked ? 'none' : '0 8px 28px rgba(26,111,163,.35), 0 2px 6px rgba(22,140,132,.15)', transition: 'all .25s cubic-bezier(.34,1.56,.64,1)' },
+    }, h('span', null, st.locked ? 'บัญชีถูกล็อก' : 'เข้าสู่ระบบ'),
+       st.locked ? null : h('span', { style: { display: 'flex' }, dangerouslySetInnerHTML: { __html: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 12h13m0 0l-5-5m5 5l-5 5" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' } }));
+
+    const demos = [
+      { username: 'admin', label: 'ผู้ดูแลระบบ', sub: 'admin', role: 'admin' },
+      { username: 'pharm01', label: 'เภสัชกร', sub: 'pharm01', role: 'pharmacist' },
+    ];
+    vals.demoAccountsEl = h(React.Fragment, null, ...demos.map(d => {
+      const r = this.ROLES[d.role];
+      return h('button', { key: d.username, onClick: () => this.fillDemo(d.username),
+        style: { flex: 1, display: 'flex', flexDirection: 'column', gap: 3, padding: '11px 13px', borderRadius: 11, border: '1.5px solid #E2E9F0', background: '#fff', cursor: 'pointer', textAlign: 'left', transition: 'all .22s cubic-bezier(.34,1.56,.64,1)' } },
+        h('span', { style: { fontSize: 11, fontWeight: 700, color: r.color, background: r.soft, alignSelf: 'flex-start', borderRadius: 6, padding: '2px 7px' } }, d.label),
+        h('span', { style: { fontSize: 13, fontWeight: 600, color: '#15242E', fontFamily: "'IBM Plex Mono', monospace" } }, d.sub),
+        h('span', { style: { fontSize: 11, color: '#9AAAB8' } }, 'รหัสผ่าน 1234'),
+      );
+    }));
+
+    // ===== current user (sidebar) =====
+    const cu = st.currentUser;
+    const cuRole = cu ? this.ROLES[cu.role] : this.ROLES.pharmacist;
+    vals.userName = cu ? cu.name : '—';
+    vals.userRoleLabel = cu ? cuRole.label : '';
+    vals.userInitials = cu ? (cu.name.replace(/^(ภก\.|พว\.|จพ\.|ภญ\.)\s*/, '').trim().slice(0, 2)) : '?';
+    vals.userAvatarBg = cu ? cuRole.soft : '#DCEAF2';
+    vals.userAvatarColor = cu ? cuRole.color : '#1A6FA3';
+    vals.doLogout = () => this.askConfirm({ tone: 'plain', icon: 'logout', title: 'ออกจากระบบ?', body: 'คุณจะถูกนำกลับไปหน้าเข้าสู่ระบบ', yesLabel: 'ออกจากระบบ', noLabel: 'อยู่ต่อ', onYes: () => { this.logAction({ cat: 'auth', action: 'ออกระบบ', eb: '—', dept: '—', drug: 'ออกจากระบบโดยผู้ใช้' }); this.logout(); } });
+
+    // nav rendered as React elements (style must refresh each render)
+    const navDefs = [
+      { key: 'dashboard', label: 'ภาพรวม Dashboard', svg: ICONS.dashboard },
+      { key: 'entry', label: 'บันทึกจ่าย / รับคืน', svg: ICONS.entry },
+      { key: 'detail', label: 'รายละเอียดกล่อง EB', svg: ICONS.detail },
+      { key: 'history', label: 'ประวัติย้อนหลัง', svg: ICONS.history },
+    ];
+    const isAdmin = st.currentUser && st.currentUser.role === 'admin';
+    if (isAdmin) navDefs.push({ key: 'users', label: 'จัดการผู้ใช้งาน', svg: ICONS.users });
+    vals.navEl = h(React.Fragment, null, ...navDefs.map(d => {
+      const on = screen === d.key;
+      return h('button', {
+        key: d.key + (on ? '_on' : '_off'), onClick: () => this.go(d.key),
+        style: { display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '11px 12px', border: 'none', borderRadius: 11, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13.5, textAlign: 'left', transition: 'all .22s cubic-bezier(.34,1.56,.64,1)', background: on ? '#E8F2F8' : 'transparent', color: on ? '#1A6FA3' : '#5A6B79', fontWeight: on ? 600 : 500, transform: 'translateX(0)' },
+      }, ic(d.svg), h('span', null, d.label));
+    }));
+
+    // ----- DASHBOARD -----
+    const BDdash = st.boxDrugs || this.buildBoxDrugs();
+    const exp = (b) => this.boxExpiryISO(b.id, BDdash);
+    const active = this.BOXES.filter(b => b.dispense && !b.receiver);
+    const criticalList = this.BOXES
+      .map(b => ({ b, status: this.statusOf(exp(b)), days: this.daysBetween(this.addDays(exp(b), -15)) }))
+      .filter(x => x.status.key !== 'ok')
+      .sort((a, z) => a.days - z.days)
+      .map(({ b, status }) => ({
+        id: b.id, dept: b.dept, nearDrug: this.nearDrugOf(b.id, BDdash), expiryText: this.fmtISO(exp(b)),
+        daysText: this.daysText(exp(b)), color: status.color, soft: status.soft, border: status.border,
+      }));
+    vals.criticalList = criticalList;
+
+    const deptCount = { ER: 0, WARD: 0, LR: 0 };
+    active.forEach(b => deptCount[b.dept]++);
+    const maxDept = Math.max(1, ...Object.values(deptCount));
+    vals.deptBars = [
+      { label: 'ER · ห้องฉุกเฉิน',   sub: `${deptCount.ER} กล่อง`,   pct: `${deptCount.ER/maxDept*100}%`,   color: '#1A6FA3' },
+      { label: 'WARD · หอผู้ป่วย',   sub: `${deptCount.WARD} กล่อง`, pct: `${deptCount.WARD/maxDept*100}%`, color: '#169C7F' },
+      { label: 'LR · ห้องคลอด',      sub: `${deptCount.LR} กล่อง`,   pct: `${deptCount.LR/maxDept*100}%`,   color: '#7C5CD6' },
+    ];
+
+    // donut: critical / warning / ok counts over all boxes
+    const counts = { critical: 0, warning: 0, ok: 0 };
+    this.BOXES.forEach(b => counts[this.statusOf(exp(b)).key]++);
+    const total = this.BOXES.length;
+    const a1 = counts.critical / total * 360;
+    const a2 = a1 + counts.warning / total * 360;
+    vals.donutGradient = `conic-gradient(#E03E3E 0 ${a1}deg, #EE8A2B ${a1}deg ${a2}deg, #169C7F ${a2}deg 360deg)`;
+
+    vals.recentTx = (st.auditLog || this.AUDIT).filter(t => t.cat === 'dispense' || t.cat === 'return').slice(0, 5).map(t => ({
+      eb: t.eb, action: t.action, dept: t.dept, person: t.person, drug: t.drug, time: t.time,
+      icon: t.action === 'จ่าย' ? '→' : '←',
+      color: t.action === 'จ่าย' ? '#1A6FA3' : '#169C7F',
+      soft: t.action === 'จ่าย' ? '#E8F0F6' : '#E4F4EF',
+    }));
+
+    // ----- ENTRY (3-step workflow: register → dispense/swap → return) -----
+    const mode = st.formMode;
+    const isRegister = mode === 'register';
+    const isDispenseM = mode === 'dispense';
+    const isReturnM = mode === 'return';
+    vals.isRegister = isRegister;
+    vals.isDispense = isDispenseM;
+    vals.isReturn = isReturnM;
+
+    const MODE_THEME = {
+      register: { accent: '#7C5CD6', soft: '#EFEAFB', shadow: 'rgba(124,92,214,.3)' },
+      dispense: { accent: '#1A6FA3', soft: '#E8F0F6', shadow: 'rgba(26,111,163,.3)' },
+      return:   { accent: '#169C7F', soft: '#E4F4EF', shadow: 'rgba(22,156,127,.3)' },
+    };
+    const theme = MODE_THEME[mode];
+
+    // availability
+    const outOf = (b) => !!b.dispense && !b.receiver;
+    const inStockIds = this.BOXES.filter(b => !outOf(b)).map(b => b.id);
+    const outIds = this.BOXES.filter(b => outOf(b)).map(b => b.id);
+    const allIds = this.BOXES.map(b => b.id);
+
+    // ----- 3-step stepper -----
+    const stepDefs = [
+      { key: 'register', n: '1', label: 'ลงทะเบียนกล่อง', sub: 'จพ.จัด · เภสัชกรตรวจ', svg: ICONS.clipboard },
+      { key: 'dispense', n: '2', label: 'จ่าย / เปลี่ยน', sub: 'เบิกออกหน่วยงาน', svg: ICONS.arrowR },
+      { key: 'return',   n: '3', label: 'รับคืน', sub: 'กล่องกลับเข้าห้องยา', svg: ICONS.arrowL },
+    ];
+    vals.modeToggleEl = h(React.Fragment, null, ...stepDefs.map((s, i) => {
+      const on = mode === s.key;
+      const th = MODE_THEME[s.key];
+      return h('button', {
+        key: s.key + (on ? '_on' : '_off'),
+        onClick: () => this.go2(s.key),
+        style: { flex: 1, minWidth: 160, display: 'flex', alignItems: 'center', gap: 11, padding: '11px 14px', border: 'none', borderRadius: 11, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', transition: 'all .25s cubic-bezier(.34,1.56,.64,1)', background: on ? th.soft : 'transparent' },
+      },
+        h('span', { style: { width: 30, height: 30, flexShrink: 0, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13.5, fontFamily: "'IBM Plex Mono', monospace", background: on ? th.accent : '#EEF2F6', color: on ? '#fff' : '#9AAAB8' } }, s.n),
+        h('span', { style: { minWidth: 0 } },
+          h('span', { style: { display: 'block', fontSize: 13.5, fontWeight: 600, whiteSpace: 'nowrap', color: on ? th.accent : '#5A6B79' } }, s.label),
+          h('span', { style: { display: 'block', fontSize: 11, color: '#9AAAB8', marginTop: 1, whiteSpace: 'nowrap' } }, s.sub),
+        ),
+      );
+    }));
+
+    vals.formHeaderIconEl = h('span', { key: 'hicon_' + mode, style: { width: 40, height: 40, borderRadius: 11, background: theme.soft, color: theme.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }, dangerouslySetInnerHTML: { __html: isRegister ? ICONS.clipboard : (isDispenseM ? ICONS.arrowR : ICONS.arrowL) } });
+
+    const headings = {
+      register: ['ลงทะเบียน & เตรียมกล่องเข้าคลัง', 'จพ.เภสัชกรรมจัดยา → เภสัชกรตรวจสอบ → เก็บเข้าลิ้นชัก พร้อมจ่าย'],
+      dispense: ['จ่าย / เปลี่ยนกล่องให้หน่วยงาน', 'นำกล่องจากคลังไปจ่าย · บันทึกรับคืนกล่องเก่าพร้อมกันได้'],
+      return:   ['รับคืน Emergency Box เข้าห้องยา', 'รับกล่องที่หน่วยงานส่งคืน · ลงวันที่และผู้รับคืน'],
+    };
+    vals.formHeading = headings[mode][0];
+    vals.formSubheading = headings[mode][1];
+
+    const submitLabels = { register: 'บันทึกลงทะเบียนกล่อง', dispense: 'บันทึกการจ่าย / เปลี่ยนกล่อง', return: 'บันทึกการรับคืน' };
+    const formErrs = this.validateForm();
+    const formValid = formErrs.length === 0;
+    vals.submitEl = h('button', {
+      key: 'submit_' + mode + (formValid ? '_ok' : '_no'),
+      onClick: () => this.trySubmit(),
+      title: formValid ? '' : 'ต้องกรอก: ' + formErrs.join(' · '),
+      style: { display: 'flex', alignItems: 'center', gap: 9, height: 50, padding: '0 26px', border: 'none', borderRadius: 13, fontFamily: 'inherit', fontSize: 14.5, fontWeight: 600, cursor: 'pointer', color: '#fff', background: formValid ? theme.accent : '#AEBDC8', boxShadow: formValid ? `0 8px 24px ${theme.shadow}` : 'none', transition: 'all .25s cubic-bezier(.34,1.56,.64,1)' },
+    }, ic(ICONS.check, 18), h('span', null, submitLabels[mode]),
+       formValid ? null : h('span', { style: { fontSize: 11.5, fontWeight: 500, opacity: .92, marginLeft: 2 } }, `· ขาด ${formErrs.length} ช่อง`));
+
+    // reusable select builder
+    const chevron = "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none'><path d='M3 5l4 4 4-4' stroke='%237B8D9C' stroke-width='1.8' stroke-linecap='round'/></svg>\")";
+    const mkSelect = (value, onChange, ids, big) => h('select', {
+      value: ids.includes(value) ? value : (ids[0] || ''),
+      onChange,
+      style: { width: '100%', height: big ? 46 : 44, border: '1.5px solid #DBE4EB', borderRadius: big ? 11 : 10, padding: big ? '0 14px' : '0 12px', fontSize: big ? 14 : 13.5, color: '#15242E', background: `#fff ${chevron} no-repeat right 13px center`, cursor: 'pointer', appearance: 'none', WebkitAppearance: 'none' },
+    }, ids.length ? ids.map(id => h('option', { key: id, value: id }, id)) : h('option', { value: '' }, '— ไม่มีกล่อง —'));
+
+    const hint = (text, color, bg, border, dot) => h('div', {
+      style: { display: 'flex', alignItems: 'center', gap: 7, marginTop: 8, fontSize: 11.5, lineHeight: 1.45, color, background: bg, border: `1px solid ${border}`, borderRadius: 9, padding: '7px 10px' },
+    }, h('span', { style: { width: 7, height: 7, borderRadius: '50%', background: dot, flexShrink: 0 } }), h('span', null, text));
+
+    // box info card (read-only, shows registration data)
+    const boxInfoCard = (b, accentColor) => {
+      if (!b) return null;
+      const bexp = this.boxExpiryISO(b.id);
+      const status = this.statusOf(bexp);
+      const rows = [
+        ['วันหมดอายุยา', this.fmtISO(bexp), status.color],
+        ['กำหนดส่งคืน', this.fmt(this.addDays(bexp, -15)), '#15242E'],
+        ['สถานะ', status.label + ' · ' + this.daysText(bexp), status.color],
+      ];
+      if (b.dispense) { rows.unshift(['จ่ายให้', `${b.dept} · ${this.fmtISO(b.dispense)}`, '#15242E']); }
+      return h('div', { key: 'boxinfo_' + b.id, style: { display: 'grid', gridTemplateColumns: `repeat(${rows.length}, 1fr)`, gap: 1, background: '#EFF3F6', border: '1px solid #E7EEF3', borderRadius: 13, overflow: 'hidden' } },
+        ...rows.map((r, i) => h('div', { key: i, style: { background: '#FAFCFD', padding: '12px 14px' } },
+          h('div', { style: { fontSize: 11, color: '#9AAAB8', fontWeight: 500 } }, r[0]),
+          h('div', { style: { fontSize: 13.5, fontWeight: 700, color: r[2], marginTop: 3 } }, r[1]),
+        )),
+      );
+    };
+
+    // ===== STEP 1: REGISTER =====
+    vals.regEBSelectEl = mkSelect(st.regEB, (e) => this.setState({ regEB: e.target.value }), allIds, true);
+    vals.regMfg = st.regMfg;
+    vals.regPreparer = st.regPreparer;
+    vals.regChecker = st.regChecker;
+    vals.setRegMfg = (e) => this.setState({ regMfg: e.target.value });
+    vals.setRegPreparer = (e) => this.setState({ regPreparer: e.target.value });
+    vals.setRegChecker = (e) => this.setState({ regChecker: e.target.value });
+
+    // per-drug editable table for the selected EB (edits boxDrugs directly — single source of truth)
+    const regBD = st.boxDrugs || this.buildBoxDrugs();
+    const regList = regBD[st.regEB] || [];
+    const regNearISO = regList.length ? this.boxExpiryISO(st.regEB, regBD) : null;
+
+    // per-drug table with expandable lots
+    const warnIco = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M12 3.5l9 16H3l9-16z" fill="#EE8A2B"/><path d="M12 10v3.5M12 16.3v.1" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg>';
+    const rRows = regList.map((d, i) => {
+      const dExp = this.drugMinExp(d);
+      const isNear = dExp === regNearISO;
+      const totalQty = this.drugQty(d);
+      const qtyOk = totalQty >= d.par;
+      const lotRows = d.lots.map((lot, li) => {
+        const lotIsMin = lot.expiry === dExp && lot.expiry === regNearISO;
+        return h('div', { key: li, style: { display: 'flex', alignItems: 'center', gap: 8, marginTop: li > 0 ? 6 : 0 } },
+          h('span', { style: { fontSize: 10.5, color: '#9AAAB8', fontWeight: 600, width: 42, textAlign: 'right', flexShrink: 0 } }, `Lot ${li + 1}`),
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: 2, background: '#F7FAFC', border: '1.5px solid #DBE4EB', borderRadius: 9, overflow: 'hidden', height: 38 } },
+            h('button', { onClick: () => this.setLotField(st.regEB, i, li, 'qty', Math.max(0, (lot.qty || 0) - 1)), style: { width: 32, height: '100%', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 18, fontWeight: 700, color: '#7B8D9C', display: 'flex', alignItems: 'center', justifyContent: 'center' } }, '−'),
+            h('input', { type: 'number', min: 0, value: lot.qty, onChange: (e) => this.setLotField(st.regEB, i, li, 'qty', Math.max(0, parseInt(e.target.value || '0', 10))),
+              style: { width: 44, height: '100%', border: 'none', borderLeft: '1px solid #E7EEF3', borderRight: '1px solid #E7EEF3', textAlign: 'center', fontFamily: "'IBM Plex Mono', monospace", fontSize: 14, fontWeight: 600, color: '#15242E', background: 'transparent', outline: 'none' } }),
+            h('button', { onClick: () => this.setLotField(st.regEB, i, li, 'qty', (lot.qty || 0) + 1), style: { width: 32, height: '100%', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 18, fontWeight: 700, color: '#1A6FA3', display: 'flex', alignItems: 'center', justifyContent: 'center' } }, '+'),
+          ),
+          h('input', { type: 'date', value: lot.expiry, onChange: (e) => this.setLotField(st.regEB, i, li, 'expiry', e.target.value),
+            style: { width: 152, height: 38, border: lotIsMin ? '1.5px solid #EFB789' : '1.5px solid #DBE4EB', borderRadius: 9, padding: '0 10px', fontSize: 13, color: lotIsMin ? '#C2410C' : '#15242E', fontWeight: lotIsMin ? 600 : 400, background: lotIsMin ? '#FFFBF7' : '#fff', flexShrink: 0 } }),
+          d.lots.length > 1 ? h('button', { onClick: () => this.removeLot(st.regEB, i, li), title: 'ลบ Lot นี้', style: { width: 30, height: 30, flexShrink: 0, border: 'none', borderRadius: 7, background: '#FCEDED', color: '#E03E3E', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700 } }, '×') : null,
+        );
+      });
+      return h('div', { key: d.name, style: { padding: '12px 16px', borderBottom: i < regList.length - 1 ? '1px solid #F0F4F7' : 'none', background: isNear ? '#FFF7F1' : '#fff' } },
+        // drug header row
+        h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: d.lots.length > 0 ? 8 : 0 } },
+          h('span', { style: { fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, color: isNear ? '#C2410C' : '#B6C2CC', width: 22, textAlign: 'center', flexShrink: 0 } },
+            isNear ? h('span', { title: 'ใกล้หมดอายุที่สุด', style: { display: 'flex' }, dangerouslySetInnerHTML: { __html: warnIco } }) : String(i + 1).padStart(2, '0')),
+          h('div', { style: { display: 'flex', alignItems: 'baseline', gap: 7, flexWrap: 'wrap', minWidth: 0, flex: 1 } },
+            h('span', { style: { fontSize: 13.5, fontWeight: 600, color: '#15242E' } }, d.name),
+            d.had ? h('span', { style: { fontSize: 9.5, fontWeight: 700, color: '#C2410C', background: '#FCEEE3', borderRadius: 4, padding: '1px 5px' } }, 'HAD') : null),
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 } },
+            h('span', { style: { fontSize: 12, fontWeight: 600, color: qtyOk ? '#169C7F' : '#E03E3E', background: qtyOk ? '#E4F4EF' : '#FCEDED', borderRadius: 7, padding: '3px 9px', fontFamily: "'IBM Plex Mono', monospace" } }, `${totalQty}/${d.par}`),
+            h('button', { onClick: () => this.addLot(st.regEB, i), title: 'เพิ่ม Lot (ยาคนละวันหมดอายุ)', style: { height: 30, padding: '0 10px', border: '1.5px dashed #C3DDEC', borderRadius: 8, background: '#F7FAFC', color: '#1A6FA3', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 4 } }, '+ Lot')),
+        ),
+        // lot rows
+        h('div', { style: { paddingLeft: 32 } }, ...lotRows),
+      );
+    });
+    const rHeader = h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: '#F6F9FB', borderBottom: '1px solid #E7EEF3', fontSize: 11.5, color: '#7B8D9C', fontWeight: 600 } },
+      h('span', { style: { width: 22, textAlign: 'center', flexShrink: 0 } }, '#'),
+      h('span', { style: { flex: 1 } }, 'ชื่อยา'),
+      h('span', { style: { width: 68, textAlign: 'center' } }, 'รวม/par'),
+      h('span', { style: { width: 42 } }, ''));
+    vals.regDrugTableEl = h('div', null, rHeader, h('div', null, ...rRows));
+
+    // auto-detect banner: nearest-expiry drug + box expiry + return date (live)
+    const regNearDrug = regList.length ? regList.reduce((m, d) => this.drugMinExp(d) < this.drugMinExp(m) ? d : m, regList[0]) : null;
+    const detectBanner = h('div', { style: { display: 'flex', alignItems: 'stretch', gap: 0, borderRadius: 14, overflow: 'hidden', border: '1px solid #CBE3EE' } },
+      h('div', { style: { flex: 1, background: 'linear-gradient(120deg, #FFF4EC, #FDEEE4)', padding: '15px 18px', display: 'flex', alignItems: 'center', gap: 13 } },
+        h('span', { style: { width: 40, height: 40, flexShrink: 0, borderRadius: 11, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(238,138,43,.2)' }, dangerouslySetInnerHTML: { __html: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 3.5l9 16H3l9-16z" stroke="#EE8A2B" stroke-width="1.9" stroke-linejoin="round"/><path d="M12 10v4M12 16.5v.2" stroke="#EE8A2B" stroke-width="2" stroke-linecap="round"/></svg>' } }),
+        h('div', { style: { minWidth: 0 } },
+          h('div', { style: { fontSize: 11.5, color: '#9A5B33', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 } }, h('span', { style: { width: 6, height: 6, borderRadius: '50%', background: '#EE8A2B', animation: 'blinkDot 1s infinite' } }), 'ตรวจจับอัตโนมัติ · ยาที่ใกล้หมดอายุที่สุด'),
+          h('div', { style: { fontSize: 15, fontWeight: 700, color: '#15242E', marginTop: 3 } }, regNearDrug ? regNearDrug.name : '—'),
+          h('div', { style: { fontSize: 12, color: '#9A5B33', marginTop: 1 } }, regNearISO ? `หมดอายุ ${this.fmtISO(regNearISO)} · ${this.daysText(regNearISO)}` : '—'),
+        ),
+      ),
+      h('div', { style: { width: 220, flexShrink: 0, background: 'linear-gradient(120deg, #E8F2F8, #E4F4EF)', padding: '15px 18px', display: 'flex', flexDirection: 'column', justifyContent: 'center', borderLeft: '1px solid #CBE3EE' } },
+        h('div', { style: { fontSize: 11.5, color: '#4A6B7D', fontWeight: 600 } }, 'ต้องส่งคืน (−15 วัน อัตโนมัติ)'),
+        h('div', { style: { fontSize: 19, fontWeight: 700, color: '#14607E', marginTop: 2 } }, regNearISO ? this.fmt(this.addDays(regNearISO, -15)) : '—'),
+        h('div', { style: { display: 'flex', gap: 6, marginTop: 7 } },
+          h('span', { style: { fontSize: 10.5, fontWeight: 600, color: '#169C7F', background: '#fff', border: '1px solid #BFE6D9', borderRadius: 6, padding: '3px 8px' } }, 'LINE'),
+          h('span', { style: { fontSize: 10.5, fontWeight: 600, color: '#1A6FA3', background: '#fff', border: '1px solid #C3DDEC', borderRadius: 6, padding: '3px 8px' } }, 'Email')),
+      ),
+    );
+    const hadList = regList.filter(d => d.had).map(d => d.name);
+    const hadRow = hadList.length ? h('button', {
+      key: 'hadchk_' + st.regHadConfirm,
+      onClick: () => this.setState(s => ({ regHadConfirm: !s.regHadConfirm })),
+      style: { display: 'flex', alignItems: 'center', gap: 11, width: '100%', marginTop: 10, padding: '12px 14px', borderRadius: 12, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', background: st.regHadConfirm ? '#FBF0E8' : '#fff', border: st.regHadConfirm ? '1.5px solid #E8A06A' : '1.5px solid #F3D8C2' } },
+      h('span', { style: { width: 24, height: 24, flexShrink: 0, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', border: st.regHadConfirm ? '1.5px solid #C2410C' : '1.5px solid #E0A887', background: st.regHadConfirm ? '#C2410C' : '#fff' } },
+        st.regHadConfirm ? ic('<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>', 14) : null),
+      h('div', { style: { minWidth: 0 } },
+        h('div', { style: { fontSize: 13, fontWeight: 600, color: '#15242E', display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' } }, 'ยืนยันการตรวจสอบยา High Alert (HAD) แล้ว', h('span', { style: { fontSize: 10, fontWeight: 700, color: '#C2410C', background: '#FCEEE3', borderRadius: 5, padding: '1px 6px' } }, `${hadList.length} รายการ`)),
+        h('div', { style: { fontSize: 11.5, color: '#9A5B33', marginTop: 2 } }, 'เภสัชกรตรวจสอบชนิด/ความเข้มข้น/จำนวนยา HAD ครบถ้วนก่อนปิดกล่อง')),
+    ) : null;
+    vals.regAutoDetectEl = h(React.Fragment, null, detectBanner, hadRow);
+
+    // ===== STEP 2: DISPENSE / SWAP =====
+    vals.dispEBSelectEl = mkSelect(st.dispEB, (e) => this.setState({ dispEB: e.target.value }), inStockIds, true);
+    vals.dispHintEl = hint(`พร้อมจ่าย ${inStockIds.length} กล่อง · กล่องที่จ่ายไปแล้วต้องรับคืนก่อน จึงจะจ่ายรหัสเดิมซ้ำได้`, '#1A6FA3', '#EEF5FA', '#D3E6F1', '#169C7F');
+    vals.dispDate = st.dispDate;
+    vals.dispenser = st.dispenser;
+    vals.setDispDate = (e) => this.setState({ dispDate: e.target.value });
+    vals.setDispenser = (e) => this.setState({ dispenser: e.target.value });
+    const dispBox = this.BOXES.find(b => b.id === (inStockIds.includes(st.dispEB) ? st.dispEB : inStockIds[0]));
+    let dispWarn = null;
+    if (dispBox) {
+      const dexp = this.boxExpiryISO(dispBox.id);
+      const dstatus = this.statusOf(dexp);
+      const dlist = (regBD[dispBox.id]) || [];
+      const low = dlist.filter(d => this.drugQty(d) < d.par);
+      if (dstatus.key === 'critical') {
+        dispWarn = hint(`⚠ กล่องนี้ใกล้/เกินกำหนดส่งคืนแล้ว (หมดอายุ ${this.fmtISO(dexp)}) — ไม่ควรจ่ายออก ระบบจะให้ยืนยันอีกครั้ง`, '#B42121', '#FCEDED', '#F4C9C9', '#E03E3E');
+      } else if (low.length) {
+        dispWarn = hint(`กล่องอาจไม่ครบ — มียาต่ำกว่ามาตรฐาน ${low.length} รายการ ตรวจสอบก่อนจ่าย`, '#B5740F', '#FBF1E0', '#F0DDB8', '#EE8A2B');
+      }
+    }
+    vals.dispBoxInfoEl = h(React.Fragment, null, boxInfoCard(dispBox, '#1A6FA3'), dispWarn);
+
+    const deptList = ['ER', 'WARD', 'LR'];
+    vals.deptChipsEl = h(React.Fragment, null, ...deptList.map(d => {
+      const on = st.formDept === d;
+      return h('button', {
+        key: d + (on ? '_on' : '_off'), onClick: () => this.setState({ formDept: d }),
+        style: { flex: 1, height: 46, borderRadius: 11, fontFamily: 'inherit', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', transition: 'all .22s cubic-bezier(.34,1.56,.64,1)', background: on ? '#1A6FA3' : '#fff', color: on ? '#fff' : '#5A6B79', border: on ? '1.5px solid #1A6FA3' : '1.5px solid #DBE4EB', boxShadow: on ? '0 4px 14px rgba(26,111,163,.24)' : 'none' },
+      }, d);
+    }));
+
+    vals.toggleSwap = () => this.setState(s => ({ swapReturn: !s.swapReturn }));
+    vals.swapReturn = st.swapReturn;
+    vals.swapCheckEl = h('span', { key: 'swapchk_' + st.swapReturn, style: { width: 24, height: 24, flexShrink: 0, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', border: st.swapReturn ? '1.5px solid #1A6FA3' : '1.5px solid #C4D0DA', background: st.swapReturn ? '#1A6FA3' : '#fff' } },
+      st.swapReturn ? ic('<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>', 14) : null);
+    vals.swapEBSelectEl = mkSelect(st.swapEB, (e) => this.setState({ swapEB: e.target.value }), outIds, false);
+    vals.swapReturnDate = st.swapReturnDate;
+    vals.swapReceiver = st.swapReceiver;
+    vals.setSwapReturnDate = (e) => this.setState({ swapReturnDate: e.target.value });
+    vals.setSwapReceiver = (e) => this.setState({ swapReceiver: e.target.value });
+
+    // ===== STEP 3: RETURN =====
+    vals.retEBSelectEl = mkSelect(st.retEB, (e) => this.setState({ retEB: e.target.value }), outIds, true);
+    vals.retHintEl = hint(`ค้างรับคืน ${outIds.length} กล่อง · เลือกได้เฉพาะกล่องที่ถูกจ่ายออกไปและยังไม่ได้คืน`, '#B5740F', '#FBF1E0', '#F0DDB8', '#EE8A2B');
+    vals.retDate = st.retDate;
+    vals.retReceiver = st.retReceiver;
+    vals.setRetDate = (e) => this.setState({ retDate: e.target.value });
+    vals.setRetReceiver = (e) => this.setState({ retReceiver: e.target.value });
+    vals.retBoxInfoEl = boxInfoCard(this.BOXES.find(b => b.id === (outIds.includes(st.retEB) ? st.retEB : outIds[0])), '#169C7F');
+
+    vals.resetForm = () => this.resetForm();
+
+    // ----- DETAIL -----
+    const BD = st.boxDrugs || this.buildBoxDrugs();
+    const canEdit = st.currentUser && st.currentUser.role !== 'nurse';
+    vals.ebChipsEl = h(React.Fragment, null, ...this.BOXES.map(b => {
+      const on = st.selectedEB === b.id;
+      const status = this.statusOf(this.boxExpiryISO(b.id, BD));
+      return h('button', {
+        key: b.id + (on ? '_on' : '_off'), onClick: () => this.setState({ selectedEB: b.id }),
+        style: { display: 'inline-flex', alignItems: 'center', gap: 8, padding: '9px 15px', borderRadius: 11, fontFamily: "'IBM Plex Mono', monospace", fontSize: 13, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all .22s cubic-bezier(.34,1.56,.64,1)', background: on ? '#15242E' : '#fff', color: on ? '#fff' : '#4A5C6A', border: on ? '1.5px solid #15242E' : '1.5px solid #E5EBF0' },
+      },
+        h('span', { style: { width: 8, height: 8, borderRadius: '50%', background: status.color, flexShrink: 0 } }),
+        h('span', null, b.id)
+      );
+    }));
+    const box = this.BOXES.find(b => b.id === st.selectedEB) || this.BOXES[0];
+    const boxExp = this.boxExpiryISO(box.id, BD);
+    const bStatus = this.statusOf(boxExp);
+    const returned = !!box.receiver;
+    const dispensed = !!box.dispense;
+    const meta = (st.boxMeta || {})[box.id] || {};
+    vals.box = {
+      id: box.id, dept: box.dept, statusLabel: bStatus.label, color: bStatus.color, soft: bStatus.soft, border: bStatus.border,
+      mfgText: this.fmtISO(meta.mfg || box.mfg), expiryText: this.fmtISO(boxExp),
+      nearDrug: this.nearDrugOf(box.id, BD),
+      returnText: this.fmt(this.addDays(boxExp, -15)),
+      dispenseText: dispensed ? this.fmtISO(box.dispense) : 'ยังไม่ถูกเบิก',
+      dispenser: dispensed ? box.dispenser : 'อยู่ในคลังพร้อมใช้',
+      returnStateText: returned ? `รับคืนแล้ว` : (dispensed ? 'ยังไม่รับคืน — รออยู่ที่หน่วยงาน' : 'อยู่ในคลัง'),
+      receiver: returned ? `โดย ${box.receiver}` : (dispensed ? `กำหนดส่งคืน ${this.fmt(this.addDays(boxExp, -15))}` : 'พร้อมจ่าย'),
+      returnColor: returned ? '#169C7F' : bStatus.color,
+      returnSoft: returned ? '#E4F4EF' : bStatus.soft,
+    };
+
+    // edit toggle (role-gated)
+    const editing = st.editDrugs;
+    if (!canEdit) {
+      vals.editToggleEl = h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#9AAAB8', fontWeight: 600, background: '#F1F5F8', borderRadius: 8, padding: '6px 11px' } },
+        h('span', { style: { display: 'flex' }, dangerouslySetInnerHTML: { __html: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M3 12s4-6 9-6 9 6 9 6-4 6-9 6-9-6-9-6z" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="2.5" stroke="currentColor" stroke-width="1.8"/></svg>' } }), h('span', null, 'ดูอย่างเดียว'));
+    } else if (!editing) {
+      vals.editToggleEl = h('button', { key: 'edit_off', onClick: () => this.startEditDrugs(),
+        style: { display: 'inline-flex', alignItems: 'center', gap: 7, height: 36, padding: '0 14px', borderRadius: 10, border: '1.5px solid #C3DDEC', background: '#E8F0F6', color: '#1A6FA3', fontFamily: 'inherit', fontSize: 13, fontWeight: 600, cursor: 'pointer' } },
+        h('span', { style: { display: 'flex' }, dangerouslySetInnerHTML: { __html: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M16.5 3.5l4 4L8 20l-4.5 1L4.5 16.5 16.5 3.5z" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></svg>' } }), h('span', null, 'แก้ไขข้อมูลยา'));
+    } else {
+      vals.editToggleEl = h(React.Fragment, { key: 'edit_on' },
+        h('button', { onClick: () => this.saveEditDrugs(),
+          style: { display: 'inline-flex', alignItems: 'center', gap: 7, height: 36, padding: '0 16px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg, #1A6FA3, #168C84)', color: '#fff', fontFamily: 'inherit', fontSize: 13, fontWeight: 600, cursor: 'pointer', marginRight: 8, boxShadow: '0 4px 12px rgba(26,111,163,.26)' } },
+          h('span', { style: { display: 'flex' }, dangerouslySetInnerHTML: { __html: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>' } }), h('span', null, 'บันทึก')),
+        h('button', { onClick: () => this.cancelEditDrugs(),
+          style: { height: 36, padding: '0 14px', borderRadius: 10, border: '1.5px solid #DBE4EB', background: '#fff', color: '#4A5C6A', fontFamily: 'inherit', fontSize: 13, fontWeight: 600, cursor: 'pointer' } }, 'ยกเลิก'));
+    }
+
+    // drug table (view / edit) — lots model
+    const drugs = BD[box.id] || [];
+    const headerRow = h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, padding: '0 4px 10px', borderBottom: '1px solid #EFF3F6', fontSize: 11.5, color: '#9AAAB8', fontWeight: 600 } },
+      h('span', { style: { width: 22 } }, '#'), h('span', { style: { flex: 1 } }, 'ชื่อยา'), h('span', { style: { width: 68, textAlign: 'center' } }, 'จำนวน/par'), h('span', { style: { width: 180, textAlign: 'right' } }, 'วันหมดอายุ'));
+    const rows = drugs.map((d, i) => {
+      const dExp = this.drugMinExp(d);
+      const totalQ = this.drugQty(d);
+      const qtyOk = totalQ >= d.par;
+      const isNearDrug = dExp === this.boxExpiryISO(box.id, BD);
+      const lotEls = d.lots.map((lot, li) => {
+        const lotIsMin = lot.expiry === dExp && isNearDrug;
+        const status = lot.expiry ? this.statusOf(lot.expiry) : null;
+        if (editing) {
+          return h('div', { key: li, style: { display: 'flex', alignItems: 'center', gap: 6, marginTop: li > 0 ? 5 : 0 } },
+            h('span', { style: { fontSize: 10, color: '#9AAAB8', width: 34, textAlign: 'right', flexShrink: 0 } }, 'Lot '+(li+1)),
+            h('div', { style: { display: 'flex', alignItems: 'center', gap: 1, background: '#F7FAFC', border: '1.5px solid #DBE4EB', borderRadius: 8, overflow: 'hidden', height: 34 } },
+              h('button', { onClick: () => this.setLotField(box.id, i, li, 'qty', Math.max(0, (lot.qty||0)-1)), style: { width: 28, height: '100%', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 16, fontWeight: 700, color: '#7B8D9C' } }, '−'),
+              h('input', { type: 'number', min: 0, value: lot.qty, onChange: (e) => this.setLotField(box.id, i, li, 'qty', Math.max(0, parseInt(e.target.value||'0',10))),
+                style: { width: 36, height: '100%', border: 'none', borderLeft: '1px solid #E7EEF3', borderRight: '1px solid #E7EEF3', textAlign: 'center', fontFamily: "'IBM Plex Mono', monospace", fontSize: 13, fontWeight: 600, background: 'transparent', outline: 'none' } }),
+              h('button', { onClick: () => this.setLotField(box.id, i, li, 'qty', (lot.qty||0)+1), style: { width: 28, height: '100%', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 16, fontWeight: 700, color: '#1A6FA3' } }, '+'),
+            ),
+            h('input', { type: 'date', value: lot.expiry, onChange: (e) => this.setLotField(box.id, i, li, 'expiry', e.target.value),
+              style: { width: 140, height: 34, border: '1.5px solid #DBE4EB', borderRadius: 8, padding: '0 8px', fontSize: 12.5, color: '#15242E', flexShrink: 0 } }),
+            d.lots.length > 1 ? h('button', { onClick: () => this.removeLot(box.id, i, li), style: { width: 26, height: 26, flexShrink: 0, border: 'none', borderRadius: 6, background: '#FCEDED', color: '#E03E3E', cursor: 'pointer', fontSize: 13, fontWeight: 700 } }, '×') : null,
+          );
+        }
+        return h('div', { key: li, style: { display: 'flex', alignItems: 'center', gap: 6, marginTop: li > 0 ? 4 : 0 } },
+          d.lots.length > 1 ? h('span', { style: { fontSize: 10, color: '#9AAAB8', width: 34, textAlign: 'right', flexShrink: 0 } }, 'Lot '+(li+1)) : null,
+          h('span', { style: { fontFamily: "'IBM Plex Mono', monospace", fontSize: 12.5, fontWeight: 500, color: '#4A5C6A', minWidth: 24 } }, lot.qty),
+          h('span', { style: { color: '#B6C2CC', fontSize: 11 } }, '×'),
+          h('span', { style: { fontSize: 12, color: lotIsMin ? '#C2410C' : '#4A5C6A', fontWeight: lotIsMin ? 600 : 400 } }, this.fmtISO(lot.expiry)),
+          status ? h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10.5, fontWeight: 600, color: status.color, background: status.soft, borderRadius: 16, padding: '2px 8px' } },
+            h('span', { style: { width: 5, height: 5, borderRadius: '50%', background: status.color } }), this.daysText(lot.expiry)) : null,
+        );
+      });
+      return h('div', { key: d.name, style: { padding: '11px 4px', borderBottom: '1px solid #F4F7F9', background: isNearDrug ? '#FFF8F2' : 'transparent' } },
+        h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: d.lots.length > 0 ? 6 : 0 } },
+          h('span', { style: { fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, color: '#B6C2CC', width: 22, textAlign: 'center', flexShrink: 0 } }, String(i+1).padStart(2,'0')),
+          h('div', { style: { flex: 1, minWidth: 0, display: 'flex', alignItems: 'baseline', gap: 7, flexWrap: 'wrap' } },
+            h('span', { style: { fontSize: 13.5, fontWeight: 500 } }, d.name),
+            d.had ? h('span', { style: { fontSize: 9.5, fontWeight: 700, color: '#C2410C', background: '#FCEEE3', borderRadius: 4, padding: '1px 5px' } }, 'HAD') : null),
+          h('span', { style: { fontSize: 12, fontWeight: 600, color: qtyOk ? '#169C7F' : '#E03E3E', background: qtyOk ? '#E4F4EF' : '#FCEDED', borderRadius: 7, padding: '3px 9px', fontFamily: "'IBM Plex Mono', monospace", flexShrink: 0 } }, totalQ+'/'+d.par),
+          editing ? h('button', { onClick: () => this.addLot(box.id, i), style: { height: 28, padding: '0 9px', border: '1.5px dashed #C3DDEC', borderRadius: 7, background: '#F7FAFC', color: '#1A6FA3', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 } }, '+Lot') : null,
+        ),
+        h('div', { style: { paddingLeft: 32 } }, ...lotEls),
+      );
+    });
+    vals.drugTableEl = h('div', null, headerRow, h('div', null, ...rows));
+
+    // footer summary
+    const totalQty = drugs.reduce((s, d) => s + this.drugQty(d), 0);
+    const totalPar = drugs.reduce((s, d) => s + d.par, 0);
+    const lowCount = drugs.filter(d => this.drugQty(d) < d.par).length;
+    vals.drugFooterEl = h('div', { style: { display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', marginTop: 14, paddingTop: 14, borderTop: '1px solid #EFF3F6', fontSize: 12.5, color: '#7B8D9C' } },
+      h('span', null, 'รวมจำนวนยา ', h('b', { style: { color: '#15242E', fontFamily: "'IBM Plex Mono', monospace" } }, totalQty+'/'+totalPar), ' หน่วย'),
+      h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, h('span', { style: { width: 6, height: 6, borderRadius: '50%', background: bStatus.color } }), 'ใกล้หมดอายุสุด ', h('b', { style: { color: bStatus.color } }, this.fmtISO(boxExp))),
+      lowCount ? h('span', { style: { color: '#E03E3E', fontWeight: 600 } }, '· ยาต่ำกว่า par '+lowCount+' รายการ') : null,
+      editing ? h('span', { style: { marginLeft: 'auto', color: '#1A6FA3', fontWeight: 600 } }, 'กำลังแก้ไข — กด "บันทึก" เพื่อยืนยัน') : null);
+
+    // ----- HISTORY -----
+    const LOG = st.auditLog || this.AUDIT;
+    vals.query = st.query;
+    vals.setQuery = (e) => this.setState({ query: e.target.value });
+    const filters = [{ k: 'all', l: 'ทั้งหมด' }, { k: 'จ่าย', l: 'จ่าย' }, { k: 'รับคืน', l: 'รับคืน' }, { k: 'ลงทะเบียน', l: 'ลงทะเบียน' }, { k: 'แก้ไขยา', l: 'แก้ไข' }, { k: 'user', l: 'ผู้ใช้/ระบบ' }];
+    const userCats = ['user', 'auth'];
+    vals.filterChipsEl = h(React.Fragment, null, ...filters.map(f => {
+      const on = st.filter === f.k;
+      return h('button', {
+        key: f.k + (on ? '_on' : '_off'), onClick: () => this.setState({ filter: f.k }),
+        style: { height: 46, padding: '0 15px', borderRadius: 11, fontFamily: 'inherit', fontSize: 13, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all .15s', background: on ? '#15242E' : '#fff', color: on ? '#fff' : '#5A6B79', border: on ? '1.5px solid #15242E' : '1.5px solid #DBE4EB' },
+      }, f.l);
+    }));
+    const q = st.query.trim().toLowerCase();
+    const filtered = LOG.filter(r => {
+      if (st.filter === 'user') { if (!userCats.includes(r.cat)) return false; }
+      else if (st.filter !== 'all' && r.action !== st.filter) return false;
+      if (!q) return true;
+      return [r.eb, r.dept, r.person, r.drug, r.action].some(x => (x || '').toLowerCase().includes(q));
+    });
+    const catStyle = (r) => {
+      if (r.cat === 'dispense') return { icon: '→', color: '#1A6FA3', soft: '#E8F0F6' };
+      if (r.cat === 'return') return { icon: '←', color: '#169C7F', soft: '#E4F4EF' };
+      if (r.cat === 'register') return { icon: '＋', color: '#7C5CD6', soft: '#EFEAFB' };
+      if (r.cat === 'edit') return { icon: '✎', color: '#D9810F', soft: '#FBF1E0' };
+      if (r.cat === 'auth') return { icon: '⎋', color: '#5A6B79', soft: '#EEF2F6' };
+      if (r.cat === 'user') return { icon: '◆', color: '#B42121', soft: '#FCEDED' };
+      return { icon: '•', color: '#5A6B79', soft: '#EEF2F6' };
+    };
+    vals.filteredAudit = filtered.map((r, i) => {
+      const cs = catStyle(r);
+      return {
+        key: i, datetime: `${this.fmtISO(r.date).replace(/ \d{4}$/, m => m)} · ${r.time}`,
+        action: r.action, eb: r.eb, dept: r.dept, person: r.person, drug: r.drug,
+        icon: cs.icon, color: cs.color, soft: cs.soft,
+      };
+    });
+    vals.auditCount = filtered.length;
+
+    // ===== USER MANAGEMENT (admin) =====
+    vals.showActionMsg = !!st.actionMsg;
+    vals.actionMsg = st.actionMsg;
+    vals.showAddUser = st.showAddUser;
+    vals.openAddUser = () => this.setState({ showAddUser: true });
+    vals.closeAddUser = () => this.setState({ showAddUser: false });
+    vals.stop = (e) => { e.stopPropagation(); };
+
+    // role summary cards
+    const roleOrder = ['admin', 'pharmacist', 'technician', 'nurse'];
+    vals.roleSummaryEl = h(React.Fragment, null, ...roleOrder.map(rk => {
+      const r = this.ROLES[rk];
+      const count = st.users.filter(u => u.role === rk).length;
+      return h('div', { key: rk, style: { background: '#fff', border: `1px solid ${r.border}`, borderRadius: 14, padding: '15px 16px' } },
+        h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' } },
+          h('span', { style: { fontSize: 12.5, fontWeight: 600, color: r.color } }, r.label),
+          h('span', { style: { width: 9, height: 9, borderRadius: '50%', background: r.color } }),
+        ),
+        h('div', { style: { fontFamily: "'IBM Plex Mono', monospace", fontSize: 28, fontWeight: 600, marginTop: 8, color: '#15242E' } }, String(count)),
+        h('div', { style: { fontSize: 11.5, color: '#9AAAB8' } }, 'บัญชี'),
+      );
+    }));
+
+    // users table rows
+    const chevron2 = "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none'><path d='M3 5l3 3 3-3' stroke='%237B8D9C' stroke-width='1.8' stroke-linecap='round'/></svg>\")";
+    const isSelfRow = (u) => st.currentUser && u.id === st.currentUser.id;
+    vals.usersTableEl = h(React.Fragment, null, ...st.users.map(u => {
+      const r = this.ROLES[u.role];
+      const suspended = u.status === 'suspended';
+      const initials = u.name.replace(/^(ภก\.|พว\.|จพ\.|ภญ\.)\s*/, '').trim().slice(0, 2);
+      return h('div', { key: u.id, style: { display: 'grid', gridTemplateColumns: '1.4fr 1fr 1.3fr 1fr 1.4fr 150px', gap: 0, alignItems: 'center', padding: '13px 22px', borderBottom: '1px solid #F4F7F9', fontSize: 13, opacity: suspended ? 0.62 : 1 } },
+        // name + avatar + status dot
+        h('div', { style: { display: 'flex', alignItems: 'center', gap: 11, minWidth: 0 } },
+          h('span', { style: { width: 34, height: 34, flexShrink: 0, borderRadius: '50%', background: r.soft, color: r.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 12.5 } }, initials),
+          h('div', { style: { minWidth: 0 } },
+            h('div', { style: { fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, u.name, isSelfRow(u) ? h('span', { style: { fontSize: 10.5, color: '#1A6FA3', background: '#E8F0F6', borderRadius: 5, padding: '1px 6px', marginLeft: 6, fontWeight: 600 } }, 'คุณ') : null),
+            h('div', { style: { fontSize: 11, marginTop: 1, display: 'flex', alignItems: 'center', gap: 5, color: suspended ? '#B42121' : '#169C7F' } },
+              h('span', { style: { width: 6, height: 6, borderRadius: '50%', background: suspended ? '#E03E3E' : '#169C7F' } }),
+              suspended ? 'ถูกระงับ' : 'ใช้งานอยู่'),
+          ),
+        ),
+        h('span', { style: { fontFamily: "'IBM Plex Mono', monospace", fontSize: 12.5, color: '#4A5C6A' } }, u.username),
+        // role select
+        h('div', null, h('select', {
+          value: u.role, onChange: (e) => this.setUserRole(u.id, e.target.value),
+          style: { height: 36, border: `1.5px solid ${r.border}`, borderRadius: 9, padding: '0 28px 0 10px', fontSize: 12.5, fontWeight: 600, color: r.color, background: `${r.soft} ${chevron2} no-repeat right 9px center`, cursor: 'pointer', appearance: 'none', WebkitAppearance: 'none', fontFamily: 'inherit' },
+        }, roleOrder.map(rk => h('option', { key: rk, value: rk, style: { color: '#15242E', background: '#fff' } }, this.ROLES[rk].label)))),
+        h('span', { style: { fontSize: 12.5, color: '#4A5C6A' } }, u.dept),
+        h('span', { style: { fontSize: 12, color: '#7B8D9C' } }, u.lastLogin),
+        // actions
+        h('div', { style: { display: 'flex', gap: 6, justifyContent: 'flex-end' } },
+          this.iconBtn('reset', 'รีเซ็ตรหัสผ่าน', '#7C5CD6', '#EFEAFB', () => this.resetUserPw(u.id)),
+          this.iconBtn(suspended ? 'unlock' : 'lock', suspended ? 'เปิดใช้งาน' : 'ระงับบัญชี', suspended ? '#169C7F' : '#D9810F', suspended ? '#E4F4EF' : '#FBF1E0', () => {
+            if (suspended) { this.toggleUserStatus(u.id); }
+            else this.askConfirm({ tone: 'warn', icon: 'lock', title: 'ระงับบัญชีผู้ใช้?', body: `${u.name} (${u.username}) จะเข้าระบบไม่ได้จนกว่าจะเปิดใช้งานอีกครั้ง`, yesLabel: 'ระงับบัญชี', noLabel: 'ยกเลิก', onYes: () => this.toggleUserStatus(u.id) });
+          }),
+          isSelfRow(u) ? null : this.iconBtn('trash', 'ลบบัญชี', '#E03E3E', '#FCEDED', () => this.askConfirm({ tone: 'danger', icon: 'trash', title: 'ลบบัญชีผู้ใช้ถาวร?', body: `ลบ ${u.name} (${u.username}) ออกจากระบบ การกระทำนี้ย้อนกลับไม่ได้`, yesLabel: 'ลบถาวร', noLabel: 'ยกเลิก', onYes: () => this.deleteUser(u.id) })),
+        ),
+      );
+    }));
+
+    // permissions matrix
+    const perms = {
+      admin: ['จัดการผู้ใช้ทั้งหมด', 'ดู/แก้ไขทุกหน้า', 'ตั้งค่าระบบ & แจ้งเตือน', 'ส่งออกข้อมูล'],
+      pharmacist: ['ลงทะเบียน/ตรวจสอบกล่อง', 'จ่าย / รับคืน', 'ดู Dashboard & ประวัติ', 'ส่งออกข้อมูล'],
+      technician: ['ลงทะเบียน/จัดกล่อง', 'จ่าย / รับคืน', 'ดู Dashboard', '— ไม่จัดการผู้ใช้'],
+      nurse: ['ดู Dashboard', 'ดูสถานะกล่อง', '— ไม่บันทึกรายการ', '— ไม่จัดการผู้ใช้'],
+    };
+    vals.permMatrixEl = h(React.Fragment, null, ...roleOrder.map(rk => {
+      const r = this.ROLES[rk];
+      return h('div', { key: rk, style: { border: `1px solid ${r.border}`, borderRadius: 12, padding: '13px 14px', background: '#FBFCFD' } },
+        h('div', { style: { fontSize: 12.5, fontWeight: 700, color: r.color, marginBottom: 9 } }, r.label),
+        ...perms[rk].map((p, i) => {
+          const no = p.startsWith('—');
+          return h('div', { key: i, style: { display: 'flex', alignItems: 'flex-start', gap: 7, fontSize: 11.5, color: no ? '#AEB9C3' : '#4A5C6A', marginBottom: 5 } },
+            h('span', { style: { color: no ? '#C4D0DA' : '#169C7F', flexShrink: 0, marginTop: 1, display: 'flex' }, dangerouslySetInnerHTML: { __html: no
+              ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>'
+              : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>' } }),
+            h('span', null, no ? p.replace(/^—\s*/, '') : p));
+        }),
+      );
+    }));
+
+    // add-user modal fields
+    vals.nu_name = st.nu_name;
+    vals.nu_username = st.nu_username;
+    vals.nu_dept = st.nu_dept;
+    vals.nu_pass = st.nu_pass;
+    vals.setNuName = (e) => this.setState({ nu_name: e.target.value });
+    vals.setNuUsername = (e) => this.setState({ nu_username: e.target.value });
+    vals.setNuDept = (e) => this.setState({ nu_dept: e.target.value });
+    vals.setNuPass = (e) => this.setState({ nu_pass: e.target.value });
+    vals.submitAddUser = () => this.addUser();
+    vals.nuRoleChipsEl = h(React.Fragment, null, ...roleOrder.map(rk => {
+      const r = this.ROLES[rk];
+      const on = st.nu_role === rk;
+      return h('button', { key: rk + (on ? '_on' : '_off'), onClick: () => this.setState({ nu_role: rk }),
+        style: { display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 13px', borderRadius: 10, fontFamily: 'inherit', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', transition: 'all .15s', background: on ? r.soft : '#fff', color: on ? r.color : '#5A6B79', border: on ? `1.5px solid ${r.color}` : '1.5px solid #E5EBF0' },
+      }, h('span', { style: { width: 7, height: 7, borderRadius: '50%', background: on ? r.color : '#C4D0DA' } }), r.label);
+    }));
+
+    // ===== confirm dialog =====
+    const cf = st.confirm;
+    vals.showConfirm = !!cf;
+    if (cf) {
+      const tone = cf.tone === 'danger' ? { c: '#E03E3E', soft: '#FCEDED' } : (cf.tone === 'warn' ? { c: '#D9810F', soft: '#FBF1E0' } : { c: '#1A6FA3', soft: '#E8F0F6' });
+      const cIco = { warn: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 3.5l9 16H3l9-16z" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/><path d="M12 10v4.5M12 17.3v.2" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/></svg>',
+        trash: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M5 7h14M10 7V5a1.5 1.5 0 0 1 1.5-1.5h1A1.5 1.5 0 0 1 14 5v2M6.5 7l.7 12a2 2 0 0 0 2 1.9h5.6a2 2 0 0 0 2-1.9l.7-12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+        lock: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none"><rect x="4.5" y="10.5" width="15" height="9.5" rx="2.5" stroke="currentColor" stroke-width="1.9"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>',
+        logout: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M14 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 12h10m0 0l-3-3m3 3l-3 3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>' }[cf.icon || 'warn'];
+      vals.confirmEl = h('div', { onClick: () => this.closeConfirm(), style: { position: 'fixed', inset: 0, background: 'rgba(14,42,60,.5)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 300, animation: 'overlayIn .2s ease both' } },
+        h('div', { onClick: (e) => e.stopPropagation(), style: { width: '100%', maxWidth: 420, background: '#fff', borderRadius: 20, padding: '26px 26px 22px', boxShadow: '0 24px 60px rgba(14,42,60,.4)', animation: 'modalPop .3s cubic-bezier(.2,.9,.2,1) both' } },
+          h('div', { style: { display: 'flex', gap: 14, marginBottom: 18 } },
+            h('span', { style: { width: 48, height: 48, flexShrink: 0, borderRadius: 13, background: tone.soft, color: tone.c, display: 'flex', alignItems: 'center', justifyContent: 'center' }, dangerouslySetInnerHTML: { __html: cIco } }),
+            h('div', null,
+              h('div', { style: { fontSize: 16.5, fontWeight: 700, color: '#15242E' } }, cf.title),
+              h('div', { style: { fontSize: 13, color: '#6B7C8A', marginTop: 5, lineHeight: 1.55 } }, cf.body))),
+          h('div', { style: { display: 'flex', gap: 10, marginTop: 4 } },
+            h('button', { onClick: () => this.runConfirm(), style: { flex: 1, height: 47, border: 'none', borderRadius: 12, background: tone.c, color: '#fff', fontFamily: 'inherit', fontSize: 14, fontWeight: 600, cursor: 'pointer' } }, cf.yesLabel || 'ยืนยัน'),
+            h('button', { onClick: () => this.closeConfirm(), style: { height: 47, padding: '0 20px', border: '1.5px solid #DBE4EB', background: '#fff', color: '#4A5C6A', borderRadius: 12, fontFamily: 'inherit', fontSize: 14, fontWeight: 600, cursor: 'pointer' } }, cf.noLabel || 'ยกเลิก'))));
+    } else vals.confirmEl = null;
+
+    // ===== idle warning =====
+    vals.showIdle = st.authed && st.idleWarn;
+    vals.idleEl = (st.authed && st.idleWarn) ? h('div', { style: { position: 'fixed', inset: 0, background: 'rgba(14,42,60,.55)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 320, animation: 'overlayIn .2s ease both' } },
+      h('div', { style: { width: '100%', maxWidth: 380, background: '#fff', borderRadius: 20, padding: '26px', textAlign: 'center', boxShadow: '0 24px 60px rgba(14,42,60,.4)', animation: 'modalPop .3s cubic-bezier(.2,.9,.2,1) both' } },
+        h('div', { style: { width: 54, height: 54, margin: '0 auto 14px', borderRadius: '50%', background: '#FBF1E0', color: '#D9810F', display: 'flex', alignItems: 'center', justifyContent: 'center' }, dangerouslySetInnerHTML: { __html: '<svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M12 7v5l3 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.8"/></svg>' } }),
+        h('div', { style: { fontSize: 17, fontWeight: 700 } }, 'ไม่มีการใช้งาน'),
+        h('div', { style: { fontSize: 13, color: '#6B7C8A', marginTop: 6, lineHeight: 1.55 } }, 'ระบบจะออกจากระบบอัตโนมัติใน 1 นาที เพื่อความปลอดภัยของข้อมูลผู้ป่วย'),
+        h('button', { onClick: () => this.staySignedIn(), style: { width: '100%', height: 47, marginTop: 18, border: 'none', borderRadius: 12, background: 'linear-gradient(135deg, #1A6FA3, #168C84)', color: '#fff', fontFamily: 'inherit', fontSize: 14, fontWeight: 600, cursor: 'pointer' } }, 'ใช้งานต่อ'))) : null;
+
+    // ===== box edit history (detail) =====
+    const bh = (st.boxHist || {})[st.selectedEB] || [];
+    vals.boxHistEl = bh.length ? h(React.Fragment, null, ...bh.map((e, i) => h('div', { key: i, style: { display: 'flex', gap: 10, alignItems: 'flex-start', padding: '8px 0', borderBottom: i < bh.length - 1 ? '1px solid #F4F7F9' : 'none' } },
+      h('span', { style: { width: 7, height: 7, flexShrink: 0, borderRadius: '50%', background: '#1A6FA3', marginTop: 6 } }),
+      h('div', { style: { minWidth: 0 } }, h('div', { style: { fontSize: 12.5, color: '#15242E', fontWeight: 500 } }, e.text), h('div', { style: { fontSize: 11, color: '#9AAAB8', marginTop: 1 } }, `${e.who} · ${e.stamp}`))))) : h('div', { style: { fontSize: 12, color: '#9AAAB8', padding: '4px 0' } }, 'ยังไม่มีประวัติการแก้ไขในเซสชันนี้');
+
+    return vals;
+  }
+}
+</script>
+</body>
+</html>
