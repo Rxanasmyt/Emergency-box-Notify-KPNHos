@@ -4,9 +4,35 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Emergency Box Management & Alert System</title>
+<meta name="description" content="ระบบจัดการและแจ้งเตือน Emergency Box ฝ่ายเภสัชกรรม โรงพยาบาลกรงปินัง">
+<meta name="theme-color" content="#1A6FA3">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="EB Notify">
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="./icons/icon-192.svg">
+<!-- React -->
 <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<!-- Firebase v10 compat -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<!-- App runtime -->
 <script src="./support.js"></script>
+<script src="./firebase-init.js"></script>
+<script src="./firebase-sync.js"></script>
+<!-- PWA Service Worker -->
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js')
+        .then(r => console.log('[SW] Registered:', r.scope))
+        .catch(e => console.warn('[SW] Registration failed:', e));
+    });
+  }
+</script>
 </head>
 <body>
 <x-dc>
@@ -938,6 +964,10 @@ class Component extends DCLogic {
     this._resetIdle = () => this.bumpIdle();
     this._idleEvents.forEach(ev => window.addEventListener(ev, this._resetIdle, true));
     this.bumpIdle();
+    // Firebase real-time sync
+    if (window.EB_Sync) {
+      window.EB_Sync.initFirebaseSync(this);
+    }
   }
   componentWillUnmount() {
     (this._idleEvents || []).forEach(ev => window.removeEventListener(ev, this._resetIdle, true));
@@ -965,6 +995,7 @@ class Component extends DCLogic {
     const person = entry.person || (this.state.currentUser ? this.state.currentUser.name : 'ระบบ');
     const row = { date: this.isoOf(this.TODAY), time: this.nowTime(), person, ...entry };
     this.setState(s => ({ auditLog: [row, ...(s.auditLog || [])] }));
+    if (window.EB_Sync) window.EB_Sync.logAudit(row);
   }
   logBoxHist(boxId, text) {
     const who = this.state.currentUser ? this.state.currentUser.name : 'ระบบ';
