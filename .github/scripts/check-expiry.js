@@ -54,9 +54,11 @@ async function fetchExpiringDrugs() {
   const boxSnap = await db.collection('boxes').get();
   const boxes = {};
   boxSnap.forEach(doc => { boxes[doc.id] = doc.data(); });
+  console.log(`📦 boxes collection: ${boxSnap.size} documents`);
 
   // Get all box_drugs
   const bdSnap = await db.collection('box_drugs').get();
+  console.log(`💊 box_drugs collection: ${bdSnap.size} documents`);
   bdSnap.forEach(doc => {
     const data = doc.data();
     const boxId = doc.id;
@@ -258,9 +260,13 @@ async function sendEmail(alerts) {
   const to   = process.env.EMAIL_TO;
   if (!from || !pass || !to) { console.log('⚠️  Email: ไม่ได้ตั้งค่า secrets (EMAIL_FROM / EMAIL_PASS / EMAIL_TO)'); return false; }
 
+  console.log(`📧 Email: from=${from} to=${to}`);
+
   const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: { user: from, pass },
+    logger: true,
+    debug: true,
   });
 
   const expired  = alerts.filter(a => a.status === 'expired').length;
@@ -298,7 +304,9 @@ async function main() {
   }
 
   if (!alerts.length) {
-    console.log('✅ ไม่พบยาใกล้หมดอายุ — ไม่ต้องแจ้งเตือน');
+    console.log(`\n✅ ไม่พบยาใกล้หมดอายุภายใน ${THRESHOLD_DAYS} วัน — ไม่ต้องแจ้งเตือน`);
+    console.log('💡 หมายเหตุ: ถ้าในแอปมียาแต่ที่นี่บอกว่าไม่พบ → ข้อมูลใน Firestore อาจยังไม่ถูก sync');
+    console.log('   กรุณาเปิดแอปแล้ว login ด้วย admin เพื่อให้ระบบ sync ข้อมูลขึ้น Firestore');
     process.exit(0);
   }
 
@@ -309,15 +317,24 @@ async function main() {
 
   console.log(`📊 สรุป: หมดอายุแล้ว ${expired} | วิกฤต ${critical} | ใกล้กำหนด ${warning} | เตือนล่วงหน้า ${notice}\n`);
 
-  const results = await Promise.all([
-    process.env.LINE_CHANNEL_TOKEN
-      ? sendLineMessage(process.env.LINE_CHANNEL_TOKEN, buildLineMessage(alerts), process.env.LINE_USER_ID || '')
-      : Promise.resolve(false).then(() => console.log('⚠️  LINE: ไม่ได้ตั้งค่า LINE_CHANNEL_TOKEN')),
-    sendEmail(alerts),
-  ]);
+  const lineResult = process.env.LINE_CHANNEL_TOKEN
+    ? await sendLineMessage(process.env.LINE_CHANNEL_TOKEN, buildLineMessage(alerts), process.env.LINE_USER_ID || '')
+    : (console.log('⚠️  LINE: ไม่ได้ตั้งค่า LINE_CHANNEL_TOKEN'), false);
 
-  const success = results.some(Boolean);
-  console.log(success ? '\n✅ แจ้งเตือนสำเร็จ' : '\n⚠️  ไม่ได้ส่งการแจ้งเตือน (ยังไม่ตั้งค่า secrets)');
+  const emailResult = await sendEmail(alerts);
+
+  console.log('\n── สรุปผลการแจ้งเตือน ──');
+  console.log(`LINE:  ${lineResult ? '✅ สำเร็จ' : '❌ ล้มเหลว / ไม่ได้ตั้งค่า'}`);
+  console.log(`Email: ${emailResult ? '✅ สำเร็จ' : '❌ ล้มเหลว / ไม่ได้ตั้งค่า'}`);
+
+  // ต้องส่งได้อย่างน้อย 1 ช่องทาง — ถ้าไม่ได้เลย exit 1 ให้ GitHub Actions แสดงสีแดง
+  const atLeastOneConfigured = process.env.LINE_CHANNEL_TOKEN || (process.env.EMAIL_FROM && process.env.EMAIL_PASS && process.env.EMAIL_TO);
+  if (atLeastOneConfigured && !lineResult && !emailResult) {
+    console.error('\n❌ การแจ้งเตือนล้มเหลวทุกช่องทาง');
+    process.exit(1);
+  }
+
+  console.log(lineResult || emailResult ? '\n✅ แจ้งเตือนสำเร็จ' : '\n⚠️  ไม่ได้ตั้งค่า secrets — ข้ามการแจ้งเตือน');
 }
 
 main().catch(err => { console.error(err); process.exit(1); });
