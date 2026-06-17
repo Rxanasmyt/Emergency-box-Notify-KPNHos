@@ -1,0 +1,36 @@
+name: Daily Drug Expiry Notification
+
+on:
+  schedule:
+    - cron: '0 1 * * *'   # 08:00 น. เวลาไทย (UTC+7 = 01:00 UTC)
+  workflow_dispatch:        # กดรันมือได้จาก GitHub Actions tab
+
+jobs:
+  notify:
+    name: Check Expiry & Send Alerts
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: .github/scripts/package.json
+
+      - name: Install dependencies
+        run: npm install
+        working-directory: .github/scripts
+
+      - name: Run expiry check & send notifications
+        run: node .github/scripts/check-expiry.js
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          LINE_NOTIFY_TOKEN:        ${{ secrets.LINE_NOTIFY_TOKEN }}
+          EMAIL_FROM:               ${{ secrets.EMAIL_FROM }}
+          EMAIL_PASS:               ${{ secrets.EMAIL_PASS }}
+          EMAIL_TO:                 ${{ secrets.EMAIL_TO }}
+          NOTIFY_DAYS_AHEAD:        ${{ vars.NOTIFY_DAYS_AHEAD || '30' }}
