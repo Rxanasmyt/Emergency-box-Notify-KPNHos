@@ -1,0 +1,14 @@
+{
+  "hosting": {
+    "public": ".",
+    "ignore": ["node_modules/**", "scripts/**", ".git/**", "firebase-debug.log", "firestore.rules", "firebase.json", ".firebaserc", "*.md"],
+    "rewrites": [{"source": "**", "destination": "/index.html"}],
+    "headers": [
+      {"source": "**/*.@(js|svg|css)", "headers": [{"key": "Cache-Control", "value": "public, max-age=3600, stale-while-revalidate=86400"}]},
+      {"source": "sw.js", "headers": [{"key": "Cache-Control", "value": "no-cache, no-store, must-revalidate"}]},
+      {"source": "**/*.html", "headers": [{"key": "Cache-Control", "value": "no-cache"}]},
+      {"source": "manifest.json", "headers": [{"key": "Cache-Control", "value": "public, max-age=3600"}, {"key": "Content-Type", "value": "application/manifest+json"}]}
+    ]
+  },
+  "firestore": {"rules": "firestore.rules"}
+}

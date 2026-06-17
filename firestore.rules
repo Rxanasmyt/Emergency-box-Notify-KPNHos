@@ -1,0 +1,58 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    function userRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isAdmin() {
+      return isAuth() && userRole() == 'admin';
+    }
+
+    function isPharmacist() {
+      return isAuth() && (userRole() == 'pharmacist' || userRole() == 'admin');
+    }
+
+    match /boxes/{boxId} {
+      allow read: if isAuth();
+      allow write: if isPharmacist();
+      allow create: if isPharmacist()
+        && request.resource.data.keys().hasAll(['dept', 'expiry'])
+        && request.resource.data.dept is string
+        && request.resource.data.expiry is string;
+    }
+
+    match /box_drugs/{boxId} {
+      allow read: if isAuth();
+      allow write: if isPharmacist();
+      allow create: if isPharmacist()
+        && request.resource.data.keys().hasAll(['boxId', 'drugs'])
+        && request.resource.data.drugs is list;
+    }
+
+    match /audit_log/{entryId} {
+      allow read: if isAuth();
+      allow create: if isAuth()
+        && request.resource.data.keys().hasAll(['date', 'action', 'eb'])
+        && request.resource.data.date is string
+        && request.resource.data.action is string;
+      allow update, delete: if isAdmin();
+    }
+
+    match /users/{userId} {
+      allow read: if isAuth();
+      allow write: if isAdmin();
+      allow read: if isAuth() && request.auth.uid == userId;
+      allow create: if isAdmin()
+        && request.resource.data.keys().hasAll(['name', 'role'])
+        && request.resource.data.name is string
+        && request.resource.data.role in ['admin', 'pharmacist', 'nurse', 'viewer'];
+    }
+  }
+}
