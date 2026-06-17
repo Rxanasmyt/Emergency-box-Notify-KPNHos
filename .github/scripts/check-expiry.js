@@ -137,34 +137,53 @@ function buildLineMessage(alerts) {
   return msg;
 }
 
-// ── Send LINE Notify ───────────────────────────────────────────
-function sendLineNotify(token, message) {
-  return new Promise((resolve, reject) => {
-    const body = 'message=' + encodeURIComponent(message);
+// ── Send LINE Messaging API ────────────────────────────────────
+// ส่งแบบ push (ถ้ามี LINE_USER_ID) หรือ broadcast (ส่งถึงทุก follower)
+function sendLineMessage(channelToken, message, userId) {
+  return new Promise((resolve) => {
+    const useBroadcast = !userId;
+    const path = useBroadcast
+      ? '/v2/bot/message/broadcast'
+      : '/v2/bot/message/push';
+
+    // LINE Messaging API รองรับข้อความสูงสุด 5000 ตัวอักษร ต่อ message object
+    const messages = [];
+    // ถ้าข้อความยาวเกิน แยกส่ง 2 bubble
+    if (message.length > 4500) {
+      messages.push({ type: 'text', text: message.slice(0, 4500) });
+      messages.push({ type: 'text', text: message.slice(4500) });
+    } else {
+      messages.push({ type: 'text', text: message });
+    }
+
+    const payload = JSON.stringify(
+      useBroadcast ? { messages } : { to: userId, messages }
+    );
+
     const req = https.request({
-      hostname: 'notify-api.line.me',
-      path: '/api/notify',
+      hostname: 'api.line.me',
+      path,
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Content-Length': Buffer.byteLength(body),
+        'Authorization': `Bearer ${channelToken}`,
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(payload),
       },
     }, res => {
       let data = '';
       res.on('data', chunk => { data += chunk; });
       res.on('end', () => {
         if (res.statusCode === 200) {
-          console.log('✅ LINE Notify: ส่งสำเร็จ');
+          console.log(`✅ LINE Messaging API: ส่งสำเร็จ (${useBroadcast ? 'broadcast' : `push → ${userId}`})`);
           resolve(true);
         } else {
-          console.error(`❌ LINE Notify: ${res.statusCode} — ${data}`);
+          console.error(`❌ LINE Messaging API: ${res.statusCode} — ${data}`);
           resolve(false);
         }
       });
     });
-    req.on('error', err => { console.error('❌ LINE Notify error:', err.message); resolve(false); });
-    req.write(body);
+    req.on('error', err => { console.error('❌ LINE error:', err.message); resolve(false); });
+    req.write(payload);
     req.end();
   });
 }
@@ -291,9 +310,9 @@ async function main() {
   console.log(`📊 สรุป: หมดอายุแล้ว ${expired} | วิกฤต ${critical} | ใกล้กำหนด ${warning} | เตือนล่วงหน้า ${notice}\n`);
 
   const results = await Promise.all([
-    process.env.LINE_NOTIFY_TOKEN
-      ? sendLineNotify(process.env.LINE_NOTIFY_TOKEN, buildLineMessage(alerts))
-      : Promise.resolve(false).then(() => console.log('⚠️  LINE: ไม่ได้ตั้งค่า LINE_NOTIFY_TOKEN')),
+    process.env.LINE_CHANNEL_TOKEN
+      ? sendLineMessage(process.env.LINE_CHANNEL_TOKEN, buildLineMessage(alerts), process.env.LINE_USER_ID || '')
+      : Promise.resolve(false).then(() => console.log('⚠️  LINE: ไม่ได้ตั้งค่า LINE_CHANNEL_TOKEN')),
     sendEmail(alerts),
   ]);
 

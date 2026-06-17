@@ -29,7 +29,8 @@ jobs:
         run: node .github/scripts/check-expiry.js
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          LINE_NOTIFY_TOKEN:        ${{ secrets.LINE_NOTIFY_TOKEN }}
+          LINE_CHANNEL_TOKEN:       ${{ secrets.LINE_CHANNEL_TOKEN }}
+          LINE_USER_ID:             ${{ secrets.LINE_USER_ID }}
           EMAIL_FROM:               ${{ secrets.EMAIL_FROM }}
           EMAIL_PASS:               ${{ secrets.EMAIL_PASS }}
           EMAIL_TO:                 ${{ secrets.EMAIL_TO }}
