@@ -23,6 +23,8 @@
 <script src="./support.js"></script>
 <script src="./firebase-init.js"></script>
 <script src="./firebase-sync.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<script src="./notify.js"></script>
 <!-- PWA Service Worker -->
 <script>
   if ('serviceWorker' in navigator) {
@@ -692,6 +694,129 @@
       </div>
       </sc-if>
 
+      <!-- ===== NOTIFY SETTINGS ===== -->
+      <sc-if value="{{ isNotify }}" hint-placeholder-val="{{ false }}">
+      <div style="max-width: 860px; margin: 0 auto; animation: fadeUp .45s ease both;">
+
+        <!-- Expiry Alert Banner -->
+        <sc-if value="{{ hasExpiryAlerts }}" hint-placeholder-val="{{ false }}">
+        <div style="background: linear-gradient(135deg, #FCEDED, #FBF1E0); border: 1.5px solid #F4C9C9; border-radius: 16px; padding: 20px 24px; margin-bottom: 20px;">
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+            <span style="font-size: 22px;">🔔</span>
+            <span style="font-size: 15px; font-weight: 700; color: #B42121;">พบยาที่ต้องดำเนินการ {{ expiryAlertCount }} รายการ</span>
+          </div>
+          <div style="font-size: 13px; color: #7B4019; line-height: 1.7;">{{ expiryAlertSummary }}</div>
+        </div>
+        </sc-if>
+
+        <!-- Email Settings -->
+        <div style="background: #fff; border: 1px solid #E7EEF3; border-radius: 16px; padding: 24px 28px; margin-bottom: 16px;">
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 18px;">
+            <span style="width: 36px; height: 36px; border-radius: 10px; background: #E8F0F6; color: #1A6FA3; display: flex; align-items: center; justify-content: center;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="14" rx="3" stroke="currentColor" stroke-width="1.8"/><path d="M3 8l9 5 9-5" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+            </span>
+            <div>
+              <div style="font-size: 15px; font-weight: 700; color: #15242E;">แจ้งเตือนผ่าน Email</div>
+              <div style="font-size: 12px; color: #7B8D9C;">ใช้ EmailJS (ฟรี 200 email/เดือน)</div>
+            </div>
+            <label style="margin-left: auto; position: relative; width: 46px; height: 26px; cursor: pointer;">
+              <input type="checkbox" onchange="{{ toggleEmailEnabled }}" style="opacity:0;width:0;height:0;position:absolute">
+              <span style="position:absolute;inset:0;border-radius:13px;transition:all .3s;background:{{ notifyEmailEnabled ? '#1A6FA3' : '#D1D9E0' }}"></span>
+              <span style="position:absolute;top:3px;left:{{ notifyEmailEnabled ? '23px' : '3px' }};width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:all .3s"></span>
+            </label>
+          </div>
+          <sc-if value="{{ notifyEmailEnabled }}" hint-placeholder-val="{{ false }}">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div>
+              <label style="font-size: 12px; font-weight: 600; color: #5A6B79; display: block; margin-bottom: 4px;">EmailJS Public Key</label>
+              <input type="text" value="{{ notifyEmailjsPublicKey }}" oninput="{{ setEmailjsPublicKey }}" placeholder="เช่น abc123XYZ..." style="width:100%;height:40px;border:1.5px solid #DBE4EB;border-radius:10px;padding:0 12px;font-size:13px;color:#15242E">
+            </div>
+            <div>
+              <label style="font-size: 12px; font-weight: 600; color: #5A6B79; display: block; margin-bottom: 4px;">Service ID</label>
+              <input type="text" value="{{ notifyEmailjsServiceId }}" oninput="{{ setEmailjsServiceId }}" placeholder="เช่น service_xxxxx" style="width:100%;height:40px;border:1.5px solid #DBE4EB;border-radius:10px;padding:0 12px;font-size:13px;color:#15242E">
+            </div>
+            <div>
+              <label style="font-size: 12px; font-weight: 600; color: #5A6B79; display: block; margin-bottom: 4px;">Template ID</label>
+              <input type="text" value="{{ notifyEmailjsTemplateId }}" oninput="{{ setEmailjsTemplateId }}" placeholder="เช่น template_xxxxx" style="width:100%;height:40px;border:1.5px solid #DBE4EB;border-radius:10px;padding:0 12px;font-size:13px;color:#15242E">
+            </div>
+            <div>
+              <label style="font-size: 12px; font-weight: 600; color: #5A6B79; display: block; margin-bottom: 4px;">Email ผู้รับ</label>
+              <input type="email" value="{{ notifyRecipientEmail }}" oninput="{{ setRecipientEmail }}" placeholder="pharmacy@hospital.go.th" style="width:100%;height:40px;border:1.5px solid #DBE4EB;border-radius:10px;padding:0 12px;font-size:13px;color:#15242E">
+            </div>
+          </div>
+          </sc-if>
+        </div>
+
+        <!-- LINE Settings -->
+        <div style="background: #fff; border: 1px solid #E7EEF3; border-radius: 16px; padding: 24px 28px; margin-bottom: 16px;">
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 18px;">
+            <span style="width: 36px; height: 36px; border-radius: 10px; background: #E4F4EF; color: #06C755; display: flex; align-items: center; justify-content: center;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 2C6.48 2 2 5.82 2 10.5c0 2.34 1.1 4.47 2.88 6.06L4 22l4.35-2.38c1.14.35 2.38.54 3.65.54 5.52 0 10-3.82 10-8.5S17.52 2 12 2z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+            </span>
+            <div>
+              <div style="font-size: 15px; font-weight: 700; color: #15242E;">แจ้งเตือนผ่าน LINE</div>
+              <div style="font-size: 12px; color: #7B8D9C;">ใส่ Webhook URL ของ LINE Bot / LINE Notify</div>
+            </div>
+            <label style="margin-left: auto; position: relative; width: 46px; height: 26px; cursor: pointer;">
+              <input type="checkbox" onchange="{{ toggleLineEnabled }}" style="opacity:0;width:0;height:0;position:absolute">
+              <span style="position:absolute;inset:0;border-radius:13px;transition:all .3s;background:{{ notifyLineEnabled ? '#06C755' : '#D1D9E0' }}"></span>
+              <span style="position:absolute;top:3px;left:{{ notifyLineEnabled ? '23px' : '3px' }};width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:all .3s"></span>
+            </label>
+          </div>
+          <sc-if value="{{ notifyLineEnabled }}" hint-placeholder-val="{{ false }}">
+          <div>
+            <label style="font-size: 12px; font-weight: 600; color: #5A6B79; display: block; margin-bottom: 4px;">LINE Webhook URL</label>
+            <input type="url" value="{{ notifyLineWebhookUrl }}" oninput="{{ setLineWebhookUrl }}" placeholder="https://api.line.me/v2/bot/message/push หรือ Webhook URL อื่น" style="width:100%;height:40px;border:1.5px solid #DBE4EB;border-radius:10px;padding:0 12px;font-size:13px;color:#15242E">
+          </div>
+          </sc-if>
+        </div>
+
+        <!-- Browser Notification -->
+        <div style="background: #fff; border: 1px solid #E7EEF3; border-radius: 16px; padding: 24px 28px; margin-bottom: 16px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="width: 36px; height: 36px; border-radius: 10px; background: #EFEAFB; color: #7C5CD6; display: flex; align-items: center; justify-content: center;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2C7.6 2 4 5.6 4 10v4l-2 2v1h20v-1l-2-2v-4c0-4.4-3.6-8-8-8z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 19a3 3 0 0 0 6 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            </span>
+            <div>
+              <div style="font-size: 15px; font-weight: 700; color: #15242E;">แจ้งเตือนบน Browser</div>
+              <div style="font-size: 12px; color: #7B8D9C;">แสดง notification บนหน้าจอเมื่อเข้าระบบ</div>
+            </div>
+            <label style="margin-left: auto; position: relative; width: 46px; height: 26px; cursor: pointer;">
+              <input type="checkbox" onchange="{{ toggleBrowserEnabled }}" style="opacity:0;width:0;height:0;position:absolute">
+              <span style="position:absolute;inset:0;border-radius:13px;transition:all .3s;background:{{ notifyBrowserEnabled ? '#7C5CD6' : '#D1D9E0' }}"></span>
+              <span style="position:absolute;top:3px;left:{{ notifyBrowserEnabled ? '23px' : '3px' }};width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:all .3s"></span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Threshold + Actions -->
+        <div style="background: #fff; border: 1px solid #E7EEF3; border-radius: 16px; padding: 24px 28px; margin-bottom: 16px;">
+          <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
+            <div>
+              <label style="font-size: 12px; font-weight: 600; color: #5A6B79; display: block; margin-bottom: 4px;">แจ้งเตือนล่วงหน้า (วัน)</label>
+              <input type="number" value="{{ notifyThresholdDays }}" oninput="{{ setThresholdDays }}" min="1" max="90" style="width:100px;height:40px;border:1.5px solid #DBE4EB;border-radius:10px;padding:0 12px;font-size:14px;color:#15242E;text-align:center">
+            </div>
+            <button onclick="{{ saveNotifySettings }}" style="height:40px;padding:0 24px;background:#1A6FA3;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:16px">
+              <span style="display:flex;align-items:center;gap:6px">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                บันทึกการตั้งค่า
+              </span>
+            </button>
+            <button onclick="{{ testNotify }}" style="height:40px;padding:0 24px;background:#fff;color:#1A6FA3;border:1.5px solid #1A6FA3;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:16px">
+              <span style="display:flex;align-items:center;gap:6px">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M22 2L11 13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M22 2l-7 20-4-9-9-4 20-7z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+                ทดสอบส่งแจ้งเตือน
+              </span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Last sent info -->
+        <div style="text-align: center; font-size: 12px; color: #7B8D9C; margin-top: 8px;">{{ notifyLastSentText }}</div>
+
+      </div>
+      </sc-if>
+
     </div>
   </main>
 
@@ -827,11 +952,6 @@ class Component extends DCLogic {
     reauthError: '',
     users: [
       { id: 1, name: 'ผู้ดูแลระบบ', username: 'admin', password: '1234', role: 'admin', dept: 'IT / ห้องยา', status: 'active', lastLogin: '16 มิ.ย. 2569 08:10' },
-      { id: 2, name: 'ภก. สมหญิง รักษา', username: 'pharm01', password: '1234', role: 'pharmacist', dept: 'ห้องยา', status: 'active', lastLogin: '16 มิ.ย. 2569 07:42' },
-      { id: 3, name: 'ภก. ธนพล ศรีสุข', username: 'pharm02', password: '1234', role: 'pharmacist', dept: 'ห้องยา', status: 'active', lastLogin: '15 มิ.ย. 2569 20:15' },
-      { id: 4, name: 'จพ. กนกพร ใจงาม', username: 'tech01', password: '1234', role: 'technician', dept: 'ห้องยา', status: 'active', lastLogin: '15 มิ.ย. 2569 16:30' },
-      { id: 5, name: 'พว. อนงค์ ใจดี', username: 'nurse01', password: '1234', role: 'nurse', dept: 'WARD', status: 'active', lastLogin: '14 มิ.ย. 2569 09:05' },
-      { id: 6, name: 'พว. ชุติมา แสงทอง', username: 'nurse02', password: '1234', role: 'nurse', dept: 'ER', status: 'suspended', lastLogin: '02 มิ.ย. 2569 11:20' },
     ],
   };
 
@@ -1102,7 +1222,17 @@ class Component extends DCLogic {
     }
     this.setState({ authed: true, currentUser: u, loginError: '', attempts: 0, locked: false, loginPass: '', screen: 'dashboard',
       users: this.state.users.map(x => x.id === u.id ? { ...x, lastLogin: `${this.fmt(this.TODAY)} ${this.nowTime()}` } : x) });
-    setTimeout(() => { this.logAction({ cat: 'auth', action: 'เข้าระบบ', eb: '—', dept: u.dept, drug: 'เข้าสู่ระบบสำเร็จ' }); this.bumpIdle(); }, 0);
+    setTimeout(() => {
+      this.logAction({ cat: 'auth', action: 'เข้าระบบ', eb: '—', dept: u.dept, drug: 'เข้าสู่ระบบสำเร็จ' });
+      this.bumpIdle();
+      if (window.EB_Notify) {
+        window.EB_Notify.checkAndNotify(this, false).then(result => {
+          if (result.alerts.length) {
+            this.setState({ expiryAlerts: result.alerts, showExpiryBanner: true });
+          }
+        });
+      }
+    }, 500);
   }
   logout() {
     this.setState({ authed: false, currentUser: null, loginUser: '', loginPass: '', showPass: false, screen: 'dashboard' });
@@ -1274,6 +1404,7 @@ class Component extends DCLogic {
       detail:    ['รายละเอียดกล่อง Emergency Box', 'ตรวจสอบยา 10 รายการ วันหมดอายุ และประวัติการใช้งานรายกล่อง'],
       history:   ['ประวัติย้อนหลัง · Audit Log', 'บันทึกการทำรายการทุกครั้ง 100% ตรวจสอบย้อนหลังและส่งออกได้'],
       users:     ['จัดการผู้ใช้งานระบบ', 'ผู้ดูแลระบบกำหนดบทบาท สิทธิ์ รีเซ็ตรหัสผ่าน และระงับบัญชี'],
+      notify:    ['ตั้งค่าแจ้งเตือน · Notifications', 'ตั้งค่าการแจ้งเตือนยาใกล้หมดอายุผ่าน Email, LINE และ Browser'],
     };
 
     const vals = {
@@ -1282,6 +1413,7 @@ class Component extends DCLogic {
       isDetail: screen === 'detail',
       isHistory: screen === 'history',
       isUsers: screen === 'users',
+      isNotify: screen === 'notify',
       pageTitle: (titles[screen] || titles.dashboard)[0],
       pageSub: (titles[screen] || titles.dashboard)[1],
       goDashboard: () => this.go('dashboard'),
@@ -1367,6 +1499,52 @@ class Component extends DCLogic {
     vals.userInitials = cu ? (cu.name.replace(/^(ภก\.|พว\.|จพ\.|ภญ\.)\s*/, '').trim().slice(0, 2)) : '?';
     vals.userAvatarBg = cu ? cuRole.soft : '#DCEAF2';
     vals.userAvatarColor = cu ? cuRole.color : '#1A6FA3';
+    // ===== NOTIFY SETTINGS =====
+    const nfSettings = window.EB_Notify ? window.EB_Notify.loadSettings() : {};
+    vals.notifyEmailEnabled = !!nfSettings.emailEnabled;
+    vals.notifyLineEnabled = !!nfSettings.lineEnabled;
+    vals.notifyBrowserEnabled = nfSettings.browserEnabled !== false;
+    vals.notifyEmailjsPublicKey = nfSettings.emailjsPublicKey || '';
+    vals.notifyEmailjsServiceId = nfSettings.emailjsServiceId || '';
+    vals.notifyEmailjsTemplateId = nfSettings.emailjsTemplateId || '';
+    vals.notifyRecipientEmail = nfSettings.recipientEmail || '';
+    vals.notifyLineWebhookUrl = nfSettings.lineWebhookUrl || '';
+    vals.notifyThresholdDays = nfSettings.thresholdDays || 30;
+    vals.toggleEmailEnabled = () => { const s = window.EB_Notify.loadSettings(); s.emailEnabled = !s.emailEnabled; window.EB_Notify.saveSettings(s); this.setState({}); };
+    vals.toggleLineEnabled = () => { const s = window.EB_Notify.loadSettings(); s.lineEnabled = !s.lineEnabled; window.EB_Notify.saveSettings(s); this.setState({}); };
+    vals.toggleBrowserEnabled = () => { const s = window.EB_Notify.loadSettings(); s.browserEnabled = !s.browserEnabled; window.EB_Notify.saveSettings(s); if (s.browserEnabled) window.EB_Notify.requestBrowserPermission(); this.setState({}); };
+    vals.setEmailjsPublicKey = (e) => { const s = window.EB_Notify.loadSettings(); s.emailjsPublicKey = e.target.value; window.EB_Notify.saveSettings(s); };
+    vals.setEmailjsServiceId = (e) => { const s = window.EB_Notify.loadSettings(); s.emailjsServiceId = e.target.value; window.EB_Notify.saveSettings(s); };
+    vals.setEmailjsTemplateId = (e) => { const s = window.EB_Notify.loadSettings(); s.emailjsTemplateId = e.target.value; window.EB_Notify.saveSettings(s); };
+    vals.setRecipientEmail = (e) => { const s = window.EB_Notify.loadSettings(); s.recipientEmail = e.target.value; window.EB_Notify.saveSettings(s); };
+    vals.setLineWebhookUrl = (e) => { const s = window.EB_Notify.loadSettings(); s.lineWebhookUrl = e.target.value; window.EB_Notify.saveSettings(s); };
+    vals.setThresholdDays = (e) => { const s = window.EB_Notify.loadSettings(); s.thresholdDays = parseInt(e.target.value) || 30; window.EB_Notify.saveSettings(s); };
+    vals.saveNotifySettings = () => {
+      const s = window.EB_Notify.loadSettings();
+      window.EB_Notify.saveToFirestore(s);
+      this.logAction({ cat: 'other', action: 'ตั้งค่าแจ้งเตือน', eb: '—', dept: '—', drug: 'บันทึกการตั้งค่าแจ้งเตือน Email/LINE' });
+      this.setState({ showToast: true, toastTitle: 'บันทึกการตั้งค่าแจ้งเตือนเรียบร้อย' });
+      clearTimeout(this._t); this._t = setTimeout(() => this.setState({ showToast: false }), 2500);
+    };
+    vals.testNotify = () => {
+      window.EB_Notify.checkAndNotify(this, true).then(result => {
+        if (result.alerts.length) {
+          this.setState({ expiryAlerts: result.alerts, showExpiryBanner: true, showToast: true, toastTitle: `ส่งแจ้งเตือนแล้ว (${result.alerts.length} รายการ)` });
+        } else {
+          this.setState({ showToast: true, toastTitle: 'ไม่พบยาใกล้หมดอายุ' });
+        }
+        clearTimeout(this._t); this._t = setTimeout(() => this.setState({ showToast: false }), 2500);
+      });
+    };
+    const alerts = st.expiryAlerts || [];
+    vals.hasExpiryAlerts = alerts.length > 0;
+    vals.expiryAlertCount = alerts.length;
+    const expd = alerts.filter(a => a.status === 'expired').length;
+    const crit = alerts.filter(a => a.status === 'critical').length;
+    vals.expiryAlertSummary = (expd ? `หมดอายุแล้ว ${expd} รายการ · ` : '') + (crit ? `วิกฤต ${crit} รายการ · ` : '') + `ทั้งหมด ${alerts.length} รายการ`;
+    const lastSent = localStorage.getItem('eb_notify_last_sent');
+    vals.notifyLastSentText = lastSent ? `ส่งแจ้งเตือนล่าสุด: ${lastSent}` : 'ยังไม่เคยส่งแจ้งเตือน';
+
     vals.doLogout = () => this.askConfirm({ tone: 'plain', icon: 'logout', title: 'ออกจากระบบ?', body: 'คุณจะถูกนำกลับไปหน้าเข้าสู่ระบบ', yesLabel: 'ออกจากระบบ', noLabel: 'อยู่ต่อ', onYes: () => { this.logAction({ cat: 'auth', action: 'ออกระบบ', eb: '—', dept: '—', drug: 'ออกจากระบบโดยผู้ใช้' }); this.logout(); } });
 
     // nav rendered as React elements (style must refresh each render)
@@ -1378,6 +1556,7 @@ class Component extends DCLogic {
     ];
     const isAdmin = st.currentUser && st.currentUser.role === 'admin';
     if (isAdmin) navDefs.push({ key: 'users', label: 'จัดการผู้ใช้งาน', svg: ICONS.users });
+    if (isAdmin) navDefs.push({ key: 'notify', label: 'ตั้งค่าแจ้งเตือน', svg: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2C7.6 2 4 5.6 4 10v4l-2 2v1h20v-1l-2-2v-4c0-4.4-3.6-8-8-8z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 19a3 3 0 0 0 6 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>' });
     vals.navEl = h(React.Fragment, null, ...navDefs.map(d => {
       const on = screen === d.key;
       return h('button', {
