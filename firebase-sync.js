@@ -20,7 +20,16 @@ async function seedIfEmpty(){
       const ab=db.batch();
       component.AUDIT.forEach((a,i)=>{const ref=db.collection(C.audit).doc('audit-'+i);ab.set(ref,a);});
       await ab.commit();
-      console.log('[Sync] Defaults seeded.');
+    }
+    // seed box_drugs separately — may be empty even when boxes exist
+    const bdSnap=await db.collection(C.boxDrugs).limit(1).get();
+    if(bdSnap.empty){
+      console.log('[Sync] Seeding box_drugs...');
+      const bd=component.buildBoxDrugs();
+      const bb=db.batch();
+      Object.entries(bd).forEach(([boxId,drugs])=>{bb.set(db.collection(C.boxDrugs).doc(boxId),{boxId,drugs,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});});
+      await bb.commit();
+      console.log('[Sync] box_drugs seeded.');
     }
   }catch(err){console.warn('[Sync] Seed failed (offline?):', err.message);}
 }
