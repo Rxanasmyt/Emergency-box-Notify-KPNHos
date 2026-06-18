@@ -340,6 +340,88 @@ async function sendEmail(alerts) {
   }
 }
 
+// ── All-clear email (Monday, no alerts) ───────────────────────
+function buildAllClearHtml(boxCount) {
+  const dateStr = new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+  return `<!DOCTYPE html>
+<html lang="th">
+<head><meta charset="utf-8"><title>EB Notify — ปลอดภัย</title></head>
+<body style="margin:0;padding:20px;background:#F0F4F8;font-family:'Sarabun',Arial,sans-serif">
+  <div style="max-width:640px;margin:0 auto">
+    <div style="background:linear-gradient(135deg,#169C7F 0%,#1A6FA3 100%);padding:28px 32px;border-radius:16px 16px 0 0;color:#fff">
+      <div style="font-size:13px;opacity:.8;margin-bottom:4px">ฝ่ายเภสัชกรรม · โรงพยาบาลกรงปินัง</div>
+      <h1 style="margin:0;font-size:22px;font-weight:700">รายงานประจำสัปดาห์ — Emergency Box</h1>
+      <div style="margin-top:8px;font-size:14px;opacity:.85">${dateStr}</div>
+    </div>
+    <div style="background:#fff;padding:32px;border:1px solid #E2E8F0;border-top:0;text-align:center">
+      <div style="width:72px;height:72px;border-radius:50%;background:#E4F4EF;margin:0 auto 18px;display:flex;align-items:center;justify-content:center;font-size:36px">✅</div>
+      <h2 style="margin:0 0 10px;font-size:20px;color:#169C7F;font-weight:700">Emergency Box ทุกกล่องปลอดภัย</h2>
+      <p style="margin:0 0 6px;font-size:15px;color:#4A5C6A">ไม่พบยาที่ใกล้หมดอายุภายใน <strong>${THRESHOLD_DAYS} วัน</strong></p>
+      <p style="margin:0 0 24px;font-size:13px;color:#9AAAB8">ตรวจสอบ ${boxCount} กล่อง · ระบบอัตโนมัติ</p>
+      <div style="background:#F0FAF6;border:1.5px solid #B2DED4;border-radius:12px;padding:16px 24px;display:inline-block;text-align:left">
+        <div style="font-size:13px;color:#169C7F;font-weight:700;margin-bottom:8px">สรุปสถานะ</div>
+        <div style="font-size:13px;color:#4A5C6A;line-height:2">
+          ✅ &nbsp;ยาทุกรายการมีอายุการใช้งานเหลืออีกกว่า ${THRESHOLD_DAYS} วัน<br>
+          ✅ &nbsp;ไม่มียากลุ่มวิกฤตหรือยาที่หมดอายุแล้ว<br>
+          ✅ &nbsp;Emergency Box พร้อมใช้งานทุกกล่อง
+        </div>
+      </div>
+    </div>
+    <div style="background:#F5F7FA;padding:16px 32px;border:1px solid #E2E8F0;border-top:0;border-radius:0 0 16px 16px;text-align:center">
+      <a href="https://emergencyboxnotyfykpnhos.web.app" style="color:#1A6FA3;font-size:13px;font-weight:600;text-decoration:none">emergencyboxnotyfykpnhos.web.app</a>
+      <div style="font-size:11px;color:#9AAAB8;margin-top:4px">รายงานอัตโนมัติประจำสัปดาห์ · ฝ่ายเภสัชกรรม รพ.กรงปินัง</div>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+function buildAllClearPlainText(boxCount) {
+  const dateStr = new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+  return [
+    'รายงานประจำสัปดาห์ — Emergency Box รพ.กรงปินัง',
+    `วันที่: ${dateStr}`,
+    '',
+    '✅ Emergency Box ทุกกล่องปลอดภัย',
+    `ไม่พบยาที่ใกล้หมดอายุภายใน ${THRESHOLD_DAYS} วัน`,
+    `ตรวจสอบ ${boxCount} กล่อง`,
+    '',
+    'สรุปสถานะ:',
+    `- ยาทุกรายการมีอายุเหลืออีกกว่า ${THRESHOLD_DAYS} วัน`,
+    '- ไม่มียากลุ่มวิกฤตหรือยาหมดอายุ',
+    '- Emergency Box พร้อมใช้งานทุกกล่อง',
+    '',
+    'emergencyboxnotyfykpnhos.web.app',
+    'รายงานอัตโนมัติ · ฝ่ายเภสัชกรรม รพ.กรงปินัง',
+  ].join('\n');
+}
+
+async function sendAllClearEmail(boxCount) {
+  const from = process.env.EMAIL_FROM;
+  const pass = process.env.EMAIL_PASS;
+  const to   = process.env.EMAIL_TO;
+  if (!from || !pass || !to) { console.log('⚠️  Email: ไม่ได้ตั้งค่า secrets'); return false; }
+
+  const transporter = nodemailer.createTransport({ host: 'smtp.gmail.com', port: 465, secure: true, auth: { user: from, pass } });
+  const msgId = `<eb-allclear-${Date.now()}@emergencyboxnotyfykpnhos.web.app>`;
+  try {
+    await transporter.sendMail({
+      from: `"EB Notify รพ.กรงปินัง" <${from}>`,
+      to: to.split(',').map(e => e.trim()),
+      replyTo: from,
+      subject: 'รายงานประจำสัปดาห์ Emergency Box — ทุกกล่องปลอดภัย',
+      text: buildAllClearPlainText(boxCount),
+      html: buildAllClearHtml(boxCount),
+      headers: { 'Message-ID': msgId, 'X-Entity-Ref-ID': msgId },
+    });
+    console.log(`✅ Email all-clear: ส่งถึง ${to} สำเร็จ`);
+    return true;
+  } catch (err) {
+    console.error('❌ Email all-clear error:', err.message);
+    return false;
+  }
+}
+
 // ── Main ───────────────────────────────────────────────────────
 async function main() {
   const isMonday = TODAY.getDay() === 1;   // 0=Sun … 6=Sat
@@ -356,9 +438,15 @@ async function main() {
   }
 
   if (!alerts.length) {
-    console.log(`\n✅ ไม่พบยาใกล้หมดอายุภายใน ${THRESHOLD_DAYS} วัน — ไม่ต้องแจ้งเตือน`);
+    console.log(`\n✅ ไม่พบยาใกล้หมดอายุภายใน ${THRESHOLD_DAYS} วัน`);
     console.log('💡 หมายเหตุ: ถ้าในแอปมียาแต่ที่นี่บอกว่าไม่พบ → ข้อมูลใน Firestore อาจยังไม่ถูก sync');
-    console.log('   กรุณาเปิดแอปแล้ว login ด้วย admin เพื่อให้ระบบ sync ข้อมูลขึ้น Firestore');
+    if (isMonday) {
+      console.log('\n📬 วันจันทร์ — ส่งรายงานสรุปประจำสัปดาห์ (All Clear)');
+      const boxCount = Object.keys(await db.collection('boxes').get().then(s => { const o = {}; s.forEach(d => { o[d.id] = 1; }); return o; })).length;
+      await sendAllClearEmail(boxCount);
+    } else {
+      console.log('⏭  ไม่ใช่วันจันทร์ — ไม่ส่งแจ้งเตือน');
+    }
     process.exit(0);
   }
 
