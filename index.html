@@ -1518,7 +1518,7 @@ class Component extends DCLogic {
       dashboard: ['ภาพรวมระบบ Emergency Box', 'ติดตามสถานะ การแจ้งเตือน และสถิติการเบิก-จ่ายแบบเรียลไทม์'],
       entry:     ['บันทึกการจ่าย / รับคืน EB', 'กรอกข้อมูลรวดเร็ว · คำนวณวันส่งคืนและตั้งแจ้งเตือนอัตโนมัติ'],
       detail:    ['รายละเอียดกล่อง Emergency Box', 'ตรวจสอบยา 10 รายการ วันหมดอายุ และประวัติการใช้งานรายกล่อง'],
-      history:   ['ประวัติย้อนหลัง · Audit Log', 'บันทึกการทำรายการทุกครั้ง 100% ตรวจสอบย้อนหลังและส่งออกได้'],
+      history:   ['ทะเบียนจ่าย-รับคืน Emergency Box', 'ฝ่ายเภสัชกรรม โรงพยาบาลกรงปินัง · ส่งออก CSV ได้'],
       users:     ['จัดการผู้ใช้งานระบบ', 'ผู้ดูแลระบบกำหนดบทบาท สิทธิ์ รีเซ็ตรหัสผ่าน และระงับบัญชี'],
       notify:    ['ตั้งค่าแจ้งเตือน · Notifications', 'ตั้งค่าการแจ้งเตือนยาใกล้หมดอายุผ่าน Email, LINE และ Browser'],
     };
@@ -1668,7 +1668,7 @@ class Component extends DCLogic {
       { key: 'dashboard', label: 'ภาพรวม Dashboard', svg: ICONS.dashboard },
       { key: 'entry', label: 'บันทึกจ่าย / รับคืน', svg: ICONS.entry },
       { key: 'detail', label: 'รายละเอียดกล่อง EB', svg: ICONS.detail },
-      { key: 'history', label: 'ประวัติย้อนหลัง', svg: ICONS.history },
+      { key: 'history', label: 'ทะเบียนจ่าย-รับคืน EB', svg: ICONS.history },
     ];
     const isAdmin = st.currentUser && st.currentUser.role === 'admin';
     if (isAdmin) navDefs.push({ key: 'users', label: 'จัดการผู้ใช้งาน', svg: ICONS.users });
