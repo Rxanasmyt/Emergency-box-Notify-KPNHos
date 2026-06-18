@@ -265,22 +265,28 @@ async function sendEmail(alerts) {
   const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: { user: from, pass },
-    logger: true,
-    debug: true,
   });
 
   const expired  = alerts.filter(a => a.status === 'expired').length;
   const critical = alerts.filter(a => a.status === 'critical').length;
-  let subject = `🏥 EB Notify — ยาใกล้หมดอายุ ${alerts.length} รายการ`;
-  if (expired)  subject = `🔴 EB Notify — ยาหมดอายุแล้ว ${expired} รายการ (รวม ${alerts.length})`;
-  else if (critical) subject = `🟠 EB Notify — ยาวิกฤต ${critical} รายการ (รวม ${alerts.length})`;
+  let subject = `แจ้งเตือนยาใกล้หมดอายุ Emergency Box (${alerts.length} รายการ) - รพ.กรงปินัง`;
+  if (expired)  subject = `[ด่วน] ยาหมดอายุแล้ว ${expired} รายการ - Emergency Box รพ.กรงปินัง`;
+  else if (critical) subject = `[ด่วน] ยาวิกฤต ${critical} รายการ - Emergency Box รพ.กรงปินัง`;
+
+  const toList = to.split(',').map(e => e.trim());
 
   try {
     await transporter.sendMail({
-      from: `"EB Notify รพ.กรงปินัง" <${from}>`,
-      to,
+      from: `"ระบบ Emergency Box รพ.กรงปินัง" <${from}>`,
+      to: toList,
+      replyTo: from,
       subject,
       html: buildHtmlEmail(alerts),
+      headers: {
+        'X-Priority': expired || critical ? '1' : '3',
+        'X-Mailer': 'EB-Notify/1.0',
+        'List-Unsubscribe': `<mailto:${from}?subject=unsubscribe>`,
+      },
     });
     console.log(`✅ Email: ส่งถึง ${to} สำเร็จ`);
     return true;

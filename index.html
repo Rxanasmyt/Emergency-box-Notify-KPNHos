@@ -957,7 +957,7 @@ class Component extends DCLogic {
   };
 
   TH_MONTHS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
-  TODAY = new Date('2026-06-16T00:00:00');
+  get TODAY() { const d = new Date(); d.setHours(0,0,0,0); return d; }
 
   DRUGS = [
     { name: 'Adrenaline inj. 1mg/ml', had: true, par: 10 },
