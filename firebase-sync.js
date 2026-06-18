@@ -37,6 +37,7 @@ function listenBoxes(){
   const unsub=db.collection(C.boxes).onSnapshot(snap=>{
     if(!component)return;
     const boxes=[];snap.forEach(doc=>{boxes.push({id:doc.id,...doc.data()});});
+    boxes.sort((a,b)=>{const n=(s)=>parseInt(s.replace(/\D/g,''),10)||0;return n(a.id)-n(b.id);});
     if(boxes.length){component.BOXES=boxes;component.setState({});}
   },err=>console.warn('[Sync] Boxes error:',err.message));
   unsubscribers.push(unsub);
