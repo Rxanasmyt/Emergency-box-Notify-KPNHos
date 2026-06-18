@@ -291,7 +291,7 @@ input[type="date"] { min-height: 46px; }
   .role-summary-grid { grid-template-columns: repeat(2,1fr) !important; gap: 10px !important; }
   .perm-matrix { grid-template-columns: repeat(2,1fr) !important; gap: 10px !important; }
 
-  /* Login: single column */
+  /* Login: single column stacked */
   .login-wrap {
     flex-direction: column !important;
     height: auto !important;
@@ -299,12 +299,28 @@ input[type="date"] { min-height: 46px; }
     overflow-x: hidden !important;
     overflow-y: auto !important;
   }
-  .login-brand { display: none !important; height: 0 !important; overflow: hidden !important; }
+  /* Brand panel: compact header on mobile */
+  .login-brand {
+    display: flex !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    flex-shrink: 0 !important;
+    padding: 28px 22px 24px !important;
+    gap: 14px !important;
+  }
+  .login-brand-tagline { margin-top: 0 !important; }
+  .login-brand-h1 { font-size: 22px !important; letter-spacing: -.3px !important; }
+  .login-brand-desc { font-size: 13px !important; margin: 10px 0 0 !important; }
+  .login-brand-features { margin-top: 0 !important; gap: 10px !important; }
+  .login-brand-features > div { gap: 10px !important; }
+  .login-brand-features span { width: 34px !important; height: 34px !important; border-radius: 9px !important; }
+  .login-brand-footer { display: none !important; }
+  /* Form panel: natural height below brand */
   .login-form-panel {
     width: 100% !important;
     flex: unset !important;
-    min-height: 100dvh !important;
-    padding: 36px 24px 52px !important;
+    min-height: auto !important;
+    padding: 32px 22px 52px !important;
     align-items: flex-start !important;
   }
 
@@ -346,7 +362,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
     <div style="position: absolute; bottom: -90px; left: -60px; width: 260px; height: 260px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,.12); animation: floatY 7s ease-in-out infinite;"></div>
     <div style="position: absolute; bottom: 40px; right: 60px; width: 120px; height: 120px; border-radius: 30px; border: 1.5px solid rgba(255,255,255,.1); transform: rotate(18deg); animation: floatY 9s ease-in-out infinite;"></div>
 
-    <div style="position: relative; display: flex; align-items: center; gap: 13px;">
+    <div class="login-brand-top" style="position: relative; display: flex; align-items: center; gap: 13px;">
       <div style="width: 48px; height: 48px; border-radius: 14px; background: rgba(255,255,255,.16); backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; border: 1px solid rgba(255,255,255,.25);">
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M12 7v10M7 12h10" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/><rect x="3.5" y="3.5" width="17" height="17" rx="4.5" stroke="#fff" stroke-width="1.7" opacity=".6"/></svg>
       </div>
@@ -356,13 +372,13 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
       </div>
     </div>
 
-    <div style="position: relative; margin-top: auto;">
+    <div class="login-brand-tagline" style="position: relative; margin-top: auto;">
       <div style="font-size: 13px; font-weight: 600; letter-spacing: .5px; opacity: .85; margin-bottom: 14px;">โรงพยาบาลกรงปินัง · จังหวัดยะลา</div>
-      <h1 style="margin: 0; font-size: 36px; font-weight: 700; line-height: 1.2; letter-spacing: -.5px;">บริหาร Emergency Box<br>ปลอดภัย ตรวจสอบย้อนหลังได้ 100%</h1>
-      <p style="font-size: 15px; line-height: 1.7; opacity: .82; margin: 18px 0 0; max-width: 440px;">ลดปัญหายาในกล่องฉุกเฉินหมดอายุ ด้วยการแจ้งเตือนล่วงหน้า 15 วัน และระบบควบคุมสิทธิ์ตามบทบาทผู้ใช้งาน</p>
+      <h1 class="login-brand-h1" style="margin: 0; font-size: 36px; font-weight: 700; line-height: 1.2; letter-spacing: -.5px;">บริหาร Emergency Box<br>ปลอดภัย ตรวจสอบย้อนหลังได้ 100%</h1>
+      <p class="login-brand-desc" style="font-size: 15px; line-height: 1.7; opacity: .82; margin: 18px 0 0; max-width: 440px;">ลดปัญหายาในกล่องฉุกเฉินหมดอายุ ด้วยการแจ้งเตือนล่วงหน้า 15 วัน และระบบควบคุมสิทธิ์ตามบทบาทผู้ใช้งาน</p>
     </div>
 
-    <div style="position: relative; margin-top: 40px; display: flex; flex-direction: column; gap: 16px;">
+    <div class="login-brand-features" style="position: relative; margin-top: 40px; display: flex; flex-direction: column; gap: 16px;">
       <div style="display: flex; align-items: center; gap: 14px; animation: slideInRight .5s cubic-bezier(.34,1.56,.64,1) .3s both;">
         <span style="width: 40px; height: 40px; flex-shrink: 0; border-radius: 11px; background: rgba(255,255,255,.14); display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3z" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 12l2 2 4-4" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
         <div><div style="font-size: 14px; font-weight: 600;">ควบคุมสิทธิ์ตามบทบาท (RBAC)</div><div style="font-size: 12.5px; opacity: .75;">Admin กำหนดสิทธิ์เภสัชกร · จพ. · พยาบาล</div></div>
@@ -377,7 +393,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
       </div>
     </div>
 
-    <div style="position: relative; margin-top: 36px; padding-top: 18px; border-top: 1px solid rgba(255,255,255,.16);">
+    <div class="login-brand-footer" style="position: relative; margin-top: 36px; padding-top: 18px; border-top: 1px solid rgba(255,255,255,.16);">
       <div style="font-size: 12.5px; font-weight: 600; opacity: .95;">ฝ่ายเภสัชกรรม โรงพยาบาลกรงปินัง จังหวัดยะลา</div>
       <div style="font-size: 11.5px; opacity: .7; margin-top: 4px; line-height: 1.6;">จัดทำโดย ภก.อนัส มะยีแต · เภสัชกร ฝ่ายเภสัชกรรมและคุ้มครองผู้บริโภค<br>© 2569 โรงพยาบาลกรงปินัง · เวอร์ชัน 2.0</div>
     </div>
