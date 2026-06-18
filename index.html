@@ -1578,15 +1578,6 @@ class Component extends DCLogic {
         statusKey: status.key,
       }));
     vals.criticalList = criticalList;
-    const urgentBoxes = criticalList.filter(x => x.statusKey === 'critical');
-    vals.kpiTotal       = this.BOXES.length;
-    vals.kpiDispensed   = active.length;
-    vals.kpiDeptText    = Object.entries(deptCount).filter(([,v])=>v>0).map(([k,v])=>`${k} ${v}`).join(' · ') || '—';
-    vals.kpiUrgent      = urgentBoxes.length;
-    vals.kpiNearExpiry  = criticalList.length;
-    vals.hasUrgent      = urgentBoxes.length > 0;
-    vals.urgentTitle    = `ต้องส่งคืนด่วน · ${urgentBoxes.length} กล่อง เกินกำหนดหรือถึงกำหนดวันนี้`;
-    vals.urgentDetail   = urgentBoxes.map(x => x.id).join(', ') + ' — ต้องรับคืนเข้าห้องยาและเปลี่ยนกล่องใหม่';
 
     const deptCount = { ER: 0, WARD: 0, LR: 0 };
     active.forEach(b => deptCount[b.dept]++);
@@ -1596,6 +1587,14 @@ class Component extends DCLogic {
       { label: 'WARD · หอผู้ป่วย',   sub: `${deptCount.WARD} กล่อง`, pct: `${deptCount.WARD/maxDept*100}%`, color: '#169C7F' },
       { label: 'LR · ห้องคลอด',      sub: `${deptCount.LR} กล่อง`,   pct: `${deptCount.LR/maxDept*100}%`,   color: '#7C5CD6' },
     ];
+    const urgentBoxes = criticalList.filter(x => x.statusKey === 'critical');
+    vals.kpiTotal      = this.BOXES.length;
+    vals.kpiDispensed  = active.length;
+    vals.kpiDeptText   = Object.entries(deptCount).filter(([,v])=>v>0).map(([k,v])=>`${k} ${v}`).join(' · ') || '—';
+    vals.kpiUrgent     = urgentBoxes.length;
+    vals.kpiNearExpiry = criticalList.length;
+    vals.urgentTitle   = `ต้องส่งคืนด่วน · ${urgentBoxes.length} กล่อง เกินกำหนดหรือถึงกำหนดวันนี้`;
+    vals.urgentDetail  = urgentBoxes.length ? urgentBoxes.map(x => x.id).join(', ') + ' — ต้องรับคืนเข้าห้องยาและเปลี่ยนกล่องใหม่' : '';
 
     // donut: critical / warning / ok counts over all boxes
     const counts = { critical: 0, warning: 0, ok: 0 };
