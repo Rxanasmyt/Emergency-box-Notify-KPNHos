@@ -608,14 +608,13 @@
         <!-- Summary cards -->
         <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 20px;">{{ auditSummaryEl }}</div>
 
-        <!-- Filter bar -->
-        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 18px; flex-wrap: wrap;">
+        <!-- Search + export bar -->
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 14px; flex-wrap: wrap;">
           <div style="position: relative; flex: 1; min-width: 240px;">
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%);"><circle cx="11" cy="11" r="7" stroke="#9AAAB8" stroke-width="1.9"/><path d="M20 20l-4-4" stroke="#9AAAB8" stroke-width="1.9" stroke-linecap="round"/></svg>
             <input type="text" value="{{ query }}" onInput="{{ setQuery }}" placeholder="ค้นหา EB, หน่วยงาน, ผู้ทำรายการ, ชื่อยา…" style="width: 100%; height: 46px; border: 1.5px solid #DBE4EB; border-radius: 12px; padding: 0 14px 0 42px; font-size: 13.5px; background: #fff; box-sizing: border-box;">
           </div>
-          <div style="display: flex; gap: 7px; flex-wrap: wrap;">{{ filterChipsEl }}</div>
-          <button onClick="{{ exportCSV }}" style="height: 46px; padding: 0 16px; border: 1.5px solid #DBE4EB; background: #fff; color: #4A5C6A; border-radius: 12px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all .22s cubic-bezier(.34,1.56,.64,1); white-space: nowrap;" style-hover="transform: translateY(-2px); box-shadow: 0 6px 18px rgba(20,40,55,.08); border-color: #C3DDEC;" style-active="transform: scale(.96);">
+          <button onClick="{{ exportCSV }}" style="height: 46px; padding: 0 16px; border: 1.5px solid #1A6FA3; background: #E8F0F6; color: #1A6FA3; border-radius: 12px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all .22s cubic-bezier(.34,1.56,.64,1); white-space: nowrap;" style-hover="transform: translateY(-2px); box-shadow: 0 6px 18px rgba(20,40,55,.08);" style-active="transform: scale(.96);">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 19h14" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
             ส่งออก CSV
           </button>
@@ -669,7 +668,7 @@
           <!-- Footer -->
           <div style="padding: 13px 20px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 12.5px; color: #7B8D9C; border-top: 1px solid #EFF3F6;">
             <span>แสดง <b style="color: #15242E;">{{ auditCount }}</b> รายการ · บันทึกอัตโนมัติครบถ้วนเพื่อตรวจสอบย้อนหลัง</span>
-            <span style="margin-left: auto; display: flex; align-items: center; gap: 6px; color: #169C7F; font-weight: 600;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #169C7F; flex-shrink: 0;"></span>ทะเบียนการจ่าย-รับคืน Emergency Box</span>
+            <span style="margin-left: auto; display: flex; align-items: center; gap: 6px; color: #169C7F; font-weight: 600;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #169C7F; flex-shrink: 0;"></span>ทะเบียนจ่ายและรับคืน Emergency Box · ฝ่ายเภสัชกรรม โรงพยาบาลกรงปินัง</span>
           </div>
         </div>
       </div>
@@ -715,6 +714,79 @@
         <div style="margin-top: 18px; background: #fff; border: 1px solid #E7EEF3; border-radius: 16px; padding: 18px 20px;">
           <div style="font-size: 13px; font-weight: 700; margin-bottom: 12px;">สิทธิ์การใช้งานตามบทบาท (RBAC)</div>
           <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;">{{ permMatrixEl }}</div>
+        </div>
+
+        <!-- Admin Full Audit Log -->
+        <div style="margin-top: 28px;">
+          <!-- Section header -->
+          <div style="display: flex; align-items: center; gap: 11px; margin-bottom: 16px;">
+            <span style="width: 38px; height: 38px; border-radius: 11px; background: #15242E; color: #fff; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M9 12l2 2 4-4M12 2L3.5 7v5c0 4.8 3.6 9.3 8.5 10.5C16.9 21.3 20.5 16.8 20.5 12V7L12 2z" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            <div>
+              <div style="font-size: 14px; font-weight: 700;">Audit Log ระบบทั้งหมด</div>
+              <div style="font-size: 12px; color: #9AAAB8;">บันทึกทุก action ในระบบ — เฉพาะ Admin ดูและส่งออกได้</div>
+            </div>
+            <button onClick="{{ adminExportCSV }}" style="margin-left: auto; height: 40px; padding: 0 16px; border: 1.5px solid #DBE4EB; background: #fff; color: #4A5C6A; border-radius: 11px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; white-space: nowrap; transition: all .2s;" style-hover="border-color: #C3DDEC; box-shadow: 0 4px 12px rgba(20,40,55,.07);" style-active="transform: scale(.96);">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 19h14" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              ส่งออก CSV
+            </button>
+          </div>
+          <!-- Filter chips -->
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap;">
+            <div style="position: relative; flex: 1; min-width: 220px;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%);"><circle cx="11" cy="11" r="7" stroke="#9AAAB8" stroke-width="1.9"/><path d="M20 20l-4-4" stroke="#9AAAB8" stroke-width="1.9" stroke-linecap="round"/></svg>
+              <input type="text" value="{{ aQuery }}" onInput="{{ setAQuery }}" placeholder="ค้นหา…" style="width: 100%; height: 40px; border: 1.5px solid #DBE4EB; border-radius: 10px; padding: 0 12px 0 36px; font-size: 13px; background: #fff; box-sizing: border-box;">
+            </div>
+            <div style="display: flex; gap: 6px; flex-wrap: wrap;">{{ adminFilterChipsEl }}</div>
+          </div>
+          <!-- Date range -->
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 14px; flex-wrap: wrap;">
+            <span style="font-size: 12px; font-weight: 600; color: #7B8D9C; white-space: nowrap;">ช่วงเวลา:</span>
+            {{ adminDatePresetEl }}
+            <sc-if value="{{ showAdminFiscalSelect }}" hint-placeholder-val="{{ false }}">
+              <select onchange="{{ setAFiscalYear }}" style="height: 34px; border: 1.5px solid #1A6FA3; border-radius: 9px; padding: 0 10px; font-size: 13px; font-family: inherit; color: #1A6FA3; font-weight: 600; background: #E8F0F6; cursor: pointer;">{{ adminFiscalYearOptionsEl }}</select>
+            </sc-if>
+            <sc-if value="{{ showAdminCustomDate }}" hint-placeholder-val="{{ false }}">
+              <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                <input type="date" value="{{ aDateFrom }}" onchange="{{ setADateFrom }}" style="height: 34px; border: 1.5px solid #DBE4EB; border-radius: 9px; padding: 0 10px; font-size: 13px; font-family: inherit; background: #fff;">
+                <span style="font-size: 12px; color: #7B8D9C;">ถึง</span>
+                <input type="date" value="{{ aDateTo }}" onchange="{{ setADateTo }}" style="height: 34px; border: 1.5px solid #DBE4EB; border-radius: 9px; padding: 0 10px; font-size: 13px; font-family: inherit; background: #fff;">
+              </div>
+            </sc-if>
+            <span style="font-size: 12px; color: #9AAAB8; margin-left: 4px;">{{ adminDateRangeLabel }}</span>
+          </div>
+          <!-- Table -->
+          <div style="background: #fff; border: 1px solid #E7EEF3; border-radius: 16px; overflow: hidden;">
+            <div style="overflow-x: auto;">
+              <div style="display: grid; grid-template-columns: 44px 148px 108px 68px minmax(110px,1fr) minmax(140px,1fr) minmax(160px,1fr); gap: 0; min-width: 860px; background: #F3F6F9; border-bottom: 2px solid #E0E8EF; padding: 11px 18px; font-size: 11px; font-weight: 700; color: #7B8D9C; letter-spacing: .5px; text-transform: uppercase;">
+                <span style="text-align:center;">#</span><span>วันที่ · เวลา</span><span>ประเภท</span><span>EB</span><span>หน่วยงาน</span><span>ผู้ทำรายการ</span><span>รายละเอียด</span>
+              </div>
+              <div>
+                <sc-for list="{{ adminAuditRows }}" as="r" hint-placeholder-count="8">
+                  <sc-if value="{{ r.showDateHeader }}" hint-placeholder-val="{{ false }}">
+                    <div style="background: #F8FAFB; padding: 6px 18px; font-size: 11px; font-weight: 700; color: #5A6B79; border-bottom: 1px solid #EEF2F6; border-top: 1px solid #EEF2F6; display: flex; align-items: center; gap: 8px;">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="18" rx="3" stroke="#9AAAB8" stroke-width="2"/><path d="M16 2v4M8 2v4M3 10h18" stroke="#9AAAB8" stroke-width="2" stroke-linecap="round"/></svg>
+                      {{ r.dateHeaderText }}
+                    </div>
+                  </sc-if>
+                  <div style="display: grid; grid-template-columns: 44px 148px 108px 68px minmax(110px,1fr) minmax(140px,1fr) minmax(160px,1fr); gap: 0; min-width: 860px; align-items: center; padding: 11px 18px; border-bottom: 1px solid #F4F7F9; font-size: 12.5px; background: {{ r.rowBg }};">
+                    <span style="font-size: 10px; color: #B0BCCA; font-family: 'IBM Plex Mono', monospace; text-align: center;">{{ r.seq }}</span>
+                    <span style="color: #4A5C6A; font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; white-space: nowrap;">{{ r.dateTime }}</span>
+                    <span><span style="display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700; color: {{ r.color }}; background: {{ r.soft }}; border-radius: 20px; padding: 3px 10px; white-space: nowrap;">{{ r.icon }} {{ r.action }}</span></span>
+                    <span style="font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 12px;">{{ r.eb }}</span>
+                    <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><span style="font-size: 11px; font-weight: 600; color: #4A5C6A; background: #F0F4F7; border-radius: 6px; padding: 2px 8px;">{{ r.dept }}</span></span>
+                    <span style="font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 8px; font-size: 12px;">{{ r.person }}</span>
+                    <span style="color: #4A5C6A; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px;">{{ r.drug }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+            <div style="padding: 11px 18px; font-size: 12px; color: #7B8D9C; border-top: 1px solid #EFF3F6; display: flex; align-items: center; gap: 10px;">
+              <span>แสดง <b style="color: #15242E;">{{ adminAuditCount }}</b> รายการ</span>
+              <span style="margin-left: auto; display: flex; align-items: center; gap: 5px; color: #B42121; font-weight: 600; font-size: 11.5px;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #B42121; flex-shrink: 0;"></span>ข้อมูลลับ — เฉพาะ Admin</span>
+            </div>
+          </div>
         </div>
       </div>
       </sc-if>
@@ -963,13 +1035,19 @@ class Component extends DCLogic {
     boxDrugs: null,
     editDrugs: false,
     boxMeta: {},
-    // history
+    // history (dispense+return register — all users)
     query: '',
-    filter: 'dispense-return',
     datePreset: 'all',
     fiscalYear: 0,
     dateFrom: '',
     dateTo: '',
+    // admin audit log (admin only)
+    aFilter: 'all',
+    aQuery: '',
+    aDatePreset: 'all',
+    aFiscalYear: 0,
+    aDateFrom: '',
+    aDateTo: '',
     auditLog: null,
     boxHist: {},
     // confirm dialog
@@ -2003,84 +2081,62 @@ class Component extends DCLogic {
       lowCount ? h('span', { style: { color: '#E03E3E', fontWeight: 600 } }, '· ยาต่ำกว่า par '+lowCount+' รายการ') : null,
       editing ? h('span', { style: { marginLeft: 'auto', color: '#1A6FA3', fontWeight: 600 } }, 'กำลังแก้ไข — กด "บันทึก" เพื่อยืนยัน') : null);
 
-    // ----- HISTORY -----
+    // ----- HISTORY (dispense + return only, all users) -----
     const LOG = st.auditLog || this.AUDIT;
     vals.query = st.query;
     vals.setQuery = (e) => this.setState({ query: e.target.value });
-    const histFilters = [
-      { k: 'dispense-return', l: 'จ่าย + รับคืน' },
-      { k: 'all',             l: 'ทั้งหมด' },
-      { k: 'ลงทะเบียน',      l: 'ลงทะเบียน' },
-      { k: 'แก้ไขยา',        l: 'แก้ไข' },
-      { k: 'user',            l: 'ผู้ใช้/ระบบ' },
-    ];
-    const userCats = ['user', 'auth'];
-    vals.filterChipsEl = h(React.Fragment, null, ...histFilters.map(f => {
-      const on = st.filter === f.k;
-      return h('button', {
-        key: f.k + (on ? '_on' : '_off'), onClick: () => this.setState({ filter: f.k }),
-        style: { height: 46, padding: '0 15px', borderRadius: 11, fontFamily: 'inherit', fontSize: 13, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all .15s', background: on ? '#15242E' : '#fff', color: on ? '#fff' : '#5A6B79', border: on ? '1.5px solid #15242E' : '1.5px solid #DBE4EB' },
-      }, f.l);
-    }));
-    // --- date-range helpers ---
+    // shared date helpers (reused for admin audit below)
     const _isoOf = (d) => { const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${day}`; };
     const _today = this.TODAY;
-    const _thaiYear = (d) => d.getFullYear() + 543;
     const _fiscalYearOf = (d) => { const m=d.getMonth()+1; return m>=10 ? d.getFullYear()+544 : d.getFullYear()+543; };
-    const _fiscalStart = (fyThai) => { const ce=fyThai-544; return new Date(ce,9,1); }; // Oct 1
-    const _fiscalEnd   = (fyThai) => { const ce=fyThai-543; return new Date(ce,8,30); }; // Sep 30
+    const _fiscalStart = (fyThai) => new Date(fyThai-544, 9, 1);
+    const _fiscalEnd   = (fyThai) => new Date(fyThai-543, 8, 30);
     const _curFY = _fiscalYearOf(_today);
-    const _dateRange = (() => {
-      switch(st.datePreset) {
-        case 'today':   return { from: _isoOf(_today), to: _isoOf(_today) };
-        case '7days':   { const d=new Date(_today); d.setDate(d.getDate()-6); return { from: _isoOf(d), to: _isoOf(_today) }; }
-        case 'month':   { const d=new Date(_today.getFullYear(),_today.getMonth(),1); return { from: _isoOf(d), to: _isoOf(_today) }; }
-        case 'fiscal':  { const fy=st.fiscalYear||_curFY; return { from: _isoOf(_fiscalStart(fy)), to: _isoOf(_fiscalEnd(fy)) }; }
-        case 'custom':  return { from: st.dateFrom||null, to: st.dateTo||null };
-        default:        return { from: null, to: null };
+    const _mkDateRange = (preset, fy, from, to) => {
+      switch(preset) {
+        case 'today':  return { from: _isoOf(_today), to: _isoOf(_today) };
+        case '7days':  { const d=new Date(_today); d.setDate(d.getDate()-6); return { from: _isoOf(d), to: _isoOf(_today) }; }
+        case 'month':  { const d=new Date(_today.getFullYear(),_today.getMonth(),1); return { from: _isoOf(d), to: _isoOf(_today) }; }
+        case 'fiscal': { const f=fy||_curFY; return { from: _isoOf(_fiscalStart(f)), to: _isoOf(_fiscalEnd(f)) }; }
+        case 'custom': return { from: from||null, to: to||null };
+        default:       return { from: null, to: null };
       }
-    })();
-    // date preset chips
-    const _dpDefs = [
-      { k:'all',    l:'ทั้งหมด' },
-      { k:'today',  l:'วันนี้' },
-      { k:'7days',  l:'7 วัน' },
-      { k:'month',  l:'เดือนนี้' },
-      { k:'fiscal', l:'ปีงบฯ' },
-      { k:'custom', l:'กำหนดเอง' },
-    ];
-    vals.datePresetEl = h(React.Fragment, null, ..._dpDefs.map(d => {
-      const on = st.datePreset === d.k;
-      return h('button', { key: d.k+(on?'_on':'_off'), onClick: () => this.setState({ datePreset: d.k }),
-        style: { height: 36, padding: '0 13px', borderRadius: 9, fontFamily: 'inherit', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all .15s', background: on ? '#1A6FA3' : '#fff', color: on ? '#fff' : '#5A6B79', border: on ? '1.5px solid #1A6FA3' : '1.5px solid #DBE4EB' },
-      }, d.l);
-    }));
-    vals.showFiscalSelect = st.datePreset === 'fiscal';
-    vals.showCustomDate   = st.datePreset === 'custom';
-    vals.dateFrom  = st.dateFrom;
-    vals.dateTo    = st.dateTo;
-    vals.setDateFrom = (e) => this.setState({ dateFrom: e.target.value });
-    vals.setDateTo   = (e) => this.setState({ dateTo:   e.target.value });
-    // fiscal year dropdown — current FY + last 4 years
-    const _fyOptions = Array.from({ length: 5 }, (_, i) => _curFY - i);
-    vals.fiscalYearOptionsEl = h(React.Fragment, null, ..._fyOptions.map(fy =>
-      h('option', { key: fy, value: fy, selected: (st.fiscalYear||_curFY) === fy }, `ปีงบฯ ${fy}`)
-    ));
-    vals.setFiscalYear = (e) => this.setState({ fiscalYear: parseInt(e.target.value, 10) });
-    // date range label
-    const _drLabel = (() => {
-      if (st.datePreset === 'all') return '';
-      if (st.datePreset === 'fiscal') { const fy=st.fiscalYear||_curFY; return `1 ต.ค. ${fy-1} – 30 ก.ย. ${fy}`; }
-      if (_dateRange.from && _dateRange.to && _dateRange.from === _dateRange.to) return _dateRange.from;
-      if (_dateRange.from && _dateRange.to) return `${_dateRange.from} – ${_dateRange.to}`;
+    };
+    const _mkPresetEl = (presetKey, setKey) => {
+      const _defs = [{ k:'all',l:'ทั้งหมด' },{ k:'today',l:'วันนี้' },{ k:'7days',l:'7 วัน' },{ k:'month',l:'เดือนนี้' },{ k:'fiscal',l:'ปีงบฯ' },{ k:'custom',l:'กำหนดเอง' }];
+      return h(React.Fragment, null, ..._defs.map(d => {
+        const on = presetKey === d.k;
+        return h('button', { key: d.k+(on?'_on':'_off'), onClick: () => this.setState({ [setKey]: d.k }),
+          style: { height: 36, padding: '0 13px', borderRadius: 9, fontFamily: 'inherit', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all .15s', background: on ? '#1A6FA3' : '#fff', color: on ? '#fff' : '#5A6B79', border: on ? '1.5px solid #1A6FA3' : '1.5px solid #DBE4EB' },
+        }, d.l);
+      }));
+    };
+    const _mkFYOptions = (selectedFY) => {
+      const opts = Array.from({ length: 5 }, (_, i) => _curFY - i);
+      return h(React.Fragment, null, ...opts.map(fy => h('option', { key: fy, value: fy, selected: (selectedFY||_curFY) === fy }, `ปีงบฯ ${fy}`)));
+    };
+    const _mkDRLabel = (preset, fy, dr) => {
+      if (preset === 'all') return '';
+      if (preset === 'fiscal') { const f=fy||_curFY; return `1 ต.ค. ${f-1} – 30 ก.ย. ${f}`; }
+      if (dr.from && dr.to && dr.from === dr.to) return dr.from;
+      if (dr.from && dr.to) return `${dr.from} – ${dr.to}`;
       return '';
-    })();
-    vals.dateRangeLabel = _drLabel;
+    };
+    // history date range
+    const _dateRange = _mkDateRange(st.datePreset, st.fiscalYear, st.dateFrom, st.dateTo);
+    vals.datePresetEl        = _mkPresetEl(st.datePreset, 'datePreset');
+    vals.showFiscalSelect    = st.datePreset === 'fiscal';
+    vals.showCustomDate      = st.datePreset === 'custom';
+    vals.dateFrom            = st.dateFrom;
+    vals.dateTo              = st.dateTo;
+    vals.setDateFrom         = (e) => this.setState({ dateFrom: e.target.value });
+    vals.setDateTo           = (e) => this.setState({ dateTo:   e.target.value });
+    vals.fiscalYearOptionsEl = _mkFYOptions(st.fiscalYear);
+    vals.setFiscalYear       = (e) => this.setState({ fiscalYear: parseInt(e.target.value, 10) });
+    vals.dateRangeLabel      = _mkDRLabel(st.datePreset, st.fiscalYear, _dateRange);
     const q = (st.query || '').trim().toLowerCase();
     const filtered = LOG.filter(r => {
-      if (st.filter === 'dispense-return') { if (r.cat !== 'dispense' && r.cat !== 'return') return false; }
-      else if (st.filter === 'user') { if (!userCats.includes(r.cat)) return false; }
-      else if (st.filter !== 'all' && r.action !== st.filter) return false;
+      if (r.cat !== 'dispense' && r.cat !== 'return') return false; // always dispense+return only
       if (_dateRange.from && (r.date||'') < _dateRange.from) return false;
       if (_dateRange.to   && (r.date||'') > _dateRange.to)   return false;
       if (!q) return true;
@@ -2294,6 +2350,67 @@ class Component extends DCLogic {
         h('div', { style: { fontSize: 17, fontWeight: 700 } }, 'ไม่มีการใช้งาน'),
         h('div', { style: { fontSize: 13, color: '#6B7C8A', marginTop: 6, lineHeight: 1.55 } }, 'ระบบจะออกจากระบบอัตโนมัติใน 1 นาที เพื่อความปลอดภัยของข้อมูลผู้ป่วย'),
         h('button', { onClick: () => this.staySignedIn(), style: { width: '100%', height: 47, marginTop: 18, border: 'none', borderRadius: 12, background: 'linear-gradient(135deg, #1A6FA3, #168C84)', color: '#fff', fontFamily: 'inherit', fontSize: 14, fontWeight: 600, cursor: 'pointer' } }, 'ใช้งานต่อ'))) : null;
+
+    // ===== ADMIN FULL AUDIT LOG =====
+    const _adr = _mkDateRange(st.aDatePreset, st.aFiscalYear, st.aDateFrom, st.aDateTo);
+    const _aq  = (st.aQuery || '').trim().toLowerCase();
+    const _adminFilters = [
+      { k:'all',        l:'ทั้งหมด' },
+      { k:'dispense',   l:'จ่าย' },
+      { k:'return',     l:'รับคืน' },
+      { k:'register',   l:'ลงทะเบียน' },
+      { k:'edit',       l:'แก้ไข' },
+      { k:'user',       l:'ผู้ใช้/ระบบ' },
+    ];
+    const _adminUserCats = ['user', 'auth'];
+    vals.adminFilterChipsEl = h(React.Fragment, null, ..._adminFilters.map(f => {
+      const on = (st.aFilter || 'all') === f.k;
+      return h('button', { key: f.k+(on?'_on':'_off'), onClick: () => this.setState({ aFilter: f.k }),
+        style: { height: 36, padding: '0 13px', borderRadius: 9, fontFamily: 'inherit', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all .15s', background: on ? '#15242E' : '#fff', color: on ? '#fff' : '#5A6B79', border: on ? '1.5px solid #15242E' : '1.5px solid #DBE4EB' },
+      }, f.l);
+    }));
+    vals.aQuery              = st.aQuery;
+    vals.setAQuery           = (e) => this.setState({ aQuery: e.target.value });
+    vals.adminDatePresetEl       = _mkPresetEl(st.aDatePreset, 'aDatePreset');
+    vals.showAdminFiscalSelect   = st.aDatePreset === 'fiscal';
+    vals.showAdminCustomDate     = st.aDatePreset === 'custom';
+    vals.aDateFrom               = st.aDateFrom;
+    vals.aDateTo                 = st.aDateTo;
+    vals.setADateFrom            = (e) => this.setState({ aDateFrom: e.target.value });
+    vals.setADateTo              = (e) => this.setState({ aDateTo:   e.target.value });
+    vals.adminFiscalYearOptionsEl = _mkFYOptions(st.aFiscalYear);
+    vals.setAFiscalYear          = (e) => this.setState({ aFiscalYear: parseInt(e.target.value, 10) });
+    vals.adminDateRangeLabel     = _mkDRLabel(st.aDatePreset, st.aFiscalYear, _adr);
+    const _adminFiltered = LOG.filter(r => {
+      const af = st.aFilter || 'all';
+      if (af === 'user') { if (!_adminUserCats.includes(r.cat)) return false; }
+      else if (af !== 'all' && r.cat !== af) return false;
+      if (_adr.from && (r.date||'') < _adr.from) return false;
+      if (_adr.to   && (r.date||'') > _adr.to)   return false;
+      if (!_aq) return true;
+      return [r.eb, r.dept, r.person, r.drug, r.action].some(x => (x || '').toLowerCase().includes(_aq));
+    });
+    let _aLastDate = null;
+    vals.adminAuditRows = _adminFiltered.map((r, i) => {
+      const cs = auditCatStyle(r);
+      const dl = this.fmtISO(r.date) || '—';
+      const sh = dl !== _aLastDate; _aLastDate = dl;
+      return { key: i, seq: String(_adminFiltered.length - i), showDateHeader: sh, dateHeaderText: sh ? dl : '',
+        dateTime: `${dl} · ${r.time||'—'}`, action: r.action||'—', eb: r.eb||'—', dept: r.dept||'—',
+        person: r.person||'—', drug: r.drug||'—', icon: cs.icon, color: cs.color, soft: cs.soft,
+        rowBg: r.cat==='dispense'?'rgba(26,111,163,.025)':r.cat==='return'?'rgba(22,156,127,.025)':r.cat==='user'?'rgba(180,33,33,.02)':'#fff' };
+    });
+    vals.adminAuditCount = _adminFiltered.length;
+    vals.adminExportCSV = () => {
+      const hdr = ['ลำดับ','วันที่','เวลา','ประเภท','EB','หน่วยงาน','ผู้ทำรายการ','รายละเอียด'];
+      const esc = (v) => '"' + String(v==null?'':v).replace(/"/g,'""') + '"';
+      const lines = [hdr.map(esc).join(',')];
+      _adminFiltered.forEach((r,i) => lines.push([_adminFiltered.length-i,r.date||'',r.time||'',r.action||'',r.eb||'',r.dept||'',r.person||'',r.drug||''].map(esc).join(',')));
+      const blob = new Blob(['﻿'+lines.join('\r\n')],{type:'text/csv;charset=utf-8;'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href=url; a.download=`EB_audit_log_${this.isoOf(this.TODAY)}.csv`; a.click();
+      URL.revokeObjectURL(url);
+    };
 
     // ===== box edit history (detail) =====
     const bh = (st.boxHist || {})[st.selectedEB] || [];
