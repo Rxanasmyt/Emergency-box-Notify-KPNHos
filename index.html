@@ -908,6 +908,31 @@
           </div>
         </div>
 
+        <!-- GitHub Actions Manual Trigger -->
+        <div style="background: #fff; border: 1.5px solid #E0E8EF; border-radius: 16px; padding: 24px 28px; margin-bottom: 16px;">
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 18px;">
+            <span style="width: 36px; height: 36px; border-radius: 10px; background: #15242E; color: #fff; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/><path d="M12 8v4l3 3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            <div>
+              <div style="font-size: 15px; font-weight: 700; color: #15242E;">ส่งแจ้งเตือน Email ทันที</div>
+              <div style="font-size: 12px; color: #7B8D9C;">ใช้ Gmail SMTP ผ่าน GitHub Actions · ไม่ต้องรอกำหนดการอัตโนมัติ</div>
+            </div>
+          </div>
+          <div style="margin-bottom: 14px;">
+            <label style="font-size: 12px; font-weight: 600; color: #5A6B79; display: block; margin-bottom: 5px;">GitHub Personal Access Token <span style="font-weight: 400; color: #9AAAB8;">(Fine-grained · scope: Actions: Read &amp; Write)</span></label>
+            <input type="password" value="{{ githubPAT }}" oninput="{{ setGithubPAT }}" placeholder="github_pat_…" style="width: 100%; height: 42px; border: 1.5px solid #DBE4EB; border-radius: 10px; padding: 0 14px; font-size: 13px; color: #15242E; background: #fff; box-sizing: border-box; font-family: 'IBM Plex Mono', monospace;">
+            <div style="margin-top: 5px; font-size: 11.5px; color: #9AAAB8;">สร้างที่ github.com/settings/tokens · เก็บใน Firestore (admin เท่านั้น) · ไม่เคยปรากฏในโค้ด</div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+            <button onclick="{{ triggerGHActions }}" style="height: 44px; padding: 0 22px; background: linear-gradient(135deg, #15242E, #1A3A4A); color: #fff; border: none; border-radius: 11px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; display: flex; align-items: center; gap: 8px; transition: all .22s cubic-bezier(.34,1.56,.64,1); white-space: nowrap;" style-hover="transform: translateY(-2px); box-shadow: 0 10px 28px rgba(20,40,55,.28);" style-active="transform: scale(.96);">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M22 2L11 13" stroke="#fff" stroke-width="1.9" stroke-linecap="round"/><path d="M22 2l-7 20-4-9-9-4 20-7z" stroke="#fff" stroke-width="1.9" stroke-linejoin="round"/></svg>
+              ส่งแจ้งเตือนยาใกล้หมดอายุตอนนี้
+            </button>
+            <span style="font-size: 13px; font-weight: 600; color: {{ ghTriggerColor }};">{{ ghTriggerMsg }}</span>
+          </div>
+        </div>
+
         <!-- Last sent info -->
         <div style="text-align: center; font-size: 12px; color: #7B8D9C; margin-top: 8px;">{{ notifyLastSentText }}</div>
 
@@ -1030,6 +1055,7 @@ class Component extends DCLogic {
     retReceiver: '',
     showToast: false,
     toastTitle: '',
+    ghTrigger: 'idle',
     // detail
     selectedEB: 'EB-4',
     boxDrugs: null,
@@ -1667,6 +1693,42 @@ class Component extends DCLogic {
     vals.expiryAlertSummary = (expd ? `หมดอายุแล้ว ${expd} รายการ · ` : '') + (crit ? `วิกฤต ${crit} รายการ · ` : '') + `ทั้งหมด ${alerts.length} รายการ`;
     const lastSent = localStorage.getItem('eb_notify_last_sent');
     vals.notifyLastSentText = lastSent ? `ส่งแจ้งเตือนล่าสุด: ${lastSent}` : 'ยังไม่เคยส่งแจ้งเตือน';
+    // GitHub Actions manual trigger
+    vals.githubPAT = nfSettings.githubPAT || '';
+    vals.setGithubPAT = (e) => { const s = window.EB_Notify.loadSettings(); s.githubPAT = e.target.value; window.EB_Notify.saveSettings(s); };
+    const _ghState = st.ghTrigger || 'idle';
+    const _ghMsgs = { idle: '', loading: '⏳ กำลังส่งคำสั่ง…', success: '✓ ส่งแล้ว — ตรวจสอบ Email ใน 1-2 นาที', error: '✗ เกิดข้อผิดพลาด · ตรวจสอบ PAT หรือสิทธิ์ repository' };
+    const _ghColors = { idle: '#7B8D9C', loading: '#D9810F', success: '#169C7F', error: '#B42121' };
+    vals.ghTriggerMsg   = _ghMsgs[_ghState];
+    vals.ghTriggerColor = _ghColors[_ghState];
+    vals.triggerGHActions = async () => {
+      if (_ghState === 'loading') return;
+      const s = window.EB_Notify.loadSettings();
+      const pat = (s.githubPAT || '').trim();
+      if (!pat) { this.setState({ ghTrigger: 'error' }); setTimeout(() => this.setState({ ghTrigger: 'idle' }), 4000); return; }
+      this.setState({ ghTrigger: 'loading' });
+      try {
+        const res = await fetch('https://api.github.com/repos/Rxanasmyt/Emergency-box-Notify-KPNHos/actions/workflows/daily-notify.yml/dispatches', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${pat}`, 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ref: 'claude/eloquent-heisenberg-vqrypu' }),
+        });
+        if (res.status === 204) {
+          this.setState({ ghTrigger: 'success' });
+          this.logAction({ cat: 'other', action: 'ส่งแจ้งเตือน', eb: '—', dept: '—', drug: 'Trigger GitHub Actions: manual drug-expiry email' });
+          localStorage.setItem('eb_notify_last_sent', new Date().toLocaleString('th-TH'));
+          setTimeout(() => this.setState({ ghTrigger: 'idle' }), 10000);
+        } else {
+          console.warn('[GH Trigger] status:', res.status, await res.text().catch(()=>''));
+          this.setState({ ghTrigger: 'error' });
+          setTimeout(() => this.setState({ ghTrigger: 'idle' }), 6000);
+        }
+      } catch (err) {
+        console.error('[GH Trigger]', err.message);
+        this.setState({ ghTrigger: 'error' });
+        setTimeout(() => this.setState({ ghTrigger: 'idle' }), 6000);
+      }
+    };
 
     vals.doLogout = () => this.askConfirm({ tone: 'plain', icon: 'logout', title: 'ออกจากระบบ?', body: 'คุณจะถูกนำกลับไปหน้าเข้าสู่ระบบ', yesLabel: 'ออกจากระบบ', noLabel: 'อยู่ต่อ', onYes: () => { this.logAction({ cat: 'auth', action: 'ออกระบบ', eb: '—', dept: '—', drug: 'ออกจากระบบโดยผู้ใช้' }); this.logout(); } });
 
