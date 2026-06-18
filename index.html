@@ -1575,9 +1575,10 @@ class Component extends DCLogic {
       .map(({ b, status }) => ({
         id: b.id, dept: b.dept, nearDrug: this.nearDrugOf(b.id, BDdash), expiryText: this.fmtISO(exp(b)),
         daysText: this.daysText(exp(b)), color: status.color, soft: status.soft, border: status.border,
+        statusKey: status.key,
       }));
     vals.criticalList = criticalList;
-    const urgentBoxes = criticalList.filter(x => x.status.key === 'critical');
+    const urgentBoxes = criticalList.filter(x => x.statusKey === 'critical');
     vals.kpiTotal       = this.BOXES.length;
     vals.kpiDispensed   = active.length;
     vals.kpiDeptText    = Object.entries(deptCount).filter(([,v])=>v>0).map(([k,v])=>`${k} ${v}`).join(' · ') || '—';
