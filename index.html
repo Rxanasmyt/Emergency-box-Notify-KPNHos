@@ -1216,6 +1216,10 @@ class Component extends DCLogic {
     }
     this.setState({ authed: true, currentUser: u, loginError: '', attempts: 0, locked: false, loginPass: '', screen: 'dashboard',
       users: this.state.users.map(x => x.id === u.id ? { ...x, lastLogin: `${this.fmt(this.TODAY)} ${this.nowTime()}` } : x) });
+    // sign in to Firebase anonymously so Firestore security rules allow reads/writes
+    if (window.EB_Firebase && window.EB_Firebase.auth) {
+      window.EB_Firebase.auth.signInAnonymously().catch(err => console.warn('[Auth] Anonymous sign-in failed:', err.message));
+    }
     setTimeout(() => {
       this.logAction({ cat: 'auth', action: 'เข้าระบบ', eb: '—', dept: u.dept, drug: 'เข้าสู่ระบบสำเร็จ' });
       this.bumpIdle();
@@ -1230,6 +1234,9 @@ class Component extends DCLogic {
   }
   logout() {
     this.setState({ authed: false, currentUser: null, loginUser: '', loginPass: '', showPass: false, screen: 'dashboard' });
+    if (window.EB_Firebase && window.EB_Firebase.auth) {
+      window.EB_Firebase.auth.signOut().catch(() => {});
+    }
   }
   fillDemo(username) {
     this.setState({ loginUser: username, loginPass: '1234', loginError: '' });

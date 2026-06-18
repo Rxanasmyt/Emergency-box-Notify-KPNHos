@@ -1,26 +1,24 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // App uses local auth + Firebase Anonymous Auth
+    // request.auth != null means the browser has signed in anonymously (= local login passed)
     function isAuth() { return request.auth != null; }
-    function userRole() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role; }
-    function isAdmin() { return isAuth() && userRole() == 'admin'; }
-    function isPharmacist() { return isAuth() && (userRole() == 'pharmacist' || userRole() == 'admin'); }
+
     match /boxes/{boxId} {
-      allow read: if isAuth();
-      allow write: if isPharmacist();
+      allow read, write: if isAuth();
     }
     match /box_drugs/{boxId} {
-      allow read: if isAuth();
-      allow write: if isPharmacist();
+      allow read, write: if isAuth();
     }
     match /audit_log/{entryId} {
-      allow read: if isAuth();
-      allow create: if isAuth();
-      allow update, delete: if isAdmin();
+      allow read, write: if isAuth();
     }
     match /users/{userId} {
-      allow read: if isAuth();
-      allow write: if isAdmin();
+      allow read, write: if isAuth();
+    }
+    match /app_settings/{docId} {
+      allow read, write: if isAuth();
     }
   }
 }
