@@ -17,11 +17,6 @@
   const DEFAULTS = {
     enabled: true,
     thresholdDays: 30,
-    emailEnabled: false,
-    emailjsPublicKey: '',
-    emailjsServiceId: '',
-    emailjsTemplateId: '',
-    recipientEmail: '',
     lineEnabled: false,
     lineWebhookUrl: '',
     browserEnabled: true,
@@ -144,62 +139,6 @@
     return msg;
   }
 
-  function buildHtmlEmail(alerts) {
-    if (!alerts.length) return null;
-    const expired = alerts.filter(a => a.status === 'expired');
-    const critical = alerts.filter(a => a.status === 'critical');
-    const warning = alerts.filter(a => a.status === 'warning');
-
-    let rows = '';
-    alerts.slice(0, 30).forEach(a => {
-      const color = a.status === 'expired' ? '#E03E3E' : a.status === 'critical' ? '#D9810F' : a.status === 'warning' ? '#EE8A2B' : '#1A6FA3';
-      const label = a.status === 'expired' ? 'หมดอายุแล้ว' : a.status === 'critical' ? 'วิกฤต' : a.status === 'warning' ? 'ใกล้กำหนด' : 'เตือนล่วงหน้า';
-      const days = a.daysLeft <= 0 ? `เกิน ${Math.abs(a.daysLeft)} วัน` : `เหลือ ${a.daysLeft} วัน`;
-      rows += `<tr><td style="padding:8px;border-bottom:1px solid #eee">${a.boxId}</td><td style="padding:8px;border-bottom:1px solid #eee">${a.dept}</td><td style="padding:8px;border-bottom:1px solid #eee">${a.drugName}${a.isHAD ? ' <span style="color:#E03E3E;font-weight:600">HAD</span>' : ''}</td><td style="padding:8px;border-bottom:1px solid #eee;color:${color};font-weight:600">${label}</td><td style="padding:8px;border-bottom:1px solid #eee">${days}</td></tr>`;
-    });
-
-    return `
-      <div style="font-family:'IBM Plex Sans Thai',sans-serif;max-width:700px;margin:0 auto">
-        <div style="background:linear-gradient(135deg,#1A6FA3,#168C84);color:#fff;padding:24px 28px;border-radius:12px 12px 0 0">
-          <h2 style="margin:0;font-size:20px">🏥 แจ้งเตือนยาใกล้หมดอายุ</h2>
-          <p style="margin:6px 0 0;opacity:.85;font-size:14px">Emergency Box - รพ.กรงปินัง</p>
-        </div>
-        <div style="background:#fff;padding:20px 28px;border:1px solid #e0e0e0;border-top:0">
-          <p style="color:#333;font-size:14px">พบยาที่ต้องดำเนินการ <strong>${alerts.length}</strong> รายการ
-            ${expired.length ? `(หมดอายุแล้ว <span style="color:#E03E3E;font-weight:700">${expired.length}</span>)` : ''}
-            ${critical.length ? `(วิกฤต <span style="color:#D9810F;font-weight:700">${critical.length}</span>)` : ''}
-          </p>
-          <table style="width:100%;border-collapse:collapse;font-size:13px;margin:12px 0">
-            <tr style="background:#f5f7f9"><th style="padding:8px;text-align:left">กล่อง</th><th style="padding:8px;text-align:left">แผนก</th><th style="padding:8px;text-align:left">ชื่อยา</th><th style="padding:8px;text-align:left">สถานะ</th><th style="padding:8px;text-align:left">เวลา</th></tr>
-            ${rows}
-          </table>
-          <p style="margin:16px 0 0"><a href="https://emergencyboxnotyfykpnhos.web.app" style="display:inline-block;background:#1A6FA3;color:#fff;padding:10px 24px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600">เปิดระบบ EB Notify</a></p>
-        </div>
-        <div style="background:#f9fafb;padding:12px 28px;border:1px solid #e0e0e0;border-top:0;border-radius:0 0 12px 12px;font-size:11px;color:#888">
-          ส่งอัตโนมัติจากระบบ Emergency Box Notify — ฝ่ายเภสัชกรรม รพ.กรงปินัง
-        </div>
-      </div>`;
-  }
-
-  async function sendEmail(settings, alerts) {
-    if (!settings.emailEnabled || !settings.emailjsPublicKey || !settings.emailjsServiceId || !settings.emailjsTemplateId) return false;
-    if (typeof emailjs === 'undefined') { console.warn('[Notify] EmailJS SDK not loaded'); return false; }
-    try {
-      emailjs.init(settings.emailjsPublicKey);
-      await emailjs.send(settings.emailjsServiceId, settings.emailjsTemplateId, {
-        to_email: settings.recipientEmail,
-        subject: `🏥 แจ้งเตือนยาใกล้หมดอายุ (${alerts.length} รายการ)`,
-        message: buildAlertMessage(alerts),
-        html_content: buildHtmlEmail(alerts),
-      });
-      console.log('[Notify] Email sent successfully');
-      return true;
-    } catch (err) {
-      console.error('[Notify] Email failed:', err);
-      return false;
-    }
-  }
-
   async function sendLINE(settings, alerts) {
     if (!settings.lineEnabled || !settings.lineWebhookUrl) return false;
     const msg = buildAlertMessage(alerts);
@@ -261,9 +200,6 @@
     }
 
     let sent = false;
-    if (settings.emailEnabled) {
-      sent = await sendEmail(settings, alerts) || sent;
-    }
     if (settings.lineEnabled) {
       sent = await sendLINE(settings, alerts) || sent;
     }
@@ -290,7 +226,6 @@
     findExpiringDrugs,
     buildAlertMessage,
     requestBrowserPermission,
-    sendEmail,
     sendLINE,
     DEFAULTS,
   };

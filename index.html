@@ -23,7 +23,6 @@
 <script src="./support.js"></script>
 <script src="./firebase-init.js"></script>
 <script src="./firebase-sync.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script src="./notify.js"></script>
 <!-- PWA Service Worker -->
 <script>
@@ -1069,44 +1068,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
         </div>
         </sc-if>
 
-        <!-- Email Settings -->
-        <div style="background: #fff; border: 1px solid #E7EEF3; border-radius: 16px; padding: 24px 28px; margin-bottom: 16px;">
-          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 18px;">
-            <span style="width: 36px; height: 36px; border-radius: 10px; background: #E8F0F6; color: #1A6FA3; display: flex; align-items: center; justify-content: center;">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="14" rx="3" stroke="currentColor" stroke-width="1.8"/><path d="M3 8l9 5 9-5" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
-            </span>
-            <div>
-              <div style="font-size: 15px; font-weight: 700; color: #15242E;">แจ้งเตือนผ่าน Email</div>
-              <div style="font-size: 12px; color: #7B8D9C;">ใช้ EmailJS (ฟรี 200 email/เดือน)</div>
-            </div>
-            <label style="margin-left: auto; position: relative; width: 46px; height: 26px; cursor: pointer;">
-              <input type="checkbox" onchange="{{ toggleEmailEnabled }}" style="opacity:0;width:0;height:0;position:absolute">
-              <span style="position:absolute;inset:0;border-radius:13px;transition:all .3s;background:{{ notifyEmailEnabled ? '#1A6FA3' : '#D1D9E0' }}"></span>
-              <span style="position:absolute;top:3px;left:{{ notifyEmailEnabled ? '23px' : '3px' }};width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:all .3s"></span>
-            </label>
-          </div>
-          <sc-if value="{{ notifyEmailEnabled }}" hint-placeholder-val="{{ false }}">
-          <div class="form-grid-2 notify-email-grid" style="gap: 12px;">
-            <div>
-              <label style="font-size: 12px; font-weight: 600; color: #5A6B79; display: block; margin-bottom: 4px;">EmailJS Public Key</label>
-              <input type="text" value="{{ notifyEmailjsPublicKey }}" oninput="{{ setEmailjsPublicKey }}" placeholder="เช่น abc123XYZ..." style="width:100%;height:40px;border:1.5px solid #DBE4EB;border-radius:10px;padding:0 12px;font-size:13px;color:#15242E">
-            </div>
-            <div>
-              <label style="font-size: 12px; font-weight: 600; color: #5A6B79; display: block; margin-bottom: 4px;">Service ID</label>
-              <input type="text" value="{{ notifyEmailjsServiceId }}" oninput="{{ setEmailjsServiceId }}" placeholder="เช่น service_xxxxx" style="width:100%;height:40px;border:1.5px solid #DBE4EB;border-radius:10px;padding:0 12px;font-size:13px;color:#15242E">
-            </div>
-            <div>
-              <label style="font-size: 12px; font-weight: 600; color: #5A6B79; display: block; margin-bottom: 4px;">Template ID</label>
-              <input type="text" value="{{ notifyEmailjsTemplateId }}" oninput="{{ setEmailjsTemplateId }}" placeholder="เช่น template_xxxxx" style="width:100%;height:40px;border:1.5px solid #DBE4EB;border-radius:10px;padding:0 12px;font-size:13px;color:#15242E">
-            </div>
-            <div>
-              <label style="font-size: 12px; font-weight: 600; color: #5A6B79; display: block; margin-bottom: 4px;">Email ผู้รับ</label>
-              <input type="email" value="{{ notifyRecipientEmail }}" oninput="{{ setRecipientEmail }}" placeholder="pharmacy@hospital.go.th" style="width:100%;height:40px;border:1.5px solid #DBE4EB;border-radius:10px;padding:0 12px;font-size:13px;color:#15242E">
-            </div>
-          </div>
-          </sc-if>
-        </div>
-
         <!-- LINE Settings -->
         <div style="background: #fff; border: 1px solid #E7EEF3; border-radius: 16px; padding: 24px 28px; margin-bottom: 16px;">
           <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 18px;">
@@ -1918,22 +1879,12 @@ class Component extends DCLogic {
     vals.userAvatarColor = cu ? cuRole.color : '#1A6FA3';
     // ===== NOTIFY SETTINGS =====
     const nfSettings = window.EB_Notify ? window.EB_Notify.loadSettings() : {};
-    vals.notifyEmailEnabled = !!nfSettings.emailEnabled;
     vals.notifyLineEnabled = !!nfSettings.lineEnabled;
     vals.notifyBrowserEnabled = nfSettings.browserEnabled !== false;
-    vals.notifyEmailjsPublicKey = nfSettings.emailjsPublicKey || '';
-    vals.notifyEmailjsServiceId = nfSettings.emailjsServiceId || '';
-    vals.notifyEmailjsTemplateId = nfSettings.emailjsTemplateId || '';
-    vals.notifyRecipientEmail = nfSettings.recipientEmail || '';
     vals.notifyLineWebhookUrl = nfSettings.lineWebhookUrl || '';
     vals.notifyThresholdDays = nfSettings.thresholdDays || 30;
-    vals.toggleEmailEnabled = () => { const s = window.EB_Notify.loadSettings(); s.emailEnabled = !s.emailEnabled; window.EB_Notify.saveSettings(s); this.setState({}); };
     vals.toggleLineEnabled = () => { const s = window.EB_Notify.loadSettings(); s.lineEnabled = !s.lineEnabled; window.EB_Notify.saveSettings(s); this.setState({}); };
     vals.toggleBrowserEnabled = () => { const s = window.EB_Notify.loadSettings(); s.browserEnabled = !s.browserEnabled; window.EB_Notify.saveSettings(s); if (s.browserEnabled) window.EB_Notify.requestBrowserPermission(); this.setState({}); };
-    vals.setEmailjsPublicKey = (e) => { const s = window.EB_Notify.loadSettings(); s.emailjsPublicKey = e.target.value; window.EB_Notify.saveSettings(s); };
-    vals.setEmailjsServiceId = (e) => { const s = window.EB_Notify.loadSettings(); s.emailjsServiceId = e.target.value; window.EB_Notify.saveSettings(s); };
-    vals.setEmailjsTemplateId = (e) => { const s = window.EB_Notify.loadSettings(); s.emailjsTemplateId = e.target.value; window.EB_Notify.saveSettings(s); };
-    vals.setRecipientEmail = (e) => { const s = window.EB_Notify.loadSettings(); s.recipientEmail = e.target.value; window.EB_Notify.saveSettings(s); };
     vals.setLineWebhookUrl = (e) => { const s = window.EB_Notify.loadSettings(); s.lineWebhookUrl = e.target.value; window.EB_Notify.saveSettings(s); };
     vals.setThresholdDays = (e) => { const s = window.EB_Notify.loadSettings(); s.thresholdDays = parseInt(e.target.value) || 30; window.EB_Notify.saveSettings(s); };
     vals.saveNotifySettings = () => {
