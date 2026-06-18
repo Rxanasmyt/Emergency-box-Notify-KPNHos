@@ -298,8 +298,10 @@ async function sendEmail(alerts) {
 
 // ── Main ───────────────────────────────────────────────────────
 async function main() {
+  const isMonday = TODAY.getDay() === 1;   // 0=Sun … 6=Sat
   console.log(`\n🔍 ตรวจสอบยาใกล้หมดอายุ (ภายใน ${THRESHOLD_DAYS} วัน)...`);
-  console.log(`📅 วันที่: ${TODAY.toLocaleDateString('th-TH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}\n`);
+  console.log(`📅 วันที่: ${TODAY.toLocaleDateString('th-TH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`);
+  console.log(`📋 โหมด: ${isMonday ? 'รายงานประจำสัปดาห์ (วันจันทร์)' : 'ตรวจเฉพาะยาวิกฤต (อังคาร–อาทิตย์)'}\n`);
 
   let alerts;
   try {
@@ -321,13 +323,32 @@ async function main() {
   const warning  = alerts.filter(a => a.status === 'warning').length;
   const notice   = alerts.filter(a => a.status === 'notice').length;
 
-  console.log(`📊 สรุป: หมดอายุแล้ว ${expired} | วิกฤต ${critical} | ใกล้กำหนด ${warning} | เตือนล่วงหน้า ${notice}\n`);
+  console.log(`📊 สรุป: หมดอายุแล้ว ${expired} | วิกฤต ${critical} | ใกล้กำหนด ${warning} | เตือนล่วงหน้า ${notice}`);
+
+  // ── Smart mode logic ──
+  // วันจันทร์ → ส่งรายงานเต็มทุกรายการ
+  // วันอื่น   → ส่งเฉพาะมียาหมดอายุแล้วหรือวิกฤต (≤7 วัน)
+  const urgentAlerts = alerts.filter(a => a.status === 'expired' || a.status === 'critical');
+  const shouldSend = isMonday || urgentAlerts.length > 0;
+
+  if (!shouldSend) {
+    console.log('\n⏭  ไม่มียาวิกฤต และไม่ใช่วันจันทร์ — ข้ามการส่งแจ้งเตือนวันนี้');
+    process.exit(0);
+  }
+
+  // วันจันทร์ส่งทุกรายการ / วันอื่นส่งเฉพาะวิกฤต
+  const alertsToSend = isMonday ? alerts : urgentAlerts;
+  if (!isMonday) {
+    console.log(`\n🚨 พบยาวิกฤต ${urgentAlerts.length} รายการ — ส่งแจ้งเตือนด่วน`);
+  } else {
+    console.log(`\n📬 วันจันทร์ — ส่งรายงานสัปดาห์ (${alertsToSend.length} รายการ)`);
+  }
 
   const lineResult = process.env.LINE_CHANNEL_TOKEN
-    ? await sendLineMessage(process.env.LINE_CHANNEL_TOKEN, buildLineMessage(alerts), process.env.LINE_USER_ID || '')
+    ? await sendLineMessage(process.env.LINE_CHANNEL_TOKEN, buildLineMessage(alertsToSend), process.env.LINE_USER_ID || '')
     : (console.log('⚠️  LINE: ไม่ได้ตั้งค่า LINE_CHANNEL_TOKEN'), false);
 
-  const emailResult = await sendEmail(alerts);
+  const emailResult = await sendEmail(alertsToSend);
 
   console.log('\n── สรุปผลการแจ้งเตือน ──');
   console.log(`LINE:  ${lineResult ? '✅ สำเร็จ' : '❌ ล้มเหลว / ไม่ได้ตั้งค่า'}`);
