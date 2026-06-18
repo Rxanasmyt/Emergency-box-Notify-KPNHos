@@ -621,6 +621,23 @@
           </button>
         </div>
 
+        <!-- Date range filter -->
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 14px; flex-wrap: wrap;">
+          <span style="font-size: 12px; font-weight: 600; color: #7B8D9C; white-space: nowrap;">ช่วงเวลา:</span>
+          {{ datePresetEl }}
+          <sc-if value="{{ showFiscalSelect }}" hint-placeholder-val="{{ false }}">
+            <select onchange="{{ setFiscalYear }}" style="height: 36px; border: 1.5px solid #1A6FA3; border-radius: 9px; padding: 0 10px; font-size: 13px; font-family: inherit; color: #1A6FA3; font-weight: 600; background: #E8F0F6; cursor: pointer;">{{ fiscalYearOptionsEl }}</select>
+          </sc-if>
+          <sc-if value="{{ showCustomDate }}" hint-placeholder-val="{{ false }}">
+            <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+              <input type="date" value="{{ dateFrom }}" onchange="{{ setDateFrom }}" style="height: 36px; border: 1.5px solid #DBE4EB; border-radius: 9px; padding: 0 10px; font-size: 13px; font-family: inherit; color: #15242E; background: #fff;">
+              <span style="font-size: 12px; color: #7B8D9C;">ถึง</span>
+              <input type="date" value="{{ dateTo }}" onchange="{{ setDateTo }}" style="height: 36px; border: 1.5px solid #DBE4EB; border-radius: 9px; padding: 0 10px; font-size: 13px; font-family: inherit; color: #15242E; background: #fff;">
+            </div>
+          </sc-if>
+          <span style="font-size: 12px; color: #9AAAB8; margin-left: 4px;">{{ dateRangeLabel }}</span>
+        </div>
+
         <!-- Register table -->
         <div style="background: #fff; border: 1px solid #E7EEF3; border-radius: 18px; overflow: hidden; box-shadow: 0 2px 12px rgba(20,40,55,.04);">
           <div style="overflow-x: auto;">
@@ -949,6 +966,10 @@ class Component extends DCLogic {
     // history
     query: '',
     filter: 'dispense-return',
+    datePreset: 'all',
+    fiscalYear: 0,
+    dateFrom: '',
+    dateTo: '',
     auditLog: null,
     boxHist: {},
     // confirm dialog
@@ -2001,11 +2022,67 @@ class Component extends DCLogic {
         style: { height: 46, padding: '0 15px', borderRadius: 11, fontFamily: 'inherit', fontSize: 13, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all .15s', background: on ? '#15242E' : '#fff', color: on ? '#fff' : '#5A6B79', border: on ? '1.5px solid #15242E' : '1.5px solid #DBE4EB' },
       }, f.l);
     }));
+    // --- date-range helpers ---
+    const _isoOf = (d) => { const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${day}`; };
+    const _today = this.TODAY;
+    const _thaiYear = (d) => d.getFullYear() + 543;
+    const _fiscalYearOf = (d) => { const m=d.getMonth()+1; return m>=10 ? d.getFullYear()+544 : d.getFullYear()+543; };
+    const _fiscalStart = (fyThai) => { const ce=fyThai-544; return new Date(ce,9,1); }; // Oct 1
+    const _fiscalEnd   = (fyThai) => { const ce=fyThai-543; return new Date(ce,8,30); }; // Sep 30
+    const _curFY = _fiscalYearOf(_today);
+    const _dateRange = (() => {
+      switch(st.datePreset) {
+        case 'today':   return { from: _isoOf(_today), to: _isoOf(_today) };
+        case '7days':   { const d=new Date(_today); d.setDate(d.getDate()-6); return { from: _isoOf(d), to: _isoOf(_today) }; }
+        case 'month':   { const d=new Date(_today.getFullYear(),_today.getMonth(),1); return { from: _isoOf(d), to: _isoOf(_today) }; }
+        case 'fiscal':  { const fy=st.fiscalYear||_curFY; return { from: _isoOf(_fiscalStart(fy)), to: _isoOf(_fiscalEnd(fy)) }; }
+        case 'custom':  return { from: st.dateFrom||null, to: st.dateTo||null };
+        default:        return { from: null, to: null };
+      }
+    })();
+    // date preset chips
+    const _dpDefs = [
+      { k:'all',    l:'ทั้งหมด' },
+      { k:'today',  l:'วันนี้' },
+      { k:'7days',  l:'7 วัน' },
+      { k:'month',  l:'เดือนนี้' },
+      { k:'fiscal', l:'ปีงบฯ' },
+      { k:'custom', l:'กำหนดเอง' },
+    ];
+    vals.datePresetEl = h(React.Fragment, null, ..._dpDefs.map(d => {
+      const on = st.datePreset === d.k;
+      return h('button', { key: d.k+(on?'_on':'_off'), onClick: () => this.setState({ datePreset: d.k }),
+        style: { height: 36, padding: '0 13px', borderRadius: 9, fontFamily: 'inherit', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all .15s', background: on ? '#1A6FA3' : '#fff', color: on ? '#fff' : '#5A6B79', border: on ? '1.5px solid #1A6FA3' : '1.5px solid #DBE4EB' },
+      }, d.l);
+    }));
+    vals.showFiscalSelect = st.datePreset === 'fiscal';
+    vals.showCustomDate   = st.datePreset === 'custom';
+    vals.dateFrom  = st.dateFrom;
+    vals.dateTo    = st.dateTo;
+    vals.setDateFrom = (e) => this.setState({ dateFrom: e.target.value });
+    vals.setDateTo   = (e) => this.setState({ dateTo:   e.target.value });
+    // fiscal year dropdown — current FY + last 4 years
+    const _fyOptions = Array.from({ length: 5 }, (_, i) => _curFY - i);
+    vals.fiscalYearOptionsEl = h(React.Fragment, null, ..._fyOptions.map(fy =>
+      h('option', { key: fy, value: fy, selected: (st.fiscalYear||_curFY) === fy }, `ปีงบฯ ${fy}`)
+    ));
+    vals.setFiscalYear = (e) => this.setState({ fiscalYear: parseInt(e.target.value, 10) });
+    // date range label
+    const _drLabel = (() => {
+      if (st.datePreset === 'all') return '';
+      if (st.datePreset === 'fiscal') { const fy=st.fiscalYear||_curFY; return `1 ต.ค. ${fy-1} – 30 ก.ย. ${fy}`; }
+      if (_dateRange.from && _dateRange.to && _dateRange.from === _dateRange.to) return _dateRange.from;
+      if (_dateRange.from && _dateRange.to) return `${_dateRange.from} – ${_dateRange.to}`;
+      return '';
+    })();
+    vals.dateRangeLabel = _drLabel;
     const q = (st.query || '').trim().toLowerCase();
     const filtered = LOG.filter(r => {
       if (st.filter === 'dispense-return') { if (r.cat !== 'dispense' && r.cat !== 'return') return false; }
       else if (st.filter === 'user') { if (!userCats.includes(r.cat)) return false; }
       else if (st.filter !== 'all' && r.action !== st.filter) return false;
+      if (_dateRange.from && (r.date||'') < _dateRange.from) return false;
+      if (_dateRange.to   && (r.date||'') > _dateRange.to)   return false;
       if (!q) return true;
       return [r.eb, r.dept, r.person, r.drug, r.action].some(x => (x || '').toLowerCase().includes(q));
     });
