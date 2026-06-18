@@ -1489,7 +1489,7 @@ class Component extends DCLogic {
       );
     }));
 
-    vals.todayStr = this.fmt(this.TODAY);
+    { const _d = new Date(); const _m = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']; vals.todayStr = `${_d.getDate()} ${_m[_d.getMonth()]} ${_d.getFullYear()+543}`; }
     // ===== current user (sidebar) =====
     const cu = st.currentUser;
     const cuRole = cu ? this.ROLES[cu.role] : this.ROLES.pharmacist;
