@@ -253,6 +253,45 @@ function buildHtmlEmail(alerts) {
 </html>`;
 }
 
+// ── Build plain-text fallback ──────────────────────────────────
+function buildPlainText(alerts) {
+  const expired  = alerts.filter(a => a.status === 'expired');
+  const critical = alerts.filter(a => a.status === 'critical');
+  const warning  = alerts.filter(a => a.status === 'warning');
+  const notice   = alerts.filter(a => a.status === 'notice');
+  const dateStr  = new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+
+  let t = `แจ้งเตือนยาใกล้หมดอายุ — Emergency Box รพ.กรงปินัง\n`;
+  t += `วันที่: ${dateStr}\n`;
+  t += `พบยาที่ต้องดำเนินการ ${alerts.length} รายการ\n`;
+  t += `${'─'.repeat(50)}\n\n`;
+
+  if (expired.length) {
+    t += `หมดอายุแล้ว (${expired.length} รายการ)\n`;
+    expired.forEach(a => { t += `  - ${a.boxId} (${a.dept}) ${a.drugName}  เกิน ${Math.abs(a.daysLeft)} วัน${a.isHAD ? ' [HAD]' : ''}\n`; });
+    t += '\n';
+  }
+  if (critical.length) {
+    t += `วิกฤต เหลือไม่เกิน 7 วัน (${critical.length} รายการ)\n`;
+    critical.forEach(a => { t += `  - ${a.boxId} (${a.dept}) ${a.drugName}  เหลือ ${a.daysLeft} วัน${a.isHAD ? ' [HAD]' : ''}\n`; });
+    t += '\n';
+  }
+  if (warning.length) {
+    t += `ใกล้กำหนด เหลือไม่เกิน 15 วัน (${warning.length} รายการ)\n`;
+    warning.forEach(a => { t += `  - ${a.boxId} (${a.dept}) ${a.drugName}  เหลือ ${a.daysLeft} วัน\n`; });
+    t += '\n';
+  }
+  if (notice.length) {
+    t += `เตือนล่วงหน้า (${notice.length} รายการ)\n`;
+    notice.slice(0, 15).forEach(a => { t += `  - ${a.boxId} ${a.drugName}  เหลือ ${a.daysLeft} วัน\n`; });
+    if (notice.length > 15) t += `  ... และอีก ${notice.length - 15} รายการ\n`;
+    t += '\n';
+  }
+  t += `ตรวจสอบเพิ่มเติม: https://emergencyboxnotyfykpnhos.web.app\n`;
+  t += `\nอีเมลนี้ส่งอัตโนมัติทุกวัน 08:00 น. โดยระบบ EB Notify ฝ่ายเภสัชกรรม รพ.กรงปินัง`;
+  return t;
+}
+
 // ── Send Email via Gmail SMTP ──────────────────────────────────
 async function sendEmail(alerts) {
   const from = process.env.EMAIL_FROM;
@@ -263,29 +302,32 @@ async function sendEmail(alerts) {
   console.log(`📧 Email: from=${from} to=${to}`);
 
   const transporter = nodemailer.createTransport({
-    service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true,
     auth: { user: from, pass },
   });
 
   const expired  = alerts.filter(a => a.status === 'expired').length;
   const critical = alerts.filter(a => a.status === 'critical').length;
-  let subject = `แจ้งเตือนยาใกล้หมดอายุ Emergency Box (${alerts.length} รายการ) - รพ.กรงปินัง`;
-  if (expired)  subject = `[ด่วน] ยาหมดอายุแล้ว ${expired} รายการ - Emergency Box รพ.กรงปินัง`;
-  else if (critical) subject = `[ด่วน] ยาวิกฤต ${critical} รายการ - Emergency Box รพ.กรงปินัง`;
+  let subject = `รายงานยาใกล้หมดอายุ Emergency Box ${alerts.length} รายการ รพ.กรงปินัง`;
+  if (expired)  subject = `[ด่วน] ยาหมดอายุแล้ว ${expired} รายการ Emergency Box รพ.กรงปินัง`;
+  else if (critical) subject = `[ด่วน] ยาวิกฤต ${critical} รายการ Emergency Box รพ.กรงปินัง`;
 
   const toList = to.split(',').map(e => e.trim());
+  const msgId  = `<eb-notify-${Date.now()}@emergencyboxnotyfykpnhos.web.app>`;
 
   try {
     await transporter.sendMail({
-      from: `"ระบบ Emergency Box รพ.กรงปินัง" <${from}>`,
+      from: `"EB Notify รพ.กรงปินัง" <${from}>`,
       to: toList,
       replyTo: from,
       subject,
+      text: buildPlainText(alerts),
       html: buildHtmlEmail(alerts),
       headers: {
-        'X-Priority': expired || critical ? '1' : '3',
-        'X-Mailer': 'EB-Notify/1.0',
-        'List-Unsubscribe': `<mailto:${from}?subject=unsubscribe>`,
+        'Message-ID': msgId,
+        'X-Entity-Ref-ID': msgId,
       },
     });
     console.log(`✅ Email: ส่งถึง ${to} สำเร็จ`);
