@@ -39,6 +39,12 @@ function thaiDate(isoDate) {
   return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear() + 543}`;
 }
 
+function addDaysISO(isoDate, n) {
+  const d = new Date(isoDate + 'T00:00:00');
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
 function statusLabel(days) {
   if (days < 0)   return 'หมดอายุแล้ว';
   if (days === 0) return 'หมดอายุวันนี้';
@@ -72,15 +78,20 @@ async function fetchExpiringDrugs() {
         if (!lot.expiry) return;
         const days = daysUntil(lot.expiry);
         if (days <= THRESHOLD_DAYS) {
+          const returnDeadline = addDaysISO(lot.expiry, -15);
           alerts.push({
             boxId,
             dept: box.dept || '—',
+            boxStatus: box.status || 'in',
+            boxCurrentDept: (box.status === 'out' && box.currentDept) ? box.currentDept : (box.dept || '—'),
             drugName: drug.name || '—',
             isHAD: !!drug.had,
             expiry: lot.expiry,
             expiryThai: thaiDate(lot.expiry),
             lot: lot.lot || '',
             qty: lot.qty || 0,
+            returnDeadline,
+            returnDeadlineThai: thaiDate(returnDeadline),
             daysLeft: days,
             // ตรงกับเกณฑ์แอป: วิกฤต = หมดอายุภายใน 15 วัน (= วันส่งคืนผ่านแล้ว)
             status: days < 0 ? 'expired' : days <= 15 ? 'critical' : days <= 30 ? 'warning' : 'notice',
@@ -194,55 +205,130 @@ function sendLineMessage(channelToken, message, userId) {
 
 // ── Build HTML Email ───────────────────────────────────────────
 function buildHtmlEmail(alerts) {
-  const rows = alerts.slice(0, 40).map(a => {
-    const color = a.status === 'expired' ? '#E03E3E' : a.status === 'critical' ? '#D9810F' : a.status === 'warning' ? '#EE8A2B' : '#1A6FA3';
+  const expired  = alerts.filter(a => a.status === 'expired');
+  const critical = alerts.filter(a => a.status === 'critical');
+  const warning  = alerts.filter(a => a.status === 'warning');
+  const notice   = alerts.filter(a => a.status === 'notice');
+  const hadAlerts = alerts.filter(a => a.isHAD);
+
+  // ── HAD Section ──
+  const hadSection = hadAlerts.length ? `
+    <div style="background:#FFF0F0;border:2px solid #E03E3E;border-radius:12px;padding:18px 22px;margin-bottom:20px">
+      <div style="font-size:15px;font-weight:700;color:#B42121;margin-bottom:12px">
+        ⚠️ ยากลุ่มเฝ้าระวังพิเศษ (High Alert Drug) — ${hadAlerts.length} รายการ
+      </div>
+      <div style="font-size:12px;color:#7B2020;margin-bottom:10px;line-height:1.6">
+        ยากลุ่มนี้มีความเสี่ยงสูง ต้องดำเนินการตามโปรโตคอล HAD ของโรงพยาบาลอย่างเคร่งครัด
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead>
+          <tr style="background:#FCEDED">
+            <th style="padding:8px 10px;text-align:left;color:#7B2020;font-weight:600;border-bottom:1px solid #F5C6C6">กล่อง</th>
+            <th style="padding:8px 10px;text-align:left;color:#7B2020;font-weight:600;border-bottom:1px solid #F5C6C6">สถานะกล่อง</th>
+            <th style="padding:8px 10px;text-align:left;color:#7B2020;font-weight:600;border-bottom:1px solid #F5C6C6">ชื่อยา HAD</th>
+            <th style="padding:8px 10px;text-align:left;color:#7B2020;font-weight:600;border-bottom:1px solid #F5C6C6">จำนวน</th>
+            <th style="padding:8px 10px;text-align:left;color:#7B2020;font-weight:600;border-bottom:1px solid #F5C6C6">ต้องส่งคืนภายใน</th>
+            <th style="padding:8px 10px;text-align:left;color:#7B2020;font-weight:600;border-bottom:1px solid #F5C6C6">วันหมดอายุ</th>
+            <th style="padding:8px 10px;text-align:left;color:#7B2020;font-weight:600;border-bottom:1px solid #F5C6C6">สถานะ</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${hadAlerts.map(a => {
+            const color = a.status === 'expired' ? '#B42121' : a.status === 'critical' ? '#9A5000' : '#7B4F00';
+            const boxStatusLabel = a.boxStatus === 'out' ? `<span style="color:#D9810F;font-weight:700">จ่ายออก</span><br><span style="font-size:11px;color:#7B6030">${a.boxCurrentDept}</span>` : `<span style="color:#169C7F;font-weight:700">อยู่ที่คลัง</span>`;
+            const days = a.daysLeft < 0 ? `เกิน ${Math.abs(a.daysLeft)} วัน` : `เหลือ ${a.daysLeft} วัน`;
+            return `<tr style="background:#FFF8F8">
+              <td style="padding:8px 10px;border-bottom:1px solid #F5C6C6;font-weight:700;color:#B42121">${a.boxId}</td>
+              <td style="padding:8px 10px;border-bottom:1px solid #F5C6C6">${boxStatusLabel}</td>
+              <td style="padding:8px 10px;border-bottom:1px solid #F5C6C6;font-weight:600">${a.drugName} <span style="background:#E03E3E;color:#fff;font-size:10px;font-weight:700;padding:2px 5px;border-radius:4px">HAD</span></td>
+              <td style="padding:8px 10px;border-bottom:1px solid #F5C6C6;text-align:center">${a.qty}</td>
+              <td style="padding:8px 10px;border-bottom:1px solid #F5C6C6;color:#B42121;font-weight:600">${a.returnDeadlineThai}</td>
+              <td style="padding:8px 10px;border-bottom:1px solid #F5C6C6">${a.expiryThai}</td>
+              <td style="padding:8px 10px;border-bottom:1px solid #F5C6C6;color:${color};font-weight:600">${a.statusLabel}<br><span style="font-size:11px">${days}</span></td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>` : '';
+
+  // ── Action Section ──
+  const actions = [];
+  if (expired.length)  actions.push(`แจ้งฝ่ายเภสัชกรรมและหน่วยงานที่เกี่ยวข้องเพื่อเรียกคืน <strong>ยาหมดอายุแล้ว ${expired.length} รายการ</strong> โดยเร่งด่วน`);
+  if (critical.length) actions.push(`ประสานหน่วยงานที่ถือกล่อง EB ให้ส่งคืน <strong>ยาที่ถึงกำหนดส่งคืน ${critical.length} รายการ</strong> ภายใน 24–48 ชั่วโมง`);
+  if (hadAlerts.filter(a => a.status === 'expired' || a.status === 'critical').length)
+    actions.push(`ดำเนินการตาม<strong>โปรโตคอล HAD</strong> สำหรับยาเฝ้าระวังพิเศษ — บันทึกในระบบและรายงานผู้รับผิดชอบ`);
+  if (warning.length)  actions.push(`วางแผนนัดหมายส่งคืน <strong>ยาที่ใกล้กำหนด ${warning.length} รายการ</strong> ภายใน 7–15 วัน`);
+  if (notice.length)   actions.push(`ติดตามสถานะ <strong>ยาเตือนล่วงหน้า ${notice.length} รายการ</strong> เพื่อวางแผนล่วงหน้า`);
+  actions.push('ตรวจสอบและอัปเดตข้อมูลในระบบ EB Notify ให้เป็นปัจจุบัน');
+
+  const actionSection = `
+    <div style="background:#EEF5FF;border:1.5px solid #B3CCE8;border-radius:12px;padding:18px 22px;margin-bottom:20px">
+      <div style="font-size:15px;font-weight:700;color:#1A4F7A;margin-bottom:12px">📋 สิ่งที่ต้องดำเนินการ</div>
+      <ol style="margin:0;padding-left:20px;font-size:13px;color:#2C4A63;line-height:2">
+        ${actions.map(a => `<li>${a}</li>`).join('')}
+      </ol>
+    </div>`;
+
+  // ── Main Table ──
+  const rows = alerts.slice(0, 50).map((a, i) => {
+    const color = a.status === 'expired' ? '#B42121' : a.status === 'critical' ? '#9A5000' : a.status === 'warning' ? '#7B4F00' : '#1A6FA3';
+    const rowBg = i % 2 === 0 ? '#FFFFFF' : '#F9FBFC';
     const days = a.daysLeft < 0 ? `เกิน ${Math.abs(a.daysLeft)} วัน` : `เหลือ ${a.daysLeft} วัน`;
+    const boxStatusLabel = a.boxStatus === 'out'
+      ? `<span style="color:#D9810F;font-weight:700">จ่ายออก</span><br><span style="font-size:11px;color:#7B6030">${a.boxCurrentDept}</span>`
+      : `<span style="color:#169C7F;font-weight:700">อยู่ที่คลัง</span>`;
     return `
-      <tr>
+      <tr style="background:${rowBg}">
         <td style="padding:9px 12px;border-bottom:1px solid #F0F4F8;font-weight:600">${a.boxId}</td>
-        <td style="padding:9px 12px;border-bottom:1px solid #F0F4F8">${a.dept}</td>
-        <td style="padding:9px 12px;border-bottom:1px solid #F0F4F8">${a.drugName}${a.isHAD ? ' <span style="color:#E03E3E;font-size:11px;font-weight:700">HAD</span>' : ''}</td>
-        <td style="padding:9px 12px;border-bottom:1px solid #F0F4F8;color:${color};font-weight:600">${a.statusLabel}</td>
-        <td style="padding:9px 12px;border-bottom:1px solid #F0F4F8">${a.expiryThai}</td>
-        <td style="padding:9px 12px;border-bottom:1px solid #F0F4F8;color:${color};font-weight:600">${days}</td>
+        <td style="padding:9px 12px;border-bottom:1px solid #F0F4F8">${boxStatusLabel}</td>
+        <td style="padding:9px 12px;border-bottom:1px solid #F0F4F8">${a.drugName}${a.isHAD ? ' <span style="background:#E03E3E;color:#fff;font-size:10px;font-weight:700;padding:2px 5px;border-radius:4px">HAD</span>' : ''}</td>
+        <td style="padding:9px 12px;border-bottom:1px solid #F0F4F8;text-align:center">${a.qty}</td>
+        <td style="padding:9px 12px;border-bottom:1px solid #F0F4F8;color:${color};font-weight:600;white-space:nowrap">${a.returnDeadlineThai}</td>
+        <td style="padding:9px 12px;border-bottom:1px solid #F0F4F8;white-space:nowrap">${a.expiryThai}</td>
+        <td style="padding:9px 12px;border-bottom:1px solid #F0F4F8;color:${color};font-weight:600">${a.statusLabel}<br><span style="font-size:11px;font-weight:400">${days}</span></td>
       </tr>`;
   }).join('');
-
-  const expired  = alerts.filter(a => a.status === 'expired').length;
-  const critical = alerts.filter(a => a.status === 'critical').length;
 
   return `<!DOCTYPE html>
 <html lang="th">
 <head><meta charset="utf-8"><title>EB Notify</title></head>
 <body style="margin:0;padding:20px;background:#F0F4F8;font-family:'Sarabun',Arial,sans-serif">
-  <div style="max-width:720px;margin:0 auto">
+  <div style="max-width:780px;margin:0 auto">
     <div style="background:linear-gradient(135deg,#1A6FA3 0%,#168C84 100%);padding:28px 32px;border-radius:16px 16px 0 0;color:#fff">
       <div style="font-size:13px;opacity:.8;margin-bottom:4px">ฝ่ายเภสัชกรรม · โรงพยาบาลกรงปินัง</div>
-      <h1 style="margin:0;font-size:22px;font-weight:700">🏥 แจ้งเตือนยาใกล้หมดอายุ</h1>
+      <h1 style="margin:0;font-size:22px;font-weight:700">🏥 แจ้งเตือนยาใกล้หมดอายุ — Emergency Box</h1>
       <div style="margin-top:8px;font-size:14px;opacity:.85">
         ${new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}
       </div>
     </div>
     <div style="background:#fff;padding:24px 32px;border:1px solid #E2E8F0;border-top:0">
       <div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap">
-        ${expired ? `<span style="background:#FCEDED;color:#B42121;border-radius:8px;padding:8px 16px;font-weight:700;font-size:14px">🔴 หมดอายุแล้ว ${expired} รายการ</span>` : ''}
-        ${critical ? `<span style="background:#FBF1E0;color:#9A5000;border-radius:8px;padding:8px 16px;font-weight:700;font-size:14px">🟠 วิกฤต ${critical} รายการ</span>` : ''}
+        ${expired.length ? `<span style="background:#FCEDED;color:#B42121;border-radius:8px;padding:8px 16px;font-weight:700;font-size:14px">🔴 หมดอายุแล้ว ${expired.length} รายการ</span>` : ''}
+        ${critical.length ? `<span style="background:#FBF1E0;color:#9A5000;border-radius:8px;padding:8px 16px;font-weight:700;font-size:14px">🟠 วิกฤต ${critical.length} รายการ</span>` : ''}
+        ${warning.length ? `<span style="background:#FEF8EC;color:#7B4F00;border-radius:8px;padding:8px 16px;font-weight:700;font-size:14px">🟡 ใกล้กำหนด ${warning.length} รายการ</span>` : ''}
+        ${hadAlerts.length ? `<span style="background:#FCEDED;color:#B42121;border:1.5px solid #E03E3E;border-radius:8px;padding:8px 16px;font-weight:700;font-size:14px">⚠️ HAD ${hadAlerts.length} รายการ</span>` : ''}
         <span style="background:#E8F0F6;color:#1A6FA3;border-radius:8px;padding:8px 16px;font-weight:700;font-size:14px">รวมทั้งหมด ${alerts.length} รายการ</span>
       </div>
+
+      ${hadAlerts.length ? hadSection : ''}
+      ${actionSection}
+
+      <div style="font-size:14px;font-weight:700;color:#334155;margin-bottom:10px">รายละเอียดยาทั้งหมด</div>
       <table style="width:100%;border-collapse:collapse;font-size:13px">
         <thead>
           <tr style="background:#F5F7FA">
             <th style="padding:10px 12px;text-align:left;color:#5A6B79;font-weight:600;border-bottom:2px solid #E2E8F0">กล่อง</th>
-            <th style="padding:10px 12px;text-align:left;color:#5A6B79;font-weight:600;border-bottom:2px solid #E2E8F0">แผนก</th>
+            <th style="padding:10px 12px;text-align:left;color:#5A6B79;font-weight:600;border-bottom:2px solid #E2E8F0">สถานะกล่อง</th>
             <th style="padding:10px 12px;text-align:left;color:#5A6B79;font-weight:600;border-bottom:2px solid #E2E8F0">ชื่อยา</th>
-            <th style="padding:10px 12px;text-align:left;color:#5A6B79;font-weight:600;border-bottom:2px solid #E2E8F0">สถานะ</th>
+            <th style="padding:10px 12px;text-align:center;color:#5A6B79;font-weight:600;border-bottom:2px solid #E2E8F0">จำนวน</th>
+            <th style="padding:10px 12px;text-align:left;color:#5A6B79;font-weight:600;border-bottom:2px solid #E2E8F0">ต้องส่งคืนภายใน</th>
             <th style="padding:10px 12px;text-align:left;color:#5A6B79;font-weight:600;border-bottom:2px solid #E2E8F0">วันหมดอายุ</th>
-            <th style="padding:10px 12px;text-align:left;color:#5A6B79;font-weight:600;border-bottom:2px solid #E2E8F0">เวลาเหลือ</th>
+            <th style="padding:10px 12px;text-align:left;color:#5A6B79;font-weight:600;border-bottom:2px solid #E2E8F0">สถานะ</th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>
       </table>
-      ${alerts.length > 40 ? `<p style="color:#7B8D9C;font-size:12px;margin-top:12px">... และอีก ${alerts.length - 40} รายการ</p>` : ''}
+      ${alerts.length > 50 ? `<p style="color:#7B8D9C;font-size:12px;margin-top:12px">... และอีก ${alerts.length - 50} รายการ — ดูทั้งหมดในระบบ</p>` : ''}
       <div style="margin-top:24px;padding-top:20px;border-top:1px solid #F0F4F8">
         <a href="https://emergencyboxnotyfykpnhos.web.app" style="display:inline-block;background:#1A6FA3;color:#fff;padding:12px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px">เปิดระบบ EB Notify →</a>
       </div>
@@ -257,35 +343,63 @@ function buildHtmlEmail(alerts) {
 
 // ── Build plain-text fallback ──────────────────────────────────
 function buildPlainText(alerts) {
-  const expired  = alerts.filter(a => a.status === 'expired');
-  const critical = alerts.filter(a => a.status === 'critical');
-  const warning  = alerts.filter(a => a.status === 'warning');
-  const notice   = alerts.filter(a => a.status === 'notice');
-  const dateStr  = new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+  const expired   = alerts.filter(a => a.status === 'expired');
+  const critical  = alerts.filter(a => a.status === 'critical');
+  const warning   = alerts.filter(a => a.status === 'warning');
+  const notice    = alerts.filter(a => a.status === 'notice');
+  const hadAlerts = alerts.filter(a => a.isHAD);
+  const dateStr   = new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+
+  const line = (a) => {
+    const boxInfo = a.boxStatus === 'out' ? `จ่ายออก → ${a.boxCurrentDept}` : 'อยู่ที่คลัง';
+    const days = a.daysLeft < 0 ? `เกิน ${Math.abs(a.daysLeft)} วัน` : `เหลือ ${a.daysLeft} วัน`;
+    return `  - ${a.boxId} [${boxInfo}]  ${a.drugName}${a.isHAD ? ' [HAD]' : ''}  จำนวน ${a.qty}  ส่งคืนภายใน: ${a.returnDeadlineThai}  หมดอายุ: ${a.expiryThai} (${days})`;
+  };
 
   let t = `แจ้งเตือนยาใกล้หมดอายุ — Emergency Box รพ.กรงปินัง\n`;
   t += `วันที่: ${dateStr}\n`;
-  t += `พบยาที่ต้องดำเนินการ ${alerts.length} รายการ\n`;
-  t += `${'─'.repeat(50)}\n\n`;
+  t += `พบยาที่ต้องดำเนินการ ${alerts.length} รายการ`;
+  if (hadAlerts.length) t += `  |  HAD: ${hadAlerts.length} รายการ`;
+  t += `\n${'─'.repeat(60)}\n\n`;
+
+  // สิ่งที่ต้องดำเนินการ
+  t += `สิ่งที่ต้องดำเนินการ\n`;
+  let n = 1;
+  if (expired.length)  t += `${n++}. เรียกคืนยาหมดอายุแล้ว ${expired.length} รายการ โดยเร่งด่วน\n`;
+  if (critical.length) t += `${n++}. ประสานหน่วยงานส่งคืนยาที่ถึงกำหนด ${critical.length} รายการ ภายใน 24–48 ชั่วโมง\n`;
+  if (hadAlerts.filter(a => a.status === 'expired' || a.status === 'critical').length)
+    t += `${n++}. ดำเนินการตามโปรโตคอล HAD สำหรับยาเฝ้าระวังพิเศษ\n`;
+  if (warning.length)  t += `${n++}. วางแผนส่งคืนยาใกล้กำหนด ${warning.length} รายการ ภายใน 7–15 วัน\n`;
+  if (notice.length)   t += `${n++}. ติดตามสถานะยาเตือนล่วงหน้า ${notice.length} รายการ\n`;
+  t += `${n++}. ตรวจสอบและอัปเดตข้อมูลในระบบ EB Notify ให้เป็นปัจจุบัน\n`;
+  t += '\n';
+
+  if (hadAlerts.length) {
+    t += `${'═'.repeat(60)}\n`;
+    t += `⚠️  ยากลุ่มเฝ้าระวังพิเศษ (High Alert Drug) — ${hadAlerts.length} รายการ\n`;
+    t += `${'═'.repeat(60)}\n`;
+    hadAlerts.forEach(a => { t += line(a) + '\n'; });
+    t += '\n';
+  }
 
   if (expired.length) {
-    t += `หมดอายุแล้ว (${expired.length} รายการ)\n`;
-    expired.forEach(a => { t += `  - ${a.boxId} (${a.dept}) ${a.drugName}  เกิน ${Math.abs(a.daysLeft)} วัน${a.isHAD ? ' [HAD]' : ''}\n`; });
+    t += `หมดอายุแล้ว (${expired.length} รายการ)\n${'─'.repeat(40)}\n`;
+    expired.forEach(a => { t += line(a) + '\n'; });
     t += '\n';
   }
   if (critical.length) {
-    t += `วิกฤต เหลือไม่เกิน 7 วัน (${critical.length} รายการ)\n`;
-    critical.forEach(a => { t += `  - ${a.boxId} (${a.dept}) ${a.drugName}  เหลือ ${a.daysLeft} วัน${a.isHAD ? ' [HAD]' : ''}\n`; });
+    t += `วิกฤต — ถึงหรือเกินวันส่งคืน (${critical.length} รายการ)\n${'─'.repeat(40)}\n`;
+    critical.forEach(a => { t += line(a) + '\n'; });
     t += '\n';
   }
   if (warning.length) {
-    t += `ใกล้กำหนด เหลือไม่เกิน 15 วัน (${warning.length} รายการ)\n`;
-    warning.forEach(a => { t += `  - ${a.boxId} (${a.dept}) ${a.drugName}  เหลือ ${a.daysLeft} วัน\n`; });
+    t += `ใกล้กำหนดส่งคืน (${warning.length} รายการ)\n${'─'.repeat(40)}\n`;
+    warning.forEach(a => { t += line(a) + '\n'; });
     t += '\n';
   }
   if (notice.length) {
-    t += `เตือนล่วงหน้า (${notice.length} รายการ)\n`;
-    notice.slice(0, 15).forEach(a => { t += `  - ${a.boxId} ${a.drugName}  เหลือ ${a.daysLeft} วัน\n`; });
+    t += `เตือนล่วงหน้า (${notice.length} รายการ)\n${'─'.repeat(40)}\n`;
+    notice.slice(0, 15).forEach(a => { t += line(a) + '\n'; });
     if (notice.length > 15) t += `  ... และอีก ${notice.length - 15} รายการ\n`;
     t += '\n';
   }
