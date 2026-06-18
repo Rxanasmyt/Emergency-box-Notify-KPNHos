@@ -84,6 +84,30 @@
   @keyframes successPop { 0% { transform: scale(0); } 60% { transform: scale(1.2); } 100% { transform: scale(1); } }
   @keyframes gradientShift { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
 
+  /* ===== 8 UI/UX animation improvements ===== */
+  @keyframes pageEnter { 0% { opacity:0; transform:translateY(14px) scale(.99); } 60% { transform:translateY(-2px) scale(1.002); } 100% { opacity:1; transform:none; } }
+  .page-enter { animation: pageEnter .28s cubic-bezier(.34,1.56,.64,1) both; }
+
+  .badge-expired { animation: pulseRed 1.8s ease infinite; }
+  .badge-critical { animation: pulseOrange 2s ease infinite; }
+  @keyframes pulseOrange { 0% { box-shadow: 0 0 0 0 rgba(217,129,15,.45); } 70% { box-shadow: 0 0 0 8px rgba(217,129,15,0); } 100% { box-shadow: 0 0 0 0 rgba(217,129,15,0); } }
+
+  .nav-item { position: relative; overflow: hidden; }
+  .nav-item-active::before { content:''; position:absolute; left:0; top:50%; transform:translateY(-50%); width:4px; height:60%; border-radius:0 3px 3px 0; background:#1A6FA3; animation: navPillIn .25s cubic-bezier(.34,1.56,.64,1) both; }
+  @keyframes navPillIn { from { height:0; opacity:0; } to { opacity:1; } }
+
+  .drug-row { transition: background .15s ease, transform .15s ease; cursor: pointer; }
+  .drug-row:hover { background: rgba(26,111,163,.05) !important; transform: translateX(2px); }
+  .drug-row:active { background: rgba(26,111,163,.1) !important; }
+
+  @keyframes btnSuccess { 0%,100% { transform: scale(1); } 40% { transform: scale(.93); } 70% { transform: scale(1.04); } }
+  .btn-saving { animation: btnSuccess .4s ease both; }
+
+  .bell-btn { position: relative; }
+  .bell-badge { position: absolute; top: 6px; right: 6px; width: 9px; height: 9px; border-radius: 50%; background: #E03E3E; border: 2px solid #fff; animation: pulseRed 2s ease infinite; }
+  @keyframes bellWiggle { 0%,100%{transform:rotate(0)} 20%{transform:rotate(-12deg)} 40%{transform:rotate(10deg)} 60%{transform:rotate(-8deg)} 80%{transform:rotate(5deg)} }
+  .bell-btn-alert { animation: bellWiggle 1s ease 1s both; }
+
   /* ===== Selection ===== */
   ::selection { background: rgba(26,111,163,.18); }
 
@@ -500,10 +524,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
           วันนี้ · {{ todayStr }}
         </div>
         <div style="position: relative;">
-          <button style="width: 42px; height: 42px; border-radius: 11px; background: #F1F5F8; border: 1px solid #E5EEF2; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all .22s cubic-bezier(.34,1.56,.64,1);" style-hover="transform: scale(1.08); background: #E5EEF5; box-shadow: 0 4px 14px rgba(20,40,55,.1);" style-active="transform: scale(.94);">
+          <button class="bell-btn {{ hasExpiryAlerts ? 'bell-btn-alert' : '' }}" style="width: 42px; height: 42px; border-radius: 11px; background: #F1F5F8; border: 1px solid #E5EEF2; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all .22s cubic-bezier(.34,1.56,.64,1);" style-hover="transform: scale(1.08); background: #E5EEF5; box-shadow: 0 4px 14px rgba(20,40,55,.1);" style-active="transform: scale(.94);">
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6z" stroke="#4A5C6A" stroke-width="1.8" stroke-linejoin="round"/><path d="M10 20a2 2 0 0 0 4 0" stroke="#4A5C6A" stroke-width="1.8" stroke-linecap="round"/></svg>
           </button>
-          <span style="position: absolute; top: -5px; right: -5px; min-width: 19px; height: 19px; padding: 0 5px; border-radius: 10px; background: #E03E3E; color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; border: 2px solid #fff; animation: pulseRed 1.8s infinite;">{{ kpiUrgent }}</span>
+          <sc-if value="{{ kpiUrgent > 0 }}" hint-placeholder-val="{{ false }}"><span style="position: absolute; top: -5px; right: -5px; min-width: 19px; height: 19px; padding: 0 5px; border-radius: 10px; background: #E03E3E; color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; border: 2px solid #fff; animation: pulseRed 1.8s infinite;">{{ kpiUrgent }}</span></sc-if>
         </div>
       </div>
     </header>
@@ -513,7 +537,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
       <!-- ============ DASHBOARD ============ -->
       <sc-if value="{{ isDashboard }}" hint-placeholder-val="{{ true }}">
-      <div style="max-width: 1240px; margin: 0 auto;">
+      <div class="page-enter" style="max-width: 1240px; margin: 0 auto;">
 
         <!-- Critical alert banner -->
         <div style="animation: fadeUp .55s cubic-bezier(.34,1.56,.64,1) both; background: linear-gradient(100deg, #FCEDED, #FDF4EC); border: 1px solid #F4C9C9; border-radius: 18px; padding: 18px 20px; margin-bottom: 22px; display: flex; align-items: center; gap: 16px; transition: transform .25s cubic-bezier(.34,1.56,.64,1), box-shadow .25s;" style-hover="transform: translateY(-1px); box-shadow: 0 6px 20px rgba(224,62,62,.1);">
@@ -537,7 +561,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
               <span style="font-size: 13px; color: #7B8D9C; font-weight: 500;">กล่อง EB ทั้งหมด</span>
               <span style="width: 34px; height: 34px; border-radius: 10px; background: #E8F0F6; color: #1A6FA3; display: flex; align-items: center; justify-content: center;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M3.5 7.5L12 3l8.5 4.5v9L12 21l-8.5-4.5v-9z" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/><path d="M3.5 7.5L12 12m0 9V12m8.5-4.5L12 12" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></svg></span>
             </div>
-            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 34px; font-weight: 600; margin-top: 10px; letter-spacing: -1px;">{{ kpiTotal }}</div>
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 34px; font-weight: 600; margin-top: 10px; letter-spacing: -1px; animation: countUp .4s ease .1s both;">{{ kpiTotal }}</div>
             <div style="font-size: 12px; color: #9AAAB8; margin-top: 2px;">EB-1 ถึง EB-{{ kpiTotal }}</div>
           </div>
           <div style="animation: fadeUp .5s cubic-bezier(.34,1.56,.64,1) .09s both; background: #fff; border: 1px solid #E7EEF3; border-radius: 16px; padding: 18px 20px; transition: transform .28s cubic-bezier(.34,1.56,.64,1), box-shadow .28s cubic-bezier(.4,0,.2,1); cursor: default;" style-hover="transform: translateY(-3px); box-shadow: 0 8px 24px rgba(20,40,55,.08), 0 2px 6px rgba(20,40,55,.04);">
@@ -545,7 +569,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
               <span style="font-size: 13px; color: #7B8D9C; font-weight: 500;">ถูกเบิกออก (ใช้งาน)</span>
               <span style="width: 34px; height: 34px; border-radius: 10px; background: #E4F4EF; color: #169C7F; display: flex; align-items: center; justify-content: center;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M3 13l4 4L21 5" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
             </div>
-            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 34px; font-weight: 600; margin-top: 10px; letter-spacing: -1px;">{{ kpiDispensed }}</div>
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 34px; font-weight: 600; margin-top: 10px; letter-spacing: -1px; animation: countUp .4s ease .2s both;">{{ kpiDispensed }}</div>
             <div style="font-size: 12px; color: #9AAAB8; margin-top: 2px;">{{ kpiDeptText }}</div>
           </div>
           <div style="animation: fadeUp .5s cubic-bezier(.34,1.56,.64,1) .14s both; background: #fff; border: 1px solid #F4C9C9; border-radius: 16px; padding: 18px 20px; position: relative; overflow: hidden; transition: transform .28s cubic-bezier(.34,1.56,.64,1), box-shadow .28s cubic-bezier(.4,0,.2,1); cursor: default;" style-hover="transform: translateY(-3px); box-shadow: 0 8px 24px rgba(224,62,62,.1), 0 2px 6px rgba(224,62,62,.06);">
@@ -554,7 +578,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
               <span style="font-size: 13px; color: #B42121; font-weight: 600;">ต้องส่งคืนด่วน</span>
               <span style="width: 34px; height: 34px; border-radius: 10px; background: #FCE3E3; color: #E03E3E; display: flex; align-items: center; justify-content: center; animation: pulseRed 1.8s infinite;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M12 3.5l9 16H3l9-16z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 10v4.5M12 17.3v.2" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/></svg></span>
             </div>
-            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 34px; font-weight: 600; margin-top: 10px; letter-spacing: -1px; color: #E03E3E; position: relative;">{{ kpiUrgent }}</div>
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 34px; font-weight: 600; margin-top: 10px; letter-spacing: -1px; color: #E03E3E; position: relative; animation: countUp .4s ease .3s both;">{{ kpiUrgent }}</div>
             <div style="font-size: 12px; color: #C77; margin-top: 2px; position: relative;">เกินกำหนด / ครบวันนี้</div>
           </div>
           <div style="animation: fadeUp .5s cubic-bezier(.34,1.56,.64,1) .19s both; background: #fff; border: 1px solid #F4DEC2; border-radius: 16px; padding: 18px 20px; transition: transform .28s cubic-bezier(.34,1.56,.64,1), box-shadow .28s cubic-bezier(.4,0,.2,1); cursor: default;" style-hover="transform: translateY(-3px); box-shadow: 0 8px 24px rgba(20,40,55,.08), 0 2px 6px rgba(20,40,55,.04);">
@@ -562,7 +586,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
               <span style="font-size: 13px; color: #B5740F; font-weight: 600;">ใกล้หมดอายุ ≤15 วัน</span>
               <span style="width: 34px; height: 34px; border-radius: 10px; background: #FBEDD7; color: #EE8A2B; display: flex; align-items: center; justify-content: center;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M12 7v5l3 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.8"/></svg></span>
             </div>
-            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 34px; font-weight: 600; margin-top: 10px; letter-spacing: -1px; color: #D9810F;">{{ kpiNearExpiry }}</div>
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 34px; font-weight: 600; margin-top: 10px; letter-spacing: -1px; color: #D9810F; animation: countUp .4s ease .4s both;">{{ kpiNearExpiry }}</div>
             <div style="font-size: 12px; color: #C99; margin-top: 2px;">รวมที่เกินกำหนดแล้ว</div>
           </div>
         </div>
@@ -585,7 +609,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
                     <div style="font-size: 12px; color: #7B8D9C; margin-top: 2px;">หน่วยงาน {{ row.dept }} · หมดอายุ {{ row.expiryText }}</div>
                   </div>
                   <div style="text-align: right; flex-shrink: 0;">
-                    <span style="display: inline-block; font-size: 11.5px; font-weight: 700; color: {{ row.color }}; background: #fff; border: 1px solid {{ row.border }}; border-radius: 20px; padding: 4px 11px;">{{ row.daysText }}</span>
+                    <span class="{{ row.statusKey === 'critical' ? 'badge-critical' : (row.statusKey === 'warning' ? 'badge-expired' : '') }}" style="display: inline-block; font-size: 11.5px; font-weight: 700; color: {{ row.color }}; background: #fff; border: 1px solid {{ row.border }}; border-radius: 20px; padding: 4px 11px;">{{ row.daysText }}</span>
                   </div>
                 </div>
               </sc-for>
@@ -658,7 +682,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
       <!-- ============ ENTRY FORM ============ -->
       <sc-if value="{{ isEntry }}" hint-placeholder-val="{{ true }}">
-      <div style="max-width: 960px; margin: 0 auto; animation: fadeUp .45s ease both;">
+      <div class="page-enter" style="max-width: 960px; margin: 0 auto; animation: fadeUp .45s ease both;">
 
         <!-- Flow stepper -->
         <div style="display: flex; align-items: stretch; gap: 0; margin-bottom: 22px; background: #fff; border: 1px solid #E7EEF3; border-radius: 16px; padding: 8px; overflow-x: auto;">{{ modeToggleEl }}</div>
@@ -806,7 +830,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
       <!-- ============ EB DETAIL ============ -->
       <sc-if value="{{ isDetail }}" hint-placeholder-val="{{ true }}">
-      <div style="max-width: 1180px; margin: 0 auto; animation: fadeUp .45s ease both;">
+      <div class="page-enter" style="max-width: 1180px; margin: 0 auto; animation: fadeUp .45s ease both;">
         <!-- EB selector chips -->
         <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 22px;">{{ ebChipsEl }}</div>
 
@@ -865,7 +889,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
       <!-- ============ HISTORY / AUDIT LOG ============ -->
       <sc-if value="{{ isHistory }}" hint-placeholder-val="{{ true }}">
-      <div style="max-width: 1240px; margin: 0 auto; animation: fadeUp .45s ease both;">
+      <div class="page-enter" style="max-width: 1240px; margin: 0 auto; animation: fadeUp .45s ease both;">
 
         <!-- Summary cards -->
         <div class="audit-summary-grid" style="margin-bottom: 20px;">{{ auditSummaryEl }}</div>
@@ -915,7 +939,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
                     {{ r.dateHeaderText }}
                   </div>
                 </sc-if>
-                <div style="display: grid; grid-template-columns: 44px 148px 108px 68px minmax(110px,1fr) minmax(140px,1fr) minmax(160px,1fr); gap: 0; min-width: 860px; align-items: center; padding: 12px 20px; border-bottom: 1px solid #F4F7F9; font-size: 13px; background: {{ r.rowBg }};">
+                <div class="drug-row" style="display: grid; grid-template-columns: 44px 148px 108px 68px minmax(110px,1fr) minmax(140px,1fr) minmax(160px,1fr); gap: 0; min-width: 860px; align-items: center; padding: 12px 20px; border-bottom: 1px solid #F4F7F9; font-size: 13px; background: {{ r.rowBg }};">
                   <span style="font-size: 10.5px; color: #B0BCCA; font-family: 'IBM Plex Mono', monospace; text-align: center;">{{ r.seq }}</span>
                   <span style="color: #4A5C6A; font-family: 'IBM Plex Mono', monospace; font-size: 12px; white-space: nowrap;">{{ r.dateTime }}</span>
                   <span><span style="display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; color: {{ r.color }}; background: {{ r.soft }}; border-radius: 20px; padding: 4px 11px; white-space: nowrap;">{{ r.icon }} {{ r.action }}</span></span>
@@ -925,6 +949,13 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
                   <span style="color: #4A5C6A; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12.5px;">{{ r.drug }}</span>
                 </div>
               </sc-for>
+              <sc-if value="{{ auditCount === 0 }}" hint-placeholder-val="{{ false }}">
+              <div style="text-align:center;padding:48px 20px;animation:fadeUp .5s ease both;">
+                <div style="width:60px;height:60px;border-radius:16px;background:linear-gradient(135deg,#EDF5FB,#E0EFF8);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;animation:floatY 4s ease-in-out infinite;"><svg width="26" height="26" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="18" rx="3" stroke="#9AAAB8" stroke-width="1.8"/><path d="M16 2v4M8 2v4M3 10h18" stroke="#9AAAB8" stroke-width="1.8" stroke-linecap="round"/><path d="M8 14h8M8 17h5" stroke="#9AAAB8" stroke-width="1.6" stroke-linecap="round"/></svg></div>
+                <div style="font-size:14px;font-weight:600;color:#4A5C6A;">ยังไม่มีรายการ</div>
+                <div style="font-size:12.5px;color:#9AAAB8;margin-top:5px;">รายการจ่าย-รับคืนจะแสดงที่นี่</div>
+              </div>
+              </sc-if>
             </div>
           </div>
           <!-- Footer -->
@@ -938,7 +969,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
       <!-- ============ USER MANAGEMENT (admin) ============ -->
       <sc-if value="{{ isUsers }}" hint-placeholder-val="{{ false }}">
-      <div style="max-width: 1240px; margin: 0 auto; animation: fadeUp .45s ease both;">
+      <div class="page-enter" style="max-width: 1240px; margin: 0 auto; animation: fadeUp .45s ease both;">
 
         <!-- Role summary cards -->
         <div class="role-summary-grid" style="margin-bottom: 20px;">{{ roleSummaryEl }}</div>
@@ -1032,7 +1063,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
                       {{ r.dateHeaderText }}
                     </div>
                   </sc-if>
-                  <div style="display: grid; grid-template-columns: 44px 148px 108px 68px minmax(110px,1fr) minmax(140px,1fr) minmax(160px,1fr); gap: 0; min-width: 860px; align-items: center; padding: 11px 18px; border-bottom: 1px solid #F4F7F9; font-size: 12.5px; background: {{ r.rowBg }};">
+                  <div class="drug-row" style="display: grid; grid-template-columns: 44px 148px 108px 68px minmax(110px,1fr) minmax(140px,1fr) minmax(160px,1fr); gap: 0; min-width: 860px; align-items: center; padding: 11px 18px; border-bottom: 1px solid #F4F7F9; font-size: 12.5px; background: {{ r.rowBg }};">
                     <span style="font-size: 10px; color: #B0BCCA; font-family: 'IBM Plex Mono', monospace; text-align: center;">{{ r.seq }}</span>
                     <span style="color: #4A5C6A; font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; white-space: nowrap;">{{ r.dateTime }}</span>
                     <span><span style="display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700; color: {{ r.color }}; background: {{ r.soft }}; border-radius: 20px; padding: 3px 10px; white-space: nowrap;">{{ r.icon }} {{ r.action }}</span></span>
@@ -1055,7 +1086,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
       <!-- ===== NOTIFY SETTINGS ===== -->
       <sc-if value="{{ isNotify }}" hint-placeholder-val="{{ false }}">
-      <div style="max-width: 860px; margin: 0 auto; animation: fadeUp .45s ease both;">
+      <div class="page-enter" style="max-width: 860px; margin: 0 auto; animation: fadeUp .45s ease both;">
 
         <!-- Expiry Alert Banner -->
         <sc-if value="{{ hasExpiryAlerts }}" hint-placeholder-val="{{ false }}">
@@ -1507,7 +1538,8 @@ class Component extends DCLogic {
   saveEditDrugs() {
     const id = this.state.selectedEB;
     const drugs = (this.state.boxDrugs || this.buildBoxDrugs())[id];
-    this.setState({ editDrugs: false });
+    this.setState({ editDrugs: false, saveSuccess: Date.now() });
+    setTimeout(() => this.setState({ saveSuccess: null }), 1600);
     if (window.EB_Sync) window.EB_Sync.syncBoxDrugs(id, drugs);
     this.flash('บันทึกข้อมูลยาในกล่องแล้ว · คำนวณวันหมดอายุและวันส่งคืนใหม่อัตโนมัติ');
     const near = this.nearDrugOf(id);
@@ -1984,6 +2016,7 @@ class Component extends DCLogic {
       const on = screen === d.key;
       return h('button', {
         key: d.key + (on ? '_on' : '_off'),
+        className: 'nav-item' + (on ? ' nav-item-active' : ''),
         onClick: () => { this.go(d.key); this.setState({ sidebarOpen: false }); },
         style: { display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '11px 12px', border: 'none', borderRadius: 11, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13.5, textAlign: 'left', transition: 'all .22s cubic-bezier(.34,1.56,.64,1)', background: on ? '#E8F2F8' : 'transparent', color: on ? '#1A6FA3' : '#5A6B79', fontWeight: on ? 600 : 500, transform: 'translateX(0)' },
       }, ic(d.svg), h('span', null, d.label));
@@ -2345,7 +2378,8 @@ class Component extends DCLogic {
         h('span', { style: { display: 'flex' }, dangerouslySetInnerHTML: { __html: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M16.5 3.5l4 4L8 20l-4.5 1L4.5 16.5 16.5 3.5z" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></svg>' } }), h('span', null, 'แก้ไขข้อมูลยา'));
     } else {
       vals.editToggleEl = h(React.Fragment, { key: 'edit_on' },
-        h('button', { onClick: () => this.saveEditDrugs(),
+        h('button', { key: 'savebtn_' + (st.saveSuccess || 0), onClick: () => this.saveEditDrugs(),
+          className: st.saveSuccess ? 'btn-saving' : '',
           style: { display: 'inline-flex', alignItems: 'center', gap: 7, height: 36, padding: '0 16px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg, #1A6FA3, #168C84)', color: '#fff', fontFamily: 'inherit', fontSize: 13, fontWeight: 600, cursor: 'pointer', marginRight: 8, boxShadow: '0 4px 12px rgba(26,111,163,.26)' } },
           h('span', { style: { display: 'flex' }, dangerouslySetInnerHTML: { __html: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>' } }), h('span', null, 'บันทึก')),
         h('button', { onClick: () => this.cancelEditDrugs(),
@@ -2383,11 +2417,11 @@ class Component extends DCLogic {
           h('span', { style: { fontFamily: "'IBM Plex Mono', monospace", fontSize: 12.5, fontWeight: 500, color: '#4A5C6A', minWidth: 24 } }, lot.qty),
           h('span', { style: { color: '#B6C2CC', fontSize: 11 } }, '×'),
           h('span', { style: { fontSize: 12, color: lotIsMin ? '#C2410C' : '#4A5C6A', fontWeight: lotIsMin ? 600 : 400 } }, this.fmtISO(lot.expiry)),
-          status ? h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10.5, fontWeight: 600, color: status.color, background: status.soft, borderRadius: 16, padding: '2px 8px' } },
+          status ? h('span', { className: status.key === 'critical' ? 'badge-critical' : (status.key === 'warning' ? 'badge-expired' : ''), style: { display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10.5, fontWeight: 600, color: status.color, background: status.soft, borderRadius: 16, padding: '2px 8px' } },
             h('span', { style: { width: 5, height: 5, borderRadius: '50%', background: status.color } }), this.daysText(lot.expiry)) : null,
         );
       });
-      return h('div', { key: d.name, style: { padding: '11px 4px', borderBottom: '1px solid #F4F7F9', background: isNearDrug ? '#FFF8F2' : 'transparent' } },
+      return h('div', { key: d.name, className: 'drug-row', style: { padding: '11px 4px', borderBottom: '1px solid #F4F7F9', background: isNearDrug ? '#FFF8F2' : 'transparent' } },
         h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: d.lots.length > 0 ? 6 : 0 } },
           h('span', { style: { fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, color: '#B6C2CC', width: 22, textAlign: 'center', flexShrink: 0 } }, String(i+1).padStart(2,'0')),
           h('div', { style: { flex: 1, minWidth: 0, display: 'flex', alignItems: 'baseline', gap: 7, flexWrap: 'wrap' } },
@@ -2746,7 +2780,10 @@ class Component extends DCLogic {
     const bh = (st.boxHist || {})[st.selectedEB] || [];
     vals.boxHistEl = bh.length ? h(React.Fragment, null, ...bh.map((e, i) => h('div', { key: i, style: { display: 'flex', gap: 10, alignItems: 'flex-start', padding: '8px 0', borderBottom: i < bh.length - 1 ? '1px solid #F4F7F9' : 'none' } },
       h('span', { style: { width: 7, height: 7, flexShrink: 0, borderRadius: '50%', background: '#1A6FA3', marginTop: 6 } }),
-      h('div', { style: { minWidth: 0 } }, h('div', { style: { fontSize: 12.5, color: '#15242E', fontWeight: 500 } }, e.text), h('div', { style: { fontSize: 11, color: '#9AAAB8', marginTop: 1 } }, `${e.who} · ${e.stamp}`))))) : h('div', { style: { fontSize: 12, color: '#9AAAB8', padding: '4px 0' } }, 'ยังไม่มีประวัติการแก้ไขในเซสชันนี้');
+      h('div', { style: { minWidth: 0 } }, h('div', { style: { fontSize: 12.5, color: '#15242E', fontWeight: 500 } }, e.text), h('div', { style: { fontSize: 11, color: '#9AAAB8', marginTop: 1 } }, `${e.who} · ${e.stamp}`))))) : h('div', { style: { textAlign: 'center', padding: '20px 10px', animation: 'fadeUp .5s ease both' } },
+        h('div', { style: { width: 48, height: 48, borderRadius: 14, background: 'linear-gradient(135deg,#EDF5FB,#E0EFF8)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 10px', animation: 'floatY 4s ease-in-out infinite' }, dangerouslySetInnerHTML: { __html: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1M3.5 4.5V9H8" stroke="#9AAAB8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 8v4.2l3 1.8" stroke="#9AAAB8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>' } }),
+        h('div', { style: { fontSize: 13, fontWeight: 600, color: '#4A5C6A' } }, 'ยังไม่มีประวัติ'),
+        h('div', { style: { fontSize: 11.5, color: '#9AAAB8', marginTop: 4 } }, 'ประวัติการแก้ไขจะแสดงที่นี่'));
 
     return vals;
   }
