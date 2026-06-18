@@ -1181,7 +1181,14 @@ class Component extends DCLogic {
     ].join(';');
   }
 
-  go(screen) { this.setState({ screen }); }
+  go(screen) {
+    const adminOnly = ['users', 'notify'];
+    if (adminOnly.includes(screen)) {
+      const u = this.state.currentUser;
+      if (!u || u.role !== 'admin') return;
+    }
+    this.setState({ screen });
+  }
   go2(formMode) { this.setState({ formMode }); }
 
   componentDidMount() {
@@ -1528,8 +1535,8 @@ class Component extends DCLogic {
       isEntry: screen === 'entry',
       isDetail: screen === 'detail',
       isHistory: screen === 'history',
-      isUsers: screen === 'users',
-      isNotify: screen === 'notify',
+      isUsers: screen === 'users' && !!(st.currentUser && st.currentUser.role === 'admin'),
+      isNotify: screen === 'notify' && !!(st.currentUser && st.currentUser.role === 'admin'),
       pageTitle: (titles[screen] || titles.dashboard)[0],
       pageSub: (titles[screen] || titles.dashboard)[1],
       goDashboard: () => this.go('dashboard'),
