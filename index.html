@@ -1078,10 +1078,6 @@ class Component extends DCLogic {
     this._resetIdle = () => this.bumpIdle();
     this._idleEvents.forEach(ev => window.addEventListener(ev, this._resetIdle, true));
     this.bumpIdle();
-    // Firebase real-time sync
-    if (window.EB_Sync) {
-      window.EB_Sync.initFirebaseSync(this);
-    }
   }
   componentWillUnmount() {
     (this._idleEvents || []).forEach(ev => window.removeEventListener(ev, this._resetIdle, true));
@@ -1216,9 +1212,11 @@ class Component extends DCLogic {
     }
     this.setState({ authed: true, currentUser: u, loginError: '', attempts: 0, locked: false, loginPass: '', screen: 'dashboard',
       users: this.state.users.map(x => x.id === u.id ? { ...x, lastLogin: `${this.fmt(this.TODAY)} ${this.nowTime()}` } : x) });
-    // sign in to Firebase anonymously so Firestore security rules allow reads/writes
+    // sign in anonymously then start Firestore sync (must be after auth)
     if (window.EB_Firebase && window.EB_Firebase.auth) {
-      window.EB_Firebase.auth.signInAnonymously().catch(err => console.warn('[Auth] Anonymous sign-in failed:', err.message));
+      window.EB_Firebase.auth.signInAnonymously()
+        .then(() => { if (window.EB_Sync) window.EB_Sync.initFirebaseSync(this); })
+        .catch(err => console.warn('[Auth] Anonymous sign-in failed:', err.message));
     }
     setTimeout(() => {
       this.logAction({ cat: 'auth', action: 'เข้าระบบ', eb: '—', dept: u.dept, drug: 'เข้าสู่ระบบสำเร็จ' });
