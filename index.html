@@ -604,41 +604,55 @@
       <!-- ============ HISTORY / AUDIT LOG ============ -->
       <sc-if value="{{ isHistory }}" hint-placeholder-val="{{ true }}">
       <div style="max-width: 1240px; margin: 0 auto; animation: fadeUp .45s ease both;">
+
+        <!-- Summary cards -->
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 20px;">{{ auditSummaryEl }}</div>
+
         <!-- Filter bar -->
         <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 18px; flex-wrap: wrap;">
           <div style="position: relative; flex: 1; min-width: 240px;">
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%);"><circle cx="11" cy="11" r="7" stroke="#9AAAB8" stroke-width="1.9"/><path d="M20 20l-4-4" stroke="#9AAAB8" stroke-width="1.9" stroke-linecap="round"/></svg>
-            <input type="text" value="{{ query }}" onInput="{{ setQuery }}" placeholder="ค้นหา EB, หน่วยงาน, ผู้ทำรายการ, ชื่อยา…" style="width: 100%; height: 46px; border: 1.5px solid #DBE4EB; border-radius: 12px; padding: 0 14px 0 42px; font-size: 13.5px; background: #fff;">
+            <input type="text" value="{{ query }}" onInput="{{ setQuery }}" placeholder="ค้นหา EB, หน่วยงาน, ผู้ทำรายการ, ชื่อยา…" style="width: 100%; height: 46px; border: 1.5px solid #DBE4EB; border-radius: 12px; padding: 0 14px 0 42px; font-size: 13.5px; background: #fff; box-sizing: border-box;">
           </div>
-          <div style="display: flex; gap: 7px;">{{ filterChipsEl }}</div>
-          <button style="height: 46px; padding: 0 16px; border: 1.5px solid #DBE4EB; background: #fff; color: #4A5C6A; border-radius: 12px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all .22s cubic-bezier(.34,1.56,.64,1);" style-hover="transform: translateY(-2px); box-shadow: 0 6px 18px rgba(20,40,55,.08); border-color: #C3DDEC;" style-active="transform: scale(.96);">
+          <div style="display: flex; gap: 7px; flex-wrap: wrap;">{{ filterChipsEl }}</div>
+          <button onClick="{{ exportCSV }}" style="height: 46px; padding: 0 16px; border: 1.5px solid #DBE4EB; background: #fff; color: #4A5C6A; border-radius: 12px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all .22s cubic-bezier(.34,1.56,.64,1); white-space: nowrap;" style-hover="transform: translateY(-2px); box-shadow: 0 6px 18px rgba(20,40,55,.08); border-color: #C3DDEC;" style-active="transform: scale(.96);">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 19h14" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
             ส่งออก CSV
           </button>
         </div>
 
-        <!-- Table -->
-        <div style="background: #fff; border: 1px solid #E7EEF3; border-radius: 18px; overflow: hidden;">
+        <!-- Register table -->
+        <div style="background: #fff; border: 1px solid #E7EEF3; border-radius: 18px; overflow: hidden; box-shadow: 0 2px 12px rgba(20,40,55,.04);">
           <div style="overflow-x: auto;">
-          <div style="display: grid; grid-template-columns: 158px 104px 74px 84px 168px minmax(180px,1fr); gap: 0; min-width: 780px; background: #F6F9FB; border-bottom: 1px solid #E7EEF3; padding: 13px 22px; font-size: 11.5px; font-weight: 600; color: #7B8D9C;">
-            <span>วันที่-เวลา</span><span>รายการ</span><span>EB</span><span>หน่วยงาน</span><span>ผู้ทำรายการ</span><span>ยาที่ใกล้หมดอายุ</span>
+            <!-- Column header -->
+            <div style="display: grid; grid-template-columns: 44px 148px 108px 68px minmax(110px,1fr) minmax(140px,1fr) minmax(160px,1fr); gap: 0; min-width: 860px; background: #F3F6F9; border-bottom: 2px solid #E0E8EF; padding: 12px 20px; font-size: 11px; font-weight: 700; color: #7B8D9C; letter-spacing: .5px; text-transform: uppercase;">
+              <span style="text-align:center;">#</span><span>วันที่ · เวลา</span><span>ประเภท</span><span>EB</span><span>หน่วยงาน</span><span>ผู้ทำรายการ</span><span>ยาที่ใกล้หมดอายุ</span>
+            </div>
+            <!-- Rows -->
+            <div>
+              <sc-for list="{{ filteredAudit }}" as="r" hint-placeholder-count="10">
+                <sc-if value="{{ r.showDateHeader }}" hint-placeholder-val="{{ false }}">
+                  <div style="background: #F8FAFB; padding: 7px 20px; font-size: 11px; font-weight: 700; color: #5A6B79; letter-spacing: .4px; border-bottom: 1px solid #EEF2F6; border-top: 1px solid #EEF2F6; display: flex; align-items: center; gap: 8px;">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="18" rx="3" stroke="#9AAAB8" stroke-width="2"/><path d="M16 2v4M8 2v4M3 10h18" stroke="#9AAAB8" stroke-width="2" stroke-linecap="round"/></svg>
+                    {{ r.dateHeaderText }}
+                  </div>
+                </sc-if>
+                <div style="display: grid; grid-template-columns: 44px 148px 108px 68px minmax(110px,1fr) minmax(140px,1fr) minmax(160px,1fr); gap: 0; min-width: 860px; align-items: center; padding: 12px 20px; border-bottom: 1px solid #F4F7F9; font-size: 13px; background: {{ r.rowBg }};">
+                  <span style="font-size: 10.5px; color: #B0BCCA; font-family: 'IBM Plex Mono', monospace; text-align: center;">{{ r.seq }}</span>
+                  <span style="color: #4A5C6A; font-family: 'IBM Plex Mono', monospace; font-size: 12px; white-space: nowrap;">{{ r.dateTime }}</span>
+                  <span><span style="display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; color: {{ r.color }}; background: {{ r.soft }}; border-radius: 20px; padding: 4px 11px; white-space: nowrap;">{{ r.icon }} {{ r.action }}</span></span>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 12.5px;">{{ r.eb }}</span>
+                  <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><span style="font-size: 11.5px; font-weight: 600; color: #4A5C6A; background: #F0F4F7; border-radius: 6px; padding: 3px 9px;">{{ r.dept }}</span></span>
+                  <span style="font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 10px; font-size: 12.5px;">{{ r.person }}</span>
+                  <span style="color: #4A5C6A; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12.5px;">{{ r.drug }}</span>
+                </div>
+              </sc-for>
+            </div>
           </div>
-          <div>
-            <sc-for list="{{ filteredAudit }}" as="r" hint-placeholder-count="10">
-              <div style="display: grid; grid-template-columns: 158px 104px 74px 84px 168px minmax(180px,1fr); gap: 0; min-width: 780px; align-items: center; padding: 14px 22px; border-bottom: 1px solid #F4F7F9; font-size: 13px;">
-                <span style="color: #4A5C6A; font-family: 'IBM Plex Mono', monospace; font-size: 12.5px;">{{ r.datetime }}</span>
-                <span><span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: {{ r.color }}; background: {{ r.soft }}; border-radius: 20px; padding: 4px 11px; white-space: nowrap;">{{ r.icon }} {{ r.action }}</span></span>
-                <span style="font-family: 'IBM Plex Mono', monospace; font-weight: 600;">{{ r.eb }}</span>
-                <span><span style="font-size: 11.5px; font-weight: 600; color: #4A5C6A; background: #F0F4F7; border-radius: 6px; padding: 3px 9px;">{{ r.dept }}</span></span>
-                <span style="font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 10px;">{{ r.person }}</span>
-                <span style="color: #4A5C6A; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ r.drug }}</span>
-              </div>
-            </sc-for>
-          </div>
-          </div>
-          <div style="padding: 14px 22px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 12.5px; color: #7B8D9C;">
-            <span>แสดง {{ auditCount }} รายการ · บันทึกครบ 100% เพื่อการตรวจสอบย้อนหลัง</span>
-            <span style="margin-left: auto; display: flex; align-items: center; gap: 6px; color: #169C7F; font-weight: 600;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #169C7F;"></span>Audit Log พร้อมเชื่อม Looker Studio / Grafana</span>
+          <!-- Footer -->
+          <div style="padding: 13px 20px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 12.5px; color: #7B8D9C; border-top: 1px solid #EFF3F6;">
+            <span>แสดง <b style="color: #15242E;">{{ auditCount }}</b> รายการ · บันทึกอัตโนมัติครบถ้วนเพื่อตรวจสอบย้อนหลัง</span>
+            <span style="margin-left: auto; display: flex; align-items: center; gap: 6px; color: #169C7F; font-weight: 600;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #169C7F; flex-shrink: 0;"></span>ทะเบียนการจ่าย-รับคืน Emergency Box</span>
           </div>
         </div>
       </div>
@@ -1972,40 +1986,106 @@ class Component extends DCLogic {
     const LOG = st.auditLog || this.AUDIT;
     vals.query = st.query;
     vals.setQuery = (e) => this.setState({ query: e.target.value });
-    const filters = [{ k: 'all', l: 'ทั้งหมด' }, { k: 'จ่าย', l: 'จ่าย' }, { k: 'รับคืน', l: 'รับคืน' }, { k: 'ลงทะเบียน', l: 'ลงทะเบียน' }, { k: 'แก้ไขยา', l: 'แก้ไข' }, { k: 'user', l: 'ผู้ใช้/ระบบ' }];
+    const histFilters = [
+      { k: 'all', l: 'ทั้งหมด' },
+      { k: 'จ่าย', l: 'จ่าย' },
+      { k: 'รับคืน', l: 'รับคืน' },
+      { k: 'ลงทะเบียน', l: 'ลงทะเบียน' },
+      { k: 'แก้ไขยา', l: 'แก้ไข' },
+      { k: 'user', l: 'ผู้ใช้/ระบบ' },
+    ];
     const userCats = ['user', 'auth'];
-    vals.filterChipsEl = h(React.Fragment, null, ...filters.map(f => {
+    vals.filterChipsEl = h(React.Fragment, null, ...histFilters.map(f => {
       const on = st.filter === f.k;
       return h('button', {
         key: f.k + (on ? '_on' : '_off'), onClick: () => this.setState({ filter: f.k }),
         style: { height: 46, padding: '0 15px', borderRadius: 11, fontFamily: 'inherit', fontSize: 13, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all .15s', background: on ? '#15242E' : '#fff', color: on ? '#fff' : '#5A6B79', border: on ? '1.5px solid #15242E' : '1.5px solid #DBE4EB' },
       }, f.l);
     }));
-    const q = st.query.trim().toLowerCase();
+    const q = (st.query || '').trim().toLowerCase();
     const filtered = LOG.filter(r => {
       if (st.filter === 'user') { if (!userCats.includes(r.cat)) return false; }
       else if (st.filter !== 'all' && r.action !== st.filter) return false;
       if (!q) return true;
       return [r.eb, r.dept, r.person, r.drug, r.action].some(x => (x || '').toLowerCase().includes(q));
     });
-    const catStyle = (r) => {
+    const auditCatStyle = (r) => {
       if (r.cat === 'dispense') return { icon: '→', color: '#1A6FA3', soft: '#E8F0F6' };
-      if (r.cat === 'return') return { icon: '←', color: '#169C7F', soft: '#E4F4EF' };
+      if (r.cat === 'return')   return { icon: '←', color: '#169C7F', soft: '#E4F4EF' };
       if (r.cat === 'register') return { icon: '＋', color: '#7C5CD6', soft: '#EFEAFB' };
-      if (r.cat === 'edit') return { icon: '✎', color: '#D9810F', soft: '#FBF1E0' };
-      if (r.cat === 'auth') return { icon: '⎋', color: '#5A6B79', soft: '#EEF2F6' };
-      if (r.cat === 'user') return { icon: '◆', color: '#B42121', soft: '#FCEDED' };
+      if (r.cat === 'edit')     return { icon: '✎', color: '#D9810F', soft: '#FBF1E0' };
+      if (r.cat === 'auth')     return { icon: '⎋', color: '#5A6B79', soft: '#EEF2F6' };
+      if (r.cat === 'user')     return { icon: '◆', color: '#B42121', soft: '#FCEDED' };
       return { icon: '•', color: '#5A6B79', soft: '#EEF2F6' };
     };
+    // build rows — newest-first, with date-group dividers and descending seq numbers
+    let _lastDateHdr = null;
     vals.filteredAudit = filtered.map((r, i) => {
-      const cs = catStyle(r);
+      const cs = auditCatStyle(r);
+      const dateLabel = this.fmtISO(r.date) || '—';
+      const showDateHeader = dateLabel !== _lastDateHdr;
+      _lastDateHdr = dateLabel;
       return {
-        key: i, datetime: `${this.fmtISO(r.date).replace(/ \d{4}$/, m => m)} · ${r.time}`,
-        action: r.action, eb: r.eb, dept: r.dept, person: r.person, drug: r.drug,
-        icon: cs.icon, color: cs.color, soft: cs.soft,
+        key: i,
+        seq: String(filtered.length - i),
+        showDateHeader,
+        dateHeaderText: showDateHeader ? dateLabel : '',
+        dateTime: `${dateLabel} · ${r.time || '—'}`,
+        action: r.action || '—',
+        eb: r.eb || '—',
+        dept: r.dept || '—',
+        person: r.person || '—',
+        drug: r.drug || '—',
+        icon: cs.icon,
+        color: cs.color,
+        soft: cs.soft,
+        rowBg: r.cat === 'dispense' ? 'rgba(26,111,163,.025)' : r.cat === 'return' ? 'rgba(22,156,127,.025)' : '#fff',
       };
     });
     vals.auditCount = filtered.length;
+    // summary cards
+    const _dispCount = LOG.filter(r => r.cat === 'dispense').length;
+    const _retCount  = LOG.filter(r => r.cat === 'return').length;
+    const _pendCount = this.BOXES.filter(b => b.status === 'out').length;
+    vals.auditSummaryEl = h(React.Fragment, null,
+      h('div', { style: { background: '#fff', border: '1px solid #E7EEF3', borderRadius: 14, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 14 } },
+        h('div', { style: { width: 44, height: 44, borderRadius: 12, background: '#E8F0F6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 } }, '→'),
+        h('div', null,
+          h('div', { style: { fontSize: 11.5, color: '#7B8D9C', fontWeight: 600, marginBottom: 3 } }, 'จ่าย Emergency Box'),
+          h('div', { style: { fontSize: 28, fontWeight: 700, color: '#1A6FA3', fontFamily: "'IBM Plex Mono', monospace", lineHeight: 1 } }, String(_dispCount)),
+          h('div', { style: { fontSize: 11, color: '#9AAAB8', marginTop: 3 } }, 'ครั้งทั้งหมด'),
+        ),
+      ),
+      h('div', { style: { background: '#fff', border: '1px solid #E7EEF3', borderRadius: 14, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 14 } },
+        h('div', { style: { width: 44, height: 44, borderRadius: 12, background: '#E4F4EF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 } }, '←'),
+        h('div', null,
+          h('div', { style: { fontSize: 11.5, color: '#7B8D9C', fontWeight: 600, marginBottom: 3 } }, 'รับคืน Emergency Box'),
+          h('div', { style: { fontSize: 28, fontWeight: 700, color: '#169C7F', fontFamily: "'IBM Plex Mono', monospace", lineHeight: 1 } }, String(_retCount)),
+          h('div', { style: { fontSize: 11, color: '#9AAAB8', marginTop: 3 } }, 'ครั้งทั้งหมด'),
+        ),
+      ),
+      h('div', { style: { background: '#fff', border: `1px solid ${_pendCount > 0 ? '#FDDCAB' : '#E7EEF3'}`, borderRadius: 14, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 14 } },
+        h('div', { style: { width: 44, height: 44, borderRadius: 12, background: _pendCount > 0 ? '#FBF1E0' : '#F0F4F7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 } }, _pendCount > 0 ? '⚠' : '✓'),
+        h('div', null,
+          h('div', { style: { fontSize: 11.5, color: '#7B8D9C', fontWeight: 600, marginBottom: 3 } }, 'ค้างส่งคืนห้องยา'),
+          h('div', { style: { fontSize: 28, fontWeight: 700, color: _pendCount > 0 ? '#D9810F' : '#169C7F', fontFamily: "'IBM Plex Mono', monospace", lineHeight: 1 } }, String(_pendCount)),
+          h('div', { style: { fontSize: 11, color: '#9AAAB8', marginTop: 3 } }, 'กล่องอยู่นอกห้องยา'),
+        ),
+      ),
+    );
+    // CSV export
+    vals.exportCSV = () => {
+      const hdr = ['ลำดับ', 'วันที่', 'เวลา', 'ประเภท', 'EB', 'หน่วยงาน', 'ผู้ทำรายการ', 'ยาที่ใกล้หมดอายุ'];
+      const esc = (v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+      const lines = [hdr.map(esc).join(',')];
+      filtered.forEach((r, i) => {
+        lines.push([filtered.length - i, r.date || '', r.time || '', r.action || '', r.eb || '', r.dept || '', r.person || '', r.drug || ''].map(esc).join(','));
+      });
+      const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = `EB_register_${this.isoOf(this.TODAY)}.csv`; a.click();
+      URL.revokeObjectURL(url);
+    };
 
     // ===== USER MANAGEMENT (admin) =====
     vals.showActionMsg = !!st.actionMsg;
