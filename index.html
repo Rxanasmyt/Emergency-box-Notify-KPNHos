@@ -241,7 +241,7 @@
           <button style="width: 42px; height: 42px; border-radius: 11px; background: #F1F5F8; border: 1px solid #E5EEF2; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all .22s cubic-bezier(.34,1.56,.64,1);" style-hover="transform: scale(1.08); background: #E5EEF5; box-shadow: 0 4px 14px rgba(20,40,55,.1);" style-active="transform: scale(.94);">
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6z" stroke="#4A5C6A" stroke-width="1.8" stroke-linejoin="round"/><path d="M10 20a2 2 0 0 0 4 0" stroke="#4A5C6A" stroke-width="1.8" stroke-linecap="round"/></svg>
           </button>
-          <span style="position: absolute; top: -5px; right: -5px; min-width: 19px; height: 19px; padding: 0 5px; border-radius: 10px; background: #E03E3E; color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; border: 2px solid #fff; animation: pulseRed 1.8s infinite;">4</span>
+          <span style="position: absolute; top: -5px; right: -5px; min-width: 19px; height: 19px; padding: 0 5px; border-radius: 10px; background: #E03E3E; color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; border: 2px solid #fff; animation: pulseRed 1.8s infinite;">{{ kpiUrgent }}</span>
         </div>
       </div>
     </header>
@@ -333,19 +333,19 @@
           <!-- Status donut -->
           <div style="animation: fadeUp .5s cubic-bezier(.34,1.56,.64,1) .2s both; background: #fff; border: 1px solid #E7EEF3; border-radius: 18px; padding: 20px; display: flex; flex-direction: column; transition: transform .28s cubic-bezier(.34,1.56,.64,1), box-shadow .28s cubic-bezier(.4,0,.2,1);" style-hover="transform: translateY(-2px); box-shadow: 0 12px 32px rgba(20,40,55,.07);">
             <h3 style="margin: 0 0 6px; font-size: 15px; font-weight: 700;">สถานะกล่องทั้งหมด</h3>
-            <div style="font-size: 12px; color: #9AAAB8; margin-bottom: 10px;">ภาพรวม 10 กล่อง</div>
+            <div style="font-size: 12px; color: #9AAAB8; margin-bottom: 10px;">ภาพรวม {{ kpiTotal }} กล่อง</div>
             <div style="display: flex; align-items: center; justify-content: center; flex: 1; min-height: 160px;">
               <div style="position: relative; width: 168px; height: 168px; border-radius: 50%; background: {{ donutGradient }};">
                 <div style="position: absolute; inset: 22px; background: #fff; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center;">
-                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 32px; font-weight: 600; color: #E03E3E; line-height: 1;">4</div>
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 32px; font-weight: 600; color: #E03E3E; line-height: 1;">{{ donutActionCount }}</div>
                   <div style="font-size: 11.5px; color: #7B8D9C; margin-top: 3px;">ต้องดำเนินการ</div>
                 </div>
               </div>
             </div>
             <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 14px;">
-              <div style="display: flex; align-items: center; gap: 9px; font-size: 12.5px;"><span style="width: 11px; height: 11px; border-radius: 3px; background: #E03E3E;"></span> วิกฤต / เกินกำหนด <b style="margin-left: auto; font-family: 'IBM Plex Mono', monospace;">4</b></div>
-              <div style="display: flex; align-items: center; gap: 9px; font-size: 12.5px;"><span style="width: 11px; height: 11px; border-radius: 3px; background: #EE8A2B;"></span> ใกล้กำหนด (≤15 วัน) <b style="margin-left: auto; font-family: 'IBM Plex Mono', monospace;">3</b></div>
-              <div style="display: flex; align-items: center; gap: 9px; font-size: 12.5px;"><span style="width: 11px; height: 11px; border-radius: 3px; background: #169C7F;"></span> ปกติ / พร้อมใช้ <b style="margin-left: auto; font-family: 'IBM Plex Mono', monospace;">3</b></div>
+              <div style="display: flex; align-items: center; gap: 9px; font-size: 12.5px;"><span style="width: 11px; height: 11px; border-radius: 3px; background: #E03E3E;"></span> วิกฤต / เกินกำหนด <b style="margin-left: auto; font-family: 'IBM Plex Mono', monospace;">{{ donutCritical }}</b></div>
+              <div style="display: flex; align-items: center; gap: 9px; font-size: 12.5px;"><span style="width: 11px; height: 11px; border-radius: 3px; background: #EE8A2B;"></span> ใกล้กำหนด (≤15 วัน) <b style="margin-left: auto; font-family: 'IBM Plex Mono', monospace;">{{ donutWarning }}</b></div>
+              <div style="display: flex; align-items: center; gap: 9px; font-size: 12.5px;"><span style="width: 11px; height: 11px; border-radius: 3px; background: #169C7F;"></span> ปกติ / พร้อมใช้ <b style="margin-left: auto; font-family: 'IBM Plex Mono', monospace;">{{ donutOk }}</b></div>
             </div>
           </div>
         </div>
@@ -1002,7 +1002,7 @@ class Component extends DCLogic {
 
   // ---------- date helpers ----------
   parse(iso) { return iso ? new Date(iso + 'T00:00:00') : null; }
-  addDays(iso, n) { const d = this.parse(iso); d.setDate(d.getDate() + n); return d; }
+  addDays(iso, n) { const d = this.parse(iso); if (!d) return null; d.setDate(d.getDate() + n); return d; }
   fmt(d) { if (!d) return '—'; return `${d.getDate()} ${this.TH_MONTHS[d.getMonth()]} ${d.getFullYear() + 543}`; }
   fmtISO(iso) { return iso ? this.fmt(this.parse(iso)) : '—'; }
   returnDateISO(expiry) { const d = this.addDays(expiry, -15); const m = String(d.getMonth()+1).padStart(2,'0'); const day = String(d.getDate()).padStart(2,'0'); return `${d.getFullYear()}-${m}-${day}`; }
@@ -1039,6 +1039,7 @@ class Component extends DCLogic {
 
   // status from expiry → based on RETURN date (15d before expiry)
   statusOf(expiry) {
+    if (!expiry) return { key: 'ok', label: 'ไม่มีข้อมูล', color: '#9AAAB8', soft: '#EEF2F6', border: '#E2E9F0' };
     const ret = this.addDays(expiry, -15);
     const days = this.daysBetween(ret);
     if (days <= 0) return { key: 'critical', label: 'ต้องส่งคืนด่วน', color: '#E03E3E', soft: '#FCEDED', border: '#F4C9C9' };
@@ -1046,6 +1047,7 @@ class Component extends DCLogic {
     return { key: 'ok', label: 'ปกติ', color: '#169C7F', soft: '#E4F4EF', border: '#C4E7DB' };
   }
   daysText(expiry) {
+    if (!expiry) return '—';
     const ret = this.addDays(expiry, -15);
     const days = this.daysBetween(ret);
     if (days < 0) return `เกิน ${Math.abs(days)} วัน`;
@@ -1129,7 +1131,9 @@ class Component extends DCLogic {
   }
   saveEditDrugs() {
     const id = this.state.selectedEB;
+    const drugs = (this.state.boxDrugs || this.buildBoxDrugs())[id];
     this.setState({ editDrugs: false });
+    if (window.EB_Sync) window.EB_Sync.syncBoxDrugs(id, drugs);
     this.flash('บันทึกข้อมูลยาในกล่องแล้ว · คำนวณวันหมดอายุและวันส่งคืนใหม่อัตโนมัติ');
     const near = this.nearDrugOf(id);
     this.logAction({ cat: 'edit', action: 'แก้ไขยา', eb: id, dept: '—', drug: `ปรับจำนวน/วันหมดอายุ · ใกล้หมดอายุสุด: ${near}` });
@@ -1602,7 +1606,11 @@ class Component extends DCLogic {
     const total = this.BOXES.length;
     const a1 = counts.critical / total * 360;
     const a2 = a1 + counts.warning / total * 360;
-    vals.donutGradient = `conic-gradient(#E03E3E 0 ${a1}deg, #EE8A2B ${a1}deg ${a2}deg, #169C7F ${a2}deg 360deg)`;
+    vals.donutGradient  = `conic-gradient(#E03E3E 0 ${a1}deg, #EE8A2B ${a1}deg ${a2}deg, #169C7F ${a2}deg 360deg)`;
+    vals.donutCritical  = counts.critical;
+    vals.donutWarning   = counts.warning;
+    vals.donutOk        = counts.ok;
+    vals.donutActionCount = counts.critical + counts.warning;
 
     vals.recentTx = (st.auditLog || this.AUDIT).filter(t => t.cat === 'dispense' || t.cat === 'return').slice(0, 5).map(t => ({
       eb: t.eb, action: t.action, dept: t.dept, person: t.person, drug: t.drug, time: t.time,
