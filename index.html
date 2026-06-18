@@ -292,9 +292,21 @@ input[type="date"] { min-height: 46px; }
   .perm-matrix { grid-template-columns: repeat(2,1fr) !important; gap: 10px !important; }
 
   /* Login: single column */
-  .login-wrap { flex-direction: column !important; min-height: 100dvh !important; }
-  .login-brand { display: none !important; }
-  .login-form-panel { width: 100% !important; flex: 1 !important; padding: 28px 22px 40px !important; }
+  .login-wrap {
+    flex-direction: column !important;
+    height: auto !important;
+    min-height: 100dvh !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+  }
+  .login-brand { display: none !important; height: 0 !important; overflow: hidden !important; }
+  .login-form-panel {
+    width: 100% !important;
+    flex: unset !important;
+    min-height: 100dvh !important;
+    padding: 36px 24px 52px !important;
+    align-items: flex-start !important;
+  }
 
   /* Notify settings */
   .notify-email-grid { grid-template-columns: 1fr !important; }
