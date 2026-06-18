@@ -22,6 +22,7 @@ const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
 const db = admin.firestore();
 
+// แจ้งเตือนยาที่หมดอายุภายใน 30 วัน (= ถึงวันส่งคืนภายใน 15 วัน)
 const THRESHOLD_DAYS = parseInt(process.env.NOTIFY_DAYS_AHEAD || '30', 10);
 const TODAY = new Date();
 TODAY.setHours(0, 0, 0, 0);
@@ -39,11 +40,11 @@ function thaiDate(isoDate) {
 }
 
 function statusLabel(days) {
-  if (days < 0)  return '🔴 หมดอายุแล้ว';
-  if (days === 0) return '🔴 หมดอายุวันนี้';
-  if (days <= 7)  return '🟠 วิกฤต';
-  if (days <= 15) return '🟡 ใกล้กำหนด';
-  return '🔵 เตือนล่วงหน้า';
+  if (days < 0)   return 'หมดอายุแล้ว';
+  if (days === 0) return 'หมดอายุวันนี้';
+  if (days <= 15) return 'วิกฤต — ต้องส่งคืนด่วน';
+  if (days <= 30) return 'ใกล้กำหนดส่งคืน';
+  return 'เตือนล่วงหน้า';
 }
 
 // ── Read Firestore ─────────────────────────────────────────────
@@ -81,7 +82,8 @@ async function fetchExpiringDrugs() {
             lot: lot.lot || '',
             qty: lot.qty || 0,
             daysLeft: days,
-            status: days < 0 ? 'expired' : days <= 7 ? 'critical' : days <= 15 ? 'warning' : 'notice',
+            // ตรงกับเกณฑ์แอป: วิกฤต = หมดอายุภายใน 15 วัน (= วันส่งคืนผ่านแล้ว)
+            status: days < 0 ? 'expired' : days <= 15 ? 'critical' : days <= 30 ? 'warning' : 'notice',
             statusLabel: statusLabel(days),
           });
         }
@@ -311,8 +313,8 @@ async function sendEmail(alerts) {
   const expired  = alerts.filter(a => a.status === 'expired').length;
   const critical = alerts.filter(a => a.status === 'critical').length;
   let subject = `รายงานยาใกล้หมดอายุ Emergency Box ${alerts.length} รายการ รพ.กรงปินัง`;
-  if (expired)  subject = `[ด่วน] ยาหมดอายุแล้ว ${expired} รายการ Emergency Box รพ.กรงปินัง`;
-  else if (critical) subject = `[ด่วน] ยาวิกฤต ${critical} รายการ Emergency Box รพ.กรงปินัง`;
+  if (expired)        subject = `[ด่วน] ยาหมดอายุแล้ว ${expired} รายการ Emergency Box รพ.กรงปินัง`;
+  else if (critical)  subject = `[ด่วน] ยาต้องส่งคืนด่วน ${critical} รายการ Emergency Box รพ.กรงปินัง`;
 
   const toList = to.split(',').map(e => e.trim());
   const msgId  = `<eb-notify-${Date.now()}@emergencyboxnotyfykpnhos.web.app>`;
