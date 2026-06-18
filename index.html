@@ -948,7 +948,7 @@ class Component extends DCLogic {
     boxMeta: {},
     // history
     query: '',
-    filter: 'all',
+    filter: 'dispense-return',
     auditLog: null,
     boxHist: {},
     // confirm dialog
@@ -1987,12 +1987,11 @@ class Component extends DCLogic {
     vals.query = st.query;
     vals.setQuery = (e) => this.setState({ query: e.target.value });
     const histFilters = [
-      { k: 'all', l: 'ทั้งหมด' },
-      { k: 'จ่าย', l: 'จ่าย' },
-      { k: 'รับคืน', l: 'รับคืน' },
-      { k: 'ลงทะเบียน', l: 'ลงทะเบียน' },
-      { k: 'แก้ไขยา', l: 'แก้ไข' },
-      { k: 'user', l: 'ผู้ใช้/ระบบ' },
+      { k: 'dispense-return', l: 'จ่าย + รับคืน' },
+      { k: 'all',             l: 'ทั้งหมด' },
+      { k: 'ลงทะเบียน',      l: 'ลงทะเบียน' },
+      { k: 'แก้ไขยา',        l: 'แก้ไข' },
+      { k: 'user',            l: 'ผู้ใช้/ระบบ' },
     ];
     const userCats = ['user', 'auth'];
     vals.filterChipsEl = h(React.Fragment, null, ...histFilters.map(f => {
@@ -2004,7 +2003,8 @@ class Component extends DCLogic {
     }));
     const q = (st.query || '').trim().toLowerCase();
     const filtered = LOG.filter(r => {
-      if (st.filter === 'user') { if (!userCats.includes(r.cat)) return false; }
+      if (st.filter === 'dispense-return') { if (r.cat !== 'dispense' && r.cat !== 'return') return false; }
+      else if (st.filter === 'user') { if (!userCats.includes(r.cat)) return false; }
       else if (st.filter !== 'all' && r.action !== st.filter) return false;
       if (!q) return true;
       return [r.eb, r.dept, r.person, r.drug, r.action].some(x => (x || '').toLowerCase().includes(q));
