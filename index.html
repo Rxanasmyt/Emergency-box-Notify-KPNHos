@@ -1056,6 +1056,7 @@ class Component extends DCLogic {
     showToast: false,
     toastTitle: '',
     ghTrigger: 'idle',
+    ghPAT: '',
     // detail
     selectedEB: 'EB-4',
     boxDrugs: null,
@@ -1694,8 +1695,14 @@ class Component extends DCLogic {
     const lastSent = localStorage.getItem('eb_notify_last_sent');
     vals.notifyLastSentText = lastSent ? `ส่งแจ้งเตือนล่าสุด: ${lastSent}` : 'ยังไม่เคยส่งแจ้งเตือน';
     // GitHub Actions manual trigger
-    vals.githubPAT = nfSettings.githubPAT || '';
-    vals.setGithubPAT = (e) => { const s = window.EB_Notify.loadSettings(); s.githubPAT = e.target.value; window.EB_Notify.saveSettings(s); };
+    // load PAT into state once (if saved previously and state is still empty)
+    if (!st.ghPAT && nfSettings.githubPAT) this.setState({ ghPAT: nfSettings.githubPAT });
+    vals.githubPAT = st.ghPAT;
+    vals.setGithubPAT = (e) => {
+      const v = e.target.value;
+      this.setState({ ghPAT: v });
+      const s = window.EB_Notify.loadSettings(); s.githubPAT = v; window.EB_Notify.saveSettings(s);
+    };
     const _ghState = st.ghTrigger || 'idle';
     const _ghMsgs = { idle: '', loading: '⏳ กำลังส่งคำสั่ง…', success: '✓ ส่งแล้ว — ตรวจสอบ Email ใน 1-2 นาที', error: '✗ เกิดข้อผิดพลาด · ตรวจสอบ PAT หรือสิทธิ์ repository' };
     const _ghColors = { idle: '#7B8D9C', loading: '#D9810F', success: '#169C7F', error: '#B42121' };
@@ -1703,8 +1710,7 @@ class Component extends DCLogic {
     vals.ghTriggerColor = _ghColors[_ghState];
     vals.triggerGHActions = async () => {
       if (_ghState === 'loading') return;
-      const s = window.EB_Notify.loadSettings();
-      const pat = (s.githubPAT || '').trim();
+      const pat = (st.ghPAT || '').trim();
       if (!pat) { this.setState({ ghTrigger: 'error' }); setTimeout(() => this.setState({ ghTrigger: 'idle' }), 4000); return; }
       this.setState({ ghTrigger: 'loading' });
       try {
