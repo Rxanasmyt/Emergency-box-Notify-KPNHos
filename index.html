@@ -1627,7 +1627,7 @@ class Component extends DCLogic {
   addDays(iso, n) { const d = this.parse(iso); if (!d) return null; d.setDate(d.getDate() + n); return d; }
   fmt(d) { if (!d) return '—'; return `${d.getDate()} ${this.TH_MONTHS[d.getMonth()]} ${d.getFullYear() + 543}`; }
   fmtISO(iso) { return iso ? this.fmt(this.parse(iso)) : '—'; }
-  returnDateISO(expiry) { const d = this.addDays(expiry, -15); const m = String(d.getMonth()+1).padStart(2,'0'); const day = String(d.getDate()).padStart(2,'0'); return `${d.getFullYear()}-${m}-${day}`; }
+  returnDateISO(expiry) { const d = this.addDays(expiry, -15); if (!d) return ''; const m = String(d.getMonth()+1).padStart(2,'0'); const day = String(d.getDate()).padStart(2,'0'); return `${d.getFullYear()}-${m}-${day}`; }
   daysBetween(d) { return Math.round((d - this.TODAY) / 86400000); }
   isoOf(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
 
@@ -1639,7 +1639,7 @@ class Component extends DCLogic {
         const isNear = d.name === box.nearDrug;
         const exp = isNear ? this.parse(box.expiry) : this.addDays(box.expiry, 40 + i * 12);
         // each drug starts with 1 lot at full par qty
-        return { name: d.name, had: d.had, par: d.par, lots: [{ qty: d.par, expiry: this.isoOf(exp) }] };
+        return { name: d.name, had: d.had, par: d.par, lots: [{ qty: d.par, expiry: exp ? this.isoOf(exp) : '' }] };
       });
     });
     return bd;
