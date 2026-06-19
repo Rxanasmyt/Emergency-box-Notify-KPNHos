@@ -31,7 +31,8 @@ const db = admin.firestore();
 // แจ้งเตือนยาที่หมดอายุภายใน 30 วัน (= ถึงวันส่งคืนภายใน 15 วัน)
 const _rawDays = parseInt(process.env.NOTIFY_DAYS_AHEAD || '30', 10);
 const THRESHOLD_DAYS = isNaN(_rawDays) || _rawDays <= 0 ? 30 : _rawDays;
-const TODAY = new Date();
+// Use Bangkok time (UTC+7) so expiry comparisons match Thai calendar day
+const TODAY = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
 TODAY.setHours(0, 0, 0, 0);
 
 // ── Helpers ────────────────────────────────────────────────────
@@ -83,7 +84,7 @@ async function fetchExpiringDrugs() {
     drugs.forEach(drug => {
       const lots = drug.lots || [];
       lots.forEach(lot => {
-        if (!lot.expiry) return;
+        if (!lot.expiry || typeof lot.expiry !== 'string') return;
         const days = daysUntil(lot.expiry);
         if (days <= THRESHOLD_DAYS) {
           const returnDeadline = addDaysISO(lot.expiry, -15);
@@ -569,7 +570,7 @@ async function main() {
     console.log('💡 หมายเหตุ: ถ้าในแอปมียาแต่ที่นี่บอกว่าไม่พบ → ข้อมูลใน Firestore อาจยังไม่ถูก sync');
     if (isMonday) {
       console.log('\n📬 วันจันทร์ — ส่งรายงานสรุปประจำสัปดาห์ (All Clear)');
-      const boxCount = Object.keys(await db.collection('boxes').get().then(s => { const o = {}; s.forEach(d => { o[d.id] = 1; }); return o; })).length;
+      const boxCount = await db.collection('boxes').get().then(s => s.size).catch(() => 0);
       await sendAllClearEmail(boxCount);
     } else {
       console.log('⏭  ไม่ใช่วันจันทร์ — ไม่ส่งแจ้งเตือน');
@@ -604,7 +605,7 @@ async function main() {
   }
 
   const lineResult = process.env.LINE_CHANNEL_TOKEN
-    ? await sendLineMessage(process.env.LINE_CHANNEL_TOKEN, buildLineMessage(alertsToSend), process.env.LINE_USER_ID || '').catch(err => { console.error('❌ LINE exception:', err.message); return false; })
+    ? await sendLineMessage(process.env.LINE_CHANNEL_TOKEN, buildLineMessage(alertsToSend), process.env.LINE_USER_ID || undefined).catch(err => { console.error('❌ LINE exception:', err.message); return false; })
     : (console.log('⚠️  LINE: ไม่ได้ตั้งค่า LINE_CHANNEL_TOKEN'), false);
 
   const emailResult = await sendEmail(alertsToSend).catch(err => { console.error('❌ Email exception:', err.message); return false; });

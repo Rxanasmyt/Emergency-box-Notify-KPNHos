@@ -62,8 +62,8 @@
 
   function findExpiringDrugs(component, thresholdDays) {
     if (!component || !component.BOXES) return [];
-    const bd = component.state.boxDrugs || component.buildBoxDrugs() || {};
-    const today = component.TODAY || new Date();
+    const bd = component.state.boxDrugs || (typeof component.buildBoxDrugs === 'function' ? component.buildBoxDrugs() : null) || {};
+    const today = new Date(); today.setHours(0, 0, 0, 0);
     const alerts = [];
 
     component.BOXES.forEach(box => {
@@ -146,8 +146,8 @@
     try {
       const res = await fetch(settings.lineWebhookUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: msg }),
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'message=' + encodeURIComponent(msg),
       });
       if (!res.ok) {
         console.error('[Notify] LINE error:', res.status, await res.text().catch(() => ''));
@@ -208,9 +208,11 @@
       sent = await sendLINE(settings, alerts) || sent;
     }
 
-    if (sent) {
+    // Mark as sent today after any notification attempt (browser or LINE)
+    // so browser notifications don't repeat every trigger throughout the day
+    if (sent || settings.browserEnabled) {
       setLastSent();
-      console.log('[Notify] Notifications sent successfully');
+      if (sent) console.log('[Notify] Notifications sent successfully');
     }
 
     return { alerts, sent };

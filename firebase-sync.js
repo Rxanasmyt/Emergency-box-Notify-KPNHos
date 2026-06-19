@@ -112,10 +112,10 @@ function listenAudit(){
 function listenBoxDrugs(){
   const unsub=db.collection(C.boxDrugs).onSnapshot(snap=>{
     if(!component)return;
-    const bd={};snap.forEach(doc=>{const d=doc.data();if(d.boxId&&d.drugs)bd[d.boxId]=d.drugs;});
+    const bd={};snap.forEach(doc=>{const d=doc.data();const boxId=d.boxId||doc.id;if(boxId&&d.drugs)bd[boxId]=d.drugs;});
     // always update BOX_DRUGS and boxDrugs state even when empty
     component.BOX_DRUGS=bd;
-    component.setState({boxDrugs:Object.keys(bd).length?bd:component.state.boxDrugs||null});
+    component.setState({boxDrugs:Object.keys(bd).length?bd:{}});
   },err=>console.warn('[Sync] BoxDrugs error:',err.message));
   unsubscribers.push(unsub);
 }
