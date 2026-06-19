@@ -2134,8 +2134,8 @@ class Component extends DCLogic {
     const isPortrait = layout === 'portrait1';
     // landscape1: A4 landscape → 2 A5 portrait forms side by side, cut vertically → 2 pieces matching physical form
     const pageCSS = isPortrait
-      ? `@page { size: A4 portrait; margin: 0; } @media print { html,body { width:210mm; height:297mm; } .ui { display:none !important; } body { -webkit-print-color-adjust:exact; print-color-adjust:exact; } }`
-      : `@page { size: A4 landscape; margin: 0; } @media print { html,body { width:297mm; height:210mm; } .ui { display:none !important; } body { -webkit-print-color-adjust:exact; print-color-adjust:exact; } }`;
+      ? `@page { size: A4 portrait; margin: 0; } @media print { html,body { width:210mm; height:297mm; } body { -webkit-print-color-adjust:exact; print-color-adjust:exact; } }`
+      : `@page { size: A4 landscape; margin: 0; } @media print { html,body { width:297mm; height:210mm; } body { -webkit-print-color-adjust:exact; print-color-adjust:exact; } }`;
     const a4W = isPortrait ? '210mm' : '297mm';
     const uiLabel = isPortrait ? '🖨️ พิมพ์ (A4 ตั้ง — 1 ใบ)' : '🖨️ พิมพ์ (A4 นอน — 1 ใบ A5 ✂)';
     const tipText = isPortrait
@@ -2160,28 +2160,33 @@ html,body{font-family:'Sarabun','TH Sarabun New','IBM Plex Sans Thai',Tahoma,san
 .wrap{display:flex;justify-content:center;padding:8mm 0 14mm}
 .a4{width:${a4W};background:#fff;box-shadow:0 4px 28px rgba(0,0,0,.3)}
 ${layoutCSS}
-.hdr1{display:flex;align-items:baseline;gap:2mm;margin-bottom:1mm}
-.hdr2{display:flex;align-items:baseline;gap:2mm;margin-bottom:1.5mm}
-.lb{font-weight:700;font-size:10pt;white-space:nowrap}
+.hdr1{display:flex;align-items:baseline;gap:2mm;margin-bottom:2mm}
+.hdr2{display:flex;align-items:baseline;gap:2mm;margin-bottom:2mm}
+.lb{font-weight:700;font-size:11pt;white-space:nowrap}
 .ml{margin-left:3mm}
-.ebid{font-weight:700;font-size:11.5pt;font-family:'Courier New',monospace;white-space:nowrap}
+.ebid{font-weight:700;font-size:13pt;font-family:'Courier New',monospace;white-space:nowrap}
 .flex1{flex:1;min-width:0}
-.uline{border-bottom:1px solid #222;display:inline-block}
-.htitle{text-align:center;font-weight:700;font-size:10.5pt;margin:1.5mm 0 1mm;border-bottom:1.5px solid #333;padding-bottom:0.5mm}
-table{width:100%;border-collapse:collapse;margin-bottom:1mm;font-size:8.5pt}
-th{background:#ddd;font-weight:700;text-align:center;padding:1.5px 2px;border:1px solid #222;font-size:9pt}
-td{border:1px solid #555;padding:1px 2px;vertical-align:middle;height:5.2mm}
+.uline{border-bottom:1.5px solid #222;display:inline-block}
+.htitle{text-align:center;font-weight:700;font-size:11.5pt;margin:2mm 0 1.5mm;border-bottom:1.5px solid #333;padding-bottom:1mm}
+table{width:100%;border-collapse:collapse;margin-bottom:2mm;font-size:10pt}
+th{background:#ddd;font-weight:700;text-align:center;padding:2px;border:1px solid #222;font-size:10.5pt;height:8mm}
+td{border:1px solid #555;padding:1px 3px;vertical-align:middle;height:7.5mm}
 td.c{text-align:center}
-td.l{text-align:left;padding-left:3px}
-.nexp-row{display:flex;align-items:baseline;gap:2mm;margin-bottom:1mm;font-size:9pt}
-.warn-row{display:flex;align-items:flex-start;margin-bottom:1mm}
-.warn{font-size:9.5pt;font-weight:700;margin-bottom:0.5mm}
-.retdate{font-size:9pt;font-weight:600;color:#C62828}
-.retval{font-size:10.5pt;font-weight:800;text-decoration:underline;margin-left:2px}
-.sig-row{display:flex;align-items:baseline;gap:2mm;margin-bottom:1mm;font-size:9.5pt}
-.divider{border-top:2px solid #333;margin:1.5mm 0}
-.wr{display:flex;align-items:baseline;gap:2mm;margin-bottom:2.5mm;font-size:9.5pt}
+td.l{text-align:left;padding-left:4px}
+.nexp-row{display:flex;align-items:baseline;gap:2mm;margin-bottom:2mm;font-size:10pt}
+.warn-row{display:flex;align-items:flex-start;margin-bottom:2mm}
+.warn{font-size:10.5pt;font-weight:700;margin-bottom:1mm}
+.retdate{font-size:10pt;font-weight:600;color:#C62828}
+.retval{font-size:11.5pt;font-weight:800;text-decoration:underline;margin-left:2px}
+.sig-row{display:flex;align-items:baseline;gap:2mm;margin-bottom:2mm;font-size:10.5pt}
+.divider{border-top:2px solid #333;margin:2.5mm 0}
+.wr{display:flex;align-items:baseline;gap:2mm;margin-bottom:3.5mm;font-size:10.5pt}
 .wl{white-space:nowrap}
+@media print{
+  .ui{display:none !important;height:0 !important;overflow:hidden !important;position:absolute !important;}
+  .wrap{padding:0 !important;background:none !important;}
+  .a4{box-shadow:none !important;}
+}
 </style></head><body>
 
 <div class="ui">
