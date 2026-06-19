@@ -1536,6 +1536,7 @@ class Component extends DCLogic {
     regPreparer: '',
     regChecker: '',
     regHadConfirm: false,
+    regPrinted: false,
     // step 2: dispense / swap
     dispEB: 'EB-9',
     formDept: 'ER',
@@ -1702,12 +1703,23 @@ class Component extends DCLogic {
     }
     this.setState({ screen });
   }
-  go2(formMode) { this.setState({ formMode }); }
+  go2(formMode) {
+    const today = this.isoOf(this.TODAY);
+    this.setState({ formMode, regPrinted: false,
+      dispDate: this.state.dispDate || today,
+      retDate: this.state.retDate || today,
+      swapReturnDate: this.state.swapReturnDate || today,
+    });
+  }
 
   componentDidMount() {
     const patch = {};
     if (!this.state.boxDrugs) patch.boxDrugs = this.buildBoxDrugs();
     if (!this.state.auditLog) patch.auditLog = this.AUDIT.map(a => ({ ...a, cat: a.action === 'จ่าย' ? 'dispense' : (a.action === 'รับคืน' ? 'return' : 'other') }));
+    const today = this.isoOf(this.TODAY);
+    if (!this.state.dispDate) patch.dispDate = today;
+    if (!this.state.retDate) patch.retDate = today;
+    if (!this.state.swapReturnDate) patch.swapReturnDate = today;
     if (Object.keys(patch).length) this.setState(patch);
     this._idleEvents = ['mousemove', 'keydown', 'click', 'touchstart'];
     this._resetIdle = () => this.bumpIdle();
@@ -1867,8 +1879,10 @@ class Component extends DCLogic {
     }
     const lastLogin = `${this.fmt(this.TODAY)} ${this.nowTime()}`;
     const updatedU = { ...u, lastLogin };
+    const _today = this.isoOf(this.TODAY);
     this.setState({ authed: true, currentUser: updatedU, loginError: '', attempts: 0, locked: false, loginPass: '', screen: 'dashboard',
-      users: this.state.users.map(x => x.username === u.username ? updatedU : x) });
+      users: this.state.users.map(x => x.username === u.username ? updatedU : x),
+      dispDate: _today, retDate: _today, swapReturnDate: _today, regPrinted: false });
     // anon auth already started in componentDidMount — just start remaining Firestore sync
     if (window.EB_Sync) {
       window.EB_Sync.initFirebaseSync(this);
@@ -1997,6 +2011,7 @@ class Component extends DCLogic {
   validateForm() {
     const st = this.state, errs = [];
     if (st.formMode === 'register') {
+      if (!st.regPrinted) errs.push('พิมพ์ใบกล่องก่อนบันทึก (กดปุ่ม พิมพ์ใบกล่อง)');
       if (!st.regPreparer.trim()) errs.push('ลงชื่อผู้จัดเตรียม (จพ.)');
       if (!st.regChecker.trim()) errs.push('ลงชื่อเภสัชกรผู้ตรวจสอบ');
       const near = this.regNearISOof(st.regEB);
@@ -2008,6 +2023,8 @@ class Component extends DCLogic {
       if (!st.dispenser.trim()) errs.push('ลงชื่อผู้จ่าย');
       if (!st.dispDate) errs.push('วันที่จ่าย');
       if (st.swapReturn && !st.swapReceiver.trim()) errs.push('ลงชื่อผู้รับคืนกล่องเก่า');
+      if (st.swapReturn && !st.swapReturnDate) errs.push('วันที่รับคืนกล่องเก่า');
+      if (st.swapReturn && st.swapEB === st.dispEB) errs.push('กล่องที่รับคืนต้องไม่ใช่กล่องเดียวกับกล่องที่จ่าย');
     } else {
       if (!st.retReceiver.trim()) errs.push('ลงชื่อผู้รับคืน');
       if (!st.retDate) errs.push('วันที่รับคืน');
@@ -2065,21 +2082,21 @@ class Component extends DCLogic {
       this._syncBox({ ...box, dept: formDept, dispense: this.state.dispDate, dispenser: this.state.dispenser, receiver: '' });
       if (swapReturn) {
         const swBox = this.BOXES.find(b => b.id === swapEB) || { id: swapEB };
-        this._syncBox({ ...swBox, receiver: this.state.swapReceiver });
-        this.logAction({ cat: 'return', action: 'รับคืน', eb: swapEB, dept: formDept, drug: '—' });
-        this.logBoxHist(swapEB, `รับคืนจาก ${formDept} (โดย ${this.state.swapReceiver || '-'})`);
+        this._syncBox({ ...swBox, receiver: this.state.swapReceiver, retDate: this.state.swapReturnDate });
+        this.logAction({ cat: 'return', action: 'รับคืน', eb: swapEB, dept: formDept, drug: `รับคืน วันที่ ${this.fmtISO(this.state.swapReturnDate)} · โดย ${this.state.swapReceiver || '-'}` });
+        this.logBoxHist(swapEB, `รับคืนจาก ${formDept} วันที่ ${this.fmtISO(this.state.swapReturnDate)} (โดย ${this.state.swapReceiver || '-'})`);
       }
       msg = swapReturn ? `เปลี่ยนกล่อง: จ่าย ${dispEB} → ${formDept} · รับคืน ${swapEB} สำเร็จ` : `จ่าย ${dispEB} → ${formDept} สำเร็จ`;
       this.logAction({ cat: 'dispense', action: 'จ่าย', eb: dispEB, dept: formDept, drug: this.nearDrugOf(dispEB) });
       this.logBoxHist(dispEB, `จ่ายให้ ${formDept} (โดย ${this.state.dispenser || '-'})`);
     }
     else {
-      const { retEB, retReceiver } = this.state;
+      const { retEB, retReceiver, retDate } = this.state;
       const retBox = this.BOXES.find(b => b.id === retEB) || { id: retEB };
-      this._syncBox({ ...retBox, receiver: retReceiver });
+      this._syncBox({ ...retBox, receiver: retReceiver, retDate });
       msg = `รับคืน ${retEB} เข้าห้องยาสำเร็จ`;
-      this.logAction({ cat: 'return', action: 'รับคืน', eb: retEB, dept: '—', drug: '—' });
-      this.logBoxHist(retEB, `รับคืนเข้าห้องยา (โดย ${retReceiver || '-'})`);
+      this.logAction({ cat: 'return', action: 'รับคืน', eb: retEB, dept: '—', drug: `รับคืน วันที่ ${this.fmtISO(retDate)} · โดย ${retReceiver || '-'}` });
+      this.logBoxHist(retEB, `รับคืนเข้าห้องยา วันที่ ${this.fmtISO(retDate)} (โดย ${retReceiver || '-'})`);
     }
     const sub = m === 'register' ? 'บันทึกเข้าคลัง · พร้อมจ่าย' : m === 'dispense' ? 'บันทึก Audit Log · แจ้งเตือนอัตโนมัติ' : 'รับคืนแล้ว · พร้อมตรวจสอบ/จัดเตรียม';
     this.setState({ showToast: true, toastTitle: msg, toastSubtitle: sub });
@@ -2088,6 +2105,7 @@ class Component extends DCLogic {
     this.resetForm();
   }
   printEBForm(layout = 'landscape1') {
+    this.setState({ regPrinted: true });
     const st = this.state;
     const eb = st.regEB;
     const mfg = st.regMfg;
@@ -2258,7 +2276,7 @@ td.l{text-align:left;padding-left:4px}
   resetForm() {
     const m = this.state.formMode;
     const today = this.isoOf(this.TODAY);
-    if (m === 'register') this.setState({ regMfg: '', regPreparer: '', regChecker: '', regHadConfirm: false });
+    if (m === 'register') this.setState({ regMfg: '', regPreparer: '', regChecker: '', regHadConfirm: false, regPrinted: false });
     else if (m === 'dispense') this.setState({ dispenser: '', swapReturn: false, swapReceiver: '', dispDate: today, swapReturnDate: today });
     else this.setState({ retReceiver: '', retDate: today });
   }
@@ -2859,11 +2877,19 @@ td.l{text-align:left;padding-left:4px}
 
     vals.resetForm = () => this.resetForm();
 
-    // Print EB form buttons (register step only)
+    // Print EB form buttons (register step only) — must print before save is allowed
     const printerSVG = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none"><rect x="5" y="2" width="14" height="6" rx="1" stroke="currentColor" stroke-width="1.8"/><path d="M5 18H3a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1h18a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1h-2" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><rect x="5" y="14" width="14" height="8" rx="1" stroke="currentColor" stroke-width="1.8"/><circle cx="18" cy="11.5" r="1" fill="currentColor"/></svg>';
-    const btnStyle = { display: 'inline-flex', alignItems: 'center', gap: 7, height: 50, padding: '0 18px', border: '1.5px solid #C3DDEC', background: 'linear-gradient(135deg,#EEF5FA,#E4F0F8)', color: '#1A6FA3', borderRadius: 13, fontFamily: 'inherit', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', transition: 'all .22s cubic-bezier(.34,1.56,.64,1)', boxShadow: '0 2px 8px rgba(26,111,163,.1)' };
-    vals.printEBFormBtn = h('button', { type: 'button', onClick: () => this.printEBForm('landscape1'), style: btnStyle },
-      ic(printerSVG, 17), h('span', null, 'พิมพ์ใบกล่อง ', h('span', { style: { fontSize: 11, opacity: .72, fontWeight: 500 } }, '(A4 นอน — A5 ✂)')));
+    const checkSVG = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    const printed = st.regPrinted;
+    const printBtnStyle = printed
+      ? { display: 'inline-flex', alignItems: 'center', gap: 7, height: 50, padding: '0 18px', border: '1.5px solid #A7DFC2', background: 'linear-gradient(135deg,#E8F7EE,#D4F0E2)', color: '#169C7F', borderRadius: 13, fontFamily: 'inherit', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', transition: 'all .22s', boxShadow: '0 2px 8px rgba(22,156,127,.15)' }
+      : { display: 'inline-flex', alignItems: 'center', gap: 7, height: 50, padding: '0 18px', border: '1.5px solid #C3DDEC', background: 'linear-gradient(135deg,#EEF5FA,#E4F0F8)', color: '#1A6FA3', borderRadius: 13, fontFamily: 'inherit', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', transition: 'all .22s', boxShadow: '0 2px 8px rgba(26,111,163,.1)' };
+    vals.printEBFormBtn = h(React.Fragment, null,
+      h('button', { type: 'button', onClick: () => this.printEBForm('landscape1'), style: printBtnStyle },
+        ic(printed ? checkSVG : printerSVG, 17),
+        h('span', null, printed ? 'พิมพ์แล้ว ✓' : 'พิมพ์ใบกล่อง', printed ? null : h('span', { style: { fontSize: 11, opacity: .72, fontWeight: 500 } }, ' (A4 นอน — A5 ✂)'))),
+      !printed ? h('span', { style: { fontSize: 12, color: '#B5740F', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 } }, '⚠ พิมพ์ก่อนบันทึก') : null
+    );
 
     // ----- DETAIL -----
     const BD = st.boxDrugs || this.buildBoxDrugs();
