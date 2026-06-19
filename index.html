@@ -2071,7 +2071,7 @@ class Component extends DCLogic {
       meta[regEB] = { mfg: this.state.regMfg, preparer: this.state.regPreparer, checker: this.state.regChecker, registeredAt: this.isoOf(this.TODAY) };
       this.setState({ boxMeta: meta, regHadConfirm: false });
       const box = this.BOXES.find(b => b.id === regEB) || { id: regEB };
-      this._syncBox({ ...box, mfg: this.state.regMfg, expiry: nearISO || '', nearDrug: near || '', preparer: this.state.regPreparer, checker: this.state.regChecker, registeredAt: this.isoOf(this.TODAY), dispense: '', dispenser: '', receiver: '' });
+      this._syncBox({ retDate: '', ...box, mfg: this.state.regMfg, expiry: nearISO || '', nearDrug: near || '', preparer: this.state.regPreparer, checker: this.state.regChecker, registeredAt: this.isoOf(this.TODAY), dispense: '', dispenser: '', receiver: '' });
       msg = `ลงทะเบียน ${regEB} สำเร็จ · ตรวจพบยาใกล้หมดอายุสุด: ${near}`;
       this.logAction({ cat: 'register', action: 'ลงทะเบียน', eb: regEB, dept: '—', drug: `จัดยาเข้าคลัง · ใกล้หมดอายุสุด: ${near}` });
       this.logBoxHist(regEB, `ลงทะเบียนเข้าคลัง (จัดโดย ${this.state.regPreparer || '-'}, ตรวจโดย ${this.state.regChecker || '-'})`);
