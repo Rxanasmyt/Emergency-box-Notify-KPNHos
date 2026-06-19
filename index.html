@@ -1562,6 +1562,7 @@ class Component extends DCLogic {
     selectedEB: 'EB-4',
     boxDrugs: null,
     editDrugs: false,
+    saveSuccess: null,
     boxMeta: {},
     // history (dispense+return register — all users)
     query: '',
@@ -2058,8 +2059,8 @@ class Component extends DCLogic {
     const st = this.state, errs = [];
     if (st.formMode === 'register') {
       if (!st.regPrinted) errs.push('พิมพ์ใบกล่องก่อนบันทึก (กดปุ่ม พิมพ์ใบกล่อง)');
-      if (!st.regPreparer.trim()) errs.push('ลงชื่อผู้จัดเตรียม (จพ.)');
-      if (!st.regChecker.trim()) errs.push('ลงชื่อเภสัชกรผู้ตรวจสอบ');
+      if (!(st.regPreparer || '').trim()) errs.push('ลงชื่อผู้จัดเตรียม (จพ.)');
+      if (!(st.regChecker || '').trim()) errs.push('ลงชื่อเภสัชกรผู้ตรวจสอบ');
       const near = this.regNearISOof(st.regEB);
       if (near && near < this.isoOf(this.TODAY)) errs.push('มียาหมดอายุแล้ว — แก้วันหมดอายุก่อนบันทึก');
       if (st.regMfg && near && st.regMfg > near) errs.push('วันผลิตต้องมาก่อนวันหมดอายุ');
@@ -2068,15 +2069,15 @@ class Component extends DCLogic {
     } else if (st.formMode === 'dispense') {
       if (!st.dispEB) errs.push('เลือกกล่องยาที่จ่าย');
       if (!st.formDept || !st.formDept.trim()) errs.push('เลือกหน่วยงานที่เบิก');
-      if (!st.dispenser.trim()) errs.push('ลงชื่อผู้จ่าย');
+      if (!(st.dispenser || '').trim()) errs.push('ลงชื่อผู้จ่าย');
       if (!st.dispDate) errs.push('วันที่จ่าย');
       if (st.swapReturn && !st.swapEB) errs.push('เลือกกล่องเก่าที่รับคืน');
-      if (st.swapReturn && !st.swapReceiver.trim()) errs.push('ลงชื่อผู้รับคืนกล่องเก่า');
+      if (st.swapReturn && !(st.swapReceiver || '').trim()) errs.push('ลงชื่อผู้รับคืนกล่องเก่า');
       if (st.swapReturn && !st.swapReturnDate) errs.push('วันที่รับคืนกล่องเก่า');
       if (st.swapReturn && st.swapEB && st.swapEB === st.dispEB) errs.push('กล่องที่รับคืนต้องไม่ใช่กล่องเดียวกับกล่องที่จ่าย');
     } else {
       if (!st.retEB) errs.push('เลือกกล่องยาที่รับคืน');
-      if (!st.retReceiver.trim()) errs.push('ลงชื่อผู้รับคืน');
+      if (!(st.retReceiver || '').trim()) errs.push('ลงชื่อผู้รับคืน');
       if (!st.retDate) errs.push('วันที่รับคืน');
     }
     return errs;
@@ -2327,9 +2328,9 @@ td.l{text-align:left;padding-left:4px}
 
     const win = window.open('', '_blank', 'width=820,height=920');
     if (!win) { alert('กรุณาอนุญาต Pop-up เพื่อใช้งานการพิมพ์'); return; }
-    this.setState({ regPrinted: true });
     win.document.write(html);
     win.document.close();
+    this.setState({ regPrinted: true });
     setTimeout(() => { try { win.print(); } catch(_) {} }, 600);
   }
 
@@ -2978,7 +2979,13 @@ td.l{text-align:left;padding-left:4px}
       );
     }));
     const box = this.BOXES.find(b => b.id === st.selectedEB) || this.BOXES[0] || null;
-    if (!box) { vals.box = null; return vals; }
+    if (!box) {
+      vals.box = null;
+      vals.expiryRingEl = null; vals.detailQuickActionsEl = null;
+      vals.editToggleEl = null; vals.drugTableEl = null; vals.drugFooterEl = null;
+      vals.boxHistEl = null;
+      return vals;
+    }
     if (box.id !== st.selectedEB) this.setState({ selectedEB: box.id });
     const boxExp = this.boxExpiryISO(box.id, BD);
     const bStatus = this.statusOf(boxExp);
