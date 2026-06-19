@@ -1858,12 +1858,20 @@ class Component extends DCLogic {
       this.setState({ loginError: 'บัญชีนี้ถูกระงับการใช้งาน · กรุณาติดต่อผู้ดูแลระบบ' });
       return;
     }
-    this.setState({ authed: true, currentUser: u, loginError: '', attempts: 0, locked: false, loginPass: '', screen: 'dashboard',
-      users: this.state.users.map(x => x.id === u.id ? { ...x, lastLogin: `${this.fmt(this.TODAY)} ${this.nowTime()}` } : x) });
+    const lastLogin = `${this.fmt(this.TODAY)} ${this.nowTime()}`;
+    const updatedU = { ...u, lastLogin };
+    this.setState({ authed: true, currentUser: updatedU, loginError: '', attempts: 0, locked: false, loginPass: '', screen: 'dashboard',
+      users: this.state.users.map(x => x.id === u.id ? updatedU : x) });
     // sign in anonymously then start Firestore sync (must be after auth)
     if (window.EB_Firebase && window.EB_Firebase.auth) {
       window.EB_Firebase.auth.signInAnonymously()
-        .then(() => { if (window.EB_Sync) window.EB_Sync.initFirebaseSync(this); })
+        .then(() => {
+          if (window.EB_Sync) {
+            window.EB_Sync.initFirebaseSync(this);
+            // sync lastLogin after a short delay to ensure Firestore is ready
+            setTimeout(() => { if (window.EB_Sync) window.EB_Sync.syncUsers(updatedU); }, 1500);
+          }
+        })
         .catch(err => console.warn('[Auth] Anonymous sign-in failed:', err.message));
     }
     setTimeout(() => {
@@ -1879,6 +1887,7 @@ class Component extends DCLogic {
     }, 500);
   }
   logout() {
+    if (window.EB_Sync) window.EB_Sync.stopSync();
     this.setState({ authed: false, currentUser: null, loginUser: '', loginPass: '', showPass: false, screen: 'dashboard' });
     if (window.EB_Firebase && window.EB_Firebase.auth) {
       window.EB_Firebase.auth.signOut().catch(() => {});
@@ -2007,6 +2016,10 @@ class Component extends DCLogic {
     }
     this.submit();
   }
+  _syncBox(updated) {
+    this.BOXES = this.BOXES.map(b => b.id === updated.id ? updated : b);
+    if (window.EB_Sync) window.EB_Sync.syncBoxes(updated);
+  }
   submit() {
     const m = this.state.formMode;
     let msg;
@@ -2014,22 +2027,34 @@ class Component extends DCLogic {
       const { regEB } = this.state;
       const BD = this.state.boxDrugs || this.buildBoxDrugs();
       const near = this.nearDrugOf(regEB, BD);
+      const nearISO = this.regNearISOof(regEB);
       const meta = { ...(this.state.boxMeta || {}) };
       meta[regEB] = { mfg: this.state.regMfg, preparer: this.state.regPreparer, checker: this.state.regChecker, registeredAt: this.isoOf(this.TODAY) };
       this.setState({ boxMeta: meta, regHadConfirm: false });
+      const box = this.BOXES.find(b => b.id === regEB) || { id: regEB };
+      this._syncBox({ ...box, mfg: this.state.regMfg, expiry: nearISO || '', nearDrug: near || '', dispense: '', dispenser: '', receiver: '' });
       msg = `ลงทะเบียน ${regEB} สำเร็จ · ตรวจพบยาใกล้หมดอายุสุด: ${near}`;
       this.logAction({ cat: 'register', action: 'ลงทะเบียน', eb: regEB, dept: '—', drug: `จัดยาเข้าคลัง · ใกล้หมดอายุสุด: ${near}` });
       this.logBoxHist(regEB, `ลงทะเบียนเข้าคลัง (จัดโดย ${this.state.regPreparer || '-'}, ตรวจโดย ${this.state.regChecker || '-'})`);
     }
     else if (m === 'dispense') {
       const { dispEB, formDept, swapReturn, swapEB } = this.state;
+      const box = this.BOXES.find(b => b.id === dispEB) || { id: dispEB };
+      this._syncBox({ ...box, dept: formDept, dispense: this.state.dispDate, dispenser: this.state.dispenser, receiver: '' });
+      if (swapReturn) {
+        const swBox = this.BOXES.find(b => b.id === swapEB) || { id: swapEB };
+        this._syncBox({ ...swBox, receiver: this.state.swapReceiver });
+        this.logAction({ cat: 'return', action: 'รับคืน', eb: swapEB, dept: formDept, drug: '—' });
+        this.logBoxHist(swapEB, `รับคืนจาก ${formDept} (โดย ${this.state.swapReceiver || '-'})`);
+      }
       msg = swapReturn ? `เปลี่ยนกล่อง: จ่าย ${dispEB} → ${formDept} · รับคืน ${swapEB} สำเร็จ` : `จ่าย ${dispEB} → ${formDept} สำเร็จ`;
       this.logAction({ cat: 'dispense', action: 'จ่าย', eb: dispEB, dept: formDept, drug: this.nearDrugOf(dispEB) });
       this.logBoxHist(dispEB, `จ่ายให้ ${formDept} (โดย ${this.state.dispenser || '-'})`);
-      if (swapReturn) { this.logAction({ cat: 'return', action: 'รับคืน', eb: swapEB, dept: formDept, drug: '—' }); this.logBoxHist(swapEB, `รับคืนจาก ${formDept} (โดย ${this.state.swapReceiver || '-'})`); }
     }
     else {
       const { retEB, retReceiver } = this.state;
+      const retBox = this.BOXES.find(b => b.id === retEB) || { id: retEB };
+      this._syncBox({ ...retBox, receiver: retReceiver });
       msg = `รับคืน ${retEB} เข้าห้องยาสำเร็จ`;
       this.logAction({ cat: 'return', action: 'รับคืน', eb: retEB, dept: '—', drug: '—' });
       this.logBoxHist(retEB, `รับคืนเข้าห้องยา (โดย ${retReceiver || '-'})`);
