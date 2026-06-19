@@ -371,6 +371,175 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   outline: 2.5px solid rgba(26,111,163,.5);
   outline-offset: 2px;
 }
+
+/* ===================================================================== */
+/* ===== PREMIUM REDESIGN ============================================== */
+/* ===================================================================== */
+:root {
+  --sidebar-bg: linear-gradient(170deg, #0B1E3D 0%, #0D2B52 55%, #093040 100%);
+  --sidebar-w: 260px;
+  --c-primary: #2B7FE0;
+  --c-primary-glow: rgba(43,127,224,.35);
+  --c-teal: #0DB9A0;
+  --c-teal-glow: rgba(13,185,160,.3);
+  --c-amber: #F59E0B;
+  --c-rose: #F43F5E;
+  --c-violet: #8B5CF6;
+  --c-emerald: #10B981;
+  --c-surface: #FFFFFF;
+  --c-bg: #F0F4FF;
+  --radius-card: 20px;
+  --shadow-card: 0 4px 24px rgba(20,40,80,.07), 0 1px 4px rgba(20,40,80,.04);
+  --shadow-glow-blue: 0 8px 32px rgba(43,127,224,.22);
+  --shadow-glow-teal: 0 8px 32px rgba(13,185,160,.18);
+  --transition-spring: .3s cubic-bezier(.34,1.56,.64,1);
+}
+
+/* ----- App background mesh + animated blobs ----- */
+.app-wrap { background: linear-gradient(135deg, #EEF4FF 0%, #F0FBF9 40%, #F5F0FF 80%, #FFF0F5 100%) !important; min-height: 100vh; }
+.bg-blob {
+  position: fixed; border-radius: 50%; filter: blur(80px); pointer-events: none; z-index: 0; opacity: .18;
+  animation: floatY 12s ease-in-out infinite;
+}
+.bg-blob-1 { width: 500px; height: 500px; background: radial-gradient(circle, #2B7FE0, #8B5CF6); top: -150px; right: -150px; animation-delay: 0s; }
+.bg-blob-2 { width: 400px; height: 400px; background: radial-gradient(circle, #0DB9A0, #10B981); bottom: -100px; left: 50px; animation-delay: -5s; }
+.bg-blob-3 { width: 300px; height: 300px; background: radial-gradient(circle, #F59E0B, #F43F5E); top: 40%; right: 10%; animation-delay: -8s; }
+
+/* ----- Sidebar dark navy glassmorphism ----- */
+.sidebar {
+  background: var(--sidebar-bg) !important;
+  border-right: 1px solid rgba(255,255,255,.06) !important;
+  box-shadow: 6px 0 40px rgba(0,0,0,.22) !important;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+/* Logo area (first child) → white text */
+.sidebar > div:first-child { border-bottom: 1px solid rgba(255,255,255,.08) !important; }
+.sidebar > div:first-child div { color: #fff !important; }
+/* Section label "เมนูหลัก" */
+.sidebar-section-label { color: rgba(255,255,255,.35) !important; font-size: 10px !important; letter-spacing: 1.2px !important; }
+/* Bottom area cards */
+.sidebar-bottom { border-top: 1px solid rgba(255,255,255,.08) !important; padding-top: 14px !important; }
+.sidebar-bottom > div:first-child { background: rgba(255,255,255,.06) !important; border: 1px solid rgba(255,255,255,.1) !important; }
+.sidebar-bottom > div:nth-child(2) { background: rgba(255,255,255,.05) !important; border: 1px solid rgba(255,255,255,.08) !important; }
+.sidebar-bottom span, .sidebar-bottom div { color: rgba(255,255,255,.78) !important; }
+.sidebar-bottom b { color: #6FD0FF !important; }
+.sidebar-bottom button { background: rgba(255,255,255,.1) !important; border: 1px solid rgba(255,255,255,.14) !important; color: rgba(255,255,255,.8) !important; }
+
+/* ----- Header glass ----- */
+.app-header {
+  background: rgba(255,255,255,.72) !important;
+  backdrop-filter: blur(16px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+  border-bottom: 1px solid rgba(255,255,255,.6) !important;
+  box-shadow: 0 2px 20px rgba(20,40,80,.06) !important;
+}
+
+/* ----- KPI cards vibrant gradients ----- */
+.kpi-card-blue { background: linear-gradient(135deg, #1E4FD8 0%, #2B7FE0 50%, #0DB9A0 100%) !important; color: #fff !important; border: none !important; box-shadow: var(--shadow-glow-blue) !important; }
+.kpi-card-teal { background: linear-gradient(135deg, #0A7560 0%, #0DB9A0 50%, #34D399 100%) !important; color: #fff !important; border: none !important; box-shadow: var(--shadow-glow-teal) !important; }
+.kpi-card-rose { background: linear-gradient(135deg, #BE123C 0%, #F43F5E 50%, #FB7185 100%) !important; color: #fff !important; border: none !important; box-shadow: 0 8px 32px rgba(244,63,94,.25) !important; }
+.kpi-card-amber { background: linear-gradient(135deg, #B45309 0%, #D97706 50%, #F59E0B 100%) !important; color: #fff !important; border: none !important; box-shadow: 0 8px 32px rgba(245,158,11,.25) !important; }
+.kpi-card-blue *, .kpi-card-teal *, .kpi-card-rose *, .kpi-card-amber * { color: rgba(255,255,255,.9) !important; }
+.kpi-card-blue span[style*="border-radius: 10px"], .kpi-card-teal span[style*="border-radius: 10px"], .kpi-card-rose span[style*="border-radius: 10px"], .kpi-card-amber span[style*="border-radius: 10px"] { background: rgba(255,255,255,.18) !important; }
+.kpi-card-blue .kpi-num, .kpi-card-teal .kpi-num, .kpi-card-rose .kpi-num, .kpi-card-amber .kpi-num { color: #fff !important; font-size: 38px !important; }
+
+/* ----- Glass cards: upgrade all standard white cards ----- */
+.card-glass,
+[style*="background: #fff; border: 1px solid #E7EEF3"] {
+  background: rgba(255,255,255,.85) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(255,255,255,.7) !important;
+  box-shadow: 0 4px 24px rgba(20,40,80,.06), 0 1px 3px rgba(20,40,80,.04), inset 0 1px 0 rgba(255,255,255,.8) !important;
+}
+
+/* ----- Premium buttons ----- */
+.btn-primary {
+  background: linear-gradient(135deg, var(--c-primary), var(--c-teal)) !important;
+  border: none !important;
+  box-shadow: 0 4px 16px var(--c-primary-glow) !important;
+  position: relative !important;
+  overflow: hidden !important;
+  transition: all .25s cubic-bezier(.34,1.56,.64,1) !important;
+}
+.btn-primary::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,.2) 0%, transparent 60%);
+  pointer-events: none;
+}
+.btn-primary:hover { transform: translateY(-2px) !important; box-shadow: 0 8px 28px var(--c-primary-glow) !important; }
+.btn-primary:active { transform: scale(.96) !important; }
+.btn-primary .ripple { position:absolute; border-radius:50%; background:rgba(255,255,255,.4); transform:scale(0); animation:ripple .6s linear; pointer-events:none; }
+.btn-success { background: linear-gradient(135deg, #059669, #10B981) !important; box-shadow: 0 4px 16px rgba(16,185,129,.3) !important; }
+.btn-danger { background: linear-gradient(135deg, #BE123C, #F43F5E) !important; box-shadow: 0 4px 16px rgba(244,63,94,.3) !important; }
+
+/* ----- Premium inputs ----- */
+input[type="text"], input[type="email"], input[type="password"], input[type="date"], input[type="number"], input[type="url"], select, textarea {
+  background: rgba(255,255,255,.9) !important;
+  border: 1.5px solid rgba(200,215,235,.7) !important;
+  border-radius: 12px !important;
+  transition: all .2s ease !important;
+}
+input:focus, select:focus, textarea:focus {
+  background: #fff !important;
+  border-color: var(--c-primary) !important;
+  box-shadow: 0 0 0 4px rgba(43,127,224,.12), 0 2px 8px rgba(43,127,224,.08) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* ----- Status badge classes (vibrant) ----- */
+.status-expired { background: linear-gradient(135deg, #BE123C, #F43F5E) !important; color: #fff !important; border: none !important; box-shadow: 0 3px 12px rgba(244,63,94,.3) !important; }
+.status-critical { background: linear-gradient(135deg, #D97706, #F59E0B) !important; color: #fff !important; border: none !important; box-shadow: 0 3px 12px rgba(245,158,11,.3) !important; }
+.status-warning { background: linear-gradient(135deg, #0369A1, #0284C7) !important; color: #fff !important; border: none !important; }
+.status-ok { background: linear-gradient(135deg, #059669, #10B981) !important; color: #fff !important; border: none !important; }
+
+/* ----- New micro-animations ----- */
+@keyframes shimmerGold { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
+@keyframes glowPulse { 0%,100%{box-shadow:0 0 0 0 var(--c-primary-glow)} 50%{box-shadow:0 0 0 12px transparent} }
+@keyframes ripple { 0%{transform:scale(0);opacity:.5} 100%{transform:scale(4);opacity:0} }
+@keyframes slideUp { from{transform:translateY(100%);opacity:0} to{transform:translateY(0);opacity:1} }
+@keyframes magnetHover { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-4px)} }
+@keyframes colorShift { 0%{filter:hue-rotate(0deg)} 100%{filter:hue-rotate(30deg)} }
+@keyframes stagger1 { from{opacity:0;transform:translateX(-12px)} to{opacity:1;transform:none} }
+
+/* ----- Critical alert banner vibrant ----- */
+.alert-banner-critical {
+  background: linear-gradient(135deg, rgba(190,18,60,.08), rgba(244,63,94,.06), rgba(245,158,11,.05)) !important;
+  border: 1.5px solid rgba(244,63,94,.25) !important;
+  box-shadow: 0 4px 24px rgba(244,63,94,.08) !important;
+}
+
+/* ----- Mobile bottom nav colorful ----- */
+.mobile-bottomnav {
+  background: rgba(11,30,61,.95) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border-top: 1px solid rgba(255,255,255,.08) !important;
+  box-shadow: 0 -4px 24px rgba(0,0,0,.2) !important;
+}
+.mobile-bottomnav-btn { color: rgba(255,255,255,.5) !important; }
+.mobile-bottomnav-btn.active { color: #fff !important; background: rgba(255,255,255,.08) !important; }
+
+/* ----- Scrollbar accent ----- */
+::-webkit-scrollbar-thumb { background: linear-gradient(180deg, #2B7FE0, #0DB9A0) !important; border-radius: 100px !important; }
+
+/* ----- Skeleton shimmer ----- */
+.skeleton-shimmer {
+  background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.7) 50%, rgba(255,255,255,0) 100%) !important;
+  background-size: 200% 100% !important;
+  animation: shimmer 1.2s ease infinite !important;
+}
+
+/* ----- Toast vibrant ----- */
+.app-toast {
+  background: linear-gradient(135deg, #0B1E3D, #1A3A5C) !important;
+  color: #fff !important;
+  border: 1px solid rgba(43,127,224,.3) !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,.25), 0 2px 8px rgba(43,127,224,.15) !important;
+}
 </style>
 </helmet>
 
@@ -469,10 +638,13 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 <!-- ===================== APP ===================== -->
 <sc-if value="{{ authed }}" hint-placeholder-val="{{ false }}">
-<div class="app-wrap" style="display: flex; height: 100vh; min-height: 720px; background: #EDF2F7; color: #15242E; overflow: hidden;">
+<div class="app-wrap" style="display: flex; height: 100vh; min-height: 720px; background: #EDF2F7; color: #15242E; overflow: hidden; position: relative;">
+  <div class="bg-blob bg-blob-1"></div>
+  <div class="bg-blob bg-blob-2"></div>
+  <div class="bg-blob bg-blob-3"></div>
 
   <!-- ===================== SIDEBAR ===================== -->
-  <aside class="{{ sidebarClass }}" style="width: 260px; flex-shrink: 0; background: rgba(255,255,255,.82); backdrop-filter: blur(20px) saturate(1.6); -webkit-backdrop-filter: blur(20px) saturate(1.6); border-right: 1px solid rgba(226,233,240,.7); display: flex; flex-direction: column; padding: 22px 16px;">
+  <aside class="{{ sidebarClass }}" style="width: 260px; flex-shrink: 0; background: rgba(255,255,255,.82); backdrop-filter: blur(20px) saturate(1.6); -webkit-backdrop-filter: blur(20px) saturate(1.6); border-right: 1px solid rgba(226,233,240,.7); display: flex; flex-direction: column; padding: 22px 16px; position: relative; z-index: 10;">
     <div style="display: flex; align-items: center; gap: 12px; padding: 6px 8px 22px 8px;">
       <div style="width: 42px; height: 42px; border-radius: 12px; background: linear-gradient(150deg, #1A6FA3, #169C7F); display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 18px rgba(26,111,163,.28); transition: transform .3s cubic-bezier(.34,1.56,.64,1), box-shadow .3s;" style-hover="transform: scale(1.08) rotate(-3deg); box-shadow: 0 8px 24px rgba(26,111,163,.35);">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 7v10M7 12h10" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><rect x="3.5" y="3.5" width="17" height="17" rx="4.5" stroke="#fff" stroke-width="1.7" opacity=".55"/></svg>
@@ -483,10 +655,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
       </div>
     </div>
 
-    <div style="font-size: 11px; font-weight: 600; color: #9AAAB8; letter-spacing: .6px; padding: 6px 10px 8px;">เมนูหลัก</div>
+    <div class="sidebar-section-label" style="font-size: 11px; font-weight: 600; color: #9AAAB8; letter-spacing: .6px; padding: 6px 10px 8px;">เมนูหลัก</div>
     <nav style="display: flex; flex-direction: column; gap: 4px;">{{ navEl }}</nav>
 
-    <div style="margin-top: auto; display: flex; flex-direction: column; gap: 14px;">
+    <div class="sidebar-bottom" style="margin-top: auto; display: flex; flex-direction: column; gap: 14px;">
       <div style="background: #F4F8FA; border: 1px solid #E5EEF2; border-radius: 14px; padding: 14px;">
         <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
           <span style="width: 8px; height: 8px; border-radius: 50%; background: #169C7F; box-shadow: 0 0 0 3px rgba(22,156,127,.16);"></span>
@@ -510,7 +682,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   {{ sidebarOverlayEl }}
 
   <!-- ===================== MAIN ===================== -->
-  <main class="app-main" style="flex: 1; display: flex; flex-direction: column; min-width: 0;">
+  <main class="app-main" style="flex: 1; display: flex; flex-direction: column; min-width: 0; position: relative; z-index: 1;">
     <!-- Topbar -->
     <header class="app-header" style="height: 72px; flex-shrink: 0; background: rgba(255,255,255,.75); backdrop-filter: blur(16px) saturate(1.5); -webkit-backdrop-filter: blur(16px) saturate(1.5); border-bottom: 1px solid rgba(226,233,240,.6); display: flex; align-items: center; gap: 18px; padding: 0 28px;">
       {{ hamburgerEl }}
@@ -540,7 +712,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
       <div class="page-enter" style="max-width: 1240px; margin: 0 auto;">
 
         <!-- Critical alert banner -->
-        <div style="animation: fadeUp .55s cubic-bezier(.34,1.56,.64,1) both; background: linear-gradient(100deg, #FCEDED, #FDF4EC); border: 1px solid #F4C9C9; border-radius: 18px; padding: 18px 20px; margin-bottom: 22px; display: flex; align-items: center; gap: 16px; transition: transform .25s cubic-bezier(.34,1.56,.64,1), box-shadow .25s;" style-hover="transform: translateY(-1px); box-shadow: 0 6px 20px rgba(224,62,62,.1);">
+        <div class="alert-banner-critical" style="animation: fadeUp .55s cubic-bezier(.34,1.56,.64,1) both; background: linear-gradient(100deg, #FCEDED, #FDF4EC); border: 1px solid #F4C9C9; border-radius: 18px; padding: 18px 20px; margin-bottom: 22px; display: flex; align-items: center; gap: 16px; transition: transform .25s cubic-bezier(.34,1.56,.64,1), box-shadow .25s;" style-hover="transform: translateY(-1px); box-shadow: 0 6px 20px rgba(224,62,62,.1);">
           <div style="width: 46px; height: 46px; flex-shrink: 0; border-radius: 13px; background: #E03E3E; display: flex; align-items: center; justify-content: center; animation: pulseRed 1.8s infinite;">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 3.5l9 16H3l9-16z" stroke="#fff" stroke-width="2" stroke-linejoin="round"/><path d="M12 10v4.5M12 17.3v.2" stroke="#fff" stroke-width="2.1" stroke-linecap="round"/></svg>
           </div>
@@ -556,37 +728,37 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
         <!-- KPI cards -->
         <div class="kpi-grid" style="margin-bottom: 22px;">
-          <div style="animation: fadeUp .5s cubic-bezier(.34,1.56,.64,1) .04s both; background: #fff; border: 1px solid #E7EEF3; border-radius: 16px; padding: 18px 20px; transition: transform .28s cubic-bezier(.34,1.56,.64,1), box-shadow .28s cubic-bezier(.4,0,.2,1); cursor: default;" style-hover="transform: translateY(-3px); box-shadow: 0 8px 24px rgba(20,40,55,.08), 0 2px 6px rgba(20,40,55,.04);">
+          <div class="kpi-card-blue" style="animation: fadeUp .5s cubic-bezier(.34,1.56,.64,1) .04s both; background: #fff; border: 1px solid #E7EEF3; border-radius: 16px; padding: 18px 20px; transition: transform .28s cubic-bezier(.34,1.56,.64,1), box-shadow .28s cubic-bezier(.4,0,.2,1); cursor: default;" style-hover="transform: translateY(-3px); box-shadow: 0 12px 32px rgba(43,127,224,.32);">
             <div style="display: flex; align-items: center; justify-content: space-between;">
               <span style="font-size: 13px; color: #7B8D9C; font-weight: 500;">กล่อง EB ทั้งหมด</span>
               <span style="width: 34px; height: 34px; border-radius: 10px; background: #E8F0F6; color: #1A6FA3; display: flex; align-items: center; justify-content: center;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M3.5 7.5L12 3l8.5 4.5v9L12 21l-8.5-4.5v-9z" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/><path d="M3.5 7.5L12 12m0 9V12m8.5-4.5L12 12" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></svg></span>
             </div>
-            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 34px; font-weight: 600; margin-top: 10px; letter-spacing: -1px; animation: countUp .4s ease .1s both;">{{ kpiTotal }}</div>
+            <div class="kpi-num" style="font-family: 'IBM Plex Mono', monospace; font-size: 34px; font-weight: 600; margin-top: 10px; letter-spacing: -1px; animation: countUp .4s ease .1s both;">{{ kpiTotal }}</div>
             <div style="font-size: 12px; color: #9AAAB8; margin-top: 2px;">EB-1 ถึง EB-{{ kpiTotal }}</div>
           </div>
-          <div style="animation: fadeUp .5s cubic-bezier(.34,1.56,.64,1) .09s both; background: #fff; border: 1px solid #E7EEF3; border-radius: 16px; padding: 18px 20px; transition: transform .28s cubic-bezier(.34,1.56,.64,1), box-shadow .28s cubic-bezier(.4,0,.2,1); cursor: default;" style-hover="transform: translateY(-3px); box-shadow: 0 8px 24px rgba(20,40,55,.08), 0 2px 6px rgba(20,40,55,.04);">
+          <div class="kpi-card-teal" style="animation: fadeUp .5s cubic-bezier(.34,1.56,.64,1) .09s both; background: #fff; border: 1px solid #E7EEF3; border-radius: 16px; padding: 18px 20px; transition: transform .28s cubic-bezier(.34,1.56,.64,1), box-shadow .28s cubic-bezier(.4,0,.2,1); cursor: default;" style-hover="transform: translateY(-3px); box-shadow: 0 12px 32px rgba(13,185,160,.28);">
             <div style="display: flex; align-items: center; justify-content: space-between;">
               <span style="font-size: 13px; color: #7B8D9C; font-weight: 500;">ถูกเบิกออก (ใช้งาน)</span>
               <span style="width: 34px; height: 34px; border-radius: 10px; background: #E4F4EF; color: #169C7F; display: flex; align-items: center; justify-content: center;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M3 13l4 4L21 5" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
             </div>
-            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 34px; font-weight: 600; margin-top: 10px; letter-spacing: -1px; animation: countUp .4s ease .2s both;">{{ kpiDispensed }}</div>
+            <div class="kpi-num" style="font-family: 'IBM Plex Mono', monospace; font-size: 34px; font-weight: 600; margin-top: 10px; letter-spacing: -1px; animation: countUp .4s ease .2s both;">{{ kpiDispensed }}</div>
             <div style="font-size: 12px; color: #9AAAB8; margin-top: 2px;">{{ kpiDeptText }}</div>
           </div>
-          <div style="animation: fadeUp .5s cubic-bezier(.34,1.56,.64,1) .14s both; background: #fff; border: 1px solid #F4C9C9; border-radius: 16px; padding: 18px 20px; position: relative; overflow: hidden; transition: transform .28s cubic-bezier(.34,1.56,.64,1), box-shadow .28s cubic-bezier(.4,0,.2,1); cursor: default;" style-hover="transform: translateY(-3px); box-shadow: 0 8px 24px rgba(224,62,62,.1), 0 2px 6px rgba(224,62,62,.06);">
-            <div style="position: absolute; inset: 0; background: linear-gradient(180deg, rgba(224,62,62,.05), transparent 60%);"></div>
+          <div class="kpi-card-rose" style="animation: fadeUp .5s cubic-bezier(.34,1.56,.64,1) .14s both; background: #fff; border: 1px solid #F4C9C9; border-radius: 16px; padding: 18px 20px; position: relative; overflow: hidden; transition: transform .28s cubic-bezier(.34,1.56,.64,1), box-shadow .28s cubic-bezier(.4,0,.2,1); cursor: default;" style-hover="transform: translateY(-3px); box-shadow: 0 12px 32px rgba(244,63,94,.32);">
+            <div style="position: absolute; inset: 0; background: linear-gradient(180deg, rgba(255,255,255,.12), transparent 60%);"></div>
             <div style="display: flex; align-items: center; justify-content: space-between; position: relative;">
               <span style="font-size: 13px; color: #B42121; font-weight: 600;">ต้องส่งคืนด่วน</span>
               <span style="width: 34px; height: 34px; border-radius: 10px; background: #FCE3E3; color: #E03E3E; display: flex; align-items: center; justify-content: center; animation: pulseRed 1.8s infinite;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M12 3.5l9 16H3l9-16z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 10v4.5M12 17.3v.2" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/></svg></span>
             </div>
-            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 34px; font-weight: 600; margin-top: 10px; letter-spacing: -1px; color: #E03E3E; position: relative; animation: countUp .4s ease .3s both;">{{ kpiUrgent }}</div>
+            <div class="kpi-num" style="font-family: 'IBM Plex Mono', monospace; font-size: 34px; font-weight: 600; margin-top: 10px; letter-spacing: -1px; color: #E03E3E; position: relative; animation: countUp .4s ease .3s both;">{{ kpiUrgent }}</div>
             <div style="font-size: 12px; color: #C77; margin-top: 2px; position: relative;">เกินกำหนด / ครบวันนี้</div>
           </div>
-          <div style="animation: fadeUp .5s cubic-bezier(.34,1.56,.64,1) .19s both; background: #fff; border: 1px solid #F4DEC2; border-radius: 16px; padding: 18px 20px; transition: transform .28s cubic-bezier(.34,1.56,.64,1), box-shadow .28s cubic-bezier(.4,0,.2,1); cursor: default;" style-hover="transform: translateY(-3px); box-shadow: 0 8px 24px rgba(20,40,55,.08), 0 2px 6px rgba(20,40,55,.04);">
+          <div class="kpi-card-amber" style="animation: fadeUp .5s cubic-bezier(.34,1.56,.64,1) .19s both; background: #fff; border: 1px solid #F4DEC2; border-radius: 16px; padding: 18px 20px; transition: transform .28s cubic-bezier(.34,1.56,.64,1), box-shadow .28s cubic-bezier(.4,0,.2,1); cursor: default;" style-hover="transform: translateY(-3px); box-shadow: 0 12px 32px rgba(245,158,11,.32);">
             <div style="display: flex; align-items: center; justify-content: space-between;">
               <span style="font-size: 13px; color: #B5740F; font-weight: 600;">ใกล้หมดอายุ ≤15 วัน</span>
               <span style="width: 34px; height: 34px; border-radius: 10px; background: #FBEDD7; color: #EE8A2B; display: flex; align-items: center; justify-content: center;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M12 7v5l3 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.8"/></svg></span>
             </div>
-            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 34px; font-weight: 600; margin-top: 10px; letter-spacing: -1px; color: #D9810F; animation: countUp .4s ease .4s both;">{{ kpiNearExpiry }}</div>
+            <div class="kpi-num" style="font-family: 'IBM Plex Mono', monospace; font-size: 34px; font-weight: 600; margin-top: 10px; letter-spacing: -1px; color: #D9810F; animation: countUp .4s ease .4s both;">{{ kpiNearExpiry }}</div>
             <div style="font-size: 12px; color: #C99; margin-top: 2px;">รวมที่เกินกำหนดแล้ว</div>
           </div>
         </div>
@@ -1148,7 +1320,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
               <label style="font-size: 12px; font-weight: 600; color: #5A6B79; display: block; margin-bottom: 4px;">แจ้งเตือนล่วงหน้า (วัน)</label>
               <input type="number" value="{{ notifyThresholdDays }}" oninput="{{ setThresholdDays }}" min="1" max="90" style="width:100px;height:40px;border:1.5px solid #DBE4EB;border-radius:10px;padding:0 12px;font-size:14px;color:#15242E;text-align:center">
             </div>
-            <button onclick="{{ saveNotifySettings }}" style="height:40px;padding:0 24px;background:#1A6FA3;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:16px">
+            <button onclick="{{ saveNotifySettings }}" class="btn-primary" style="height:40px;padding:0 24px;background:#1A6FA3;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:16px">
               <span style="display:flex;align-items:center;gap:6px">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 บันทึกการตั้งค่า
@@ -2018,7 +2190,7 @@ class Component extends DCLogic {
         key: d.key + (on ? '_on' : '_off'),
         className: 'nav-item' + (on ? ' nav-item-active' : ''),
         onClick: () => { this.go(d.key); this.setState({ sidebarOpen: false }); },
-        style: { display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '11px 12px', border: 'none', borderRadius: 11, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13.5, textAlign: 'left', transition: 'all .22s cubic-bezier(.34,1.56,.64,1)', background: on ? '#E8F2F8' : 'transparent', color: on ? '#1A6FA3' : '#5A6B79', fontWeight: on ? 600 : 500, transform: 'translateX(0)' },
+        style: { display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '11px 12px', border: 'none', borderRadius: 11, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13.5, textAlign: 'left', transition: 'all .22s cubic-bezier(.34,1.56,.64,1)', background: on ? 'linear-gradient(135deg, rgba(43,127,224,.85), rgba(13,185,160,.6))' : 'transparent', color: on ? '#fff' : 'rgba(255,255,255,.6)', fontWeight: on ? 600 : 500, boxShadow: on ? '0 4px 16px rgba(43,127,224,.35)' : 'none', transform: 'translateX(0)' },
       }, ic(d.svg), h('span', null, d.label));
     }));
 
@@ -2038,8 +2210,8 @@ class Component extends DCLogic {
           onClick: () => { this.go(d.key); this.setState({ sidebarOpen: false }); },
           'aria-label': d.label,
         },
-          h('span', { style: { color: on ? '#1A6FA3' : '#7B8D9C', display: 'flex', transition: 'color .15s' }, dangerouslySetInnerHTML: { __html: d.svg } }),
-          h('span', { className: 'mobile-bottomnav-label', style: { color: on ? '#1A6FA3' : '#9AAAB8', transition: 'color .15s' } }, d.label),
+          h('span', { style: { color: on ? '#fff' : 'rgba(255,255,255,.5)', display: 'flex', transition: 'color .15s' }, dangerouslySetInnerHTML: { __html: d.svg } }),
+          h('span', { className: 'mobile-bottomnav-label', style: { color: on ? '#fff' : 'rgba(255,255,255,.5)', transition: 'color .15s' } }, d.label),
         );
       }),
     );
@@ -2154,6 +2326,7 @@ class Component extends DCLogic {
     const formValid = formErrs.length === 0;
     vals.submitEl = h('button', {
       key: 'submit_' + mode + (formValid ? '_ok' : '_no'),
+      className: formValid ? 'btn-primary' : '',
       onClick: () => this.trySubmit(),
       title: formValid ? '' : 'ต้องกรอก: ' + formErrs.join(' · '),
       style: { display: 'flex', alignItems: 'center', gap: 9, height: 50, padding: '0 26px', border: 'none', borderRadius: 13, fontFamily: 'inherit', fontSize: 14.5, fontWeight: 600, cursor: 'pointer', color: '#fff', background: formValid ? theme.accent : '#AEBDC8', boxShadow: formValid ? `0 8px 24px ${theme.shadow}` : 'none', transition: 'all .25s cubic-bezier(.34,1.56,.64,1)' },
@@ -2379,7 +2552,7 @@ class Component extends DCLogic {
     } else {
       vals.editToggleEl = h(React.Fragment, { key: 'edit_on' },
         h('button', { key: 'savebtn_' + (st.saveSuccess || 0), onClick: () => this.saveEditDrugs(),
-          className: st.saveSuccess ? 'btn-saving' : '',
+          className: 'btn-primary' + (st.saveSuccess ? ' btn-saving' : ''),
           style: { display: 'inline-flex', alignItems: 'center', gap: 7, height: 36, padding: '0 16px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg, #1A6FA3, #168C84)', color: '#fff', fontFamily: 'inherit', fontSize: 13, fontWeight: 600, cursor: 'pointer', marginRight: 8, boxShadow: '0 4px 12px rgba(26,111,163,.26)' } },
           h('span', { style: { display: 'flex' }, dangerouslySetInnerHTML: { __html: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>' } }), h('span', null, 'บันทึก')),
         h('button', { onClick: () => this.cancelEditDrugs(),
