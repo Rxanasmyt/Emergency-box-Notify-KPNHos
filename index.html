@@ -2100,41 +2100,70 @@ class Component extends DCLogic {
       : '—';
 
     const html = `<!DOCTYPE html><html lang="th"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Emergency Box - ${eb}</title>
 <style>
-@page { size: 148mm 210mm; margin: 9mm 12mm 7mm 12mm; }
+/* ===== Page: A5 portrait, zero margin (controlled by .page padding) ===== */
+@page {
+  size: A5 portrait;
+  margin: 0;
+}
+@media print {
+  html, body { width: 148mm; height: 210mm; }
+  .page { padding: 8mm 11mm 7mm 11mm; }
+  .print-btn { display: none !important; }
+  body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+/* ===== Screen: mirror A5 so preview matches print ===== */
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{width:100%;font-family:'Sarabun','TH Sarabun New','IBM Plex Sans Thai',Tahoma,sans-serif;font-size:12pt;color:#000;background:#fff}
-.h1{display:flex;align-items:baseline;gap:5mm;margin-bottom:2mm}
+html,body{
+  font-family:'Sarabun','TH Sarabun New','IBM Plex Sans Thai',Tahoma,sans-serif;
+  font-size:12pt;color:#000;background:#e0e0e0;
+}
+.page{
+  width:148mm;min-height:210mm;
+  background:#fff;
+  padding:8mm 11mm 7mm 11mm;
+  margin:6mm auto;
+  box-shadow:0 2px 16px rgba(0,0,0,.18);
+}
+.h1{display:flex;align-items:baseline;gap:4mm;margin-bottom:2mm}
 .h1 .lb{font-weight:700;font-size:13pt;white-space:nowrap}
 .h1 .vl{font-weight:700;font-size:14pt;font-family:'Courier New',monospace;letter-spacing:.5px}
-.h1 .bl{flex:1;border-bottom:1px solid #111;min-width:18mm}
-.htitle{text-align:center;font-weight:700;font-size:13pt;margin:2.5mm 0 2mm}
-table{width:100%;border-collapse:collapse;margin-bottom:3mm;font-size:10pt}
+.h1 .bl{flex:1;border-bottom:1px solid #111;min-width:16mm}
+.htitle{text-align:center;font-weight:700;font-size:13pt;margin:2mm 0 2mm}
+table{width:100%;border-collapse:collapse;margin-bottom:2.5mm;font-size:10pt}
 th{background:#ddd;font-weight:700;text-align:center;padding:2.5px 3px;border:1px solid #222;font-size:10.5pt}
-td{border:1px solid #555;padding:2px 3px;vertical-align:middle;height:7mm}
+td{border:1px solid #555;padding:2px 3px;vertical-align:middle;height:6.8mm}
 td.c{text-align:center}
 td.l{text-align:left;padding-left:4px}
-.nexp{display:flex;align-items:baseline;gap:3mm;margin-bottom:2mm;font-size:11pt}
+.nexp{display:flex;align-items:baseline;gap:3mm;margin-bottom:1.5mm;font-size:11pt}
 .nexp .lb{white-space:nowrap;font-weight:700}
 .nexp .vl{flex:1;border-bottom:1px solid #333}
 .warn{text-align:right;font-size:11pt;font-weight:700;margin-bottom:1mm}
-.retdate{text-align:right;font-size:11pt;font-weight:600;color:#C62828;margin-bottom:3mm}
+.retdate{text-align:right;font-size:11pt;font-weight:600;color:#C62828;margin-bottom:2.5mm}
 .retval{font-size:13pt;font-weight:800;text-decoration:underline;margin-left:4px;letter-spacing:.3px}
-.sig{display:flex;gap:7mm;margin-bottom:3mm}
+.sig{display:flex;gap:6mm;margin-bottom:2.5mm}
 .sig-f{display:flex;align-items:baseline;gap:2mm;flex:1;font-size:11pt}
 .sig-f .lb{white-space:nowrap;font-weight:700}
 .sig-f .vl{flex:1;border-bottom:1px solid #333;font-size:11pt;padding-bottom:1px}
-.div{border-top:2px solid #333;margin:3mm 0}
-.wr{display:flex;align-items:baseline;gap:2mm;margin-bottom:3mm;font-size:11pt}
+.div{border-top:2px solid #333;margin:2.5mm 0}
+.wr{display:flex;align-items:baseline;gap:2mm;margin-bottom:2.5mm;font-size:11pt}
 .wr .lb{white-space:nowrap}
 .wr .fd{flex:1;border-bottom:1px dotted #666}
 .wr .lb2{white-space:nowrap;margin-left:2mm}
 .wr .fd2{border-bottom:1px dotted #666;min-width:20mm}
-.print-btn{display:flex;justify-content:center;margin-top:5mm}
+.print-btn{display:flex;justify-content:center;gap:10px;padding:6mm 0 4mm}
 .print-btn button{padding:8px 24px;font-size:13pt;cursor:pointer;background:#1A6FA3;color:#fff;border:none;border-radius:8px;font-family:inherit;font-weight:600}
-@media print{.print-btn{display:none!important}body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+.tip{text-align:center;font-size:9pt;color:#666;margin-top:2mm;padding-bottom:2mm}
 </style></head><body>
+
+<div class="print-btn">
+  <button onclick="window.print()">🖨️ พิมพ์ใบนี้</button>
+</div>
+<p class="tip">💡 ตั้งค่าเครื่องพิมพ์: ขนาดกระดาษ <b>A5</b> · margin = None / ไม่มี · ไม่ต้องติ๊ก Headers and footers</p>
+
+<div class="page">
 
 <div class="h1">
   <span class="lb">รหัส</span><span class="vl">${eb}</span>
@@ -2177,12 +2206,10 @@ td.l{text-align:left;padding-left:4px}
 <div class="wr"><span class="lb">ยาที่ใช้</span><span class="fd"></span><span class="lb2">จำนวน</span><span class="fd2"></span></div>
 <div class="wr"><span class="lb">ยาที่ใช้</span><span class="fd"></span><span class="lb2">จำนวน</span><span class="fd2"></span></div>
 
-<div class="print-btn">
-  <button onclick="window.print()">🖨️ พิมพ์ใบนี้</button>
 </div>
 </body></html>`;
 
-    const win = window.open('', '_blank', 'width=680,height=960');
+    const win = window.open('', '_blank', 'width=580,height=870');
     if (!win) { alert('กรุณาอนุญาต Pop-up เพื่อใช้งานการพิมพ์'); return; }
     win.document.write(html);
     win.document.close();
