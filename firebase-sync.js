@@ -71,7 +71,8 @@ function listenBoxDrugs(){
   const unsub=db.collection(C.boxDrugs).onSnapshot(snap=>{
     if(!component)return;
     const bd={};snap.forEach(doc=>{const d=doc.data();if(d.boxId&&d.drugs)bd[d.boxId]=d.drugs;});
-    if(Object.keys(bd).length){component.BOX_DRUGS=bd;component.setState({});}
+    component.BOX_DRUGS=bd;
+    if(Object.keys(bd).length){component.setState({});}
   },err=>console.warn('[Sync] BoxDrugs error:',err.message));
   unsubscribers.push(unsub);
 }

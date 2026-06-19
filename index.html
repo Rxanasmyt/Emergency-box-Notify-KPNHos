@@ -1539,15 +1539,15 @@ class Component extends DCLogic {
     // step 2: dispense / swap
     dispEB: 'EB-9',
     formDept: 'ER',
-    dispDate: '2026-06-16',
+    dispDate: '',
     dispenser: '',
     swapReturn: false,
     swapEB: 'EB-1',
-    swapReturnDate: '2026-06-16',
+    swapReturnDate: '',
     swapReceiver: '',
     // step 3: return
     retEB: 'EB-1',
-    retDate: '2026-06-16',
+    retDate: '',
     retReceiver: '',
     showToast: false,
     toastTitle: '',
@@ -1891,8 +1891,16 @@ class Component extends DCLogic {
     }, 500);
   }
   logout() {
+    clearTimeout(this._idleT); clearTimeout(this._idleWarnT);
     if (window.EB_Sync) window.EB_Sync.stopSync();
-    this.setState({ authed: false, currentUser: null, loginUser: '', loginPass: '', showPass: false, screen: 'dashboard' });
+    this.setState({
+      authed: false, currentUser: null, loginUser: '', loginPass: '', showPass: false, screen: 'dashboard',
+      idleWarn: false,
+      regMfg: '', regPreparer: '', regChecker: '', regHadConfirm: false,
+      dispenser: '', swapReturn: false, swapReceiver: '', dispDate: '', swapReturnDate: '',
+      retReceiver: '', retDate: '',
+      boxMeta: {}, editDrugs: false, showChangePw: false, showAddUser: false,
+    });
     if (window.EB_Firebase && window.EB_Firebase.auth) {
       window.EB_Firebase.auth.signOut().catch(() => {});
     }
@@ -1911,6 +1919,7 @@ class Component extends DCLogic {
     this._a = setTimeout(() => this.setState({ actionMsg: '' }), 3200);
   }
   setUserRole(username, role) {
+    if (!this.state.currentUser || this.state.currentUser.role !== 'admin') return;
     const u = this.state.users.find(x => x.username === username);
     this.setState(s => ({ users: s.users.map(u => u.username === username ? { ...u, role } : u) }));
     this.flash('อัปเดตบทบาทผู้ใช้แล้ว');
@@ -1920,6 +1929,7 @@ class Component extends DCLogic {
     }
   }
   toggleUserStatus(username) {
+    if (!this.state.currentUser || this.state.currentUser.role !== 'admin') return;
     let label = '', changed = null;
     this.setState(s => ({ users: s.users.map(u => {
       if (u.username !== username) return u;
@@ -1935,6 +1945,9 @@ class Component extends DCLogic {
     }
   }
   openChangePw(username) {
+    if (!this.state.currentUser) return;
+    const isSelf = this.state.currentUser.username === username;
+    if (!isSelf && this.state.currentUser.role !== 'admin') return;
     this.setState({ showChangePw: true, changePwUsername: username, changePwNew: '', changePwConfirm: '', changePwError: '' });
   }
   saveChangePw() {
@@ -1951,6 +1964,7 @@ class Component extends DCLogic {
     this.logAction({ cat: 'user', action: 'เปลี่ยนรหัสผ่าน', eb: '—', dept: u.dept, drug: `เปลี่ยนรหัสผ่าน ${u.name} (${u.username})` });
   }
   deleteUser(username) {
+    if (!this.state.currentUser || this.state.currentUser.role !== 'admin') return;
     const u = this.state.users.find(x => x.username === username);
     this.setState(s => ({ users: s.users.filter(u => u.username !== username) }));
     this.flash('ลบบัญชีผู้ใช้แล้ว');
@@ -1960,6 +1974,7 @@ class Component extends DCLogic {
     }
   }
   addUser() {
+    if (!this.state.currentUser || this.state.currentUser.role !== 'admin') return;
     const { nu_name, nu_username, nu_role, nu_dept, nu_pass, users } = this.state;
     if (!nu_name.trim() || !nu_username.trim()) { this.flash('กรุณากรอกชื่อและ username'); return; }
     if (users.some(u => u.username.toLowerCase() === nu_username.trim().toLowerCase())) { this.flash('username นี้มีอยู่แล้ว'); return; }
@@ -2044,7 +2059,7 @@ class Component extends DCLogic {
       meta[regEB] = { mfg: this.state.regMfg, preparer: this.state.regPreparer, checker: this.state.regChecker, registeredAt: this.isoOf(this.TODAY) };
       this.setState({ boxMeta: meta, regHadConfirm: false });
       const box = this.BOXES.find(b => b.id === regEB) || { id: regEB };
-      this._syncBox({ ...box, mfg: this.state.regMfg, expiry: nearISO || '', nearDrug: near || '', dispense: '', dispenser: '', receiver: '' });
+      this._syncBox({ ...box, mfg: this.state.regMfg, expiry: nearISO || '', nearDrug: near || '', preparer: this.state.regPreparer, checker: this.state.regChecker, registeredAt: this.isoOf(this.TODAY), dispense: '', dispenser: '', receiver: '' });
       msg = `ลงทะเบียน ${regEB} สำเร็จ · ตรวจพบยาใกล้หมดอายุสุด: ${near}`;
       this.logAction({ cat: 'register', action: 'ลงทะเบียน', eb: regEB, dept: '—', drug: `จัดยาเข้าคลัง · ใกล้หมดอายุสุด: ${near}` });
       this.logBoxHist(regEB, `ลงทะเบียนเข้าคลัง (จัดโดย ${this.state.regPreparer || '-'}, ตรวจโดย ${this.state.regChecker || '-'})`);
@@ -2075,6 +2090,7 @@ class Component extends DCLogic {
     this.setState({ showToast: true, toastTitle: msg, toastSubtitle: sub });
     clearTimeout(this._t);
     this._t = setTimeout(() => this.setState({ showToast: false }), 3600);
+    this.resetForm();
   }
   printEBForm(layout = 'landscape1') {
     const st = this.state;
@@ -2246,9 +2262,10 @@ td.l{text-align:left;padding-left:4px}
 
   resetForm() {
     const m = this.state.formMode;
+    const today = this.isoOf(this.TODAY);
     if (m === 'register') this.setState({ regMfg: '', regPreparer: '', regChecker: '', regHadConfirm: false });
-    else if (m === 'dispense') this.setState({ dispenser: '', swapReturn: false, swapReceiver: '' });
-    else this.setState({ retReceiver: '' });
+    else if (m === 'dispense') this.setState({ dispenser: '', swapReturn: false, swapReceiver: '', dispDate: today, swapReturnDate: today });
+    else this.setState({ retReceiver: '', retDate: today });
   }
 
   renderVals() {
@@ -2831,7 +2848,7 @@ td.l{text-align:left;padding-left:4px}
 
     // Quick-action from detail page
     const selBox = this.BOXES.find(b => b.id === st.selectedEB);
-    const selBoxOut = selBox && selBox.status === 'out';
+    const selBoxOut = selBox && !!selBox.dispense && !selBox.receiver;
     vals.detailQuickActionsEl = h('div', { style: { display: 'flex', gap: 8, marginTop: 14, paddingTop: 14, borderTop: '1px solid #EFF3F6' } },
       !selBoxOut ? h('button', {
         className: 'btn-primary quick-act-btn',
@@ -3082,7 +3099,7 @@ td.l{text-align:left;padding-left:4px}
     // summary cards
     const _dispCount = LOG.filter(r => r.cat === 'dispense').length;
     const _retCount  = LOG.filter(r => r.cat === 'return').length;
-    const _pendCount = this.BOXES.filter(b => b.status === 'out').length;
+    const _pendCount = this.BOXES.filter(b => b.dispense && !b.receiver).length;
     vals.auditSummaryEl = h(React.Fragment, null,
       h('div', { style: { background: '#fff', border: '1px solid #E7EEF3', borderRadius: 14, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 14 } },
         h('div', { style: { width: 44, height: 44, borderRadius: 12, background: '#E8F0F6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 } }, '→'),
