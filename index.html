@@ -2099,121 +2099,108 @@ class Component extends DCLogic {
       ? parseDrug(nearDrug).drug + (nearDate ? '  ' + fmtCE(nearDate) : '')
       : '—';
 
-    const html = `<!DOCTYPE html><html lang="th"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Emergency Box - ${eb}</title>
-<style>
-/* ===== Page: A5 portrait, zero margin (controlled by .page padding) ===== */
-@page {
-  size: A5 portrait;
-  margin: 0;
-}
-@media print {
-  html, body { width: 148mm; height: 210mm; }
-  .page { padding: 8mm 11mm 7mm 11mm; }
-  .print-btn { display: none !important; }
-  body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-}
-/* ===== Screen: mirror A5 so preview matches print ===== */
-*{box-sizing:border-box;margin:0;padding:0}
-html,body{
-  font-family:'Sarabun','TH Sarabun New','IBM Plex Sans Thai',Tahoma,sans-serif;
-  font-size:12pt;color:#000;background:#e0e0e0;
-}
-.page{
-  width:148mm;min-height:210mm;
-  background:#fff;
-  padding:8mm 11mm 7mm 11mm;
-  margin:6mm auto;
-  box-shadow:0 2px 16px rgba(0,0,0,.18);
-}
-.h1{display:flex;align-items:baseline;gap:4mm;margin-bottom:2mm}
-.h1 .lb{font-weight:700;font-size:13pt;white-space:nowrap}
-.h1 .vl{font-weight:700;font-size:14pt;font-family:'Courier New',monospace;letter-spacing:.5px}
-.h1 .bl{flex:1;border-bottom:1px solid #111;min-width:16mm}
-.htitle{text-align:center;font-weight:700;font-size:13pt;margin:2mm 0 2mm}
-table{width:100%;border-collapse:collapse;margin-bottom:2.5mm;font-size:10pt}
-th{background:#ddd;font-weight:700;text-align:center;padding:2.5px 3px;border:1px solid #222;font-size:10.5pt}
-td{border:1px solid #555;padding:2px 3px;vertical-align:middle;height:6.8mm}
-td.c{text-align:center}
-td.l{text-align:left;padding-left:4px}
-.nexp{display:flex;align-items:baseline;gap:3mm;margin-bottom:1.5mm;font-size:11pt}
-.nexp .lb{white-space:nowrap;font-weight:700}
-.nexp .vl{flex:1;border-bottom:1px solid #333}
-.warn{text-align:right;font-size:11pt;font-weight:700;margin-bottom:1mm}
-.retdate{text-align:right;font-size:11pt;font-weight:600;color:#C62828;margin-bottom:2.5mm}
-.retval{font-size:13pt;font-weight:800;text-decoration:underline;margin-left:4px;letter-spacing:.3px}
-.sig{display:flex;gap:6mm;margin-bottom:2.5mm}
-.sig-f{display:flex;align-items:baseline;gap:2mm;flex:1;font-size:11pt}
-.sig-f .lb{white-space:nowrap;font-weight:700}
-.sig-f .vl{flex:1;border-bottom:1px solid #333;font-size:11pt;padding-bottom:1px}
-.div{border-top:2px solid #333;margin:2.5mm 0}
-.wr{display:flex;align-items:baseline;gap:2mm;margin-bottom:2.5mm;font-size:11pt}
-.wr .lb{white-space:nowrap}
-.wr .fd{flex:1;border-bottom:1px dotted #666}
-.wr .lb2{white-space:nowrap;margin-left:2mm}
-.wr .fd2{border-bottom:1px dotted #666;min-width:20mm}
-.print-btn{display:flex;justify-content:center;gap:10px;padding:6mm 0 4mm}
-.print-btn button{padding:8px 24px;font-size:13pt;cursor:pointer;background:#1A6FA3;color:#fff;border:none;border-radius:8px;font-family:inherit;font-weight:600}
-.tip{text-align:center;font-size:9pt;color:#666;margin-top:2mm;padding-bottom:2mm}
-</style></head><body>
-
-<div class="print-btn">
-  <button onclick="window.print()">🖨️ พิมพ์ใบนี้</button>
+    // Form content HTML (repeated twice — top half + bottom half of A4)
+    const formHTML = `
+<div class="hrow">
+  <span class="lb">รหัส</span><span class="ebid">${eb}</span>
+  <span class="lb ml">หน่วยเบิก</span><span class="uline flex1"></span>
+  <span class="lb ml">วันที่ผลิต</span><span class="ebid">${fmtBE(mfg)}</span>
 </div>
-<p class="tip">💡 ตั้งค่าเครื่องพิมพ์: ขนาดกระดาษ <b>A5</b> · margin = None / ไม่มี · ไม่ต้องติ๊ก Headers and footers</p>
-
-<div class="page">
-
-<div class="h1">
-  <span class="lb">รหัส</span><span class="vl">${eb}</span>
-</div>
-<div class="h1">
-  <span class="lb">หน่วยเบิก</span><span class="bl"></span>
-  <span class="lb">วันที่ผลิต</span><span class="vl">${fmtBE(mfg)}</span>
-</div>
-
 <div class="htitle">Emergency drugs list</div>
-
 <table>
   <thead><tr>
-    <th style="width:8%">ลำดับ</th>
-    <th style="width:28%">ยา</th>
-    <th style="width:20%">ความแรง</th>
-    <th style="width:11%">ประเภท</th>
-    <th style="width:9%">จำนวน</th>
-    <th style="width:24%">EXP.date</th>
+    <th style="width:7%">ลำดับ</th>
+    <th style="width:27%">ยา</th>
+    <th style="width:19%">ความแรง</th>
+    <th style="width:9%">ประเภท</th>
+    <th style="width:8%">จำนวน</th>
+    <th style="width:30%">EXP.date</th>
   </tr></thead>
   <tbody>${rows}</tbody>
 </table>
-
-<div class="nexp">
-  <span class="lb">ยาที่ Exp เร็วที่สุด</span>
-  <span class="vl">${nearText}</span>
+<div class="bot-row">
+  <div class="nexp"><span class="lb">ยาที่ Exp เร็วที่สุด</span><span class="uline flex1">&nbsp;${nearText}</span></div>
+  <div class="warn-blk">
+    <div class="warn">ส่งคืนห้องยาก่อน exp 15 วัน</div>
+    <div class="retdate">กำหนดส่งคืนภายใน <span class="retval">${retDateText}</span></div>
+  </div>
 </div>
-<div class="warn">ส่งคืนห้องยาก่อน exp 15 วัน</div>
-<div class="retdate">กำหนดส่งคืนภายใน <span class="retval">${retDateText}</span></div>
-
 <div class="sig">
-  <div class="sig-f"><span class="lb">ผู้จัด</span><span class="vl">${preparer || ''}</span></div>
-  <div class="sig-f"><span class="lb">ผู้ตรวจสอบ</span><span class="vl">${checker || ''}</span></div>
+  <div class="sig-f"><span class="lb">ผู้จัด</span><span class="uline flex1">&nbsp;${preparer || ''}</span></div>
+  <div class="sig-f"><span class="lb">ผู้ตรวจสอบ</span><span class="uline flex1">&nbsp;${checker || ''}</span></div>
+</div>
+<div class="divider"></div>
+<div class="wr"><span class="wl">ชื่อผู้ป่วย</span><span class="uline flex1"></span><span class="wl ml">HN</span><span class="uline" style="min-width:30mm"></span></div>
+<div class="wr"><span class="wl">ยาที่ใช้</span><span class="uline flex1"></span><span class="wl ml">จำนวน</span><span class="uline" style="min-width:18mm"></span></div>
+<div class="wr"><span class="wl">ยาที่ใช้</span><span class="uline flex1"></span><span class="wl ml">จำนวน</span><span class="uline" style="min-width:18mm"></span></div>
+<div class="wr"><span class="wl">ยาที่ใช้</span><span class="uline flex1"></span><span class="wl ml">จำนวน</span><span class="uline" style="min-width:18mm"></span></div>`;
+
+    const html = `<!DOCTYPE html><html lang="th"><head><meta charset="utf-8">
+<title>Emergency Box - ${eb}</title>
+<style>
+/* A4 portrait, margin 0 — browser cannot override */
+@page { size: A4 portrait; margin: 0; }
+@media print {
+  html,body { width:210mm; height:297mm; background:#fff; }
+  .ui { display:none !important; }
+  body { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{font-family:'Sarabun','TH Sarabun New','IBM Plex Sans Thai',Tahoma,sans-serif;font-size:10pt;color:#000;background:#8a9ab0}
+/* Screen preview */
+.ui{background:#fff;padding:5mm 8mm;display:flex;align-items:center;justify-content:center;gap:8mm;flex-wrap:wrap;border-bottom:2px solid #ccc;position:sticky;top:0;z-index:9}
+.ui button{padding:7px 22px;font-size:12pt;cursor:pointer;background:#1A6FA3;color:#fff;border:none;border-radius:8px;font-family:inherit;font-weight:600}
+.tip{font-size:8.5pt;color:#555;line-height:1.4}
+.wrap{display:flex;justify-content:center;padding:8mm 0 14mm}
+.a4{width:210mm;background:#fff;box-shadow:0 4px 28px rgba(0,0,0,.3)}
+/* Each half = landscape A5 (210mm × 148.5mm) */
+.half{width:210mm;height:148.5mm;padding:5mm 9mm 4mm 9mm;overflow:hidden;display:flex;flex-direction:column;gap:0}
+.cut{border-top:1.5px dashed #999;display:flex;align-items:center;justify-content:center;height:0;overflow:visible}
+.cut span{background:#fff;padding:0 3mm;font-size:8pt;color:#888;position:relative;top:-0.5em}
+/* Form elements */
+.hrow{display:flex;align-items:baseline;gap:3mm;margin-bottom:1.5mm;flex-wrap:nowrap}
+.lb{font-weight:700;font-size:10.5pt;white-space:nowrap}
+.ml{margin-left:3mm}
+.ebid{font-weight:700;font-size:12pt;font-family:'Courier New',monospace;white-space:nowrap}
+.flex1{flex:1;min-width:0}
+.uline{border-bottom:1px solid #222;display:inline-block}
+.htitle{text-align:center;font-weight:700;font-size:11pt;margin:1.5mm 0 1.5mm}
+table{width:100%;border-collapse:collapse;margin-bottom:1.5mm;font-size:9pt}
+th{background:#ddd;font-weight:700;text-align:center;padding:2px 2px;border:1px solid #222;font-size:9.5pt}
+td{border:1px solid #555;padding:1px 3px;vertical-align:middle;height:5.6mm}
+td.c{text-align:center}
+td.l{text-align:left;padding-left:4px}
+.bot-row{display:flex;align-items:flex-start;gap:5mm;margin-bottom:1.5mm}
+.nexp{display:flex;align-items:baseline;gap:2mm;flex:1;font-size:9.5pt}
+.warn-blk{flex-shrink:0;text-align:right}
+.warn{font-size:10pt;font-weight:700;margin-bottom:0.5mm}
+.retdate{font-size:9.5pt;font-weight:600;color:#C62828}
+.retval{font-size:11pt;font-weight:800;text-decoration:underline;margin-left:2px}
+.sig{display:flex;gap:5mm;margin-bottom:1.5mm}
+.sig-f{display:flex;align-items:baseline;gap:2mm;flex:1;font-size:10pt}
+.divider{border-top:2px solid #333;margin:1.5mm 0}
+.wr{display:flex;align-items:baseline;gap:2mm;margin-bottom:2mm;font-size:10pt}
+.wl{white-space:nowrap}
+</style></head><body>
+
+<div class="ui">
+  <button onclick="window.print()">🖨️ พิมพ์ (A4 ได้ 2 ใบ)</button>
+  <span class="tip">ตั้งค่าพิมพ์: กระดาษ <b>A4</b> · Margins = <b>None</b> · ปิด <b>Headers &amp; footers</b><br>ตัดกระดาษตรงเส้นประกลางได้ 2 ใบ</span>
 </div>
 
-<div class="div"></div>
+<div class="wrap"><div class="a4">
+  <div class="half">${formHTML}</div>
+  <div class="cut"><span>✂ ตัดตรงนี้</span></div>
+  <div class="half">${formHTML}</div>
+</div></div>
 
-<div class="wr"><span class="lb">ชื่อผู้ป่วย</span><span class="fd"></span><span class="lb2">HN</span><span class="fd2"></span></div>
-<div class="wr"><span class="lb">ยาที่ใช้</span><span class="fd"></span><span class="lb2">จำนวน</span><span class="fd2"></span></div>
-<div class="wr"><span class="lb">ยาที่ใช้</span><span class="fd"></span><span class="lb2">จำนวน</span><span class="fd2"></span></div>
-<div class="wr"><span class="lb">ยาที่ใช้</span><span class="fd"></span><span class="lb2">จำนวน</span><span class="fd2"></span></div>
-
-</div>
 </body></html>`;
 
-    const win = window.open('', '_blank', 'width=580,height=870');
+    const win = window.open('', '_blank', 'width=820,height=920');
     if (!win) { alert('กรุณาอนุญาต Pop-up เพื่อใช้งานการพิมพ์'); return; }
     win.document.write(html);
     win.document.close();
-    setTimeout(() => { try { win.print(); } catch(_) {} }, 500);
+    setTimeout(() => { try { win.print(); } catch(_) {} }, 600);
   }
 
   resetForm() {
