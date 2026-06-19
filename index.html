@@ -1580,7 +1580,7 @@ class Component extends DCLogic {
     reauthPass: '',
     reauthError: '',
     users: [
-      { id: 1, name: 'ผู้ดูแลระบบ', username: 'admin', password: '1234', role: 'admin', dept: 'IT / ห้องยา', status: 'active', lastLogin: '16 มิ.ย. 2569 08:10' },
+      { id: 1, name: 'ผู้ดูแลระบบ', username: 'admin', password: '1234', role: 'admin', dept: 'IT / ห้องยา', status: 'active', lastLogin: '' },
     ],
   };
 
@@ -1608,32 +1608,19 @@ class Component extends DCLogic {
   ];
 
   BOXES = [
-    { id: 'EB-1', dept: 'ER',   mfg: '2025-08-20', expiry: '2026-06-20', dispense: '2026-05-02', dispenser: 'ภก. สมชาย วงศ์ไทย',  receiver: '', nearDrug: 'Adrenaline inj. 1mg/ml' },
-    { id: 'EB-2', dept: 'WARD', mfg: '2025-08-25', expiry: '2026-06-25', dispense: '2026-05-10', dispenser: 'ภก. สมหญิง รักษา',   receiver: '', nearDrug: 'Atropine inj. 0.6mg/ml' },
-    { id: 'EB-3', dept: 'LR',   mfg: '2025-09-01', expiry: '2026-06-28', dispense: '2026-05-15', dispenser: 'ภก. ธนพล ศรีสุข',     receiver: '', nearDrug: 'Amiodarone inj. 150mg/3ml' },
-    { id: 'EB-4', dept: 'ER',   mfg: '2025-09-03', expiry: '2026-06-30', dispense: '2026-05-18', dispenser: 'ภก. สมหญิง รักษา',   receiver: '', nearDrug: 'Levophed inj. 4mg/4ml' },
-    { id: 'EB-5', dept: 'WARD', mfg: '2025-09-08', expiry: '2026-07-02', dispense: '2026-05-20', dispenser: 'ภก. สมชาย วงศ์ไทย',  receiver: '', nearDrug: 'Dopamine inj. 250mg/10ml' },
-    { id: 'EB-6', dept: 'ER',   mfg: '2025-09-12', expiry: '2026-07-08', dispense: '2026-05-25', dispenser: 'ภก. ธนพล ศรีสุข',     receiver: '', nearDrug: 'Adenosine inj. 6mg/2ml' },
-    { id: 'EB-7', dept: 'LR',   mfg: '2025-09-18', expiry: '2026-07-14', dispense: '2026-06-01', dispenser: 'ภก. สมหญิง รักษา',   receiver: '', nearDrug: '10% Ca gluconate inj. 10ml/amp' },
-    { id: 'EB-8', dept: 'WARD', mfg: '2025-10-10', expiry: '2026-08-10', dispense: '2026-04-12', dispenser: 'ภก. สมชาย วงศ์ไทย',  receiver: 'พว. อนงค์ ใจดี', nearDrug: 'Diazepam inj. 10mg/2ml' },
-    { id: 'EB-9', dept: 'ER',   mfg: '2025-11-05', expiry: '2026-09-05', dispense: '', dispenser: '', receiver: '', nearDrug: 'Dopamine inj. 250mg/10ml' },
-    { id: 'EB-10',dept: 'LR',   mfg: '2025-12-12', expiry: '2026-10-12', dispense: '', dispenser: '', receiver: '', nearDrug: 'Atropine inj. 0.6mg/ml' },
+    { id: 'EB-1',  dept: 'ER',   mfg: '', expiry: '', dispense: '', dispenser: '', receiver: '', nearDrug: '' },
+    { id: 'EB-2',  dept: 'WARD', mfg: '', expiry: '', dispense: '', dispenser: '', receiver: '', nearDrug: '' },
+    { id: 'EB-3',  dept: 'LR',   mfg: '', expiry: '', dispense: '', dispenser: '', receiver: '', nearDrug: '' },
+    { id: 'EB-4',  dept: 'ER',   mfg: '', expiry: '', dispense: '', dispenser: '', receiver: '', nearDrug: '' },
+    { id: 'EB-5',  dept: 'WARD', mfg: '', expiry: '', dispense: '', dispenser: '', receiver: '', nearDrug: '' },
+    { id: 'EB-6',  dept: 'ER',   mfg: '', expiry: '', dispense: '', dispenser: '', receiver: '', nearDrug: '' },
+    { id: 'EB-7',  dept: 'LR',   mfg: '', expiry: '', dispense: '', dispenser: '', receiver: '', nearDrug: '' },
+    { id: 'EB-8',  dept: 'WARD', mfg: '', expiry: '', dispense: '', dispenser: '', receiver: '', nearDrug: '' },
+    { id: 'EB-9',  dept: 'ER',   mfg: '', expiry: '', dispense: '', dispenser: '', receiver: '', nearDrug: '' },
+    { id: 'EB-10', dept: 'LR',   mfg: '', expiry: '', dispense: '', dispenser: '', receiver: '', nearDrug: '' },
   ];
 
-  AUDIT = [
-    { date: '2026-06-15', time: '08:42', action: 'จ่าย',   eb: 'EB-4', dept: 'ER',   person: 'ภก. สมหญิง รักษา',  drug: 'Levophed inj. 4mg/4ml' },
-    { date: '2026-06-15', time: '07:15', action: 'รับคืน', eb: 'EB-8', dept: 'WARD', person: 'พว. อนงค์ ใจดี',      drug: '—' },
-    { date: '2026-06-14', time: '21:30', action: 'จ่าย',   eb: 'EB-6', dept: 'ER',   person: 'ภก. ธนพล ศรีสุข',    drug: 'Adenosine inj. 6mg/2ml' },
-    { date: '2026-06-14', time: '16:05', action: 'รับคืน', eb: 'EB-9', dept: 'ER',   person: 'พว. ชุติมา แสงทอง',   drug: '—' },
-    { date: '2026-06-13', time: '11:48', action: 'จ่าย',   eb: 'EB-7', dept: 'LR',   person: 'ภก. สมหญิง รักษา',   drug: '10% Ca gluconate inj. 10ml/amp' },
-    { date: '2026-06-12', time: '14:20', action: 'จ่าย',   eb: 'EB-3', dept: 'LR',   person: 'ภก. ธนพล ศรีสุข',    drug: 'Amiodarone inj. 150mg/3ml' },
-    { date: '2026-06-11', time: '09:05', action: 'รับคืน', eb: 'EB-10',dept: 'LR',   person: 'พว. อนงค์ ใจดี',      drug: '—' },
-    { date: '2026-06-10', time: '19:32', action: 'จ่าย',   eb: 'EB-2', dept: 'WARD', person: 'ภก. สมหญิง รักษา',   drug: 'Atropine inj. 0.6mg/ml' },
-    { date: '2026-06-09', time: '13:11', action: 'จ่าย',   eb: 'EB-5', dept: 'WARD', person: 'ภก. สมชาย วงศ์ไทย',  drug: 'Dopamine inj. 250mg/10ml' },
-    { date: '2026-06-08', time: '08:50', action: 'จ่าย',   eb: 'EB-1', dept: 'ER',   person: 'ภก. สมชาย วงศ์ไทย',  drug: 'Adrenaline inj. 1mg/ml' },
-    { date: '2026-06-07', time: '15:40', action: 'รับคืน', eb: 'EB-6', dept: 'ER',   person: 'พว. ชุติมา แสงทอง',   drug: '—' },
-    { date: '2026-06-06', time: '10:25', action: 'จ่าย',   eb: 'EB-6', dept: 'ER',   person: 'ภก. ธนพล ศรีสุข',    drug: 'Adenosine inj. 6mg/2ml' },
-  ];
+  AUDIT = [];
 
   // ---------- date helpers ----------
   parse(iso) { return iso ? new Date(iso + 'T00:00:00') : null; }
