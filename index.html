@@ -2143,7 +2143,7 @@ class Component extends DCLogic {
       : `ตั้งค่าพิมพ์: กระดาษ <b>A4</b> · แนว <b>Landscape</b> · Margins = <b>None</b> · ปิด <b>Headers &amp; footers</b><br>ฟอร์มอยู่ครึ่งซ้าย · ตัดตรงเส้นประ → ได้ใบ A5 + เก็บครึ่งว่างพิมพ์กล่องถัดไป`;
     const layoutCSS = isPortrait
       ? `.a4-inner{width:210mm;height:297mm;padding:10mm 12mm 8mm 12mm;overflow:hidden;display:flex;flex-direction:column}`
-      : `.a4-inner{width:297mm;height:210mm;display:flex;flex-direction:row} .half{width:148.5mm;height:210mm;padding:5mm 6mm 4mm 6mm;overflow:hidden;display:flex;flex-direction:column} .blank{flex:1;height:210mm} .vcut{width:0;border-left:1.5px dashed #999;height:210mm;display:flex;align-items:center;overflow:visible;position:relative} .vcut span{background:#fff;padding:2mm 0;font-size:7.5pt;color:#888;writing-mode:vertical-rl;position:absolute;white-space:nowrap}`;
+      : `.a4-inner{width:297mm;height:210mm;display:flex;flex-direction:row} .half{width:148.5mm;height:210mm;padding:5mm 4mm 4mm 3mm;overflow:hidden;display:flex;flex-direction:column} .blank{flex:1;height:210mm} .vcut{width:0;border-left:1.5px dashed #999;height:210mm;display:flex;align-items:center;overflow:visible;position:relative} .vcut span{background:#fff;padding:2mm 0;font-size:7.5pt;color:#888;writing-mode:vertical-rl;position:absolute;white-space:nowrap}`;
     const bodyContent = isPortrait
       ? `<div class="a4-inner">${formHTML}</div>`
       : `<div class="a4-inner"><div class="half">${formHTML}</div><div class="vcut"><span>✂ ตัดตรงนี้</span></div><div class="blank"></div></div>`;
@@ -2178,9 +2178,9 @@ td.l{text-align:left;padding-left:4px}
 .warn{font-size:13pt;font-weight:800;margin-bottom:1.5mm}
 .retdate{font-size:12pt;font-weight:700;color:#C62828}
 .retval{font-size:14pt;font-weight:800;text-decoration:underline;margin-left:2px}
-.sig-row{display:flex;align-items:baseline;gap:2mm;margin-bottom:2mm;font-size:10.5pt}
-.divider{border-top:2px solid #333;margin:2.5mm 0}
-.wr{display:flex;align-items:baseline;gap:2mm;margin-bottom:3.5mm;font-size:10.5pt}
+.sig-row{display:flex;align-items:baseline;gap:2mm;margin-bottom:3mm;font-size:10.5pt}
+.divider{border-top:2px solid #333;margin:3mm 0}
+.wr{display:flex;align-items:baseline;gap:2mm;margin-bottom:5mm;font-size:10.5pt}
 .wl{white-space:nowrap}
 @media print{
   .ui{display:none !important;height:0 !important;overflow:hidden !important;position:absolute !important;}
