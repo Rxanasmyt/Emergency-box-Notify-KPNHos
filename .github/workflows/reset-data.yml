@@ -1,0 +1,35 @@
+name: Reset Firestore (Production Cleanup)
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'พิมพ์ "YES" เพื่อยืนยันการลบข้อมูลทั้งหมด'
+        required: true
+        default: ''
+
+jobs:
+  reset:
+    name: Clear Firestore Test Data
+    runs-on: ubuntu-latest
+    if: github.event.inputs.confirm == 'YES'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: .github/scripts/package.json
+
+      - name: Install dependencies
+        run: npm install
+        working-directory: .github/scripts
+
+      - name: Reset Firestore data
+        run: node .github/scripts/reset-firestore.js
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
