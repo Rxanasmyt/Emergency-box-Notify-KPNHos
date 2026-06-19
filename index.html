@@ -2169,13 +2169,13 @@ td.l{text-align:left;padding-left:4px}
 <div class="print-btn">
   <button onclick="window.print()">🖨️ พิมพ์ใบนี้</button>
 </div>
-<script>setTimeout(function(){window.print();},500);</script>
 </body></html>`;
 
     const win = window.open('', '_blank', 'width=680,height=960');
     if (!win) { alert('กรุณาอนุญาต Pop-up เพื่อใช้งานการพิมพ์'); return; }
     win.document.write(html);
     win.document.close();
+    setTimeout(() => { try { win.print(); } catch(_) {} }, 500);
   }
 
   resetForm() {
