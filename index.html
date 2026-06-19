@@ -2071,6 +2071,14 @@ class Component extends DCLogic {
       });
     });
 
+    // return date = 15 days before nearest expiry, formatted as BE (พ.ศ.)
+    const retDateISO = nearDate ? (() => {
+      const d = new Date(nearDate + 'T00:00:00');
+      d.setDate(d.getDate() - 15);
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    })() : '';
+    const retDateText = retDateISO ? fmtBE(retDateISO) : '—';
+
     let rows = '';
     drugs.forEach((d, i) => {
       const totalQty = (d.lots || []).reduce((s, l) => s + (l.qty || 0), 0);
@@ -2110,7 +2118,9 @@ td.l{text-align:left;padding-left:4px}
 .nexp{display:flex;align-items:baseline;gap:3mm;margin-bottom:2mm;font-size:11pt}
 .nexp .lb{white-space:nowrap;font-weight:700}
 .nexp .vl{flex:1;border-bottom:1px solid #333}
-.warn{text-align:right;font-size:11pt;font-weight:700;margin-bottom:3mm}
+.warn{text-align:right;font-size:11pt;font-weight:700;margin-bottom:1mm}
+.retdate{text-align:right;font-size:11pt;font-weight:600;color:#C62828;margin-bottom:3mm}
+.retval{font-size:13pt;font-weight:800;text-decoration:underline;margin-left:4px;letter-spacing:.3px}
 .sig{display:flex;gap:7mm;margin-bottom:3mm}
 .sig-f{display:flex;align-items:baseline;gap:2mm;flex:1;font-size:11pt}
 .sig-f .lb{white-space:nowrap;font-weight:700}
@@ -2153,6 +2163,7 @@ td.l{text-align:left;padding-left:4px}
   <span class="vl">${nearText}</span>
 </div>
 <div class="warn">ส่งคืนห้องยาก่อน exp 15 วัน</div>
+<div class="retdate">กำหนดส่งคืนภายใน <span class="retval">${retDateText}</span></div>
 
 <div class="sig">
   <div class="sig-f"><span class="lb">ผู้จัด</span><span class="vl">${preparer || ''}</span></div>
