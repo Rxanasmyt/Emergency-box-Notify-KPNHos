@@ -2099,60 +2099,54 @@ class Component extends DCLogic {
       ? parseDrug(nearDrug).drug + (nearDate ? '  ' + fmtCE(nearDate) : '')
       : '—';
 
-    // Form content HTML (repeated twice — top half + bottom half of A4)
+    // Form content — portrait A5 (148.5mm × 210mm) layout, matching physical EB form
     const formHTML = `
-<div class="hrow">
-  <span class="lb">รหัส</span><span class="ebid">${eb}</span>
-  <span class="lb ml">หน่วยเบิก</span><span class="uline flex1"></span>
-  <span class="lb ml">วันที่ผลิต</span><span class="ebid">${fmtBE(mfg)}</span>
-</div>
+<div class="hdr1"><span class="lb">รหัส</span><span class="ebid">&nbsp;${eb}</span><span class="uline" style="flex:1;margin-left:2mm"></span></div>
+<div class="hdr2"><span class="lb">หน่วยเบิก</span><span class="uline" style="flex:1;margin:0 4mm"></span><span class="lb">วันที่ผลิต</span><span class="ebid">&nbsp;${fmtBE(mfg)}</span><span class="uline" style="flex:1;margin-left:2mm"></span></div>
 <div class="htitle">Emergency drugs list</div>
 <table>
   <thead><tr>
-    <th style="width:7%">ลำดับ</th>
-    <th style="width:27%">ยา</th>
-    <th style="width:19%">ความแรง</th>
+    <th style="width:8%">ลำดับ</th>
+    <th style="width:28%">ยา</th>
+    <th style="width:20%">ความแรง</th>
     <th style="width:9%">ประเภท</th>
     <th style="width:8%">จำนวน</th>
-    <th style="width:30%">EXP.date</th>
+    <th style="width:27%">EXP.date</th>
   </tr></thead>
   <tbody>${rows}</tbody>
 </table>
-<div class="bot-row">
-  <div class="nexp"><span class="lb">ยาที่ Exp เร็วที่สุด</span><span class="uline flex1">&nbsp;${nearText}</span></div>
-  <div class="warn-blk">
+<div class="nexp-row"><span class="lb">ยาที่ Exp เร็วที่สุด</span><span class="uline flex1">&nbsp;${nearText}</span></div>
+<div class="warn-row">
+  <span class="flex1"></span>
+  <div style="text-align:right">
     <div class="warn">ส่งคืนห้องยาก่อน exp 15 วัน</div>
     <div class="retdate">กำหนดส่งคืนภายใน <span class="retval">${retDateText}</span></div>
   </div>
 </div>
-<div class="sig">
-  <div class="sig-f"><span class="lb">ผู้จัด</span><span class="uline flex1">&nbsp;${preparer || ''}</span></div>
-  <div class="sig-f"><span class="lb">ผู้ตรวจสอบ</span><span class="uline flex1">&nbsp;${checker || ''}</span></div>
-</div>
+<div class="sig-row"><span class="lb">ผู้จัด</span><span class="uline flex1">&nbsp;${preparer || ''}</span></div>
+<div class="sig-row"><span class="lb">ผู้ตรวจสอบ</span><span class="uline flex1">&nbsp;${checker || ''}</span></div>
 <div class="divider"></div>
-<div class="wr"><span class="wl">ชื่อผู้ป่วย</span><span class="uline flex1"></span><span class="wl ml">HN</span><span class="uline" style="min-width:30mm"></span></div>
-<div class="wr"><span class="wl">ยาที่ใช้</span><span class="uline flex1"></span><span class="wl ml">จำนวน</span><span class="uline" style="min-width:18mm"></span></div>
-<div class="wr"><span class="wl">ยาที่ใช้</span><span class="uline flex1"></span><span class="wl ml">จำนวน</span><span class="uline" style="min-width:18mm"></span></div>
-<div class="wr"><span class="wl">ยาที่ใช้</span><span class="uline flex1"></span><span class="wl ml">จำนวน</span><span class="uline" style="min-width:18mm"></span></div>`;
+<div class="wr"><span class="wl">ชื่อผู้ป่วย</span><span class="uline flex1"></span><span class="wl ml">HN</span><span class="uline" style="min-width:22mm"></span></div>
+<div class="wr"><span class="wl">ยาที่ใช้</span><span class="uline flex1"></span><span class="wl ml">จำนวน</span><span class="uline" style="min-width:14mm"></span></div>
+<div class="wr"><span class="wl">ยาที่ใช้</span><span class="uline flex1"></span><span class="wl ml">จำนวน</span><span class="uline" style="min-width:14mm"></span></div>
+<div class="wr"><span class="wl">ยาที่ใช้</span><span class="uline flex1"></span><span class="wl ml">จำนวน</span><span class="uline" style="min-width:14mm"></span></div>`;
 
     const isPortrait = layout === 'portrait1';
-    // landscape1: A4 portrait, form fills top half (148.5mm), cut line, blank bottom → user cuts to get half-A4 landscape
+    // landscape1: A4 landscape → 2 A5 portrait forms side by side, cut vertically → 2 pieces matching physical form
     const pageCSS = isPortrait
       ? `@page { size: A4 portrait; margin: 0; } @media print { html,body { width:210mm; height:297mm; } .ui { display:none !important; } body { -webkit-print-color-adjust:exact; print-color-adjust:exact; } }`
-      : `@page { size: A4 portrait; margin: 0; } @media print { html,body { width:210mm; height:297mm; } .ui { display:none !important; } body { -webkit-print-color-adjust:exact; print-color-adjust:exact; } }`;
-    const a4W = '210mm';
-    const uiLabel = isPortrait ? '🖨️ พิมพ์ (A4 ตั้ง — 1 ใบ)' : '🖨️ พิมพ์ (ครึ่ง A4 นอน — ตัดครึ่ง)';
+      : `@page { size: A4 landscape; margin: 0; } @media print { html,body { width:297mm; height:210mm; } .ui { display:none !important; } body { -webkit-print-color-adjust:exact; print-color-adjust:exact; } }`;
+    const a4W = isPortrait ? '210mm' : '297mm';
+    const uiLabel = isPortrait ? '🖨️ พิมพ์ (A4 ตั้ง — 1 ใบ)' : '🖨️ พิมพ์ (A4 นอน — ได้ 2 ใบ ✂)';
     const tipText = isPortrait
       ? `ตั้งค่าพิมพ์: กระดาษ <b>A4</b> · แนว <b>Portrait</b> · Margins = <b>None</b> · ปิด <b>Headers &amp; footers</b>`
-      : `ตั้งค่าพิมพ์: กระดาษ <b>A4</b> · แนว <b>Portrait</b> · Margins = <b>None</b> · ปิด <b>Headers &amp; footers</b><br>แล้วตัดกระดาษตรงเส้นประ ✂ ได้ครึ่ง A4 แนวนอน`;
-    const pageH = isPortrait ? '297mm' : '148.5mm';
-    const pagePad = isPortrait ? '10mm 12mm 8mm 12mm' : '5mm 9mm 4mm 9mm';
-    const cutCSS = isPortrait
-      ? `.page{width:210mm;height:${pageH};padding:${pagePad};overflow:hidden;display:flex;flex-direction:column;gap:0}`
-      : `.page{width:210mm;height:${pageH};padding:${pagePad};overflow:hidden;display:flex;flex-direction:column;gap:0} .cut{border-top:1.5px dashed #999;display:flex;align-items:center;justify-content:center;height:0;overflow:visible} .cut span{background:#fff;padding:0 3mm;font-size:8pt;color:#888;position:relative;top:-0.5em}`;
+      : `ตั้งค่าพิมพ์: กระดาษ <b>A4</b> · แนว <b>Landscape</b> · Margins = <b>None</b> · ปิด <b>Headers &amp; footers</b><br>ตัดตรงเส้นประกลางแผ่น ได้ 2 ใบแนวตั้ง (ครึ่ง A4)`;
+    const layoutCSS = isPortrait
+      ? `.a4-inner{width:210mm;height:297mm;padding:10mm 12mm 8mm 12mm;overflow:hidden;display:flex;flex-direction:column}`
+      : `.a4-inner{width:297mm;height:210mm;display:flex;flex-direction:row} .half{width:148.5mm;height:210mm;padding:5mm 6mm 4mm 6mm;overflow:hidden;display:flex;flex-direction:column} .vcut{width:0;border-left:1.5px dashed #999;height:210mm;display:flex;align-items:center;overflow:visible;position:relative} .vcut span{background:#fff;padding:2mm 0;font-size:7.5pt;color:#888;writing-mode:vertical-rl;position:absolute;white-space:nowrap}`;
     const bodyContent = isPortrait
-      ? `<div class="page">${formHTML}</div>`
-      : `<div class="page">${formHTML}</div><div class="cut"><span>✂ ตัดตรงนี้</span></div>`;
+      ? `<div class="a4-inner">${formHTML}</div>`
+      : `<div class="a4-inner"><div class="half">${formHTML}</div><div class="vcut"><span>✂ ตัดตรงนี้</span></div><div class="half">${formHTML}</div></div>`;
 
     const html = `<!DOCTYPE html><html lang="th"><head><meta charset="utf-8">
 <title>Emergency Box - ${eb}</title>
@@ -2165,29 +2159,28 @@ html,body{font-family:'Sarabun','TH Sarabun New','IBM Plex Sans Thai',Tahoma,san
 .tip{font-size:8.5pt;color:#555;line-height:1.4}
 .wrap{display:flex;justify-content:center;padding:8mm 0 14mm}
 .a4{width:${a4W};background:#fff;box-shadow:0 4px 28px rgba(0,0,0,.3)}
-${cutCSS}
-.hrow{display:flex;align-items:baseline;gap:3mm;margin-bottom:1.5mm;flex-wrap:nowrap}
-.lb{font-weight:700;font-size:10.5pt;white-space:nowrap}
+${layoutCSS}
+.hdr1{display:flex;align-items:baseline;gap:2mm;margin-bottom:1mm}
+.hdr2{display:flex;align-items:baseline;gap:2mm;margin-bottom:1.5mm}
+.lb{font-weight:700;font-size:10pt;white-space:nowrap}
 .ml{margin-left:3mm}
-.ebid{font-weight:700;font-size:12pt;font-family:'Courier New',monospace;white-space:nowrap}
+.ebid{font-weight:700;font-size:11.5pt;font-family:'Courier New',monospace;white-space:nowrap}
 .flex1{flex:1;min-width:0}
 .uline{border-bottom:1px solid #222;display:inline-block}
-.htitle{text-align:center;font-weight:700;font-size:11pt;margin:1.5mm 0 1.5mm}
-table{width:100%;border-collapse:collapse;margin-bottom:1.5mm;font-size:9pt}
-th{background:#ddd;font-weight:700;text-align:center;padding:2px 2px;border:1px solid #222;font-size:9.5pt}
-td{border:1px solid #555;padding:1px 3px;vertical-align:middle;height:5.6mm}
+.htitle{text-align:center;font-weight:700;font-size:10.5pt;margin:1.5mm 0 1mm;border-bottom:1.5px solid #333;padding-bottom:0.5mm}
+table{width:100%;border-collapse:collapse;margin-bottom:1mm;font-size:8.5pt}
+th{background:#ddd;font-weight:700;text-align:center;padding:1.5px 2px;border:1px solid #222;font-size:9pt}
+td{border:1px solid #555;padding:1px 2px;vertical-align:middle;height:5.2mm}
 td.c{text-align:center}
-td.l{text-align:left;padding-left:4px}
-.bot-row{display:flex;align-items:flex-start;gap:5mm;margin-bottom:1.5mm}
-.nexp{display:flex;align-items:baseline;gap:2mm;flex:1;font-size:9.5pt}
-.warn-blk{flex-shrink:0;text-align:right}
-.warn{font-size:10pt;font-weight:700;margin-bottom:0.5mm}
-.retdate{font-size:9.5pt;font-weight:600;color:#C62828}
-.retval{font-size:11pt;font-weight:800;text-decoration:underline;margin-left:2px}
-.sig{display:flex;gap:5mm;margin-bottom:1.5mm}
-.sig-f{display:flex;align-items:baseline;gap:2mm;flex:1;font-size:10pt}
+td.l{text-align:left;padding-left:3px}
+.nexp-row{display:flex;align-items:baseline;gap:2mm;margin-bottom:1mm;font-size:9pt}
+.warn-row{display:flex;align-items:flex-start;margin-bottom:1mm}
+.warn{font-size:9.5pt;font-weight:700;margin-bottom:0.5mm}
+.retdate{font-size:9pt;font-weight:600;color:#C62828}
+.retval{font-size:10.5pt;font-weight:800;text-decoration:underline;margin-left:2px}
+.sig-row{display:flex;align-items:baseline;gap:2mm;margin-bottom:1mm;font-size:9.5pt}
 .divider{border-top:2px solid #333;margin:1.5mm 0}
-.wr{display:flex;align-items:baseline;gap:2mm;margin-bottom:2mm;font-size:10pt}
+.wr{display:flex;align-items:baseline;gap:2mm;margin-bottom:2.5mm;font-size:9.5pt}
 .wl{white-space:nowrap}
 </style></head><body>
 
@@ -2817,7 +2810,7 @@ td.l{text-align:left;padding-left:4px}
     const btnStyle = { display: 'inline-flex', alignItems: 'center', gap: 7, height: 50, padding: '0 18px', border: '1.5px solid #C3DDEC', background: 'linear-gradient(135deg,#EEF5FA,#E4F0F8)', color: '#1A6FA3', borderRadius: 13, fontFamily: 'inherit', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', transition: 'all .22s cubic-bezier(.34,1.56,.64,1)', boxShadow: '0 2px 8px rgba(26,111,163,.1)' };
     vals.printEBFormBtn = h('span', { style: { display: 'inline-flex', gap: 8 } },
       h('button', { type: 'button', onClick: () => this.printEBForm('landscape1'), style: btnStyle },
-        ic(printerSVG, 17), h('span', null, 'พิมพ์ใบกล่อง ', h('span', { style: { fontSize: 11, opacity: .72, fontWeight: 500 } }, '(ครึ่ง A4 นอน ✂)'))),
+        ic(printerSVG, 17), h('span', null, 'พิมพ์ใบกล่อง ', h('span', { style: { fontSize: 11, opacity: .72, fontWeight: 500 } }, '(A4 นอน — 2 ใบ ✂)'))),
       h('button', { type: 'button', onClick: () => this.printEBForm('portrait1'), style: { ...btnStyle, background: 'linear-gradient(135deg,#F0F7FF,#E4EEFF)', borderColor: '#BDD0F5' } },
         ic(printerSVG, 17), h('span', null, 'พิมพ์ใบกล่อง ', h('span', { style: { fontSize: 11, opacity: .72, fontWeight: 500 } }, '(ตั้ง 1 ใบ)')))
     );
