@@ -62,7 +62,7 @@
 
   function findExpiringDrugs(component, thresholdDays) {
     if (!component || !component.BOXES) return [];
-    const bd = component.state.boxDrugs || component.buildBoxDrugs();
+    const bd = component.state.boxDrugs || component.buildBoxDrugs() || {};
     const today = component.TODAY || new Date();
     const alerts = [];
 
@@ -77,7 +77,7 @@
           if (daysLeft <= thresholdDays) {
             alerts.push({
               boxId: box.id,
-              dept: box.dept,
+              dept: box.dept || '—',
               drugName: drug.name,
               expiry: lot.expiry,
               daysLeft: daysLeft,

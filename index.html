@@ -1707,7 +1707,7 @@ class Component extends DCLogic {
   }
   go2(formMode) {
     const today = this.isoOf(this.TODAY);
-    this.setState({ formMode, regPrinted: false,
+    this.setState({ formMode, regPrinted: false, swapReturn: false,
       dispDate: this.state.dispDate || today,
       retDate: this.state.retDate || today,
       swapReturnDate: this.state.swapReturnDate || today,
@@ -1747,6 +1747,8 @@ class Component extends DCLogic {
     (this._idleEvents || []).forEach(ev => window.removeEventListener(ev, this._resetIdle, true));
     if (this._ripple) document.removeEventListener('click', this._ripple);
     clearTimeout(this._idleT); clearTimeout(this._idleWarnT);
+    clearTimeout(this._syncT); clearTimeout(this._lockT);
+    clearTimeout(this._t); clearTimeout(this._a);
     if (window.EB_Sync) window.EB_Sync.stopAll();
   }
 
@@ -1780,7 +1782,7 @@ class Component extends DCLogic {
   }
 
   // ---------- confirm dialog ----------
-  askConfirm(cfg) { this.setState({ confirm: cfg }); }
+  askConfirm(cfg) { if (this.state.confirm) return; this.setState({ confirm: cfg }); }
   closeConfirm() { this.setState({ confirm: null }); }
   runConfirm() { const c = this.state.confirm; this.setState({ confirm: null }); if (c && c.onYes) c.onYes(); }
 
@@ -1795,7 +1797,10 @@ class Component extends DCLogic {
   }
   saveEditDrugs() {
     const id = this.state.selectedEB;
-    const drugs = (this.state.boxDrugs || this.buildBoxDrugs())[id];
+    const drugs = (this.state.boxDrugs || this.buildBoxDrugs())[id] || [];
+    for (const drug of drugs) {
+      if (!drug.name || !drug.name.trim()) { this.flash('กรุณากรอกชื่อยาให้ครบทุกรายการ'); return; }
+    }
     this.setState({ editDrugs: false, saveSuccess: Date.now() });
     setTimeout(() => this.setState({ saveSuccess: null }), 1600);
     if (window.EB_Sync) window.EB_Sync.syncBoxDrugs(id, drugs);
@@ -1869,7 +1874,8 @@ class Component extends DCLogic {
       const attempts = this.state.attempts + 1;
       const left = 5 - attempts;
       if (attempts >= 5) {
-        this.setState({ attempts, locked: true, loginError: 'บัญชีถูกล็อกชั่วคราวเนื่องจากกรอกผิดเกิน 5 ครั้ง · กรุณาติดต่อผู้ดูแลระบบ' });
+        this.setState({ attempts, locked: true, loginError: 'บัญชีถูกล็อกชั่วคราว 15 นาที เนื่องจากกรอกผิดเกิน 5 ครั้ง' });
+        this._lockT = setTimeout(() => this.setState({ locked: false, attempts: 0, loginError: '' }), 15 * 60 * 1000);
       } else {
         this.setState({ attempts, loginError: `รหัสพนักงานหรือรหัสผ่านไม่ถูกต้อง · เหลืออีก ${left} ครั้ง` });
       }
@@ -1882,6 +1888,7 @@ class Component extends DCLogic {
     const lastLogin = `${this.fmt(this.TODAY)} ${this.nowTime()}`;
     const updatedU = { ...u, lastLogin };
     const _today = this.isoOf(this.TODAY);
+    clearTimeout(this._lockT);
     this.setState({ authed: true, currentUser: updatedU, loginError: '', attempts: 0, locked: false, loginPass: '', screen: 'dashboard',
       users: this.state.users.map(x => x.username === u.username ? updatedU : x),
       dispDate: _today, retDate: _today, swapReturnDate: _today, regPrinted: false });
@@ -2027,12 +2034,16 @@ class Component extends DCLogic {
       const list = (st.boxDrugs || this.buildBoxDrugs())[st.regEB] || [];
       if (list.some(d => d.had) && !st.regHadConfirm) errs.push('ยืนยันการตรวจสอบยา HAD');
     } else if (st.formMode === 'dispense') {
+      if (!st.dispEB) errs.push('เลือกกล่องยาที่จ่าย');
+      if (!st.formDept || !st.formDept.trim()) errs.push('เลือกหน่วยงานที่เบิก');
       if (!st.dispenser.trim()) errs.push('ลงชื่อผู้จ่าย');
       if (!st.dispDate) errs.push('วันที่จ่าย');
+      if (st.swapReturn && !st.swapEB) errs.push('เลือกกล่องเก่าที่รับคืน');
       if (st.swapReturn && !st.swapReceiver.trim()) errs.push('ลงชื่อผู้รับคืนกล่องเก่า');
       if (st.swapReturn && !st.swapReturnDate) errs.push('วันที่รับคืนกล่องเก่า');
-      if (st.swapReturn && st.swapEB === st.dispEB) errs.push('กล่องที่รับคืนต้องไม่ใช่กล่องเดียวกับกล่องที่จ่าย');
+      if (st.swapReturn && st.swapEB && st.swapEB === st.dispEB) errs.push('กล่องที่รับคืนต้องไม่ใช่กล่องเดียวกับกล่องที่จ่าย');
     } else {
+      if (!st.retEB) errs.push('เลือกกล่องยาที่รับคืน');
       if (!st.retReceiver.trim()) errs.push('ลงชื่อผู้รับคืน');
       if (!st.retDate) errs.push('วันที่รับคืน');
     }
@@ -2089,7 +2100,7 @@ class Component extends DCLogic {
       this._syncBox({ ...box, dept: formDept, dispense: this.state.dispDate, dispenser: this.state.dispenser, receiver: '' });
       if (swapReturn) {
         const swBox = this.BOXES.find(b => b.id === swapEB) || { id: swapEB };
-        this._syncBox({ ...swBox, receiver: this.state.swapReceiver, retDate: this.state.swapReturnDate });
+        this._syncBox({ ...swBox, receiver: this.state.swapReceiver, retDate: this.state.swapReturnDate, dispense: '', dispenser: '', dept: '' });
         this.logAction({ cat: 'return', action: 'รับคืน', eb: swapEB, dept: formDept, drug: `รับคืน วันที่ ${this.fmtISO(this.state.swapReturnDate)} · โดย ${this.state.swapReceiver || '-'}` });
         this.logBoxHist(swapEB, `รับคืนจาก ${formDept} วันที่ ${this.fmtISO(this.state.swapReturnDate)} (โดย ${this.state.swapReceiver || '-'})`);
       }
@@ -2284,8 +2295,8 @@ td.l{text-align:left;padding-left:4px}
     const m = this.state.formMode;
     const today = this.isoOf(this.TODAY);
     if (m === 'register') this.setState({ regMfg: '', regPreparer: '', regChecker: '', regHadConfirm: false, regPrinted: false });
-    else if (m === 'dispense') this.setState({ dispenser: '', swapReturn: false, swapReceiver: '', dispDate: today, swapReturnDate: today });
-    else this.setState({ retReceiver: '', retDate: today });
+    else if (m === 'dispense') this.setState({ dispEB: '', formDept: '', dispenser: '', swapReturn: false, swapEB: '', swapReceiver: '', dispDate: today, swapReturnDate: today });
+    else this.setState({ retEB: '', retReceiver: '', retDate: today });
   }
 
   renderVals() {
