@@ -1632,13 +1632,13 @@ class Component extends DCLogic {
   AUDIT = [];
 
   // ---------- date helpers ----------
-  parse(iso) { return iso ? new Date(iso + 'T00:00:00') : null; }
+  parse(iso) { if (!iso || typeof iso !== 'string') return null; const d = new Date(iso + 'T00:00:00'); return isNaN(d.getTime()) ? null : d; }
   addDays(iso, n) { const d = this.parse(iso); if (!d) return null; d.setDate(d.getDate() + n); return d; }
   fmt(d) { if (!d || isNaN(d.getTime())) return '—'; return `${d.getDate()} ${this.TH_MONTHS[d.getMonth()]} ${d.getFullYear() + 543}`; }
   fmtISO(iso) { return iso ? this.fmt(this.parse(iso)) : '—'; }
   returnDateISO(expiry) { const d = this.addDays(expiry, -15); if (!d) return ''; const m = String(d.getMonth()+1).padStart(2,'0'); const day = String(d.getDate()).padStart(2,'0'); return `${d.getFullYear()}-${m}-${day}`; }
-  daysBetween(d) { return Math.round((d - this.TODAY) / 86400000); }
-  isoOf(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+  daysBetween(d) { if (!d || isNaN(+d)) return 0; return Math.round((d - this.TODAY) / 86400000); }
+  isoOf(d) { if (!d || isNaN(d.getTime())) return ''; return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
 
   // par quantities now live in DRUGS[].par
   buildBoxDrugs() {
@@ -1659,7 +1659,7 @@ class Component extends DCLogic {
   drugMinExp(d) { const exps = (d.lots || []).filter(l => l.expiry).map(l => l.expiry); return exps.length ? exps.sort()[0] : ''; }
   boxExpiryISO(id, BD) {
     const list = (BD || this.state.boxDrugs || {})[id];
-    if (!list || !list.length) { const b = this.BOXES.find(x => x.id === id); return b ? b.expiry : null; }
+    if (!list || !list.length) { const b = this.BOXES.find(x => x.id === id); return b ? b.expiry : ''; }
     const exps = list.map(d => this.drugMinExp(d)).filter(e => e);
     return exps.length ? exps.sort()[0] : '';
   }
@@ -1667,8 +1667,9 @@ class Component extends DCLogic {
     const list = (BD || this.state.boxDrugs || {})[id];
     if (!list || !list.length) { const b = this.BOXES.find(x => x.id === id); return b ? b.nearDrug : ''; }
     const withExp = list.filter(d => this.drugMinExp(d));
-    if (!withExp.length) return list[0] ? list[0].name : '';
-    return withExp.reduce((m, d) => this.drugMinExp(d) < this.drugMinExp(m) ? d : m, withExp[0]).name;
+    if (!withExp.length) return (list[0] && list[0].name) ? list[0].name : '';
+    const nearest = withExp.reduce((m, d) => this.drugMinExp(d) < this.drugMinExp(m) ? d : m, withExp[0]);
+    return (nearest && nearest.name) ? nearest.name : '';
   }
 
   // status from expiry → based on RETURN date (15d before expiry)
@@ -1823,6 +1824,7 @@ class Component extends DCLogic {
     this.setState(s => {
       const base = s.boxDrugs || this.buildBoxDrugs();
       const bd = { ...base };
+      if (!bd[boxId]) return {};
       bd[boxId] = bd[boxId].map((d, i) => i === idx ? { ...d, [field]: value } : d);
       return { boxDrugs: bd };
     });
@@ -1831,9 +1833,10 @@ class Component extends DCLogic {
     this.setState(s => {
       const base = s.boxDrugs || this.buildBoxDrugs();
       const bd = { ...base };
+      if (!bd[boxId]) return {};
       bd[boxId] = bd[boxId].map((d, i) => {
         if (i !== drugIdx) return d;
-        const lots = d.lots.map((l, j) => j === lotIdx ? { ...l, [field]: value } : l);
+        const lots = (d.lots || []).map((l, j) => j === lotIdx ? { ...l, [field]: value } : l);
         return { ...d, lots };
       });
       return { boxDrugs: bd };
@@ -1843,9 +1846,10 @@ class Component extends DCLogic {
     this.setState(s => {
       const base = s.boxDrugs || this.buildBoxDrugs();
       const bd = { ...base };
+      if (!bd[boxId]) return {};
       bd[boxId] = bd[boxId].map((d, i) => {
         if (i !== drugIdx) return d;
-        return { ...d, lots: [...d.lots, { qty: 0, expiry: '' }] };
+        return { ...d, lots: [...(d.lots || []), { qty: 0, expiry: '' }] };
       });
       return { boxDrugs: bd };
     });
@@ -1854,9 +1858,11 @@ class Component extends DCLogic {
     this.setState(s => {
       const base = s.boxDrugs || this.buildBoxDrugs();
       const bd = { ...base };
+      if (!bd[boxId]) return {};
       bd[boxId] = bd[boxId].map((d, i) => {
-        if (i !== drugIdx || d.lots.length <= 1) return d;
-        return { ...d, lots: d.lots.filter((_, j) => j !== lotIdx) };
+        const lots = d.lots || [];
+        if (i !== drugIdx || lots.length <= 1) return d;
+        return { ...d, lots: lots.filter((_, j) => j !== lotIdx) };
       });
       return { boxDrugs: bd };
     });
@@ -2153,13 +2159,19 @@ class Component extends DCLogic {
 
     const fmtBE = (iso) => {
       if (!iso) return '—';
-      const [y, m, d] = iso.split('-');
-      return `${parseInt(d)}/${parseInt(m)}/${String(parseInt(y) + 543).slice(-2)}`;
+      const parts = iso.split('-');
+      if (parts.length !== 3) return '—';
+      const y = parseInt(parts[0]), mo = parseInt(parts[1]), d = parseInt(parts[2]);
+      if (isNaN(y) || isNaN(mo) || isNaN(d)) return '—';
+      return `${d}/${mo}/${String(y + 543).slice(-2)}`;
     };
     const fmtCE = (iso) => {
       if (!iso) return '—';
-      const [y, m, d] = iso.split('-');
-      return `${parseInt(d)}/${parseInt(m)}/${String(y).slice(-2)}`;
+      const parts = iso.split('-');
+      if (parts.length !== 3) return '—';
+      const y = parseInt(parts[0]), mo = parseInt(parts[1]), d = parseInt(parts[2]);
+      if (isNaN(y) || isNaN(mo) || isNaN(d)) return '—';
+      return `${d}/${mo}/${String(parts[0]).slice(-2)}`;
     };
     const parseDrug = (name) => {
       const m = name.match(/^(.*?)\s+(\d[\d.]*\S+(?:\/\S+)?)\s*$/);
@@ -2629,7 +2641,7 @@ td.l{text-align:left;padding-left:4px}
     vals.donutActionCount = counts.critical + counts.warning;
 
     vals.recentTx = (st.auditLog || this.AUDIT).filter(t => t.cat === 'dispense' || t.cat === 'return').slice(0, 5).map(t => ({
-      eb: t.eb, action: t.action, dept: t.dept, person: t.person, drug: t.drug, time: t.time,
+      eb: t.eb || '—', action: t.action || '—', dept: t.dept || '—', person: t.person || '—', drug: t.drug || '—', time: t.time || '—',
       icon: t.action === 'จ่าย' ? '→' : '←',
       color: t.action === 'จ่าย' ? '#1A6FA3' : '#169C7F',
       soft: t.action === 'จ่าย' ? '#E8F0F6' : '#E4F4EF',
