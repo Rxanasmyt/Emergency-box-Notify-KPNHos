@@ -540,6 +540,62 @@ input:focus, select:focus, textarea:focus {
   border: 1px solid rgba(43,127,224,.3) !important;
   box-shadow: 0 8px 32px rgba(0,0,0,.25), 0 2px 8px rgba(43,127,224,.15) !important;
 }
+
+/* ===================================================================== */
+/* ===== ENHANCEMENT PACK v2 =========================================== */
+/* ===================================================================== */
+
+/* 1. Form validation shake */
+.form-shake-el { animation: shakeX .52s cubic-bezier(.4,0,.2,1) both !important; }
+
+/* 2. HAD drug row accent pulse */
+@keyframes hadGlow { 0%,100% { box-shadow: inset 3px 0 0 rgba(194,65,12,.35); } 50% { box-shadow: inset 3px 0 0 rgba(194,65,12,.75), 0 0 12px rgba(194,65,12,.09); } }
+.drug-row-had { animation: hadGlow 2.8s ease infinite; border-left: 3px solid rgba(194,65,12,.4); }
+.drug-row-had:hover { border-left-color: rgba(194,65,12,.85) !important; background: rgba(194,65,12,.05) !important; }
+
+/* 3. Status badge spring entrance */
+@keyframes badgeBounce { 0% { transform: scale(.35) rotate(-10deg); opacity:0; } 55% { transform: scale(1.13) rotate(2deg); } 80% { transform: scale(.97); } 100% { transform: scale(1) rotate(0); opacity:1; } }
+.status-badge-in { animation: badgeBounce .55s cubic-bezier(.34,1.56,.64,1) .05s both; display: inline-block; }
+
+/* 4. Staggered drug / list row entrance */
+@keyframes rowIn { from { opacity:0; transform:translateX(-10px); } to { opacity:1; transform:none; } }
+
+/* 5. Expiry SVG ring draw */
+@keyframes ringDraw { from { stroke-dasharray: 0 226.2; opacity:0; } }
+.expiry-ring-arc { animation: ringDraw .85s cubic-bezier(.4,0,.2,1) .15s both; }
+
+/* 6. Mobile entry form sheet slide-up */
+@media (max-width: 768px) {
+  .entry-sheet { animation: slideUp .36s cubic-bezier(.2,.9,.2,1) both !important; }
+}
+
+/* 7. Button ripple container */
+.btn-primary { overflow: hidden !important; position: relative !important; }
+.ripple { position:absolute; border-radius:50%; background:rgba(255,255,255,.32); transform:scale(0); animation:ripple .65s ease-out; pointer-events:none; }
+
+/* 8. KPI card hover lift */
+.kpi-card-blue, .kpi-card-teal, .kpi-card-rose, .kpi-card-amber {
+  transition: transform .3s cubic-bezier(.34,1.56,.64,1), filter .25s ease, box-shadow .3s ease !important;
+  cursor: default;
+}
+.kpi-card-blue:hover, .kpi-card-teal:hover, .kpi-card-rose:hover, .kpi-card-amber:hover {
+  transform: translateY(-5px) scale(1.02) !important;
+  filter: brightness(1.07) !important;
+}
+
+/* 9. Quick action btn focus/active */
+.quick-act-btn:hover { filter: brightness(1.14); }
+.quick-act-btn:active { transform: scale(.94) !important; }
+
+/* 10. Audit/history row stagger */
+.audit-row { transition: background .15s ease, transform .15s ease; }
+.audit-row:hover { background: rgba(26,111,163,.04) !important; transform: translateX(2px); }
+
+/* 11. Enhanced input glow on focus (stronger than base) */
+input:focus, select:focus, textarea:focus {
+  box-shadow: 0 0 0 4px rgba(43,127,224,.13), 0 2px 10px rgba(43,127,224,.1) !important;
+  transform: translateY(-1px) !important;
+}
 </style>
 </helmet>
 
@@ -854,7 +910,7 @@ input:focus, select:focus, textarea:focus {
 
       <!-- ============ ENTRY FORM ============ -->
       <sc-if value="{{ isEntry }}" hint-placeholder-val="{{ true }}">
-      <div class="page-enter" style="max-width: 960px; margin: 0 auto; animation: fadeUp .45s ease both;">
+      <div class="page-enter entry-sheet" style="max-width: 960px; margin: 0 auto; animation: fadeUp .45s ease both;">
 
         <!-- Flow stepper -->
         <div style="display: flex; align-items: stretch; gap: 0; margin-bottom: 22px; background: #fff; border: 1px solid #E7EEF3; border-radius: 16px; padding: 8px; overflow-x: auto;">{{ modeToggleEl }}</div>
@@ -1012,8 +1068,11 @@ input:focus, select:focus, textarea:focus {
           <div style="display: flex; flex-direction: column; gap: 16px;">
             <div style="background: #fff; border: 1px solid #E7EEF3; border-radius: 18px; padding: 22px;">
               <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px;">
-                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 26px; font-weight: 600; letter-spacing: -.5px; white-space: nowrap;">{{ box.id }}</span>
-                <span style="font-size: 12px; font-weight: 700; color: {{ box.color }}; background: {{ box.soft }}; border: 1px solid {{ box.border }}; border-radius: 20px; padding: 5px 12px; white-space: nowrap;">{{ box.statusLabel }}</span>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                  {{ expiryRingEl }}
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 26px; font-weight: 600; letter-spacing: -.5px; white-space: nowrap;">{{ box.id }}</span>
+                </div>
+                <span class="status-badge-in" style="font-size: 12px; font-weight: 700; color: {{ box.color }}; background: {{ box.soft }}; border: 1px solid {{ box.border }}; border-radius: 20px; padding: 5px 12px; white-space: nowrap;">{{ box.statusLabel }}</span>
               </div>
               <div style="display: flex; flex-direction: column; gap: 13px;">
                 <div style="display: flex; justify-content: space-between; font-size: 13px;"><span style="color: #7B8D9C;">หน่วยงานที่เบิก</span><b>{{ box.dept }}</b></div>
@@ -1375,7 +1434,7 @@ input:focus, select:focus, textarea:focus {
   <sc-if value="{{ showToast }}" hint-placeholder-val="{{ false }}">
     <div class="app-toast" style="position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: rgba(21,36,46,.92); backdrop-filter: blur(16px) saturate(1.6); -webkit-backdrop-filter: blur(16px) saturate(1.6); color: #fff; border-radius: 16px; padding: 14px 22px; display: flex; align-items: center; gap: 12px; box-shadow: 0 16px 48px rgba(20,40,55,.35), 0 4px 12px rgba(20,40,55,.15); animation: toastIn .5s cubic-bezier(.34,1.56,.64,1) both; z-index: 100;">
       <span style="width: 26px; height: 26px; border-radius: 50%; background: #169C7F; display: flex; align-items: center; justify-content: center; animation: successPop .4s cubic-bezier(.34,1.56,.64,1) .15s both;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-      <div><div style="font-size: 13.5px; font-weight: 600;">{{ toastTitle }}</div><div style="font-size: 11.5px; color: #B6C6D0;">บันทึกลง Audit Log แล้ว · ตั้งแจ้งเตือน LINE &amp; Email เรียบร้อย</div></div>
+      <div><div style="font-size: 13.5px; font-weight: 600;">{{ toastTitle }}</div><div style="font-size: 11.5px; color: #B6C6D0;">{{ toastSubtitle }}</div></div>
     </div>
   </sc-if>
 
@@ -1487,6 +1546,8 @@ class Component extends DCLogic {
     retReceiver: '',
     showToast: false,
     toastTitle: '',
+    toastSubtitle: '',
+    shakeCount: 0,
     ghTrigger: 'idle',
     ghPAT: '',
     sidebarOpen: false,
@@ -1660,9 +1721,23 @@ class Component extends DCLogic {
     this._resetIdle = () => this.bumpIdle();
     this._idleEvents.forEach(ev => window.addEventListener(ev, this._resetIdle, true));
     this.bumpIdle();
+    // btn-primary ripple effect
+    this._ripple = (e) => {
+      const btn = e.target.closest('.btn-primary');
+      if (!btn) return;
+      const r = document.createElement('span');
+      r.className = 'ripple';
+      const rect = btn.getBoundingClientRect();
+      const sz = Math.max(rect.width, rect.height) * 2;
+      r.style.cssText = `width:${sz}px;height:${sz}px;left:${e.clientX-rect.left-sz/2}px;top:${e.clientY-rect.top-sz/2}px;position:absolute`;
+      btn.appendChild(r);
+      setTimeout(() => r.remove(), 750);
+    };
+    document.addEventListener('click', this._ripple, { passive: true });
   }
   componentWillUnmount() {
     (this._idleEvents || []).forEach(ev => window.removeEventListener(ev, this._resetIdle, true));
+    if (this._ripple) document.removeEventListener('click', this._ripple);
     clearTimeout(this._idleT); clearTimeout(this._idleWarnT);
   }
 
@@ -1909,7 +1984,11 @@ class Component extends DCLogic {
   }
   trySubmit() {
     const errs = this.validateForm();
-    if (errs.length) { this.flash('กรอกไม่ครบ: ' + errs.join(' · ')); return; }
+    if (errs.length) {
+      this.flash('กรอกไม่ครบ: ' + errs.join(' · '));
+      this.setState(s => ({ shakeCount: s.shakeCount + 1 }));
+      return;
+    }
     // clinical safety: dispensing a near-expiry (critical) box → confirm
     if (this.state.formMode === 'dispense') {
       const near = this.regNearISOof(this.state.dispEB);
@@ -1954,7 +2033,8 @@ class Component extends DCLogic {
       this.logAction({ cat: 'return', action: 'รับคืน', eb: retEB, dept: '—', drug: '—' });
       this.logBoxHist(retEB, `รับคืนเข้าห้องยา (โดย ${retReceiver || '-'})`);
     }
-    this.setState({ showToast: true, toastTitle: msg });
+    const sub = mode === 'register' ? 'บันทึกเข้าคลัง · พร้อมจ่าย' : mode === 'dispense' ? 'บันทึก Audit Log · แจ้งเตือนอัตโนมัติ' : 'รับคืนแล้ว · พร้อมตรวจสอบ/จัดเตรียม';
+    this.setState({ showToast: true, toastTitle: msg, toastSubtitle: sub });
     clearTimeout(this._t);
     this._t = setTimeout(() => this.setState({ showToast: false }), 3600);
   }
@@ -2006,6 +2086,7 @@ class Component extends DCLogic {
       goHistory: () => this.go('history'),
       showToast: st.showToast,
       toastTitle: st.toastTitle,
+      toastSubtitle: st.toastSubtitle || 'บันทึกลง Audit Log แล้ว',
       // auth
       authed: st.authed,
       notAuthed: !st.authed,
@@ -2327,8 +2408,8 @@ class Component extends DCLogic {
     const formErrs = this.validateForm();
     const formValid = formErrs.length === 0;
     vals.submitEl = h('button', {
-      key: 'submit_' + mode + (formValid ? '_ok' : '_no'),
-      className: formValid ? 'btn-primary' : '',
+      key: 'submit_' + mode + (formValid ? '_ok' : '_no_' + st.shakeCount),
+      className: formValid ? 'btn-primary' : 'form-shake-el',
       onClick: () => this.trySubmit(),
       title: formValid ? '' : 'ต้องกรอก: ' + formErrs.join(' · '),
       style: { display: 'flex', alignItems: 'center', gap: 9, height: 50, padding: '0 26px', border: 'none', borderRadius: 13, fontFamily: 'inherit', fontSize: 14.5, fontWeight: 600, cursor: 'pointer', color: '#fff', background: formValid ? theme.accent : '#AEBDC8', boxShadow: formValid ? `0 8px 24px ${theme.shadow}` : 'none', transition: 'all .25s cubic-bezier(.34,1.56,.64,1)' },
@@ -2426,7 +2507,7 @@ class Component extends DCLogic {
           d.lots.length > 1 ? h('button', { onClick: () => this.removeLot(st.regEB, i, li), title: 'ลบ Lot นี้', style: { width: 30, height: 30, flexShrink: 0, border: 'none', borderRadius: 7, background: '#FCEDED', color: '#E03E3E', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700 } }, '×') : null,
         );
       });
-      return h('div', { key: d.name, style: { padding: '12px 16px', borderBottom: i < regList.length - 1 ? '1px solid #F0F4F7' : 'none', background: isNear ? '#FFF7F1' : '#fff' } },
+      return h('div', { key: d.name, className: 'drug-row' + (d.had ? ' drug-row-had' : ''), style: { padding: '12px 16px', borderBottom: i < regList.length - 1 ? '1px solid #F0F4F7' : 'none', background: isNear ? '#FFF7F1' : (d.had ? undefined : '#fff'), animation: `rowIn .3s cubic-bezier(.34,1.56,.64,1) ${i * 40}ms both` } },
         // drug header row
         h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: d.lots.length > 0 ? 8 : 0 } },
           h('span', { style: { fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, color: isNear ? '#C2410C' : '#B6C2CC', width: 22, textAlign: 'center', flexShrink: 0 } },
@@ -2547,10 +2628,12 @@ class Component extends DCLogic {
     const selBoxOut = selBox && selBox.status === 'out';
     vals.detailQuickActionsEl = h('div', { style: { display: 'flex', gap: 8, marginTop: 14, paddingTop: 14, borderTop: '1px solid #EFF3F6' } },
       !selBoxOut ? h('button', {
+        className: 'btn-primary quick-act-btn',
         onClick: () => this.setState({ screen: 'entry', formMode: 'dispense', dispEB: st.selectedEB }),
         style: { flex: 1, height: 44, borderRadius: 11, border: 'none', background: 'linear-gradient(135deg,#1E4FD8,#2B7FE0)', color: '#fff', fontFamily: 'inherit', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, boxShadow: '0 4px 14px rgba(43,127,224,.4)', transition: 'all .22s cubic-bezier(.34,1.56,.64,1)' },
       }, ic('<svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M4 12h13m0 0l-5-5m5 5l-5 5" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',15), 'จ่าย EB นี้') : null,
       selBoxOut ? h('button', {
+        className: 'btn-primary quick-act-btn',
         onClick: () => this.setState({ screen: 'entry', formMode: 'return', retEB: st.selectedEB }),
         style: { flex: 1, height: 44, borderRadius: 11, border: 'none', background: 'linear-gradient(135deg,#059669,#0DB9A0)', color: '#fff', fontFamily: 'inherit', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, boxShadow: '0 4px 14px rgba(13,185,160,.4)', transition: 'all .22s cubic-bezier(.34,1.56,.64,1)' },
       }, ic('<svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M20 12H7m0 0l5-5m-5 5l5 5" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',15), 'รับคืน EB นี้') : null,
@@ -2590,6 +2673,26 @@ class Component extends DCLogic {
       returnColor: returned ? '#169C7F' : bStatus.color,
       returnSoft: returned ? '#E4F4EF' : bStatus.soft,
     };
+
+    // expiry countdown ring SVG
+    const ringDays = boxExp ? Math.round((new Date(boxExp + 'T00:00:00') - this.TODAY) / 86400000) : 0;
+    const ringPct = Math.min(1, Math.max(0, ringDays / 90));
+    const ringColor = ringDays <= 0 ? '#F43F5E' : ringDays <= 15 ? '#F59E0B' : ringDays <= 30 ? '#0DB9A0' : '#10B981';
+    const circ = 226.2;
+    vals.expiryRingEl = h('div', { style: { position: 'relative', width: 64, height: 64, flexShrink: 0 } },
+      h('svg', { viewBox: '0 0 88 88', width: 64, height: 64 },
+        h('circle', { cx: 44, cy: 44, r: 36, fill: 'none', stroke: 'rgba(0,0,0,.07)', strokeWidth: 6 }),
+        h('circle', { cx: 44, cy: 44, r: 36, fill: 'none', stroke: ringColor, strokeWidth: 6,
+          strokeDasharray: `${circ * ringPct} ${circ}`, strokeLinecap: 'round',
+          transform: 'rotate(-90 44 44)', className: 'expiry-ring-arc',
+          style: { filter: `drop-shadow(0 0 4px ${ringColor}88)` }
+        }),
+      ),
+      h('div', { style: { position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 0 } },
+        h('span', { style: { fontSize: 15, fontWeight: 800, color: ringColor, fontFamily: "'IBM Plex Mono', monospace", lineHeight: 1.1 } }, ringDays <= 0 ? '!' : ringDays > 999 ? '∞' : ringDays),
+        h('span', { style: { fontSize: 7.5, color: '#9AAAB8', fontWeight: 700, letterSpacing: .5, lineHeight: 1 } }, 'วัน')
+      )
+    );
 
     // edit toggle (role-gated)
     const editing = st.editDrugs;
