@@ -2813,12 +2813,8 @@ td.l{text-align:left;padding-left:4px}
     // Print EB form buttons (register step only)
     const printerSVG = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none"><rect x="5" y="2" width="14" height="6" rx="1" stroke="currentColor" stroke-width="1.8"/><path d="M5 18H3a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1h18a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1h-2" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><rect x="5" y="14" width="14" height="8" rx="1" stroke="currentColor" stroke-width="1.8"/><circle cx="18" cy="11.5" r="1" fill="currentColor"/></svg>';
     const btnStyle = { display: 'inline-flex', alignItems: 'center', gap: 7, height: 50, padding: '0 18px', border: '1.5px solid #C3DDEC', background: 'linear-gradient(135deg,#EEF5FA,#E4F0F8)', color: '#1A6FA3', borderRadius: 13, fontFamily: 'inherit', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', transition: 'all .22s cubic-bezier(.34,1.56,.64,1)', boxShadow: '0 2px 8px rgba(26,111,163,.1)' };
-    vals.printEBFormBtn = h('span', { style: { display: 'inline-flex', gap: 8 } },
-      h('button', { type: 'button', onClick: () => this.printEBForm('landscape1'), style: btnStyle },
-        ic(printerSVG, 17), h('span', null, 'พิมพ์ใบกล่อง ', h('span', { style: { fontSize: 11, opacity: .72, fontWeight: 500 } }, '(A4 นอน — A5 ✂)'))),
-      h('button', { type: 'button', onClick: () => this.printEBForm('portrait1'), style: { ...btnStyle, background: 'linear-gradient(135deg,#F0F7FF,#E4EEFF)', borderColor: '#BDD0F5' } },
-        ic(printerSVG, 17), h('span', null, 'พิมพ์ใบกล่อง ', h('span', { style: { fontSize: 11, opacity: .72, fontWeight: 500 } }, '(ตั้ง 1 ใบ)')))
-    );
+    vals.printEBFormBtn = h('button', { type: 'button', onClick: () => this.printEBForm('landscape1'), style: btnStyle },
+      ic(printerSVG, 17), h('span', null, 'พิมพ์ใบกล่อง ', h('span', { style: { fontSize: 11, opacity: .72, fontWeight: 500 } }, '(A4 นอน — A5 ✂)')));
 
     // ----- DETAIL -----
     const BD = st.boxDrugs || this.buildBoxDrugs();
