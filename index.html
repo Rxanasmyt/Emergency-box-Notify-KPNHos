@@ -2136,19 +2136,23 @@ class Component extends DCLogic {
 <div class="wr"><span class="wl">ยาที่ใช้</span><span class="uline flex1"></span><span class="wl ml">จำนวน</span><span class="uline" style="min-width:18mm"></span></div>`;
 
     const isPortrait = layout === 'portrait1';
+    // landscape1: A4 portrait, form fills top half (148.5mm), cut line, blank bottom → user cuts to get half-A4 landscape
     const pageCSS = isPortrait
       ? `@page { size: A4 portrait; margin: 0; } @media print { html,body { width:210mm; height:297mm; } .ui { display:none !important; } body { -webkit-print-color-adjust:exact; print-color-adjust:exact; } }`
-      : `@page { size: 210mm 148.5mm; margin: 0; } @media print { html,body { width:210mm; height:148.5mm; } .ui { display:none !important; } body { -webkit-print-color-adjust:exact; print-color-adjust:exact; } }`;
-    const a4W = isPortrait ? '210mm' : '210mm';
-    const pageW = isPortrait ? '210mm' : '210mm';
-    const pageH = isPortrait ? '297mm' : '148.5mm';
-    const pagePad = isPortrait ? '10mm 12mm 8mm 12mm' : '5mm 9mm 4mm 9mm';
-    const uiLabel = isPortrait ? '🖨️ พิมพ์ (A4 ตั้ง — 1 ใบ)' : '🖨️ พิมพ์ (ครึ่ง A4 นอน — 1 ใบ)';
+      : `@page { size: A4 portrait; margin: 0; } @media print { html,body { width:210mm; height:297mm; } .ui { display:none !important; } body { -webkit-print-color-adjust:exact; print-color-adjust:exact; } }`;
+    const a4W = '210mm';
+    const uiLabel = isPortrait ? '🖨️ พิมพ์ (A4 ตั้ง — 1 ใบ)' : '🖨️ พิมพ์ (ครึ่ง A4 นอน — ตัดครึ่ง)';
     const tipText = isPortrait
       ? `ตั้งค่าพิมพ์: กระดาษ <b>A4</b> · แนว <b>Portrait</b> · Margins = <b>None</b> · ปิด <b>Headers &amp; footers</b>`
-      : `ตั้งค่าพิมพ์: กระดาษ <b>A5</b> หรือ <b>ครึ่ง A4</b> · แนว <b>Landscape</b> · Margins = <b>None</b> · ปิด <b>Headers &amp; footers</b>`;
-    const bodyContent = `<div class="page">${formHTML}</div>`;
-    const cutCSS = `.page{width:${pageW};height:${pageH};padding:${pagePad};overflow:hidden;display:flex;flex-direction:column;gap:0}`;
+      : `ตั้งค่าพิมพ์: กระดาษ <b>A4</b> · แนว <b>Portrait</b> · Margins = <b>None</b> · ปิด <b>Headers &amp; footers</b><br>แล้วตัดกระดาษตรงเส้นประ ✂ ได้ครึ่ง A4 แนวนอน`;
+    const pageH = isPortrait ? '297mm' : '148.5mm';
+    const pagePad = isPortrait ? '10mm 12mm 8mm 12mm' : '5mm 9mm 4mm 9mm';
+    const cutCSS = isPortrait
+      ? `.page{width:210mm;height:${pageH};padding:${pagePad};overflow:hidden;display:flex;flex-direction:column;gap:0}`
+      : `.page{width:210mm;height:${pageH};padding:${pagePad};overflow:hidden;display:flex;flex-direction:column;gap:0} .cut{border-top:1.5px dashed #999;display:flex;align-items:center;justify-content:center;height:0;overflow:visible} .cut span{background:#fff;padding:0 3mm;font-size:8pt;color:#888;position:relative;top:-0.5em}`;
+    const bodyContent = isPortrait
+      ? `<div class="page">${formHTML}</div>`
+      : `<div class="page">${formHTML}</div><div class="cut"><span>✂ ตัดตรงนี้</span></div>`;
 
     const html = `<!DOCTYPE html><html lang="th"><head><meta charset="utf-8">
 <title>Emergency Box - ${eb}</title>
@@ -2813,7 +2817,7 @@ td.l{text-align:left;padding-left:4px}
     const btnStyle = { display: 'inline-flex', alignItems: 'center', gap: 7, height: 50, padding: '0 18px', border: '1.5px solid #C3DDEC', background: 'linear-gradient(135deg,#EEF5FA,#E4F0F8)', color: '#1A6FA3', borderRadius: 13, fontFamily: 'inherit', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', transition: 'all .22s cubic-bezier(.34,1.56,.64,1)', boxShadow: '0 2px 8px rgba(26,111,163,.1)' };
     vals.printEBFormBtn = h('span', { style: { display: 'inline-flex', gap: 8 } },
       h('button', { type: 'button', onClick: () => this.printEBForm('landscape1'), style: btnStyle },
-        ic(printerSVG, 17), h('span', null, 'พิมพ์ใบกล่อง ', h('span', { style: { fontSize: 11, opacity: .72, fontWeight: 500 } }, '(ครึ่ง A4 นอน)'))),
+        ic(printerSVG, 17), h('span', null, 'พิมพ์ใบกล่อง ', h('span', { style: { fontSize: 11, opacity: .72, fontWeight: 500 } }, '(ครึ่ง A4 นอน ✂)'))),
       h('button', { type: 'button', onClick: () => this.printEBForm('portrait1'), style: { ...btnStyle, background: 'linear-gradient(135deg,#F0F7FF,#E4EEFF)', borderColor: '#BDD0F5' } },
         ic(printerSVG, 17), h('span', null, 'พิมพ์ใบกล่อง ', h('span', { style: { fontSize: 11, opacity: .72, fontWeight: 500 } }, '(ตั้ง 1 ใบ)')))
     );
