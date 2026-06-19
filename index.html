@@ -1920,7 +1920,7 @@ class Component extends DCLogic {
     this.flash('อัปเดตบทบาทผู้ใช้แล้ว');
     if (u) {
       if (window.EB_Sync) window.EB_Sync.syncUsers({ ...u, role });
-      this.logAction({ cat: 'user', action: 'แก้สิทธิ์', eb: '—', dept: u.dept, drug: `เปลี่ยนบทบาท ${u.name} → ${this.ROLES[role].label}` });
+      this.logAction({ cat: 'user', action: 'แก้สิทธิ์', eb: '—', dept: u.dept, drug: `เปลี่ยนบทบาท ${u.name} → ${(this.ROLES[role] || {label: role}).label}` });
     }
   }
   toggleUserStatus(username) {
@@ -1979,7 +1979,7 @@ class Component extends DCLogic {
     this.setState({ users: [...users, nu], showAddUser: false, nu_name: '', nu_username: '', nu_role: 'technician', nu_dept: 'ห้องยา', nu_pass: '' });
     if (window.EB_Sync) window.EB_Sync.syncUsers(nu);
     this.flash('เพิ่มผู้ใช้ใหม่เรียบร้อย');
-    this.logAction({ cat: 'user', action: 'จัดการผู้ใช้', eb: '—', dept: nu.dept, drug: `เพิ่มผู้ใช้ใหม่ ${nu.name} (${this.ROLES[nu_role].label})` });
+    this.logAction({ cat: 'user', action: 'จัดการผู้ใช้', eb: '—', dept: nu.dept, drug: `เพิ่มผู้ใช้ใหม่ ${nu.name} (${(this.ROLES[nu_role] || {label: nu_role}).label})` });
   }
 
   // ---------- entry form ----------
@@ -2376,7 +2376,7 @@ td.l{text-align:left;padding-left:4px}
     { const _d = new Date(); const _m = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']; vals.todayStr = `${_d.getDate()} ${_m[_d.getMonth()]} ${_d.getFullYear()+543}`; }
     // ===== current user (sidebar) =====
     const cu = st.currentUser;
-    const cuRole = cu ? this.ROLES[cu.role] : this.ROLES.pharmacist;
+    const cuRole = (cu && this.ROLES[cu.role]) || this.ROLES.pharmacist;
     vals.userName = cu ? cu.name : '—';
     vals.userRoleLabel = cu ? cuRole.label : '';
     vals.userInitials = cu ? (cu.name.replace(/^(ภก\.|พว\.|จพ\.|ภญ\.)\s*/, '').trim().slice(0, 2)) : '?';
