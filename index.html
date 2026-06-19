@@ -868,6 +868,7 @@ input:focus, select:focus, textarea:focus {
             </div>
           </div>
 
+          {{ personDatalistEl }}
           <!-- ===== STEP 1: REGISTER / PREPARE ===== -->
           <sc-if value="{{ isRegister }}" hint-placeholder-val="{{ true }}">
             <div class="form-grid-2" style="margin-bottom: 18px;">
@@ -894,11 +895,11 @@ input:focus, select:focus, textarea:focus {
             <div class="form-grid-2" style="margin-bottom: 26px;">
               <div>
                 <label style="display: block; font-size: 12.5px; font-weight: 600; color: #4A5C6A; margin-bottom: 7px;">ผู้จัดเตรียม · จพ.เภสัชกรรม <span style="color:#E03E3E;">*</span></label>
-                <input type="text" value="{{ regPreparer }}" onInput="{{ setRegPreparer }}" placeholder="ลงชื่อผู้จัดยา" style="width: 100%; height: 46px; border: 1.5px solid #DBE4EB; border-radius: 11px; padding: 0 14px; font-size: 14px; color: #15242E;">
+                <input type="text" value="{{ regPreparer }}" onInput="{{ setRegPreparer }}" placeholder="ลงชื่อผู้จัดยา" list="eb-persons" style="width: 100%; height: 46px; border: 1.5px solid #DBE4EB; border-radius: 11px; padding: 0 14px; font-size: 14px; color: #15242E;">
               </div>
               <div>
                 <label style="display: block; font-size: 12.5px; font-weight: 600; color: #4A5C6A; margin-bottom: 7px;">เภสัชกรผู้ตรวจสอบ <span style="color:#E03E3E;">*</span></label>
-                <input type="text" value="{{ regChecker }}" onInput="{{ setRegChecker }}" placeholder="ลงชื่อเภสัชกรตรวจสอบความถูกต้อง" style="width: 100%; height: 46px; border: 1.5px solid #DBE4EB; border-radius: 11px; padding: 0 14px; font-size: 14px; color: #15242E;">
+                <input type="text" value="{{ regChecker }}" onInput="{{ setRegChecker }}" onKeyDown="{{ submitOnEnter }}" placeholder="ลงชื่อเภสัชกรตรวจสอบความถูกต้อง" list="eb-persons" style="width: 100%; height: 46px; border: 1.5px solid #DBE4EB; border-radius: 11px; padding: 0 14px; font-size: 14px; color: #15242E;">
               </div>
             </div>
             <div style="display: flex; align-items: center; gap: 12px;">
@@ -931,7 +932,7 @@ input:focus, select:focus, textarea:focus {
               </div>
               <div>
                 <label style="display: block; font-size: 12.5px; font-weight: 600; color: #4A5C6A; margin-bottom: 7px;">ลงชื่อผู้จ่าย <span style="color:#E03E3E;">*</span></label>
-                <input type="text" value="{{ dispenser }}" onInput="{{ setDispenser }}" placeholder="ลงชื่อผู้จ่าย" style="width: 100%; height: 46px; border: 1.5px solid #DBE4EB; border-radius: 11px; padding: 0 14px; font-size: 14px; color: #15242E;">
+                <input type="text" value="{{ dispenser }}" onInput="{{ setDispenser }}" onKeyDown="{{ submitOnEnter }}" placeholder="ลงชื่อผู้จ่าย" list="eb-persons" style="width: 100%; height: 46px; border: 1.5px solid #DBE4EB; border-radius: 11px; padding: 0 14px; font-size: 14px; color: #15242E;">
               </div>
             </div>
 
@@ -956,7 +957,7 @@ input:focus, select:focus, textarea:focus {
                   </div>
                   <div>
                     <label style="display: block; font-size: 12px; font-weight: 600; color: #4A5C6A; margin-bottom: 7px;">ลงชื่อผู้รับคืน <span style="color:#E03E3E;">*</span></label>
-                    <input type="text" value="{{ swapReceiver }}" onInput="{{ setSwapReceiver }}" placeholder="ผู้รับคืน" style="width: 100%; height: 44px; border: 1.5px solid #DBE4EB; border-radius: 10px; padding: 0 12px; font-size: 13.5px; color: #15242E;">
+                    <input type="text" value="{{ swapReceiver }}" onInput="{{ setSwapReceiver }}" placeholder="ผู้รับคืน" list="eb-persons" style="width: 100%; height: 44px; border: 1.5px solid #DBE4EB; border-radius: 10px; padding: 0 12px; font-size: 13.5px; color: #15242E;">
                   </div>
                 </div>
               </sc-if>
@@ -986,7 +987,7 @@ input:focus, select:focus, textarea:focus {
               </div>
               <div>
                 <label style="display: block; font-size: 12.5px; font-weight: 600; color: #4A5C6A; margin-bottom: 7px;">ลงชื่อผู้รับคืน <span style="color:#E03E3E;">*</span></label>
-                <input type="text" value="{{ retReceiver }}" onInput="{{ setRetReceiver }}" placeholder="ลงชื่อผู้รับคืน" style="width: 100%; height: 46px; border: 1.5px solid #DBE4EB; border-radius: 11px; padding: 0 14px; font-size: 14px; color: #15242E;">
+                <input type="text" value="{{ retReceiver }}" onInput="{{ setRetReceiver }}" onKeyDown="{{ submitOnEnter }}" placeholder="ลงชื่อผู้รับคืน" list="eb-persons" style="width: 100%; height: 46px; border: 1.5px solid #DBE4EB; border-radius: 11px; padding: 0 14px; font-size: 14px; color: #15242E;">
               </div>
             </div>
 
@@ -1021,6 +1022,7 @@ input:focus, select:focus, textarea:focus {
                 <div style="display: flex; justify-content: space-between; gap: 14px; font-size: 13px;"><span style="color: #7B8D9C; flex-shrink: 0;">ยาที่ใกล้หมดอายุสุด</span><b style="text-align: right;">{{ box.nearDrug }}</b></div>
                 <div style="height: 1px; background: #EFF3F6;"></div>
                 <div style="display: flex; justify-content: space-between; align-items: center; font-size: 13px; background: {{ box.soft }}; margin: -2px -8px; padding: 10px 8px; border-radius: 9px;"><span style="color: {{ box.color }}; font-weight: 600;">ต้องส่งคืนภายใน</span><b style="color: {{ box.color }};">{{ box.returnText }}</b></div>
+                {{ detailQuickActionsEl }}
               </div>
             </div>
             <!-- Dispense/return record -->
@@ -2333,13 +2335,37 @@ class Component extends DCLogic {
     }, ic(ICONS.check, 18), h('span', null, submitLabels[mode]),
        formValid ? null : h('span', { style: { fontSize: 11.5, fontWeight: 500, opacity: .92, marginLeft: 2 } }, `· ขาด ${formErrs.length} ช่อง`));
 
-    // reusable select builder
+    // reusable select builder (kept for swap EB only)
     const chevron = "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none'><path d='M3 5l4 4 4-4' stroke='%237B8D9C' stroke-width='1.8' stroke-linecap='round'/></svg>\")";
     const mkSelect = (value, onChange, ids, big) => h('select', {
       value: ids.includes(value) ? value : (ids[0] || ''),
       onChange,
       style: { width: '100%', height: big ? 46 : 44, border: '1.5px solid #DBE4EB', borderRadius: big ? 11 : 10, padding: big ? '0 14px' : '0 12px', fontSize: big ? 14 : 13.5, color: '#15242E', background: `#fff ${chevron} no-repeat right 13px center`, cursor: 'pointer', appearance: 'none', WebkitAppearance: 'none' },
     }, ids.length ? ids.map(id => h('option', { key: id, value: id }, id)) : h('option', { value: '' }, '— ไม่มีกล่อง —'));
+
+    // EB quick-tap chip grid (replaces dropdown for EB selection)
+    const mkEBChips = (value, onChange, ids, accent) => {
+      if (!ids.length) return h('div', { style: { fontSize: 12.5, color: '#E03E3E', padding: '10px 14px', background: '#FCEDED', borderRadius: 10, border: '1px solid #F4C9C9' } }, '— ไม่มีกล่อง —');
+      return h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 2 } },
+        ...ids.map(id => {
+          const on = value === id || (!ids.includes(value) && id === ids[0]);
+          return h('button', {
+            key: id, type: 'button',
+            onClick: () => onChange(id),
+            style: {
+              height: 40, padding: '0 13px', borderRadius: 10,
+              fontFamily: "'IBM Plex Mono', monospace", fontSize: 13, fontWeight: 700,
+              cursor: 'pointer', transition: 'all .18s cubic-bezier(.34,1.56,.64,1)',
+              background: on ? accent : 'rgba(255,255,255,.9)',
+              color: on ? '#fff' : '#4A5C6A',
+              border: `1.5px solid ${on ? accent : '#DBE4EB'}`,
+              boxShadow: on ? `0 4px 12px ${accent}66` : '0 1px 3px rgba(0,0,0,.05)',
+              transform: on ? 'scale(1.07) translateY(-1px)' : 'scale(1)',
+            },
+          }, id);
+        })
+      );
+    };
 
     const hint = (text, color, bg, border, dot) => h('div', {
       style: { display: 'flex', alignItems: 'center', gap: 7, marginTop: 8, fontSize: 11.5, lineHeight: 1.45, color, background: bg, border: `1px solid ${border}`, borderRadius: 9, padding: '7px 10px' },
@@ -2365,7 +2391,7 @@ class Component extends DCLogic {
     };
 
     // ===== STEP 1: REGISTER =====
-    vals.regEBSelectEl = mkSelect(st.regEB, (e) => this.setState({ regEB: e.target.value }), allIds, true);
+    vals.regEBSelectEl = mkEBChips(st.regEB, (id) => this.setState({ regEB: id }), allIds, '#2B7FE0');
     vals.regMfg = st.regMfg;
     vals.regPreparer = st.regPreparer;
     vals.regChecker = st.regChecker;
@@ -2456,7 +2482,7 @@ class Component extends DCLogic {
     vals.regAutoDetectEl = h(React.Fragment, null, detectBanner, hadRow);
 
     // ===== STEP 2: DISPENSE / SWAP =====
-    vals.dispEBSelectEl = mkSelect(st.dispEB, (e) => this.setState({ dispEB: e.target.value }), inStockIds, true);
+    vals.dispEBSelectEl = mkEBChips(st.dispEB, (id) => this.setState({ dispEB: id }), inStockIds, '#1A6FA3');
     vals.dispHintEl = hint(`พร้อมจ่าย ${inStockIds.length} กล่อง · กล่องที่จ่ายไปแล้วต้องรับคืนก่อน จึงจะจ่ายรหัสเดิมซ้ำได้`, '#1A6FA3', '#EEF5FA', '#D3E6F1', '#169C7F');
     vals.dispDate = st.dispDate;
     vals.dispenser = st.dispenser;
@@ -2477,13 +2503,17 @@ class Component extends DCLogic {
     }
     vals.dispBoxInfoEl = h(React.Fragment, null, boxInfoCard(dispBox, '#1A6FA3'), dispWarn);
 
-    const deptList = ['ER', 'WARD', 'LR'];
-    vals.deptChipsEl = h(React.Fragment, null, ...deptList.map(d => {
-      const on = st.formDept === d;
+    const deptList = [
+      { id: 'ER',   color: '#F43F5E', glow: 'rgba(244,63,94,.3)',   icon: '🚨' },
+      { id: 'WARD', color: '#2B7FE0', glow: 'rgba(43,127,224,.3)',  icon: '🏥' },
+      { id: 'LR',   color: '#0DB9A0', glow: 'rgba(13,185,160,.3)',  icon: '👶' },
+    ];
+    vals.deptChipsEl = h(React.Fragment, null, ...deptList.map(({ id, color, glow, icon }) => {
+      const on = st.formDept === id;
       return h('button', {
-        key: d + (on ? '_on' : '_off'), onClick: () => this.setState({ formDept: d }),
-        style: { flex: 1, height: 46, borderRadius: 11, fontFamily: 'inherit', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', transition: 'all .22s cubic-bezier(.34,1.56,.64,1)', background: on ? '#1A6FA3' : '#fff', color: on ? '#fff' : '#5A6B79', border: on ? '1.5px solid #1A6FA3' : '1.5px solid #DBE4EB', boxShadow: on ? '0 4px 14px rgba(26,111,163,.24)' : 'none' },
-      }, d);
+        key: id + (on ? '_on' : '_off'), onClick: () => this.setState({ formDept: id }),
+        style: { flex: 1, height: 52, borderRadius: 13, fontFamily: 'inherit', fontSize: 14, fontWeight: 700, cursor: 'pointer', transition: 'all .22s cubic-bezier(.34,1.56,.64,1)', background: on ? color : 'rgba(255,255,255,.9)', color: on ? '#fff' : color, border: `2px solid ${on ? color : color + '55'}`, boxShadow: on ? `0 6px 20px ${glow}` : '0 1px 3px rgba(0,0,0,.05)', transform: on ? 'scale(1.05) translateY(-2px)' : 'scale(1)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 },
+      }, icon, ' ', id);
     }));
 
     vals.toggleSwap = () => this.setState(s => ({ swapReturn: !s.swapReturn }));
@@ -2497,13 +2527,34 @@ class Component extends DCLogic {
     vals.setSwapReceiver = (e) => this.setState({ swapReceiver: e.target.value });
 
     // ===== STEP 3: RETURN =====
-    vals.retEBSelectEl = mkSelect(st.retEB, (e) => this.setState({ retEB: e.target.value }), outIds, true);
+    vals.retEBSelectEl = mkEBChips(st.retEB, (id) => this.setState({ retEB: id }), outIds, '#169C7F');
     vals.retHintEl = hint(`ค้างรับคืน ${outIds.length} กล่อง · เลือกได้เฉพาะกล่องที่ถูกจ่ายออกไปและยังไม่ได้คืน`, '#B5740F', '#FBF1E0', '#F0DDB8', '#EE8A2B');
     vals.retDate = st.retDate;
     vals.retReceiver = st.retReceiver;
     vals.setRetDate = (e) => this.setState({ retDate: e.target.value });
     vals.setRetReceiver = (e) => this.setState({ retReceiver: e.target.value });
     vals.retBoxInfoEl = boxInfoCard(this.BOXES.find(b => b.id === (outIds.includes(st.retEB) ? st.retEB : outIds[0])), '#169C7F');
+
+    // autocomplete datalist from audit log person names
+    const auditPersons = [...new Set((st.auditLog || this.AUDIT || []).map(r => r.person || '').filter(Boolean).sort())];
+    vals.personDatalistEl = h('datalist', { id: 'eb-persons' }, ...auditPersons.map(p => h('option', { key: p, value: p })));
+
+    // Enter key → submit (when form is valid)
+    vals.submitOnEnter = (e) => { if (e.key === 'Enter') this.trySubmit(); };
+
+    // Quick-action from detail page
+    const selBox = this.BOXES.find(b => b.id === st.selectedEB);
+    const selBoxOut = selBox && selBox.status === 'out';
+    vals.detailQuickActionsEl = h('div', { style: { display: 'flex', gap: 8, marginTop: 14, paddingTop: 14, borderTop: '1px solid #EFF3F6' } },
+      !selBoxOut ? h('button', {
+        onClick: () => this.setState({ screen: 'entry', formMode: 'dispense', dispEB: st.selectedEB }),
+        style: { flex: 1, height: 44, borderRadius: 11, border: 'none', background: 'linear-gradient(135deg,#1E4FD8,#2B7FE0)', color: '#fff', fontFamily: 'inherit', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, boxShadow: '0 4px 14px rgba(43,127,224,.4)', transition: 'all .22s cubic-bezier(.34,1.56,.64,1)' },
+      }, ic('<svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M4 12h13m0 0l-5-5m5 5l-5 5" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',15), 'จ่าย EB นี้') : null,
+      selBoxOut ? h('button', {
+        onClick: () => this.setState({ screen: 'entry', formMode: 'return', retEB: st.selectedEB }),
+        style: { flex: 1, height: 44, borderRadius: 11, border: 'none', background: 'linear-gradient(135deg,#059669,#0DB9A0)', color: '#fff', fontFamily: 'inherit', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, boxShadow: '0 4px 14px rgba(13,185,160,.4)', transition: 'all .22s cubic-bezier(.34,1.56,.64,1)' },
+      }, ic('<svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M20 12H7m0 0l5-5m-5 5l5 5" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',15), 'รับคืน EB นี้') : null,
+    );
 
     vals.resetForm = () => this.resetForm();
 
