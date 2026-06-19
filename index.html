@@ -2137,16 +2137,16 @@ class Component extends DCLogic {
       ? `@page { size: A4 portrait; margin: 0; } @media print { html,body { width:210mm; height:297mm; } .ui { display:none !important; } body { -webkit-print-color-adjust:exact; print-color-adjust:exact; } }`
       : `@page { size: A4 landscape; margin: 0; } @media print { html,body { width:297mm; height:210mm; } .ui { display:none !important; } body { -webkit-print-color-adjust:exact; print-color-adjust:exact; } }`;
     const a4W = isPortrait ? '210mm' : '297mm';
-    const uiLabel = isPortrait ? '🖨️ พิมพ์ (A4 ตั้ง — 1 ใบ)' : '🖨️ พิมพ์ (A4 นอน — ได้ 2 ใบ ✂)';
+    const uiLabel = isPortrait ? '🖨️ พิมพ์ (A4 ตั้ง — 1 ใบ)' : '🖨️ พิมพ์ (A4 นอน — 1 ใบ A5 ✂)';
     const tipText = isPortrait
       ? `ตั้งค่าพิมพ์: กระดาษ <b>A4</b> · แนว <b>Portrait</b> · Margins = <b>None</b> · ปิด <b>Headers &amp; footers</b>`
-      : `ตั้งค่าพิมพ์: กระดาษ <b>A4</b> · แนว <b>Landscape</b> · Margins = <b>None</b> · ปิด <b>Headers &amp; footers</b><br>ตัดตรงเส้นประกลางแผ่น ได้ 2 ใบแนวตั้ง (ครึ่ง A4)`;
+      : `ตั้งค่าพิมพ์: กระดาษ <b>A4</b> · แนว <b>Landscape</b> · Margins = <b>None</b> · ปิด <b>Headers &amp; footers</b><br>ฟอร์มอยู่ครึ่งซ้าย · ตัดตรงเส้นประ → ได้ใบ A5 + เก็บครึ่งว่างพิมพ์กล่องถัดไป`;
     const layoutCSS = isPortrait
       ? `.a4-inner{width:210mm;height:297mm;padding:10mm 12mm 8mm 12mm;overflow:hidden;display:flex;flex-direction:column}`
-      : `.a4-inner{width:297mm;height:210mm;display:flex;flex-direction:row} .half{width:148.5mm;height:210mm;padding:5mm 6mm 4mm 6mm;overflow:hidden;display:flex;flex-direction:column} .vcut{width:0;border-left:1.5px dashed #999;height:210mm;display:flex;align-items:center;overflow:visible;position:relative} .vcut span{background:#fff;padding:2mm 0;font-size:7.5pt;color:#888;writing-mode:vertical-rl;position:absolute;white-space:nowrap}`;
+      : `.a4-inner{width:297mm;height:210mm;display:flex;flex-direction:row} .half{width:148.5mm;height:210mm;padding:5mm 6mm 4mm 6mm;overflow:hidden;display:flex;flex-direction:column} .blank{flex:1;height:210mm} .vcut{width:0;border-left:1.5px dashed #999;height:210mm;display:flex;align-items:center;overflow:visible;position:relative} .vcut span{background:#fff;padding:2mm 0;font-size:7.5pt;color:#888;writing-mode:vertical-rl;position:absolute;white-space:nowrap}`;
     const bodyContent = isPortrait
       ? `<div class="a4-inner">${formHTML}</div>`
-      : `<div class="a4-inner"><div class="half">${formHTML}</div><div class="vcut"><span>✂ ตัดตรงนี้</span></div><div class="half">${formHTML}</div></div>`;
+      : `<div class="a4-inner"><div class="half">${formHTML}</div><div class="vcut"><span>✂ ตัดตรงนี้</span></div><div class="blank"></div></div>`;
 
     const html = `<!DOCTYPE html><html lang="th"><head><meta charset="utf-8">
 <title>Emergency Box - ${eb}</title>
@@ -2810,7 +2810,7 @@ td.l{text-align:left;padding-left:3px}
     const btnStyle = { display: 'inline-flex', alignItems: 'center', gap: 7, height: 50, padding: '0 18px', border: '1.5px solid #C3DDEC', background: 'linear-gradient(135deg,#EEF5FA,#E4F0F8)', color: '#1A6FA3', borderRadius: 13, fontFamily: 'inherit', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', transition: 'all .22s cubic-bezier(.34,1.56,.64,1)', boxShadow: '0 2px 8px rgba(26,111,163,.1)' };
     vals.printEBFormBtn = h('span', { style: { display: 'inline-flex', gap: 8 } },
       h('button', { type: 'button', onClick: () => this.printEBForm('landscape1'), style: btnStyle },
-        ic(printerSVG, 17), h('span', null, 'พิมพ์ใบกล่อง ', h('span', { style: { fontSize: 11, opacity: .72, fontWeight: 500 } }, '(A4 นอน — 2 ใบ ✂)'))),
+        ic(printerSVG, 17), h('span', null, 'พิมพ์ใบกล่อง ', h('span', { style: { fontSize: 11, opacity: .72, fontWeight: 500 } }, '(A4 นอน — A5 ✂)'))),
       h('button', { type: 'button', onClick: () => this.printEBForm('portrait1'), style: { ...btnStyle, background: 'linear-gradient(135deg,#F0F7FF,#E4EEFF)', borderColor: '#BDD0F5' } },
         ic(printerSVG, 17), h('span', null, 'พิมพ์ใบกล่อง ', h('span', { style: { fontSize: 11, opacity: .72, fontWeight: 500 } }, '(ตั้ง 1 ใบ)')))
     );
