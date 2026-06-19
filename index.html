@@ -2135,24 +2135,20 @@ class Component extends DCLogic {
 <div class="wr"><span class="wl">ยาที่ใช้</span><span class="uline flex1"></span><span class="wl ml">จำนวน</span><span class="uline" style="min-width:18mm"></span></div>
 <div class="wr"><span class="wl">ยาที่ใช้</span><span class="uline flex1"></span><span class="wl ml">จำนวน</span><span class="uline" style="min-width:18mm"></span></div>`;
 
-    const isPortrait2 = layout === 'portrait2';
-    const pageCSS = isPortrait2
+    const isPortrait = layout === 'portrait1';
+    const pageCSS = isPortrait
       ? `@page { size: A4 portrait; margin: 0; } @media print { html,body { width:210mm; height:297mm; } .ui { display:none !important; } body { -webkit-print-color-adjust:exact; print-color-adjust:exact; } }`
       : `@page { size: A4 landscape; margin: 0; } @media print { html,body { width:297mm; height:210mm; } .ui { display:none !important; } body { -webkit-print-color-adjust:exact; print-color-adjust:exact; } }`;
-    const a4W = isPortrait2 ? '210mm' : '297mm';
-    const pageW = isPortrait2 ? '210mm' : '297mm';
-    const pageH = isPortrait2 ? '148.5mm' : '210mm';
-    const pagePad = isPortrait2 ? '5mm 9mm 4mm 9mm' : '7mm 12mm 6mm 12mm';
-    const uiLabel = isPortrait2 ? '🖨️ พิมพ์ (A4 ตั้ง — 2 ใบ)' : '🖨️ พิมพ์ (A4 นอน — 1 ใบ)';
-    const tipText = isPortrait2
-      ? `ตั้งค่าพิมพ์: กระดาษ <b>A4</b> · แนว <b>Portrait</b> · Margins = <b>None</b> · ปิด <b>Headers &amp; footers</b><br>ตัดกระดาษตรงเส้นประกลางได้ 2 ใบ`
+    const a4W = isPortrait ? '210mm' : '297mm';
+    const pageW = isPortrait ? '210mm' : '297mm';
+    const pageH = isPortrait ? '297mm' : '210mm';
+    const pagePad = isPortrait ? '10mm 12mm 8mm 12mm' : '7mm 12mm 6mm 12mm';
+    const uiLabel = isPortrait ? '🖨️ พิมพ์ (A4 ตั้ง — 1 ใบ)' : '🖨️ พิมพ์ (A4 นอน — 1 ใบ)';
+    const tipText = isPortrait
+      ? `ตั้งค่าพิมพ์: กระดาษ <b>A4</b> · แนว <b>Portrait</b> · Margins = <b>None</b> · ปิด <b>Headers &amp; footers</b>`
       : `ตั้งค่าพิมพ์: กระดาษ <b>A4</b> · แนว <b>Landscape</b> · Margins = <b>None</b> · ปิด <b>Headers &amp; footers</b>`;
-    const bodyContent = isPortrait2
-      ? `<div class="half">${formHTML}</div><div class="cut"><span>✂ ตัดตรงนี้</span></div><div class="half">${formHTML}</div>`
-      : `<div class="page">${formHTML}</div>`;
-    const cutCSS = isPortrait2
-      ? `.half{width:${pageW};height:${pageH};padding:${pagePad};overflow:hidden;display:flex;flex-direction:column;gap:0} .cut{border-top:1.5px dashed #999;display:flex;align-items:center;justify-content:center;height:0;overflow:visible} .cut span{background:#fff;padding:0 3mm;font-size:8pt;color:#888;position:relative;top:-0.5em}`
-      : `.page{width:${pageW};height:${pageH};padding:${pagePad};overflow:hidden;display:flex;flex-direction:column;gap:0}`;
+    const bodyContent = `<div class="page">${formHTML}</div>`;
+    const cutCSS = `.page{width:${pageW};height:${pageH};padding:${pagePad};overflow:hidden;display:flex;flex-direction:column;gap:0}`;
 
     const html = `<!DOCTYPE html><html lang="th"><head><meta charset="utf-8">
 <title>Emergency Box - ${eb}</title>
@@ -2818,8 +2814,8 @@ td.l{text-align:left;padding-left:4px}
     vals.printEBFormBtn = h('span', { style: { display: 'inline-flex', gap: 8 } },
       h('button', { type: 'button', onClick: () => this.printEBForm('landscape1'), style: btnStyle },
         ic(printerSVG, 17), h('span', null, 'พิมพ์ใบกล่อง ', h('span', { style: { fontSize: 11, opacity: .72, fontWeight: 500 } }, '(นอน 1 ใบ)'))),
-      h('button', { type: 'button', onClick: () => this.printEBForm('portrait2'), style: { ...btnStyle, background: 'linear-gradient(135deg,#F0F7FF,#E4EEFF)', borderColor: '#BDD0F5' } },
-        ic(printerSVG, 17), h('span', null, 'พิมพ์ใบกล่อง ', h('span', { style: { fontSize: 11, opacity: .72, fontWeight: 500 } }, '(ตั้ง 2 ใบ)')))
+      h('button', { type: 'button', onClick: () => this.printEBForm('portrait1'), style: { ...btnStyle, background: 'linear-gradient(135deg,#F0F7FF,#E4EEFF)', borderColor: '#BDD0F5' } },
+        ic(printerSVG, 17), h('span', null, 'พิมพ์ใบกล่อง ', h('span', { style: { fontSize: 11, opacity: .72, fontWeight: 500 } }, '(ตั้ง 1 ใบ)')))
     );
 
     // ----- DETAIL -----
