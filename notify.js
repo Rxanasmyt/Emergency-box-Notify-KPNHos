@@ -144,11 +144,15 @@
     const msg = buildAlertMessage(alerts);
     if (!msg) return false;
     try {
-      await fetch(settings.lineWebhookUrl, {
+      const res = await fetch(settings.lineWebhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: msg }),
       });
+      if (!res.ok) {
+        console.error('[Notify] LINE error:', res.status, await res.text().catch(() => ''));
+        return false;
+      }
       console.log('[Notify] LINE message sent');
       return true;
     } catch (err) {

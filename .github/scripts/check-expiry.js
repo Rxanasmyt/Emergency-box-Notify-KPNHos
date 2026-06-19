@@ -18,12 +18,19 @@ const nodemailer = require('nodemailer');
 const https = require('https');
 
 // ── Init Firebase Admin ────────────────────────────────────────
-const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+let serviceAccount;
+try {
+  serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+} catch (e) {
+  console.error('❌ FIREBASE_SERVICE_ACCOUNT ไม่ถูกต้อง — ไม่ใช่ JSON ที่ valid:', e.message);
+  process.exit(1);
+}
 admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
 const db = admin.firestore();
 
 // แจ้งเตือนยาที่หมดอายุภายใน 30 วัน (= ถึงวันส่งคืนภายใน 15 วัน)
-const THRESHOLD_DAYS = parseInt(process.env.NOTIFY_DAYS_AHEAD || '30', 10);
+const _rawDays = parseInt(process.env.NOTIFY_DAYS_AHEAD || '30', 10);
+const THRESHOLD_DAYS = isNaN(_rawDays) || _rawDays <= 0 ? 30 : _rawDays;
 const TODAY = new Date();
 TODAY.setHours(0, 0, 0, 0);
 
@@ -82,8 +89,8 @@ async function fetchExpiringDrugs() {
           alerts.push({
             boxId,
             dept: box.dept || '—',
-            boxStatus: box.status || 'in',
-            boxCurrentDept: (box.status === 'out' && box.currentDept) ? box.currentDept : (box.dept || '—'),
+            boxStatus: (box.dispense && !box.receiver) ? 'out' : 'in',
+            boxCurrentDept: (box.dispense && !box.receiver && box.dept) ? box.dept : '—',
             drugName: drug.name || '—',
             isHAD: !!drug.had,
             expiry: lot.expiry,

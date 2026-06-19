@@ -40,11 +40,19 @@ function _startUsersListener(){
 }
 
 // Called after login — starts boxes/audit/boxDrugs listeners (users already active)
+// Calls stopSync() first to prevent duplicate listeners if called more than once
 function initFirebaseSync(comp){
   if(!window.EB_Firebase){console.warn('[Sync] Firebase not initialized');return;}
+  stopSync(); // clear any previous listeners before starting new ones
   db=window.EB_Firebase.db;component=comp;
   console.log('[Sync] Initializing full sync...');
-  seedIfEmpty().then(()=>{listenBoxes();listenAudit();listenBoxDrugs();console.log('[Sync] All listeners active.');});
+  seedIfEmpty()
+    .then(()=>{listenBoxes();listenAudit();listenBoxDrugs();console.log('[Sync] All listeners active.');})
+    .catch(err=>{
+      // seedIfEmpty has its own try/catch, but guard here as well
+      console.warn('[Sync] Seed error, starting listeners anyway:',err.message);
+      listenBoxes();listenAudit();listenBoxDrugs();
+    });
 }
 
 // Called on logout — stops boxes/audit/boxDrugs; users listener stays active for next login
@@ -87,7 +95,8 @@ function listenBoxes(){
     if(!component)return;
     const boxes=[];snap.forEach(doc=>{boxes.push({id:doc.id,...doc.data()});});
     boxes.sort((a,b)=>{const n=(s)=>parseInt(s.replace(/\D/g,''),10)||0;return n(a.id)-n(b.id);});
-    if(boxes.length){component.BOXES=boxes;component.setState({});}
+    // always update BOXES even when empty — prevents stale data after deletion
+    component.BOXES=boxes;component.setState({});
   },err=>console.warn('[Sync] Boxes error:',err.message));
   unsubscribers.push(unsub);
 }
@@ -95,7 +104,8 @@ function listenAudit(){
   const unsub=db.collection(C.audit).orderBy('date','desc').onSnapshot(snap=>{
     if(!component)return;
     const logs=[];snap.forEach(doc=>{const d=doc.data();logs.push({...d,cat:d.action==='จ่าย'?'dispense':d.action==='รับคืน'?'return':'other'});});
-    if(logs.length){component.AUDIT=logs;component.setState({auditLog:logs});}
+    // always update audit even when empty
+    component.AUDIT=logs;component.setState({auditLog:logs});
   },err=>console.warn('[Sync] Audit error:',err.message));
   unsubscribers.push(unsub);
 }
@@ -103,8 +113,9 @@ function listenBoxDrugs(){
   const unsub=db.collection(C.boxDrugs).onSnapshot(snap=>{
     if(!component)return;
     const bd={};snap.forEach(doc=>{const d=doc.data();if(d.boxId&&d.drugs)bd[d.boxId]=d.drugs;});
+    // always update BOX_DRUGS and boxDrugs state even when empty
     component.BOX_DRUGS=bd;
-    if(Object.keys(bd).length){component.setState({});}
+    component.setState({boxDrugs:Object.keys(bd).length?bd:component.state.boxDrugs||null});
   },err=>console.warn('[Sync] BoxDrugs error:',err.message));
   unsubscribers.push(unsub);
 }

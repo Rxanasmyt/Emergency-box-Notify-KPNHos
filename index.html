@@ -1668,6 +1668,7 @@ class Component extends DCLogic {
   statusOf(expiry) {
     if (!expiry) return { key: 'ok', label: 'ไม่มีข้อมูล', color: '#9AAAB8', soft: '#EEF2F6', border: '#E2E9F0' };
     const ret = this.addDays(expiry, -15);
+    if (!ret || isNaN(ret.getTime())) return { key: 'ok', label: 'ไม่มีข้อมูล', color: '#9AAAB8', soft: '#EEF2F6', border: '#E2E9F0' };
     const days = this.daysBetween(ret);
     if (days <= 0) return { key: 'critical', label: 'ต้องส่งคืนด่วน', color: '#E03E3E', soft: '#FCEDED', border: '#F4C9C9' };
     if (days <= 15) return { key: 'warning', label: 'ใกล้กำหนด', color: '#D9810F', soft: '#FBF1E0', border: '#F4DEC2' };
@@ -1676,6 +1677,7 @@ class Component extends DCLogic {
   daysText(expiry) {
     if (!expiry) return '—';
     const ret = this.addDays(expiry, -15);
+    if (!ret || isNaN(ret.getTime())) return '—';
     const days = this.daysBetween(ret);
     if (days < 0) return `เกิน ${Math.abs(days)} วัน`;
     if (days === 0) return 'วันนี้';
@@ -3300,8 +3302,8 @@ td.l{text-align:left;padding-left:4px}
               h('div', { style: { fontSize: 16.5, fontWeight: 700, color: '#15242E' } }, cf.title),
               h('div', { style: { fontSize: 13, color: '#6B7C8A', marginTop: 5, lineHeight: 1.55 } }, cf.body))),
           h('div', { style: { display: 'flex', gap: 10, marginTop: 4 } },
-            h('button', { onClick: () => this.runConfirm(), style: { flex: 1, height: 47, border: 'none', borderRadius: 12, background: tone.c, color: '#fff', fontFamily: 'inherit', fontSize: 14, fontWeight: 600, cursor: 'pointer' } }, cf.yesLabel || 'ยืนยัน'),
-            h('button', { onClick: () => this.closeConfirm(), style: { height: 47, padding: '0 20px', border: '1.5px solid #DBE4EB', background: '#fff', color: '#4A5C6A', borderRadius: 12, fontFamily: 'inherit', fontSize: 14, fontWeight: 600, cursor: 'pointer' } }, cf.noLabel || 'ยกเลิก'))));
+            h('button', { onClick: () => { this.bumpIdle(); this.runConfirm(); }, style: { flex: 1, height: 47, border: 'none', borderRadius: 12, background: tone.c, color: '#fff', fontFamily: 'inherit', fontSize: 14, fontWeight: 600, cursor: 'pointer' } }, cf.yesLabel || 'ยืนยัน'),
+            h('button', { onClick: () => { this.bumpIdle(); this.closeConfirm(); }, style: { height: 47, padding: '0 20px', border: '1.5px solid #DBE4EB', background: '#fff', color: '#4A5C6A', borderRadius: 12, fontFamily: 'inherit', fontSize: 14, fontWeight: 600, cursor: 'pointer' } }, cf.noLabel || 'ยกเลิก'))));
     } else vals.confirmEl = null;
 
     // ===== idle warning =====
