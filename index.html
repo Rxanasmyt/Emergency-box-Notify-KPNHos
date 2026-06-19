@@ -2143,7 +2143,7 @@ class Component extends DCLogic {
       : `ตั้งค่าพิมพ์: กระดาษ <b>A4</b> · แนว <b>Landscape</b> · Margins = <b>None</b> · ปิด <b>Headers &amp; footers</b><br>ฟอร์มอยู่ครึ่งซ้าย · ตัดตรงเส้นประ → ได้ใบ A5 + เก็บครึ่งว่างพิมพ์กล่องถัดไป`;
     const layoutCSS = isPortrait
       ? `.a4-inner{width:210mm;height:297mm;padding:10mm 12mm 8mm 12mm;overflow:hidden;display:flex;flex-direction:column}`
-      : `.a4-inner{width:297mm;height:210mm;display:flex;flex-direction:row} .half{width:148.5mm;height:210mm;padding:5mm 4mm 4mm 3mm;overflow:hidden;display:flex;flex-direction:column} .blank{flex:1;height:210mm} .vcut{width:0;border-left:1.5px dashed #999;height:210mm;display:flex;align-items:center;overflow:visible;position:relative} .vcut span{background:#fff;padding:2mm 0;font-size:7.5pt;color:#888;writing-mode:vertical-rl;position:absolute;white-space:nowrap}`;
+      : `.a4-inner{width:297mm;height:210mm;display:flex;flex-direction:row} .half{width:148.5mm;height:210mm;padding:5mm 4mm 4mm 5mm;overflow:hidden;display:flex;flex-direction:column} .blank{flex:1;height:210mm} .vcut{width:0;border-left:1.5px dashed #999;height:210mm;display:flex;align-items:center;overflow:visible;position:relative} .vcut span{background:#fff;padding:2mm 0;font-size:7.5pt;color:#888;writing-mode:vertical-rl;position:absolute;white-space:nowrap}`;
     const bodyContent = isPortrait
       ? `<div class="a4-inner">${formHTML}</div>`
       : `<div class="a4-inner"><div class="half">${formHTML}</div><div class="vcut"><span>✂ ตัดตรงนี้</span></div><div class="blank"></div></div>`;
