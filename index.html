@@ -1901,7 +1901,10 @@ class Component extends DCLogic {
     const u = this.state.users.find(x => x.id === id);
     this.setState(s => ({ users: s.users.map(u => u.id === id ? { ...u, role } : u) }));
     this.flash('อัปเดตบทบาทผู้ใช้แล้ว');
-    if (u) this.logAction({ cat: 'user', action: 'แก้สิทธิ์', eb: '—', dept: u.dept, drug: `เปลี่ยนบทบาท ${u.name} → ${this.ROLES[role].label}` });
+    if (u) {
+      if (window.EB_Sync) window.EB_Sync.syncUsers({ ...u, role });
+      this.logAction({ cat: 'user', action: 'แก้สิทธิ์', eb: '—', dept: u.dept, drug: `เปลี่ยนบทบาท ${u.name} → ${this.ROLES[role].label}` });
+    }
   }
   toggleUserStatus(id) {
     let label = '', changed = null;
@@ -1913,19 +1916,28 @@ class Component extends DCLogic {
       return changed;
     }) }));
     this.flash(label);
-    if (changed) this.logAction({ cat: 'user', action: 'จัดการผู้ใช้', eb: '—', dept: changed.dept, drug: `${changed.status === 'active' ? 'เปิดใช้งาน' : 'ระงับ'}บัญชี ${changed.name}` });
+    if (changed) {
+      if (window.EB_Sync) window.EB_Sync.syncUsers(changed);
+      this.logAction({ cat: 'user', action: 'จัดการผู้ใช้', eb: '—', dept: changed.dept, drug: `${changed.status === 'active' ? 'เปิดใช้งาน' : 'ระงับ'}บัญชี ${changed.name}` });
+    }
   }
   resetUserPw(id) {
     const u = this.state.users.find(x => x.id === id);
     this.setState(s => ({ users: s.users.map(u => u.id === id ? { ...u, password: '1234' } : u) }));
     this.flash('รีเซ็ตรหัสผ่านเป็นค่าเริ่มต้น (1234) แล้ว');
-    if (u) this.logAction({ cat: 'user', action: 'รีเซ็ตรหัส', eb: '—', dept: u.dept, drug: `รีเซ็ตรหัสผ่าน ${u.name}` });
+    if (u) {
+      if (window.EB_Sync) window.EB_Sync.syncUsers({ ...u, password: '1234' });
+      this.logAction({ cat: 'user', action: 'รีเซ็ตรหัส', eb: '—', dept: u.dept, drug: `รีเซ็ตรหัสผ่าน ${u.name}` });
+    }
   }
   deleteUser(id) {
     const u = this.state.users.find(x => x.id === id);
     this.setState(s => ({ users: s.users.filter(u => u.id !== id) }));
     this.flash('ลบบัญชีผู้ใช้แล้ว');
-    if (u) this.logAction({ cat: 'user', action: 'ลบผู้ใช้', eb: '—', dept: u.dept, drug: `ลบบัญชี ${u.name} (${u.username})` });
+    if (u) {
+      if (window.EB_Sync) window.EB_Sync.deleteUser(u);
+      this.logAction({ cat: 'user', action: 'ลบผู้ใช้', eb: '—', dept: u.dept, drug: `ลบบัญชี ${u.name} (${u.username})` });
+    }
   }
   addUser() {
     const { nu_name, nu_username, nu_role, nu_dept, nu_pass, users } = this.state;
@@ -1934,6 +1946,7 @@ class Component extends DCLogic {
     const id = Math.max(0, ...users.map(u => u.id)) + 1;
     const nu = { id, name: nu_name.trim(), username: nu_username.trim(), password: nu_pass.trim() || '1234', role: nu_role, dept: nu_dept.trim() || '-', status: 'active', lastLogin: 'ยังไม่เคยเข้าระบบ' };
     this.setState({ users: [...users, nu], showAddUser: false, nu_name: '', nu_username: '', nu_role: 'technician', nu_dept: 'ห้องยา', nu_pass: '' });
+    if (window.EB_Sync) window.EB_Sync.syncUsers(nu);
     this.flash('เพิ่มผู้ใช้ใหม่เรียบร้อย');
     this.logAction({ cat: 'user', action: 'จัดการผู้ใช้', eb: '—', dept: nu.dept, drug: `เพิ่มผู้ใช้ใหม่ ${nu.name} (${this.ROLES[nu_role].label})` });
   }

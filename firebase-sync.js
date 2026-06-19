@@ -31,6 +31,15 @@ async function seedIfEmpty(){
       await bb.commit();
       console.log('[Sync] box_drugs seeded.');
     }
+    // seed users if empty — ensures admin always exists in Firestore
+    const usersSnap=await db.collection(C.users).limit(1).get();
+    if(usersSnap.empty&&component.state&&component.state.users&&component.state.users.length){
+      console.log('[Sync] Seeding users...');
+      const ub=db.batch();
+      component.state.users.forEach(u=>{const{id,uid,...data}=u;const docId=uid||u.username;ub.set(db.collection(C.users).doc(docId),data);});
+      await ub.commit();
+      console.log('[Sync] Users seeded.');
+    }
   }catch(err){console.warn('[Sync] Seed failed (offline?):', err.message);}
 }
 function listenBoxes(){
@@ -77,13 +86,19 @@ function syncBoxes(box){
 }
 function syncUsers(user){
   if(!db)return Promise.resolve();
-  const{uid,...data}=user;
-  const docId=uid||db.collection(C.users).doc().id;
+  const{uid,id,...data}=user;
+  const docId=uid||user.username||db.collection(C.users).doc().id;
   return db.collection(C.users).doc(docId).set(data,{merge:true}).catch(err=>console.error('[Sync] User write failed:',err.message));
 }
 function syncBoxDrugs(boxId,drugs){
   if(!db)return Promise.resolve();
   return db.collection(C.boxDrugs).doc(boxId).set({boxId,drugs,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true}).catch(err=>console.error('[Sync] BoxDrugs write failed:',err.message));
 }
-window.EB_Sync={initFirebaseSync,stopSync,logAudit,syncBoxes,syncUsers,syncBoxDrugs};
+function deleteUser(user){
+  if(!db)return Promise.resolve();
+  const docId=user.uid||user.username;
+  if(!docId)return Promise.resolve();
+  return db.collection(C.users).doc(docId).delete().catch(err=>console.error('[Sync] User delete failed:',err.message));
+}
+window.EB_Sync={initFirebaseSync,stopSync,logAudit,syncBoxes,syncUsers,deleteUser,syncBoxDrugs};
 })();
