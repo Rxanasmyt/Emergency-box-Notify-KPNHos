@@ -1888,22 +1888,24 @@ class Component extends DCLogic {
     // anon auth already started in componentDidMount — just start remaining Firestore sync
     if (window.EB_Sync) {
       window.EB_Sync.initFirebaseSync(this);
-      setTimeout(() => { if (window.EB_Sync) window.EB_Sync.syncUsers(updatedU); }, 1500);
+      this._syncT = setTimeout(() => { if (window.EB_Sync) window.EB_Sync.syncUsers(updatedU); }, 1500);
     }
     setTimeout(() => {
+      if (!this.state.authed) return;
       this.logAction({ cat: 'auth', action: 'เข้าระบบ', eb: '—', dept: u.dept, drug: 'เข้าสู่ระบบสำเร็จ' });
       this.bumpIdle();
       if (window.EB_Notify) {
         window.EB_Notify.checkAndNotify(this, false).then(result => {
+          if (!this.state.authed) return;
           if (result.alerts.length) {
             this.setState({ expiryAlerts: result.alerts, showExpiryBanner: true });
           }
-        });
+        }).catch(err => console.warn('[Notify] checkAndNotify failed:', err));
       }
     }, 500);
   }
   logout() {
-    clearTimeout(this._idleT); clearTimeout(this._idleWarnT);
+    clearTimeout(this._idleT); clearTimeout(this._idleWarnT); clearTimeout(this._syncT);
     if (window.EB_Sync) window.EB_Sync.stopSync();
     this.setState({
       authed: false, currentUser: null, loginUser: '', loginPass: '', showPass: false, screen: 'dashboard',
@@ -1912,6 +1914,7 @@ class Component extends DCLogic {
       dispenser: '', swapReturn: false, swapReceiver: '', dispDate: '', swapReturnDate: '',
       retReceiver: '', retDate: '',
       boxMeta: {}, editDrugs: false, showChangePw: false, showAddUser: false,
+      expiryAlerts: [], showExpiryBanner: false,
     });
     // keep anonymous Firebase session alive so users listener continues working
     // next login can authenticate against all users in Firestore without re-signing-in
@@ -1941,6 +1944,7 @@ class Component extends DCLogic {
   }
   toggleUserStatus(username) {
     if (!this.state.currentUser || this.state.currentUser.role !== 'admin') return;
+    if (username === this.state.currentUser.username) { this.flash('ไม่สามารถระงับบัญชีของตัวเองได้'); return; }
     let label = '', changed = null;
     this.setState(s => ({ users: s.users.map(u => {
       if (u.username !== username) return u;
@@ -1976,6 +1980,7 @@ class Component extends DCLogic {
   }
   deleteUser(username) {
     if (!this.state.currentUser || this.state.currentUser.role !== 'admin') return;
+    if (username === this.state.currentUser.username) { this.flash('ไม่สามารถลบบัญชีของตัวเองได้'); return; }
     const u = this.state.users.find(x => x.username === username);
     this.setState(s => ({ users: s.users.filter(u => u.username !== username) }));
     this.flash('ลบบัญชีผู้ใช้แล้ว');
@@ -2107,7 +2112,6 @@ class Component extends DCLogic {
     this.resetForm();
   }
   printEBForm(layout = 'landscape1') {
-    this.setState({ regPrinted: true });
     const st = this.state;
     const eb = st.regEB;
     const mfg = st.regMfg;
@@ -2270,6 +2274,7 @@ td.l{text-align:left;padding-left:4px}
 
     const win = window.open('', '_blank', 'width=820,height=920');
     if (!win) { alert('กรุณาอนุญาต Pop-up เพื่อใช้งานการพิมพ์'); return; }
+    this.setState({ regPrinted: true });
     win.document.write(html);
     win.document.close();
     setTimeout(() => { try { win.print(); } catch(_) {} }, 600);
@@ -2420,12 +2425,18 @@ td.l{text-align:left;padding-left:4px}
       clearTimeout(this._t); this._t = setTimeout(() => this.setState({ showToast: false }), 2500);
     };
     vals.testNotify = () => {
+      if (!window.EB_Notify) return;
       window.EB_Notify.checkAndNotify(this, true).then(result => {
+        if (!result) return;
         if (result.alerts.length) {
           this.setState({ expiryAlerts: result.alerts, showExpiryBanner: true, showToast: true, toastTitle: `ส่งแจ้งเตือนแล้ว (${result.alerts.length} รายการ)` });
         } else {
           this.setState({ showToast: true, toastTitle: 'ไม่พบยาใกล้หมดอายุ' });
         }
+        clearTimeout(this._t); this._t = setTimeout(() => this.setState({ showToast: false }), 2500);
+      }).catch(err => {
+        console.warn('[Notify] testNotify failed:', err);
+        this.setState({ showToast: true, toastTitle: 'เกิดข้อผิดพลาดในการทดสอบแจ้งเตือน' });
         clearTimeout(this._t); this._t = setTimeout(() => this.setState({ showToast: false }), 2500);
       });
     };
@@ -2573,9 +2584,13 @@ td.l{text-align:left;padding-left:4px}
     const counts = { critical: 0, warning: 0, ok: 0 };
     this.BOXES.forEach(b => counts[this.statusOf(exp(b)).key]++);
     const total = this.BOXES.length;
-    const a1 = counts.critical / total * 360;
-    const a2 = a1 + counts.warning / total * 360;
-    vals.donutGradient  = `conic-gradient(#E03E3E 0 ${a1}deg, #EE8A2B ${a1}deg ${a2}deg, #169C7F ${a2}deg 360deg)`;
+    if (total === 0) {
+      vals.donutGradient = 'conic-gradient(#CBD5E1 0 360deg)';
+    } else {
+      const a1 = counts.critical / total * 360;
+      const a2 = a1 + counts.warning / total * 360;
+      vals.donutGradient = `conic-gradient(#E03E3E 0 ${a1}deg, #EE8A2B ${a1}deg ${a2}deg, #169C7F ${a2}deg 360deg)`;
+    }
     vals.donutCritical  = counts.critical;
     vals.donutWarning   = counts.warning;
     vals.donutOk        = counts.ok;
