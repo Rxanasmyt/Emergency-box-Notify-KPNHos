@@ -75,6 +75,7 @@ async function fetchExpiringDrugs() {
   console.log(`💊 box_drugs collection: ${bdSnap.size} documents`);
   bdSnap.forEach(doc => {
     const data = doc.data();
+    if (!data) return;
     const boxId = doc.id;
     const box = boxes[boxId] || {};
     const drugs = data.drugs || [];
@@ -186,6 +187,7 @@ function sendLineMessage(channelToken, message, userId) {
       hostname: 'api.line.me',
       path,
       method: 'POST',
+      timeout: 30000,
       headers: {
         'Authorization': `Bearer ${channelToken}`,
         'Content-Type': 'application/json',
@@ -204,6 +206,7 @@ function sendLineMessage(channelToken, message, userId) {
         }
       });
     });
+    req.on('timeout', () => { console.error('❌ LINE timeout (30s)'); req.destroy(); resolve(false); });
     req.on('error', err => { console.error('❌ LINE error:', err.message); resolve(false); });
     req.write(payload);
     req.end();
@@ -420,7 +423,7 @@ async function sendEmail(alerts) {
   const from = process.env.EMAIL_FROM;
   const pass = process.env.EMAIL_PASS;
   const to   = process.env.EMAIL_TO;
-  if (!from || !pass || !to) { console.log('⚠️  Email: ไม่ได้ตั้งค่า secrets (EMAIL_FROM / EMAIL_PASS / EMAIL_TO)'); return false; }
+  if (!from || !pass || !to || !to.trim()) { console.log('⚠️  Email: ไม่ได้ตั้งค่า secrets (EMAIL_FROM / EMAIL_PASS / EMAIL_TO)'); return false; }
 
   console.log(`📧 Email: from=${from} to=${to}`);
 
@@ -429,6 +432,9 @@ async function sendEmail(alerts) {
     port: 465,
     secure: true,
     auth: { user: from, pass },
+    connectionTimeout: 15000,
+    greetingTimeout: 10000,
+    socketTimeout: 20000,
   });
 
   const expired  = alerts.filter(a => a.status === 'expired').length;
@@ -598,10 +604,10 @@ async function main() {
   }
 
   const lineResult = process.env.LINE_CHANNEL_TOKEN
-    ? await sendLineMessage(process.env.LINE_CHANNEL_TOKEN, buildLineMessage(alertsToSend), process.env.LINE_USER_ID || '')
+    ? await sendLineMessage(process.env.LINE_CHANNEL_TOKEN, buildLineMessage(alertsToSend), process.env.LINE_USER_ID || '').catch(err => { console.error('❌ LINE exception:', err.message); return false; })
     : (console.log('⚠️  LINE: ไม่ได้ตั้งค่า LINE_CHANNEL_TOKEN'), false);
 
-  const emailResult = await sendEmail(alertsToSend);
+  const emailResult = await sendEmail(alertsToSend).catch(err => { console.error('❌ Email exception:', err.message); return false; });
 
   console.log('\n── สรุปผลการแจ้งเตือน ──');
   console.log(`LINE:  ${lineResult ? '✅ สำเร็จ' : '❌ ล้มเหลว / ไม่ได้ตั้งค่า'}`);

@@ -1327,7 +1327,8 @@ input:focus, select:focus, textarea:focus {
         <div style="background: linear-gradient(135deg, #FCEDED, #FBF1E0); border: 1.5px solid #F4C9C9; border-radius: 16px; padding: 20px 24px; margin-bottom: 20px;">
           <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
             <span style="font-size: 22px;">🔔</span>
-            <span style="font-size: 15px; font-weight: 700; color: #B42121;">พบยาที่ต้องดำเนินการ {{ expiryAlertCount }} รายการ</span>
+            <span style="font-size: 15px; font-weight: 700; color: #B42121; flex: 1;">พบยาที่ต้องดำเนินการ {{ expiryAlertCount }} รายการ</span>
+            <button onclick="{{ dismissExpiryBanner }}" style="border: none; background: none; cursor: pointer; color: #B42121; font-size: 20px; line-height: 1; padding: 0 4px; opacity: .7;" title="ปิด">×</button>
           </div>
           <div style="font-size: 13px; color: #7B4019; line-height: 1.7;">{{ expiryAlertSummary }}</div>
         </div>
@@ -1630,7 +1631,7 @@ class Component extends DCLogic {
   // ---------- date helpers ----------
   parse(iso) { return iso ? new Date(iso + 'T00:00:00') : null; }
   addDays(iso, n) { const d = this.parse(iso); if (!d) return null; d.setDate(d.getDate() + n); return d; }
-  fmt(d) { if (!d) return '—'; return `${d.getDate()} ${this.TH_MONTHS[d.getMonth()]} ${d.getFullYear() + 543}`; }
+  fmt(d) { if (!d || isNaN(d.getTime())) return '—'; return `${d.getDate()} ${this.TH_MONTHS[d.getMonth()]} ${d.getFullYear() + 543}`; }
   fmtISO(iso) { return iso ? this.fmt(this.parse(iso)) : '—'; }
   returnDateISO(expiry) { const d = this.addDays(expiry, -15); if (!d) return ''; const m = String(d.getMonth()+1).padStart(2,'0'); const day = String(d.getDate()).padStart(2,'0'); return `${d.getFullYear()}-${m}-${day}`; }
   daysBetween(d) { return Math.round((d - this.TODAY) / 86400000); }
@@ -1652,7 +1653,7 @@ class Component extends DCLogic {
   // total qty across lots
   drugQty(d) { return (d.lots || []).reduce((s, l) => s + (l.qty || 0), 0); }
   // earliest expiry across lots
-  drugMinExp(d) { const exps = (d.lots || []).filter(l => l.expiry).map(l => l.expiry); return exps.length ? exps.sort()[0] : '2099-12-31'; }
+  drugMinExp(d) { const exps = (d.lots || []).filter(l => l.expiry).map(l => l.expiry); return exps.length ? exps.sort()[0] : ''; }
   boxExpiryISO(id, BD) {
     const list = (BD || this.state.boxDrugs || {})[id];
     if (!list || !list.length) { const b = this.BOXES.find(x => x.id === id); return b ? b.expiry : null; }
@@ -1717,7 +1718,7 @@ class Component extends DCLogic {
   componentDidMount() {
     const patch = {};
     if (!this.state.boxDrugs) patch.boxDrugs = this.buildBoxDrugs();
-    if (!this.state.auditLog) patch.auditLog = this.AUDIT.map(a => ({ ...a, cat: a.action === 'จ่าย' ? 'dispense' : (a.action === 'รับคืน' ? 'return' : 'other') }));
+    if (!this.state.auditLog || !this.state.auditLog.length) patch.auditLog = this.AUDIT.map(a => ({ ...a, cat: a.action === 'จ่าย' ? 'dispense' : (a.action === 'รับคืน' ? 'return' : 'other') }));
     const today = this.isoOf(this.TODAY);
     if (!this.state.dispDate) patch.dispDate = today;
     if (!this.state.retDate) patch.retDate = today;
@@ -1793,7 +1794,9 @@ class Component extends DCLogic {
     this.setState({ editDrugs: true, boxDrugs: bd });
   }
   cancelEditDrugs() {
-    this.setState({ editDrugs: false, boxDrugs: this._bdBackup || this.state.boxDrugs });
+    const backup = this._bdBackup;
+    this._bdBackup = null;
+    this.setState({ editDrugs: false, boxDrugs: backup || this.state.boxDrugs });
   }
   saveEditDrugs() {
     const id = this.state.selectedEB;
@@ -1801,6 +1804,7 @@ class Component extends DCLogic {
     for (const drug of drugs) {
       if (!drug.name || !drug.name.trim()) { this.flash('กรุณากรอกชื่อยาให้ครบทุกรายการ'); return; }
     }
+    this._bdBackup = null;
     this.setState({ editDrugs: false, saveSuccess: Date.now() });
     setTimeout(() => this.setState({ saveSuccess: null }), 1600);
     if (window.EB_Sync) window.EB_Sync.syncBoxDrugs(id, drugs);
@@ -2096,6 +2100,7 @@ class Component extends DCLogic {
     }
     else if (m === 'dispense') {
       const { dispEB, formDept, swapReturn, swapEB } = this.state;
+      if (!dispEB) { this.flash('ข้อผิดพลาด: ไม่พบกล่องยาที่เลือก'); return; }
       const box = this.BOXES.find(b => b.id === dispEB) || { id: dispEB };
       this._syncBox({ ...box, dept: formDept, dispense: this.state.dispDate, dispenser: this.state.dispenser, receiver: '' });
       if (swapReturn) {
@@ -2110,6 +2115,7 @@ class Component extends DCLogic {
     }
     else {
       const { retEB, retReceiver, retDate } = this.state;
+      if (!retEB) { this.flash('ข้อผิดพลาด: ไม่พบกล่องยาที่เลือก'); return; }
       const retBox = this.BOXES.find(b => b.id === retEB) || { id: retEB };
       this._syncBox({ ...retBox, receiver: retReceiver, retDate });
       msg = `รับคืน ${retEB} เข้าห้องยาสำเร็จ`;
@@ -2295,7 +2301,7 @@ td.l{text-align:left;padding-left:4px}
     const m = this.state.formMode;
     const today = this.isoOf(this.TODAY);
     if (m === 'register') this.setState({ regMfg: '', regPreparer: '', regChecker: '', regHadConfirm: false, regPrinted: false });
-    else if (m === 'dispense') this.setState({ dispEB: '', formDept: '', dispenser: '', swapReturn: false, swapEB: '', swapReceiver: '', dispDate: today, swapReturnDate: today });
+    else if (m === 'dispense') this.setState({ dispEB: '', formDept: 'ER', dispenser: '', swapReturn: false, swapEB: '', swapReceiver: '', dispDate: today, swapReturnDate: today });
     else this.setState({ retEB: '', retReceiver: '', retDate: today });
   }
 
@@ -2451,6 +2457,7 @@ td.l{text-align:left;padding-left:4px}
         clearTimeout(this._t); this._t = setTimeout(() => this.setState({ showToast: false }), 2500);
       });
     };
+    vals.dismissExpiryBanner = () => this.setState({ expiryAlerts: [], showExpiryBanner: false });
     const alerts = st.expiryAlerts || [];
     vals.hasExpiryAlerts = alerts.length > 0;
     vals.expiryAlertCount = alerts.length;
@@ -2693,7 +2700,7 @@ td.l{text-align:left;padding-left:4px}
       if (!ids.length) return h('div', { style: { fontSize: 12.5, color: '#E03E3E', padding: '10px 14px', background: '#FCEDED', borderRadius: 10, border: '1px solid #F4C9C9' } }, '— ไม่มีกล่อง —');
       return h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 2 } },
         ...ids.map(id => {
-          const on = value === id || (!ids.includes(value) && id === ids[0]);
+          const on = value === id || (value && !ids.includes(value) && id === ids[0]);
           return h('button', {
             key: id, type: 'button',
             onClick: () => onChange(id),

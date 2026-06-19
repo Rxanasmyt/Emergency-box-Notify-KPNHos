@@ -124,7 +124,7 @@ function logAudit(entry){
   return db.collection(C.audit).add({...entry,createdAt:firebase.firestore.FieldValue.serverTimestamp()}).catch(err=>console.error('[Sync] Audit write failed:',err.message));
 }
 function syncBoxes(box){
-  if(!db)return Promise.resolve();
+  if(!db||!box.id)return Promise.resolve();
   const{id,...data}=box;
   return db.collection(C.boxes).doc(id).set(data,{merge:true}).catch(err=>console.error('[Sync] Box write failed:',err.message));
 }
