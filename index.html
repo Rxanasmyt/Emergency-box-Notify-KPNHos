@@ -2138,10 +2138,10 @@ class Component extends DCLogic {
     const html = `<!DOCTYPE html><html lang="th"><head><meta charset="utf-8">
 <title>Emergency Box - ${eb}</title>
 <style>
-/* A4 portrait, margin 0 — browser cannot override */
-@page { size: A4 portrait; margin: 0; }
+/* A4 landscape, margin 0 — browser cannot override */
+@page { size: A4 landscape; margin: 0; }
 @media print {
-  html,body { width:210mm; height:297mm; background:#fff; }
+  html,body { width:297mm; height:210mm; background:#fff; }
   .ui { display:none !important; }
   body { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
 }
@@ -2152,11 +2152,9 @@ html,body{font-family:'Sarabun','TH Sarabun New','IBM Plex Sans Thai',Tahoma,san
 .ui button{padding:7px 22px;font-size:12pt;cursor:pointer;background:#1A6FA3;color:#fff;border:none;border-radius:8px;font-family:inherit;font-weight:600}
 .tip{font-size:8.5pt;color:#555;line-height:1.4}
 .wrap{display:flex;justify-content:center;padding:8mm 0 14mm}
-.a4{width:210mm;background:#fff;box-shadow:0 4px 28px rgba(0,0,0,.3)}
-/* Each half = landscape A5 (210mm × 148.5mm) */
-.half{width:210mm;height:148.5mm;padding:5mm 9mm 4mm 9mm;overflow:hidden;display:flex;flex-direction:column;gap:0}
-.cut{border-top:1.5px dashed #999;display:flex;align-items:center;justify-content:center;height:0;overflow:visible}
-.cut span{background:#fff;padding:0 3mm;font-size:8pt;color:#888;position:relative;top:-0.5em}
+.a4{width:297mm;background:#fff;box-shadow:0 4px 28px rgba(0,0,0,.3)}
+/* Full landscape A4 (297mm × 210mm) */
+.page{width:297mm;height:210mm;padding:7mm 12mm 6mm 12mm;overflow:hidden;display:flex;flex-direction:column;gap:0}
 /* Form elements */
 .hrow{display:flex;align-items:baseline;gap:3mm;margin-bottom:1.5mm;flex-wrap:nowrap}
 .lb{font-weight:700;font-size:10.5pt;white-space:nowrap}
@@ -2184,14 +2182,12 @@ td.l{text-align:left;padding-left:4px}
 </style></head><body>
 
 <div class="ui">
-  <button onclick="window.print()">🖨️ พิมพ์ (A4 ได้ 2 ใบ)</button>
-  <span class="tip">ตั้งค่าพิมพ์: กระดาษ <b>A4</b> · Margins = <b>None</b> · ปิด <b>Headers &amp; footers</b><br>ตัดกระดาษตรงเส้นประกลางได้ 2 ใบ</span>
+  <button onclick="window.print()">🖨️ พิมพ์ (A4 นอน)</button>
+  <span class="tip">ตั้งค่าพิมพ์: กระดาษ <b>A4</b> · แนว <b>Landscape</b> · Margins = <b>None</b> · ปิด <b>Headers &amp; footers</b></span>
 </div>
 
 <div class="wrap"><div class="a4">
-  <div class="half">${formHTML}</div>
-  <div class="cut"><span>✂ ตัดตรงนี้</span></div>
-  <div class="half">${formHTML}</div>
+  <div class="page">${formHTML}</div>
 </div></div>
 
 </body></html>`;
