@@ -1886,11 +1886,12 @@ class Component extends DCLogic {
   doLogin() {
     if (this.state.locked) return;
     const u = this.state.users.find(x => x.username.toLowerCase() === this.state.loginUser.trim().toLowerCase());
-    if (!u || u.password !== this.state.loginPass) {
+    if (!u) {
       const attempts = this.state.attempts + 1;
       const left = 5 - attempts;
       if (attempts >= 5) {
         this.setState({ attempts, locked: true, loginError: 'บัญชีถูกล็อกชั่วคราว 15 นาที เนื่องจากกรอกผิดเกิน 5 ครั้ง' });
+        clearTimeout(this._lockT);
         this._lockT = setTimeout(() => this.setState({ locked: false, attempts: 0, loginError: '' }), 15 * 60 * 1000);
       } else {
         this.setState({ attempts, loginError: `รหัสพนักงานหรือรหัสผ่านไม่ถูกต้อง · เหลืออีก ${left} ครั้ง` });
@@ -1899,6 +1900,18 @@ class Component extends DCLogic {
     }
     if (u.status === 'suspended') {
       this.setState({ loginError: 'บัญชีนี้ถูกระงับการใช้งาน · กรุณาติดต่อผู้ดูแลระบบ' });
+      return;
+    }
+    if (u.password !== this.state.loginPass) {
+      const attempts = this.state.attempts + 1;
+      const left = 5 - attempts;
+      if (attempts >= 5) {
+        this.setState({ attempts, locked: true, loginError: 'บัญชีถูกล็อกชั่วคราว 15 นาที เนื่องจากกรอกผิดเกิน 5 ครั้ง' });
+        clearTimeout(this._lockT);
+        this._lockT = setTimeout(() => this.setState({ locked: false, attempts: 0, loginError: '' }), 15 * 60 * 1000);
+      } else {
+        this.setState({ attempts, loginError: `รหัสพนักงานหรือรหัสผ่านไม่ถูกต้อง · เหลืออีก ${left} ครั้ง` });
+      }
       return;
     }
     const lastLogin = `${this.fmt(this.TODAY)} ${this.nowTime()}`;
@@ -1972,19 +1985,15 @@ class Component extends DCLogic {
   toggleUserStatus(username) {
     if (!this.state.currentUser || this.state.currentUser.role !== 'admin') return;
     if (username === this.state.currentUser.username) { this.flash('ไม่สามารถระงับบัญชีของตัวเองได้'); return; }
-    let label = '', changed = null;
-    this.setState(s => ({ users: s.users.map(u => {
-      if (u.username !== username) return u;
-      const status = u.status === 'active' ? 'suspended' : 'active';
-      label = status === 'active' ? 'เปิดใช้งานบัญชีแล้ว' : 'ระงับบัญชีแล้ว';
-      changed = { ...u, status };
-      return changed;
-    }) }));
+    const targetUser = this.state.users.find(u => u.username === username);
+    if (!targetUser) return;
+    const newStatus = targetUser.status === 'active' ? 'suspended' : 'active';
+    const changed = { ...targetUser, status: newStatus };
+    const label = newStatus === 'active' ? 'เปิดใช้งานบัญชีแล้ว' : 'ระงับบัญชีแล้ว';
+    this.setState(s => ({ users: s.users.map(u => u.username === username ? changed : u) }));
     this.flash(label);
-    if (changed) {
-      if (window.EB_Sync) window.EB_Sync.syncUsers(changed);
-      this.logAction({ cat: 'user', action: 'จัดการผู้ใช้', eb: '—', dept: changed.dept, drug: `${changed.status === 'active' ? 'เปิดใช้งาน' : 'ระงับ'}บัญชี ${changed.name}` });
-    }
+    if (window.EB_Sync) window.EB_Sync.syncUsers(changed);
+    this.logAction({ cat: 'user', action: 'จัดการผู้ใช้', eb: '—', dept: changed.dept, drug: `${newStatus === 'active' ? 'เปิดใช้งาน' : 'ระงับ'}บัญชี ${changed.name}` });
   }
   openChangePw(username) {
     if (!this.state.currentUser) return;
@@ -2021,6 +2030,7 @@ class Component extends DCLogic {
     const { nu_name, nu_username, nu_role, nu_dept, nu_pass, users } = this.state;
     if (!nu_name.trim() || !nu_username.trim()) { this.flash('กรุณากรอกชื่อและ username'); return; }
     if (/\s/.test(nu_username.trim())) { this.flash('username ต้องไม่มีช่องว่าง'); return; }
+    if (nu_pass && !nu_pass.trim()) { this.flash('รหัสผ่านต้องไม่เป็นช่องว่าง'); return; }
     if (users.some(u => u.username.toLowerCase() === nu_username.trim().toLowerCase())) { this.flash('username นี้มีอยู่แล้ว'); return; }
     const usedIds = users.map(u => u.id).filter(x => typeof x === 'number' && !isNaN(x));
     const id = usedIds.length ? Math.max(...usedIds) + 1 : 2;
@@ -2124,7 +2134,7 @@ class Component extends DCLogic {
       this._syncBox({ ...box, dept: formDept, dispense: this.state.dispDate, dispenser: this.state.dispenser, receiver: '' });
       if (swapReturn) {
         const swBox = this.BOXES.find(b => b.id === swapEB) || { id: swapEB };
-        this._syncBox({ ...swBox, receiver: this.state.swapReceiver, retDate: this.state.swapReturnDate, dispense: '', dispenser: '', dept: '' });
+        this._syncBox({ ...swBox, receiver: this.state.swapReceiver, retDate: this.state.swapReturnDate, dispense: '', dispenser: '' });
         this.logAction({ cat: 'return', action: 'รับคืน', eb: swapEB, dept: formDept, drug: `รับคืน วันที่ ${this.fmtISO(this.state.swapReturnDate)} · โดย ${this.state.swapReceiver || '-'}` });
         this.logBoxHist(swapEB, `รับคืนจาก ${formDept} วันที่ ${this.fmtISO(this.state.swapReturnDate)} (โดย ${this.state.swapReceiver || '-'})`);
       }
@@ -2447,7 +2457,7 @@ td.l{text-align:left;padding-left:4px}
     const cuRole = (cu && this.ROLES[cu.role]) || this.ROLES.pharmacist;
     vals.userName = cu ? cu.name : '—';
     vals.userRoleLabel = cu ? cuRole.label : '';
-    vals.userInitials = cu ? (cu.name.replace(/^(ภก\.|พว\.|จพ\.|ภญ\.)\s*/, '').trim().slice(0, 2)) : '?';
+    vals.userInitials = cu ? ((cu.name || '').replace(/^(ภก\.|พว\.|จพ\.|ภญ\.)\s*/, '').trim().slice(0, 2) || '?') : '?';
     vals.userAvatarBg = cu ? cuRole.soft : '#DCEAF2';
     vals.userAvatarColor = cu ? cuRole.color : '#1A6FA3';
     // ===== NOTIFY SETTINGS =====
@@ -2456,11 +2466,12 @@ td.l{text-align:left;padding-left:4px}
     vals.notifyBrowserEnabled = nfSettings.browserEnabled !== false;
     vals.notifyLineWebhookUrl = nfSettings.lineWebhookUrl || '';
     vals.notifyThresholdDays = nfSettings.thresholdDays || 30;
-    vals.toggleLineEnabled = () => { const s = window.EB_Notify.loadSettings(); s.lineEnabled = !s.lineEnabled; window.EB_Notify.saveSettings(s); this.setState({}); };
-    vals.toggleBrowserEnabled = () => { const s = window.EB_Notify.loadSettings(); s.browserEnabled = !s.browserEnabled; window.EB_Notify.saveSettings(s); if (s.browserEnabled) window.EB_Notify.requestBrowserPermission(); this.setState({}); };
-    vals.setLineWebhookUrl = (e) => { const s = window.EB_Notify.loadSettings(); s.lineWebhookUrl = e.target.value; window.EB_Notify.saveSettings(s); };
-    vals.setThresholdDays = (e) => { const s = window.EB_Notify.loadSettings(); s.thresholdDays = parseInt(e.target.value) || 30; window.EB_Notify.saveSettings(s); };
+    vals.toggleLineEnabled = () => { if (!window.EB_Notify) return; const s = window.EB_Notify.loadSettings(); s.lineEnabled = !s.lineEnabled; window.EB_Notify.saveSettings(s); this.setState({}); };
+    vals.toggleBrowserEnabled = () => { if (!window.EB_Notify) return; const s = window.EB_Notify.loadSettings(); s.browserEnabled = !s.browserEnabled; window.EB_Notify.saveSettings(s); if (s.browserEnabled) window.EB_Notify.requestBrowserPermission(); this.setState({}); };
+    vals.setLineWebhookUrl = (e) => { if (!window.EB_Notify) return; const s = window.EB_Notify.loadSettings(); s.lineWebhookUrl = e.target.value; window.EB_Notify.saveSettings(s); };
+    vals.setThresholdDays = (e) => { if (!window.EB_Notify) return; const s = window.EB_Notify.loadSettings(); s.thresholdDays = parseInt(e.target.value) || 30; window.EB_Notify.saveSettings(s); };
     vals.saveNotifySettings = () => {
+      if (!window.EB_Notify) { this.flash('ระบบแจ้งเตือนยังไม่พร้อม'); return; }
       const s = window.EB_Notify.loadSettings();
       window.EB_Notify.saveToFirestore(s);
       this.logAction({ cat: 'other', action: 'ตั้งค่าแจ้งเตือน', eb: '—', dept: '—', drug: 'บันทึกการตั้งค่าแจ้งเตือน Email/LINE' });
@@ -2499,7 +2510,7 @@ td.l{text-align:left;padding-left:4px}
     vals.setGithubPAT = (e) => {
       const v = e.target.value;
       this.setState({ ghPAT: v });
-      const s = window.EB_Notify.loadSettings(); s.githubPAT = v; window.EB_Notify.saveSettings(s);
+      if (window.EB_Notify) { const s = window.EB_Notify.loadSettings(); s.githubPAT = v; window.EB_Notify.saveSettings(s); }
     };
     const _ghState = st.ghTrigger || 'idle';
     const _ghMsgs = { idle: '', loading: '⏳ กำลังส่งคำสั่ง…', success: '✓ ส่งแล้ว — ตรวจสอบ Email ใน 1-2 นาที', error: '✗ เกิดข้อผิดพลาด · ตรวจสอบ PAT หรือสิทธิ์ repository' };
@@ -2507,7 +2518,7 @@ td.l{text-align:left;padding-left:4px}
     vals.ghTriggerMsg   = _ghMsgs[_ghState];
     vals.ghTriggerColor = _ghColors[_ghState];
     vals.triggerGHActions = async () => {
-      if (_ghState === 'loading') return;
+      if (this.state.ghTrigger === 'loading') return;
       const pat = (st.ghPAT || '').trim();
       if (!pat) { this.setState({ ghTrigger: 'error' }); setTimeout(() => this.setState({ ghTrigger: 'idle' }), 4000); return; }
       this.setState({ ghTrigger: 'loading' });
@@ -2608,7 +2619,7 @@ td.l{text-align:left;padding-left:4px}
     vals.criticalList = criticalList;
 
     const deptCount = { ER: 0, WARD: 0, LR: 0 };
-    active.forEach(b => deptCount[b.dept]++);
+    active.forEach(b => { deptCount[b.dept] = (deptCount[b.dept] || 0) + 1; });
     const maxDept = Math.max(1, ...Object.values(deptCount));
     vals.deptBars = [
       { label: 'ER · ห้องฉุกเฉิน',   sub: `${deptCount.ER} กล่อง`,   pct: `${deptCount.ER/maxDept*100}%`,   color: '#1A6FA3' },
@@ -2661,7 +2672,7 @@ td.l{text-align:left;padding-left:4px}
       dispense: { accent: '#1A6FA3', soft: '#E8F0F6', shadow: 'rgba(26,111,163,.3)' },
       return:   { accent: '#169C7F', soft: '#E4F4EF', shadow: 'rgba(22,156,127,.3)' },
     };
-    const theme = MODE_THEME[mode];
+    const theme = MODE_THEME[mode] || MODE_THEME.register;
 
     // availability
     const outOf = (b) => !!b.dispense && !b.receiver;
@@ -2726,7 +2737,7 @@ td.l{text-align:left;padding-left:4px}
       if (!ids.length) return h('div', { style: { fontSize: 12.5, color: '#E03E3E', padding: '10px 14px', background: '#FCEDED', borderRadius: 10, border: '1px solid #F4C9C9' } }, '— ไม่มีกล่อง —');
       return h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 2 } },
         ...ids.map(id => {
-          const on = value === id || (value && !ids.includes(value) && id === ids[0]);
+          const on = value === id || (!ids.includes(value) && id === ids[0]);
           return h('button', {
             key: id, type: 'button',
             onClick: () => onChange(id),
@@ -2750,9 +2761,9 @@ td.l{text-align:left;padding-left:4px}
     }, h('span', { style: { width: 7, height: 7, borderRadius: '50%', background: dot, flexShrink: 0 } }), h('span', null, text));
 
     // box info card (read-only, shows registration data)
-    const boxInfoCard = (b, accentColor) => {
+    const boxInfoCard = (b, accentColor, BD_arg) => {
       if (!b) return null;
-      const bexp = this.boxExpiryISO(b.id);
+      const bexp = this.boxExpiryISO(b.id, BD_arg || st.boxDrugs);
       const status = this.statusOf(bexp);
       const rows = [
         ['วันหมดอายุยา', this.fmtISO(bexp), status.color],
@@ -2879,7 +2890,7 @@ td.l{text-align:left;padding-left:4px}
         dispWarn = hint(`กล่องอาจไม่ครบ — มียาต่ำกว่ามาตรฐาน ${low.length} รายการ ตรวจสอบก่อนจ่าย`, '#B5740F', '#FBF1E0', '#F0DDB8', '#EE8A2B');
       }
     }
-    vals.dispBoxInfoEl = h(React.Fragment, null, boxInfoCard(dispBox, '#1A6FA3'), dispWarn);
+    vals.dispBoxInfoEl = h(React.Fragment, null, boxInfoCard(dispBox, '#1A6FA3', regBD), dispWarn);
 
     const deptList = [
       { id: 'ER',   color: '#F43F5E', glow: 'rgba(244,63,94,.3)',   icon: '🚨' },
@@ -2911,7 +2922,7 @@ td.l{text-align:left;padding-left:4px}
     vals.retReceiver = st.retReceiver;
     vals.setRetDate = (e) => this.setState({ retDate: e.target.value });
     vals.setRetReceiver = (e) => this.setState({ retReceiver: e.target.value });
-    vals.retBoxInfoEl = boxInfoCard(this.BOXES.find(b => b.id === (outIds.includes(st.retEB) ? st.retEB : outIds[0])), '#169C7F');
+    vals.retBoxInfoEl = boxInfoCard(this.BOXES.find(b => b.id === (outIds.includes(st.retEB) ? st.retEB : outIds[0])), '#169C7F', regBD);
 
     // autocomplete datalist from audit log person names
     const auditPersons = [...new Set((st.auditLog || this.AUDIT || []).map(r => r.person || '').filter(Boolean).sort())];
@@ -2968,6 +2979,7 @@ td.l{text-align:left;padding-left:4px}
     }));
     const box = this.BOXES.find(b => b.id === st.selectedEB) || this.BOXES[0] || null;
     if (!box) { vals.box = null; return vals; }
+    if (box.id !== st.selectedEB) this.setState({ selectedEB: box.id });
     const boxExp = this.boxExpiryISO(box.id, BD);
     const bStatus = this.statusOf(boxExp);
     const returned = !!box.receiver;
@@ -3219,7 +3231,8 @@ td.l{text-align:left;padding-left:4px}
       });
       const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href = url; a.download = `EB_register_${this.isoOf(this.TODAY)}.csv`; a.click();
+      const a = document.createElement('a'); a.href = url; a.download = `EB_register_${this.isoOf(this.TODAY)}.csv`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
       URL.revokeObjectURL(url);
     };
 
@@ -3235,7 +3248,7 @@ td.l{text-align:left;padding-left:4px}
     const roleOrder = ['admin', 'pharmacist', 'technician', 'nurse'];
     vals.roleSummaryEl = h(React.Fragment, null, ...roleOrder.map(rk => {
       const r = this.ROLES[rk];
-      const count = st.users.filter(u => u.role === rk).length;
+      const count = (st.users || []).filter(u => u.role === rk).length;
       return h('div', { key: rk, style: { background: '#fff', border: `1px solid ${r.border}`, borderRadius: 14, padding: '15px 16px' } },
         h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' } },
           h('span', { style: { fontSize: 12.5, fontWeight: 600, color: r.color } }, r.label),
@@ -3249,7 +3262,7 @@ td.l{text-align:left;padding-left:4px}
     // users table rows — sorted by role hierarchy
     const chevron2 = "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none'><path d='M3 5l3 3 3-3' stroke='%237B8D9C' stroke-width='1.8' stroke-linecap='round'/></svg>\")";
     const isSelfRow = (u) => st.currentUser && u.username === st.currentUser.username;
-    const sortedUsers = [...st.users].sort((a, b) => {
+    const sortedUsers = [...(st.users || [])].sort((a, b) => {
       const ai = roleOrder.indexOf(a.role); const bi = roleOrder.indexOf(b.role);
       if (ai !== bi) return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
       return (a.name || '').localeCompare(b.name || '', 'th');
@@ -3275,7 +3288,7 @@ td.l{text-align:left;padding-left:4px}
     vals.usersTableEl = h(React.Fragment, null, ...sortedUsers.map(u => {
       const r = this.ROLES[u.role] || this.ROLES.technician;
       const suspended = u.status === 'suspended';
-      const initials = u.name.replace(/^(ภก\.|พว\.|จพ\.|ภญ\.)\s*/, '').trim().slice(0, 2);
+      const initials = (u.name || '').replace(/^(ภก\.|พว\.|จพ\.|ภญ\.)\s*/, '').trim().slice(0, 2) || '?';
       return h('div', { key: u.username, style: { display: 'grid', gridTemplateColumns: '1.4fr 1fr 1.3fr 1fr 1.4fr 150px', gap: 0, alignItems: 'center', padding: '13px 22px', borderBottom: '1px solid #F4F7F9', fontSize: 13, opacity: suspended ? 0.62 : 1 } },
         h('div', { style: { display: 'flex', alignItems: 'center', gap: 11, minWidth: 0 } },
           h('span', { style: { width: 34, height: 34, flexShrink: 0, borderRadius: '50%', background: r.soft, color: r.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 12.5 } }, initials),
@@ -3432,7 +3445,8 @@ td.l{text-align:left;padding-left:4px}
       _adminFiltered.forEach((r,i) => lines.push([_adminFiltered.length-i,r.date||'',r.time||'',r.action||'',r.eb||'',r.dept||'',r.person||'',r.drug||''].map(esc).join(',')));
       const blob = new Blob(['﻿'+lines.join('\r\n')],{type:'text/csv;charset=utf-8;'});
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href=url; a.download=`EB_audit_log_${this.isoOf(this.TODAY)}.csv`; a.click();
+      const a = document.createElement('a'); a.href=url; a.download=`EB_audit_log_${this.isoOf(this.TODAY)}.csv`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
       URL.revokeObjectURL(url);
     };
 
