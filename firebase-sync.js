@@ -36,7 +36,7 @@ async function seedIfEmpty(){
     if(usersSnap.empty&&component.state&&component.state.users&&component.state.users.length){
       console.log('[Sync] Seeding users...');
       const ub=db.batch();
-      component.state.users.forEach(u=>{const{id,uid,...data}=u;const docId=uid||u.username;ub.set(db.collection(C.users).doc(docId),data);});
+      component.state.users.forEach(u=>{const{uid,...data}=u;const docId=uid||u.username;ub.set(db.collection(C.users).doc(docId),data);});
       await ub.commit();
       console.log('[Sync] Users seeded.');
     }
@@ -86,7 +86,7 @@ function syncBoxes(box){
 }
 function syncUsers(user){
   if(!db)return Promise.resolve();
-  const{uid,id,...data}=user;
+  const{uid,...data}=user;
   const docId=uid||user.username||db.collection(C.users).doc().id;
   return db.collection(C.users).doc(docId).set(data,{merge:true}).catch(err=>console.error('[Sync] User write failed:',err.message));
 }

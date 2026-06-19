@@ -1447,6 +1447,9 @@ input:focus, select:focus, textarea:focus {
     </div>
   </sc-if>
 
+  <!-- Change-password modal (React-rendered) -->
+  {{ changePwModalEl }}
+
   <!-- Add-user modal -->
   <sc-if value="{{ showAddUser }}" hint-placeholder-val="{{ false }}">
     <div style="position: fixed; inset: 0; background: rgba(14,42,60,.5); backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; z-index: 200; animation: overlayIn .2s ease both;" onClick="{{ closeAddUser }}">
@@ -1520,6 +1523,7 @@ class Component extends DCLogic {
     // user management
     showAddUser: false,
     nu_name: '', nu_username: '', nu_role: 'technician', nu_dept: 'ห้องยา', nu_pass: '',
+    showChangePw: false, changePwUsername: null, changePwNew: '', changePwConfirm: '', changePwError: '',
     actionMsg: '',
     screen: 'dashboard',
     // entry form
@@ -1906,19 +1910,19 @@ class Component extends DCLogic {
     clearTimeout(this._a);
     this._a = setTimeout(() => this.setState({ actionMsg: '' }), 3200);
   }
-  setUserRole(id, role) {
-    const u = this.state.users.find(x => x.id === id);
-    this.setState(s => ({ users: s.users.map(u => u.id === id ? { ...u, role } : u) }));
+  setUserRole(username, role) {
+    const u = this.state.users.find(x => x.username === username);
+    this.setState(s => ({ users: s.users.map(u => u.username === username ? { ...u, role } : u) }));
     this.flash('อัปเดตบทบาทผู้ใช้แล้ว');
     if (u) {
       if (window.EB_Sync) window.EB_Sync.syncUsers({ ...u, role });
       this.logAction({ cat: 'user', action: 'แก้สิทธิ์', eb: '—', dept: u.dept, drug: `เปลี่ยนบทบาท ${u.name} → ${this.ROLES[role].label}` });
     }
   }
-  toggleUserStatus(id) {
+  toggleUserStatus(username) {
     let label = '', changed = null;
     this.setState(s => ({ users: s.users.map(u => {
-      if (u.id !== id) return u;
+      if (u.username !== username) return u;
       const status = u.status === 'active' ? 'suspended' : 'active';
       label = status === 'active' ? 'เปิดใช้งานบัญชีแล้ว' : 'ระงับบัญชีแล้ว';
       changed = { ...u, status };
@@ -1930,18 +1934,25 @@ class Component extends DCLogic {
       this.logAction({ cat: 'user', action: 'จัดการผู้ใช้', eb: '—', dept: changed.dept, drug: `${changed.status === 'active' ? 'เปิดใช้งาน' : 'ระงับ'}บัญชี ${changed.name}` });
     }
   }
-  resetUserPw(id) {
-    const u = this.state.users.find(x => x.id === id);
-    this.setState(s => ({ users: s.users.map(u => u.id === id ? { ...u, password: '1234' } : u) }));
-    this.flash('รีเซ็ตรหัสผ่านเป็นค่าเริ่มต้น (1234) แล้ว');
-    if (u) {
-      if (window.EB_Sync) window.EB_Sync.syncUsers({ ...u, password: '1234' });
-      this.logAction({ cat: 'user', action: 'รีเซ็ตรหัส', eb: '—', dept: u.dept, drug: `รีเซ็ตรหัสผ่าน ${u.name}` });
-    }
+  openChangePw(username) {
+    this.setState({ showChangePw: true, changePwUsername: username, changePwNew: '', changePwConfirm: '', changePwError: '' });
   }
-  deleteUser(id) {
-    const u = this.state.users.find(x => x.id === id);
-    this.setState(s => ({ users: s.users.filter(u => u.id !== id) }));
+  saveChangePw() {
+    const { changePwUsername, changePwNew, changePwConfirm } = this.state;
+    if (!changePwNew.trim()) { this.setState({ changePwError: 'กรุณากรอกรหัสผ่านใหม่' }); return; }
+    if (changePwNew.trim().length < 4) { this.setState({ changePwError: 'รหัสผ่านต้องมีอย่างน้อย 4 ตัวอักษร' }); return; }
+    if (changePwNew !== changePwConfirm) { this.setState({ changePwError: 'รหัสผ่านทั้งสองช่องไม่ตรงกัน' }); return; }
+    const u = this.state.users.find(x => x.username === changePwUsername);
+    if (!u) return;
+    const updated = { ...u, password: changePwNew.trim() };
+    this.setState(s => ({ users: s.users.map(x => x.username === changePwUsername ? updated : x), showChangePw: false, changePwUsername: null, changePwNew: '', changePwConfirm: '', changePwError: '' }));
+    if (window.EB_Sync) window.EB_Sync.syncUsers(updated);
+    this.flash(`เปลี่ยนรหัสผ่านของ ${u.name} เรียบร้อย`);
+    this.logAction({ cat: 'user', action: 'เปลี่ยนรหัสผ่าน', eb: '—', dept: u.dept, drug: `เปลี่ยนรหัสผ่าน ${u.name} (${u.username})` });
+  }
+  deleteUser(username) {
+    const u = this.state.users.find(x => x.username === username);
+    this.setState(s => ({ users: s.users.filter(u => u.username !== username) }));
     this.flash('ลบบัญชีผู้ใช้แล้ว');
     if (u) {
       if (window.EB_Sync) window.EB_Sync.deleteUser(u);
@@ -1952,7 +1963,8 @@ class Component extends DCLogic {
     const { nu_name, nu_username, nu_role, nu_dept, nu_pass, users } = this.state;
     if (!nu_name.trim() || !nu_username.trim()) { this.flash('กรุณากรอกชื่อและ username'); return; }
     if (users.some(u => u.username.toLowerCase() === nu_username.trim().toLowerCase())) { this.flash('username นี้มีอยู่แล้ว'); return; }
-    const id = Math.max(0, ...users.map(u => u.id)) + 1;
+    const usedIds = users.map(u => u.id).filter(x => typeof x === 'number' && !isNaN(x));
+    const id = usedIds.length ? Math.max(...usedIds) + 1 : 2;
     const nu = { id, name: nu_name.trim(), username: nu_username.trim(), password: nu_pass.trim() || '1234', role: nu_role, dept: nu_dept.trim() || '-', status: 'active', lastLogin: 'ยังไม่เคยเข้าระบบ' };
     this.setState({ users: [...users, nu], showAddUser: false, nu_name: '', nu_username: '', nu_role: 'technician', nu_dept: 'ห้องยา', nu_pass: '' });
     if (window.EB_Sync) window.EB_Sync.syncUsers(nu);
@@ -3134,15 +3146,37 @@ td.l{text-align:left;padding-left:4px}
       );
     }));
 
-    // users table rows
+    // users table rows — sorted by role hierarchy
     const chevron2 = "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none'><path d='M3 5l3 3 3-3' stroke='%237B8D9C' stroke-width='1.8' stroke-linecap='round'/></svg>\")";
-    const isSelfRow = (u) => st.currentUser && u.id === st.currentUser.id;
-    vals.usersTableEl = h(React.Fragment, null, ...st.users.map(u => {
-      const r = this.ROLES[u.role];
+    const isSelfRow = (u) => st.currentUser && u.username === st.currentUser.username;
+    const sortedUsers = [...st.users].sort((a, b) => {
+      const ai = roleOrder.indexOf(a.role); const bi = roleOrder.indexOf(b.role);
+      if (ai !== bi) return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+      return (a.name || '').localeCompare(b.name || '', 'th');
+    });
+    vals.showChangePw = st.showChangePw;
+    vals.changePwUsername = st.changePwUsername;
+    const cpwTarget = st.changePwUsername ? st.users.find(u => u.username === st.changePwUsername) : null;
+    vals.changePwModalEl = !st.showChangePw ? null : h('div', { onClick: () => this.setState({ showChangePw: false }), style: { position: 'fixed', inset: 0, background: 'rgba(14,42,60,.45)', zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center' } },
+      h('div', { onClick: (e) => e.stopPropagation(), style: { background: '#fff', borderRadius: 18, padding: '28px 30px', width: 360, boxShadow: '0 12px 48px rgba(0,0,0,.18)' } },
+        h('div', { style: { fontWeight: 700, fontSize: 16, color: '#15242E', marginBottom: 4 } }, 'เปลี่ยนรหัสผ่าน'),
+        h('div', { style: { fontSize: 12.5, color: '#7B8D9C', marginBottom: 20 } }, cpwTarget ? `${cpwTarget.name} (${cpwTarget.username})` : ''),
+        h('div', { style: { fontSize: 12.5, fontWeight: 600, color: '#4A5C6A', marginBottom: 6 } }, 'รหัสผ่านใหม่'),
+        h('input', { type: 'password', value: st.changePwNew, onInput: (e) => this.setState({ changePwNew: e.target.value, changePwError: '' }), placeholder: 'อย่างน้อย 4 ตัวอักษร', style: { width: '100%', height: 44, border: '1.5px solid #DBE4EB', borderRadius: 10, padding: '0 14px', fontSize: 14, color: '#15242E', background: '#fff', boxSizing: 'border-box', marginBottom: 12 } }),
+        h('div', { style: { fontSize: 12.5, fontWeight: 600, color: '#4A5C6A', marginBottom: 6 } }, 'ยืนยันรหัสผ่านใหม่'),
+        h('input', { type: 'password', value: st.changePwConfirm, onInput: (e) => this.setState({ changePwConfirm: e.target.value, changePwError: '' }), placeholder: 'กรอกซ้ำอีกครั้ง', style: { width: '100%', height: 44, border: '1.5px solid #DBE4EB', borderRadius: 10, padding: '0 14px', fontSize: 14, color: '#15242E', background: '#fff', boxSizing: 'border-box', marginBottom: st.changePwError ? 8 : 20 } }),
+        st.changePwError ? h('div', { style: { fontSize: 12, color: '#C0392B', marginBottom: 14 } }, st.changePwError) : null,
+        h('div', { style: { display: 'flex', gap: 10 } },
+          h('button', { type: 'button', onClick: () => this.setState({ showChangePw: false }), style: { flex: 1, height: 42, border: '1.5px solid #DBE4EB', borderRadius: 10, background: '#F4F8FB', color: '#4A5C6A', fontWeight: 600, fontSize: 13.5, cursor: 'pointer', fontFamily: 'inherit' } }, 'ยกเลิก'),
+          h('button', { type: 'button', onClick: () => this.saveChangePw(), style: { flex: 1, height: 42, border: 'none', borderRadius: 10, background: 'linear-gradient(135deg,#1A6FA3,#168C84)', color: '#fff', fontWeight: 700, fontSize: 13.5, cursor: 'pointer', fontFamily: 'inherit' } }, 'บันทึก'),
+        ),
+      ),
+    );
+    vals.usersTableEl = h(React.Fragment, null, ...sortedUsers.map(u => {
+      const r = this.ROLES[u.role] || this.ROLES.technician;
       const suspended = u.status === 'suspended';
       const initials = u.name.replace(/^(ภก\.|พว\.|จพ\.|ภญ\.)\s*/, '').trim().slice(0, 2);
-      return h('div', { key: u.id, style: { display: 'grid', gridTemplateColumns: '1.4fr 1fr 1.3fr 1fr 1.4fr 150px', gap: 0, alignItems: 'center', padding: '13px 22px', borderBottom: '1px solid #F4F7F9', fontSize: 13, opacity: suspended ? 0.62 : 1 } },
-        // name + avatar + status dot
+      return h('div', { key: u.username, style: { display: 'grid', gridTemplateColumns: '1.4fr 1fr 1.3fr 1fr 1.4fr 150px', gap: 0, alignItems: 'center', padding: '13px 22px', borderBottom: '1px solid #F4F7F9', fontSize: 13, opacity: suspended ? 0.62 : 1 } },
         h('div', { style: { display: 'flex', alignItems: 'center', gap: 11, minWidth: 0 } },
           h('span', { style: { width: 34, height: 34, flexShrink: 0, borderRadius: '50%', background: r.soft, color: r.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 12.5 } }, initials),
           h('div', { style: { minWidth: 0 } },
@@ -3153,21 +3187,20 @@ td.l{text-align:left;padding-left:4px}
           ),
         ),
         h('span', { style: { fontFamily: "'IBM Plex Mono', monospace", fontSize: 12.5, color: '#4A5C6A' } }, u.username),
-        // role select
         h('div', null, h('select', {
-          value: u.role, onChange: (e) => this.setUserRole(u.id, e.target.value),
-          style: { height: 36, border: `1.5px solid ${r.border}`, borderRadius: 9, padding: '0 28px 0 10px', fontSize: 12.5, fontWeight: 600, color: r.color, background: `${r.soft} ${chevron2} no-repeat right 9px center`, cursor: 'pointer', appearance: 'none', WebkitAppearance: 'none', fontFamily: 'inherit' },
+          value: u.role, onChange: (e) => this.setUserRole(u.username, e.target.value),
+          disabled: isSelfRow(u) && u.role === 'admin',
+          style: { height: 36, border: `1.5px solid ${r.border}`, borderRadius: 9, padding: '0 28px 0 10px', fontSize: 12.5, fontWeight: 600, color: r.color, background: `${r.soft} ${chevron2} no-repeat right 9px center`, cursor: isSelfRow(u) && u.role === 'admin' ? 'default' : 'pointer', appearance: 'none', WebkitAppearance: 'none', fontFamily: 'inherit' },
         }, roleOrder.map(rk => h('option', { key: rk, value: rk, style: { color: '#15242E', background: '#fff' } }, this.ROLES[rk].label)))),
         h('span', { style: { fontSize: 12.5, color: '#4A5C6A' } }, u.dept),
         h('span', { style: { fontSize: 12, color: '#7B8D9C' } }, u.lastLogin),
-        // actions
         h('div', { style: { display: 'flex', gap: 6, justifyContent: 'flex-end' } },
-          this.iconBtn('reset', 'รีเซ็ตรหัสผ่าน', '#7C5CD6', '#EFEAFB', () => this.resetUserPw(u.id)),
-          this.iconBtn(suspended ? 'unlock' : 'lock', suspended ? 'เปิดใช้งาน' : 'ระงับบัญชี', suspended ? '#169C7F' : '#D9810F', suspended ? '#E4F4EF' : '#FBF1E0', () => {
-            if (suspended) { this.toggleUserStatus(u.id); }
-            else this.askConfirm({ tone: 'warn', icon: 'lock', title: 'ระงับบัญชีผู้ใช้?', body: `${u.name} (${u.username}) จะเข้าระบบไม่ได้จนกว่าจะเปิดใช้งานอีกครั้ง`, yesLabel: 'ระงับบัญชี', noLabel: 'ยกเลิก', onYes: () => this.toggleUserStatus(u.id) });
+          this.iconBtn('reset', 'เปลี่ยนรหัสผ่าน', '#7C5CD6', '#EFEAFB', () => this.openChangePw(u.username)),
+          isSelfRow(u) ? null : this.iconBtn(suspended ? 'unlock' : 'lock', suspended ? 'เปิดใช้งาน' : 'ระงับบัญชี', suspended ? '#169C7F' : '#D9810F', suspended ? '#E4F4EF' : '#FBF1E0', () => {
+            if (suspended) { this.toggleUserStatus(u.username); }
+            else this.askConfirm({ tone: 'warn', icon: 'lock', title: 'ระงับบัญชีผู้ใช้?', body: `${u.name} (${u.username}) จะเข้าระบบไม่ได้จนกว่าจะเปิดใช้งานอีกครั้ง`, yesLabel: 'ระงับบัญชี', noLabel: 'ยกเลิก', onYes: () => this.toggleUserStatus(u.username) });
           }),
-          isSelfRow(u) ? null : this.iconBtn('trash', 'ลบบัญชี', '#E03E3E', '#FCEDED', () => this.askConfirm({ tone: 'danger', icon: 'trash', title: 'ลบบัญชีผู้ใช้ถาวร?', body: `ลบ ${u.name} (${u.username}) ออกจากระบบ การกระทำนี้ย้อนกลับไม่ได้`, yesLabel: 'ลบถาวร', noLabel: 'ยกเลิก', onYes: () => this.deleteUser(u.id) })),
+          isSelfRow(u) ? null : this.iconBtn('trash', 'ลบบัญชี', '#E03E3E', '#FCEDED', () => this.askConfirm({ tone: 'danger', icon: 'trash', title: 'ลบบัญชีผู้ใช้ถาวร?', body: `ลบ ${u.name} (${u.username}) ออกจากระบบ การกระทำนี้ย้อนกลับไม่ได้`, yesLabel: 'ลบถาวร', noLabel: 'ยกเลิก', onYes: () => this.deleteUser(u.username) })),
         ),
       );
     }));
