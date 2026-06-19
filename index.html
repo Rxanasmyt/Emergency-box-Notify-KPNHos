@@ -1726,11 +1726,14 @@ class Component extends DCLogic {
       setTimeout(() => r.remove(), 750);
     };
     document.addEventListener('click', this._ripple, { passive: true });
+    // Start users listener immediately so any device can login with any account
+    if (window.EB_Sync) window.EB_Sync.initUsersOnly(this);
   }
   componentWillUnmount() {
     (this._idleEvents || []).forEach(ev => window.removeEventListener(ev, this._resetIdle, true));
     if (this._ripple) document.removeEventListener('click', this._ripple);
     clearTimeout(this._idleT); clearTimeout(this._idleWarnT);
+    if (window.EB_Sync) window.EB_Sync.stopAll();
   }
 
   // ---------- idle / session ----------
@@ -1865,18 +1868,11 @@ class Component extends DCLogic {
     const lastLogin = `${this.fmt(this.TODAY)} ${this.nowTime()}`;
     const updatedU = { ...u, lastLogin };
     this.setState({ authed: true, currentUser: updatedU, loginError: '', attempts: 0, locked: false, loginPass: '', screen: 'dashboard',
-      users: this.state.users.map(x => x.id === u.id ? updatedU : x) });
-    // sign in anonymously then start Firestore sync (must be after auth)
-    if (window.EB_Firebase && window.EB_Firebase.auth) {
-      window.EB_Firebase.auth.signInAnonymously()
-        .then(() => {
-          if (window.EB_Sync) {
-            window.EB_Sync.initFirebaseSync(this);
-            // sync lastLogin after a short delay to ensure Firestore is ready
-            setTimeout(() => { if (window.EB_Sync) window.EB_Sync.syncUsers(updatedU); }, 1500);
-          }
-        })
-        .catch(err => console.warn('[Auth] Anonymous sign-in failed:', err.message));
+      users: this.state.users.map(x => x.username === u.username ? updatedU : x) });
+    // anon auth already started in componentDidMount — just start remaining Firestore sync
+    if (window.EB_Sync) {
+      window.EB_Sync.initFirebaseSync(this);
+      setTimeout(() => { if (window.EB_Sync) window.EB_Sync.syncUsers(updatedU); }, 1500);
     }
     setTimeout(() => {
       this.logAction({ cat: 'auth', action: 'เข้าระบบ', eb: '—', dept: u.dept, drug: 'เข้าสู่ระบบสำเร็จ' });
@@ -1901,9 +1897,8 @@ class Component extends DCLogic {
       retReceiver: '', retDate: '',
       boxMeta: {}, editDrugs: false, showChangePw: false, showAddUser: false,
     });
-    if (window.EB_Firebase && window.EB_Firebase.auth) {
-      window.EB_Firebase.auth.signOut().catch(() => {});
-    }
+    // keep anonymous Firebase session alive so users listener continues working
+    // next login can authenticate against all users in Firestore without re-signing-in
   }
   fillDemo(username) {
     this.setState({ loginUser: username, loginPass: '1234', loginError: '' });

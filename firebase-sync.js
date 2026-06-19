@@ -1,13 +1,62 @@
 (function(){'use strict';
-let db=null,component=null,unsubscribers=[];
+let db=null,component=null,unsubscribers=[],_usersUnsub=null;
 const C={boxes:'boxes',audit:'audit_log',users:'users',boxDrugs:'box_drugs'};
+
+// Called from componentDidMount — signs in anonymously and starts users listener
+// so login can authenticate against ALL users in Firestore from any device
+function initUsersOnly(comp){
+  if(!window.EB_Firebase){console.warn('[Sync] Firebase not ready');return;}
+  db=window.EB_Firebase.db;component=comp;
+  if(_usersUnsub){return;} // already listening, just update component reference
+  window.EB_Firebase.auth.signInAnonymously()
+    .then(()=>{
+      console.log('[Sync] Anon auth OK — starting users listener');
+      _startUsersListener();
+    })
+    .catch(err=>console.warn('[Sync] Anon auth failed:',err.message));
+}
+
+function _startUsersListener(){
+  if(_usersUnsub)return;
+  if(!db)return;
+  // seed hardcoded admin to Firestore if users collection is empty
+  db.collection(C.users).limit(1).get().then(snap=>{
+    if(snap.empty&&component&&component.state&&component.state.users&&component.state.users.length){
+      console.log('[Sync] Seeding users (admin)...');
+      const ub=db.batch();
+      component.state.users.forEach(u=>{const{uid,...data}=u;const docId=uid||u.username;ub.set(db.collection(C.users).doc(docId),data);});
+      ub.commit().then(()=>console.log('[Sync] Users seeded.')).catch(err=>console.warn('[Sync] User seed failed:',err.message));
+    }
+  }).catch(()=>{});
+  _usersUnsub=db.collection(C.users).onSnapshot(snap=>{
+    if(!component)return;
+    const users=[],seen=new Set();
+    snap.forEach(doc=>{
+      const u={uid:doc.id,...doc.data()};
+      if(u.username&&!seen.has(u.username)){seen.add(u.username);users.push(u);}
+    });
+    if(users.length){component.setState({users});}
+  },err=>console.warn('[Sync] Users error:',err.message));
+}
+
+// Called after login — starts boxes/audit/boxDrugs listeners (users already active)
 function initFirebaseSync(comp){
   if(!window.EB_Firebase){console.warn('[Sync] Firebase not initialized');return;}
   db=window.EB_Firebase.db;component=comp;
-  console.log('[Sync] Initializing...');
-  seedIfEmpty().then(()=>{listenBoxes();listenAudit();listenUsers();listenBoxDrugs();console.log('[Sync] All listeners active.');});
+  console.log('[Sync] Initializing full sync...');
+  seedIfEmpty().then(()=>{listenBoxes();listenAudit();listenBoxDrugs();console.log('[Sync] All listeners active.');});
 }
+
+// Called on logout — stops boxes/audit/boxDrugs; users listener stays active for next login
 function stopSync(){unsubscribers.forEach(fn=>fn());unsubscribers=[];}
+
+// Called on componentWillUnmount — stops everything
+function stopAll(){
+  stopSync();
+  if(_usersUnsub){_usersUnsub();_usersUnsub=null;}
+  component=null;
+}
+
 async function seedIfEmpty(){
   if(!component||!db)return;
   try{
@@ -31,15 +80,6 @@ async function seedIfEmpty(){
       await bb.commit();
       console.log('[Sync] box_drugs seeded.');
     }
-    // seed users if empty — ensures admin always exists in Firestore
-    const usersSnap=await db.collection(C.users).limit(1).get();
-    if(usersSnap.empty&&component.state&&component.state.users&&component.state.users.length){
-      console.log('[Sync] Seeding users...');
-      const ub=db.batch();
-      component.state.users.forEach(u=>{const{uid,...data}=u;const docId=uid||u.username;ub.set(db.collection(C.users).doc(docId),data);});
-      await ub.commit();
-      console.log('[Sync] Users seeded.');
-    }
   }catch(err){console.warn('[Sync] Seed failed (offline?):', err.message);}
 }
 function listenBoxes(){
@@ -57,14 +97,6 @@ function listenAudit(){
     const logs=[];snap.forEach(doc=>{const d=doc.data();logs.push({...d,cat:d.action==='จ่าย'?'dispense':d.action==='รับคืน'?'return':'other'});});
     if(logs.length){component.AUDIT=logs;component.setState({auditLog:logs});}
   },err=>console.warn('[Sync] Audit error:',err.message));
-  unsubscribers.push(unsub);
-}
-function listenUsers(){
-  const unsub=db.collection(C.users).onSnapshot(snap=>{
-    if(!component)return;
-    const users=[];snap.forEach(doc=>{users.push({uid:doc.id,...doc.data()});});
-    if(users.length)component.setState({users});
-  },err=>console.warn('[Sync] Users error:',err.message));
   unsubscribers.push(unsub);
 }
 function listenBoxDrugs(){
@@ -101,5 +133,5 @@ function deleteUser(user){
   if(!docId)return Promise.resolve();
   return db.collection(C.users).doc(docId).delete().catch(err=>console.error('[Sync] User delete failed:',err.message));
 }
-window.EB_Sync={initFirebaseSync,stopSync,logAudit,syncBoxes,syncUsers,deleteUser,syncBoxDrugs};
+window.EB_Sync={initUsersOnly,initFirebaseSync,stopSync,stopAll,logAudit,syncBoxes,syncUsers,deleteUser,syncBoxDrugs};
 })();
