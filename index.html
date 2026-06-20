@@ -1054,6 +1054,7 @@ input:focus, select:focus, textarea:focus {
                     <input type="text" value="{{ swapReceiver }}" onInput="{{ setSwapReceiver }}" placeholder="ผู้รับคืน" list="eb-persons" style="width: 100%; height: 44px; border: 1.5px solid #DBE4EB; border-radius: 10px; padding: 0 12px; font-size: 13.5px; color: #15242E;">
                   </div>
                 </div>
+                {{ swapRetDrugUsageEl }}
               </sc-if>
             </div>
 
@@ -1600,6 +1601,7 @@ class Component extends DCLogic {
     swapEB: '',
     swapReturnDate: '',
     swapReceiver: '',
+    swapRetDrugUsage: {},
     // step 3: return
     retEB: '',
     retDate: '',
@@ -2039,6 +2041,13 @@ class Component extends DCLogic {
       return { retDrugUsage: u };
     });
   }
+  setSwapRetDrugUsage(drugIdx, lotIdx, qty) {
+    this.setState(s => {
+      const u = { ...s.swapRetDrugUsage };
+      u[drugIdx] = { ...(u[drugIdx] || {}), [lotIdx]: Math.max(0, qty) };
+      return { swapRetDrugUsage: u };
+    });
+  }
 
   iconBtn(kind, title, color, soft, onClick) {
     const SVG = {
@@ -2295,6 +2304,7 @@ class Component extends DCLogic {
     const st = this.state, errs = [];
     if (st.formMode === 'register') {
       if (!st.regPrinted) errs.push('พิมพ์ใบกล่องก่อนบันทึก (กดปุ่ม พิมพ์ใบกล่อง)');
+      if (!st.regMfg) errs.push('กรอกวันที่ผลิต');
       if (!(st.regPreparer || '').trim()) errs.push('ลงชื่อผู้จัดเตรียม (จพ.)');
       if (!(st.regChecker || '').trim()) errs.push('ลงชื่อเภสัชกรผู้ตรวจสอบ');
       const near = this.regNearISOof(st.regEB);
@@ -2432,6 +2442,21 @@ class Component extends DCLogic {
       if (swapReturn) {
         const swBox = this.BOXES.find(b => b.id === swapEB) || { id: swapEB };
         this._syncBox({ ...swBox, receiver: this.state.swapReceiver, retDate: this.state.swapReturnDate, dispense: '', dispenser: '' });
+        const _swPrevDrugs = (this.BOX_DRUGS || {})[swapEB] || [];
+        if (_swPrevDrugs.length > 0) {
+          const _swUsage = this.state.swapRetDrugUsage || {};
+          const _swUpdated = _swPrevDrugs.map((drug, di) => ({
+            ...drug, lots: (drug.lots || []).map((lot, li) => ({
+              ...lot, qty: Math.max(0, (lot.qty || 0) - ((_swUsage[di] || {})[li] || 0))
+            }))
+          }));
+          if (window.EB_Sync) window.EB_Sync.syncBoxDrugs(swapEB, _swUpdated);
+          const _swSummary = _swPrevDrugs.map((drug, di) => {
+            const _used = Object.values((_swUsage[di] || {})).reduce((s, q) => s + q, 0);
+            return _used > 0 ? `${drug.name} ใช้ ${_used}` : null;
+          }).filter(Boolean);
+          if (_swSummary.length > 0) this.logBoxHist(swapEB, `บันทึกยาที่ใช้: ${_swSummary.join(', ')}`);
+        }
         this.logAction({ cat: 'return', action: 'รับคืน', eb: swapEB, dept: formDept, drug: `รับคืน วันที่ ${this.fmtISO(this.state.swapReturnDate)} · โดย ${this.state.swapReceiver || '-'}` });
         this.logBoxHist(swapEB, `รับคืนจาก ${formDept} วันที่ ${this.fmtISO(this.state.swapReturnDate)} (โดย ${this.state.swapReceiver || '-'})`);
       }
@@ -2466,7 +2491,7 @@ class Component extends DCLogic {
         }
       }
       msg = `รับคืน ${retEB} เข้าห้องยาสำเร็จ`;
-      this.logAction({ cat: 'return', action: 'รับคืน', eb: retEB, dept: '—', drug: `รับคืน วันที่ ${this.fmtISO(retDate)} · โดย ${retReceiver || '-'}` });
+      this.logAction({ cat: 'return', action: 'รับคืน', eb: retEB, dept: retBox.dept || '—', drug: `รับคืน วันที่ ${this.fmtISO(retDate)} · โดย ${retReceiver || '-'}` });
       this.logBoxHist(retEB, `รับคืนเข้าห้องยา วันที่ ${this.fmtISO(retDate)} (โดย ${retReceiver || '-'})`);
     }
     const sub = m === 'register' ? 'บันทึกเข้าคลัง · พร้อมจ่าย' : m === 'dispense' ? 'บันทึก Audit Log · แจ้งเตือนอัตโนมัติ' : 'รับคืนแล้ว · พร้อมตรวจสอบ/จัดเตรียม';
@@ -2660,7 +2685,7 @@ td.l{text-align:left;padding-left:4px}
     const inStockIds = this.BOXES.filter(b => !(b.dispense && !b.receiver)).map(b => b.id);
     const outIds     = this.BOXES.filter(b =>  b.dispense && !b.receiver).map(b => b.id);
     if (m === 'register') this.setState({ regMfg: '', regPreparer: '', regChecker: '', regHadConfirm: false, regPrinted: false, boxDrugs: null });
-    else if (m === 'dispense') this.setState({ dispEB: inStockIds[0] || '', formDept: 'ER', dispenser: uName, swapReturn: false, swapEB: '', swapReceiver: '', dispDate: today, swapReturnDate: today });
+    else if (m === 'dispense') this.setState({ dispEB: inStockIds[0] || '', formDept: 'ER', dispenser: uName, swapReturn: false, swapEB: '', swapReceiver: '', swapRetDrugUsage: {}, dispDate: today, swapReturnDate: today });
     else this.setState({ retEB: outIds[0] || '', retReceiver: uName, retDate: today, retDrugUsage: {} });
   }
 
@@ -3396,10 +3421,54 @@ td.l{text-align:left;padding-left:4px}
     vals.swapReturn = st.swapReturn;
     vals.swapCheckEl = h('span', { key: 'swapchk_' + st.swapReturn, style: { width: 24, height: 24, flexShrink: 0, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', border: st.swapReturn ? '1.5px solid #1A6FA3' : '1.5px solid #C4D0DA', background: st.swapReturn ? '#1A6FA3' : '#fff' } },
       st.swapReturn ? ic('<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>', 14) : null);
-    vals.swapEBSelectEl = mkSelect(st.swapEB, (e) => this.setState({ swapEB: e.target.value }), outIds, false);
+    vals.swapEBSelectEl = mkSelect(st.swapEB, (e) => this.setState({ swapEB: e.target.value, swapRetDrugUsage: {} }), outIds, false);
     vals.swapReturnDate = st.swapReturnDate;
     vals.swapReceiver = st.swapReceiver;
     vals.setSwapReturnDate = (e) => this.setState({ swapReturnDate: e.target.value });
+
+    // drug usage table for swap-return in dispense form
+    const _swapEBU = st.swapEB && outIds.includes(st.swapEB) ? st.swapEB : outIds[0];
+    const _swapDrugsU = _swapEBU ? ((this.BOX_DRUGS || {})[_swapEBU] || []) : [];
+    vals.swapRetDrugUsageEl = st.swapReturn && _swapDrugsU.length > 0 ? h('div', { style: { marginTop: 14, paddingTop: 14, borderTop: '1px solid #ECF1F5' } },
+      h('label', { style: { display: 'block', fontSize: 12, fontWeight: 600, color: '#4A5C6A', marginBottom: 10 } },
+        'บันทึกยาที่ใช้ในกล่องที่รับคืน ',
+        h('span', { style: { fontSize: 11, fontWeight: 400, color: '#9AAAB8' } }, '(ใส่ 0 สำหรับยาที่ไม่ได้ใช้)')
+      ),
+      h('div', { style: { border: '1px solid #E7EEF3', borderRadius: 12, overflow: 'hidden' } },
+        ..._swapDrugsU.map((drug, di) => {
+          const _lots = drug.lots || [];
+          const _totalUsed = Object.values(st.swapRetDrugUsage[di] || {}).reduce((s, q) => s + q, 0);
+          return h('div', { key: di, style: { borderBottom: di < _swapDrugsU.length - 1 ? '1px solid #F0F4F7' : 'none', padding: '9px 12px' } },
+            h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, marginBottom: _lots.length > 0 ? 6 : 0 } },
+              h('span', { style: { fontSize: 12.5, fontWeight: 700, color: '#15242E' } }, drug.name),
+              drug.had ? h('span', { style: { fontSize: 10, fontWeight: 700, color: '#C2410C', background: '#FFF7ED', border: '1px solid #FDBA74', borderRadius: 5, padding: '1px 5px' } }, 'HAD') : null,
+              _totalUsed > 0 ? h('span', { style: { marginLeft: 'auto', fontSize: 11, color: '#E03E3E', fontWeight: 700 } }, `ใช้ ${_totalUsed} หน่วย`) : null,
+            ),
+            ..._lots.map((lot, li) => {
+              const _used = (st.swapRetDrugUsage[di] || {})[li] || 0;
+              const _rem = Math.max(0, (lot.qty || 0) - _used);
+              const _today2 = this.isoOf(this.TODAY);
+              return h('div', { key: li, style: { display: 'flex', alignItems: 'center', gap: 8, marginTop: li > 0 ? 4 : 0 } },
+                h('span', { style: { fontSize: 10, color: '#9AAAB8', fontWeight: 600, width: 40, flexShrink: 0, textAlign: 'right' } }, `Lot ${li+1}`),
+                h('span', { style: { fontSize: 11, color: '#4A5C6A', flex: 1, minWidth: 0 } },
+                  lot.lot ? `#${lot.lot} · ` : '',
+                  `มี ${lot.qty || 0} · Exp `,
+                  h('span', { style: { fontWeight: 600, color: lot.expiry && lot.expiry < _today2 ? '#E03E3E' : '#169C7F' } }, this.fmtISO(lot.expiry) || '-'),
+                ),
+                h('div', { style: { display: 'flex', alignItems: 'center', gap: 0, background: '#F7FAFC', border: '1.5px solid #DBE4EB', borderRadius: 9, overflow: 'hidden', height: 32, flexShrink: 0 } },
+                  h('button', { onClick: () => this.setSwapRetDrugUsage(di, li, _used - 1), style: { width: 28, height: '100%', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 15, fontWeight: 700, color: _used <= 0 ? '#C4D0DA' : '#7B8D9C', display: 'flex', alignItems: 'center', justifyContent: 'center' } }, '−'),
+                  h('input', { type: 'number', min: 0, max: lot.qty || 0, value: _used, onChange: (e) => this.setSwapRetDrugUsage(di, li, parseInt(e.target.value || '0', 10)), style: { width: 38, height: '100%', border: 'none', borderLeft: '1px solid #E7EEF3', borderRight: '1px solid #E7EEF3', textAlign: 'center', fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, fontWeight: 700, color: _used > 0 ? '#E03E3E' : '#15242E', background: 'transparent', outline: 'none' } }),
+                  h('button', { onClick: () => this.setSwapRetDrugUsage(di, li, Math.min(lot.qty || 0, _used + 1)), style: { width: 28, height: '100%', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 15, fontWeight: 700, color: _used >= (lot.qty || 0) ? '#C4D0DA' : '#169C7F', display: 'flex', alignItems: 'center', justifyContent: 'center' } }, '+'),
+                ),
+                h('span', { style: { fontSize: 11, fontWeight: 700, color: _rem === 0 && _used > 0 ? '#E03E3E' : _rem < (lot.qty || 0) ? '#D97706' : '#9AAAB8', minWidth: 48, flexShrink: 0 } },
+                  _rem === 0 && _used > 0 ? '⚠ หมด' : `เหลือ ${_rem}`
+                ),
+              );
+            })
+          );
+        })
+      )
+    ) : null;
     vals.setSwapReceiver = (e) => this.setState({ swapReceiver: e.target.value });
 
     // ===== STEP 3: RETURN =====
