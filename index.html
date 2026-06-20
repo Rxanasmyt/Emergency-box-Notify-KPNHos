@@ -3037,7 +3037,9 @@ td.l{text-align:left;padding-left:4px}
             h('div', { style: { fontSize: 11.5, opacity: .75, marginBottom: 8, fontWeight: 500, letterSpacing: .3 } }, '🏥 Emergency Box · ฝ่ายเภสัชกรรม รพ.กรงปินัง'),
             h('div', { style: { fontSize: 38, fontWeight: 700, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: -1, lineHeight: 1 } }, pubBox.id),
             h('div', { style: { marginTop: 14, display: 'flex', gap: 8, flexWrap: 'wrap' } },
-              h('span', { style: { background: 'rgba(255,255,255,.18)', borderRadius: 9, padding: '6px 14px', fontSize: 13, fontWeight: 600 } }, `หน่วยงาน: ${pubBox.dept || '—'}`),
+              isOut
+                ? h('span', { style: { background: 'rgba(255,255,255,.18)', borderRadius: 9, padding: '6px 14px', fontSize: 13, fontWeight: 600 } }, `หน่วยงาน: ${pubBox.dept || '—'}`)
+                : h('span', { style: { background: 'rgba(255,255,255,.12)', borderRadius: 9, padding: '6px 14px', fontSize: 13, fontWeight: 500, opacity: .85 } }, 'ยังไม่มีหน่วยงานเบิก'),
               isOut
                 ? h('span', { style: { background: 'rgba(224,62,62,.25)', border: '1px solid rgba(224,62,62,.4)', borderRadius: 9, padding: '6px 14px', fontSize: 13, fontWeight: 600 } }, '📤 จ่ายออกไปแล้ว')
                 : h('span', { style: { background: 'rgba(22,156,127,.3)', border: '1px solid rgba(22,156,127,.4)', borderRadius: 9, padding: '6px 14px', fontSize: 13, fontWeight: 600 } }, '✅ อยู่ในห้องยา')
