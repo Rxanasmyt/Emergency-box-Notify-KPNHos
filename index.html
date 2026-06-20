@@ -2313,6 +2313,8 @@ class Component extends DCLogic {
       if (st.regMfg && near && st.regMfg > near) errs.push('วันผลิตต้องมาก่อนวันหมดอายุ');
       const list = (st.boxDrugs || this.buildBoxDrugs())[st.regEB] || [];
       if (list.some(d => d.had) && !st.regHadConfirm) errs.push('ยืนยันการตรวจสอบยา HAD');
+      const _lotsNoExp = list.reduce((n, d) => n + (d.lots || []).filter(l => !l.expiry).length, 0);
+      if (_lotsNoExp > 0) errs.push(`กรอกวันหมดอายุให้ครบ (ยังขาดอยู่ ${_lotsNoExp} lot)`);
     } else if (st.formMode === 'dispense') {
       const _effDispEB = this._resolveDispEB();
       if (!_effDispEB) errs.push('เลือกกล่องยาที่จ่าย');
@@ -2320,10 +2322,16 @@ class Component extends DCLogic {
       if (!(st.dispenser || '').trim()) errs.push('ลงชื่อผู้จ่าย');
       if (!st.dispDate) errs.push('วันที่จ่าย');
       if (st.dispDate && st.dispDate > this.isoOf(this.TODAY)) errs.push('วันที่จ่ายต้องไม่เกินวันนี้');
+      const _outIds = this.BOXES.filter(b => b.dispense && !b.receiver).map(b => b.id);
       if (st.swapReturn && !st.swapEB) errs.push('เลือกกล่องเก่าที่รับคืน');
+      if (st.swapReturn && st.swapEB && !_outIds.includes(st.swapEB)) errs.push('กล่องที่รับคืนไม่ใช่กล่องที่ค้างอยู่ที่หน่วยงาน — รีเฟรชข้อมูลแล้วลองใหม่');
       if (st.swapReturn && !(st.swapReceiver || '').trim()) errs.push('ลงชื่อผู้รับคืนกล่องเก่า');
       if (st.swapReturn && !st.swapReturnDate) errs.push('วันที่รับคืนกล่องเก่า');
       if (st.swapReturn && st.swapReturnDate && st.swapReturnDate > this.isoOf(this.TODAY)) errs.push('วันที่รับคืนกล่องเก่าต้องไม่เกินวันนี้');
+      if (st.swapReturn && st.swapReturnDate && st.swapEB && _outIds.includes(st.swapEB)) {
+        const _swBox = this.BOXES.find(b => b.id === st.swapEB);
+        if (_swBox && _swBox.dispense && st.swapReturnDate < _swBox.dispense) errs.push(`วันที่รับคืนกล่องเก่าต้องไม่ก่อนวันที่จ่ายออก (จ่ายเมื่อ ${this.fmtISO(_swBox.dispense)})`);
+      }
       if (st.swapReturn && st.swapEB && st.swapEB === _effDispEB) errs.push('กล่องที่รับคืนต้องไม่ใช่กล่องเดียวกับกล่องที่จ่าย');
     } else {
       const _effRetEB = this._resolveRetEB();
@@ -2436,7 +2444,7 @@ class Component extends DCLogic {
     else if (m === 'dispense') {
       const { formDept, swapReturn, swapEB } = this.state;
       const dispEB = this._resolveDispEB() || this.state.dispEB;
-      if (!dispEB) { this.flash('ข้อผิดพลาด: ไม่พบกล่องยาที่เลือก'); return; }
+      if (!dispEB) { this.setState({ submitting: false }); this.flash('ข้อผิดพลาด: ไม่พบกล่องยาที่เลือก'); return; }
       const box = this.BOXES.find(b => b.id === dispEB) || { id: dispEB };
       this._syncBox({ ...box, dept: formDept, dispense: this.state.dispDate, dispenser: this.state.dispenser, receiver: '' });
       if (swapReturn) {
@@ -2467,7 +2475,7 @@ class Component extends DCLogic {
     else {
       const { retReceiver, retDate, retDrugUsage } = this.state;
       const retEB = this._resolveRetEB() || this.state.retEB;
-      if (!retEB) { this.flash('ข้อผิดพลาด: ไม่พบกล่องยาที่เลือก'); return; }
+      if (!retEB) { this.setState({ submitting: false }); this.flash('ข้อผิดพลาด: ไม่พบกล่องยาที่เลือก'); return; }
       const retBox = this.BOXES.find(b => b.id === retEB) || { id: retEB };
       this._syncBox({ ...retBox, receiver: retReceiver, retDate });
       // update box_drugs quantities based on recorded drug usage
