@@ -3196,7 +3196,7 @@ td.l{text-align:left;padding-left:4px}
     vals.detailQuickActionsEl = h('div', { style: { display: 'flex', gap: 8, marginTop: 14, paddingTop: 14, borderTop: '1px solid #EFF3F6' } },
       !selBoxOut ? h('button', {
         className: 'btn-primary quick-act-btn',
-        onClick: () => this.setState({ screen: 'entry', formMode: 'dispense', dispEB: st.selectedEB }),
+        onClick: () => this.setState({ screen: 'entry', formMode: 'dispense', dispEB: st.selectedEB, swapReturn: false, regPrinted: false }),
         style: { flex: 1, height: 44, borderRadius: 11, border: 'none', background: 'linear-gradient(135deg,#1E4FD8,#2B7FE0)', color: '#fff', fontFamily: 'inherit', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, boxShadow: '0 4px 14px rgba(43,127,224,.4)', transition: 'all .22s cubic-bezier(.34,1.56,.64,1)' },
       }, ic('<svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M4 12h13m0 0l-5-5m5 5l-5 5" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',15), 'จ่าย EB นี้') : null,
       selBoxOut ? h('button', {
