@@ -1082,6 +1082,8 @@ input:focus, select:focus, textarea:focus {
 
             {{ retBoxInfoEl }}
 
+            {{ retDrugUsageEl }}
+
             <div class="form-grid-2" style="margin: 18px 0 26px;">
               <div>
                 <label style="display: block; font-size: 12.5px; font-weight: 600; color: #4A5C6A; margin-bottom: 7px;">วันที่รับคืน Emergency Box <span style="color:#E03E3E;">*</span></label>
@@ -1602,6 +1604,7 @@ class Component extends DCLogic {
     retEB: '',
     retDate: '',
     retReceiver: '',
+    retDrugUsage: {},
     showToast: false,
     toastTitle: '',
     toastSubtitle: '',
@@ -2029,6 +2032,13 @@ class Component extends DCLogic {
       return { boxDrugs: bd };
     });
   }
+  setRetDrugUsage(drugIdx, lotIdx, qty) {
+    this.setState(s => {
+      const u = { ...s.retDrugUsage };
+      u[drugIdx] = { ...(u[drugIdx] || {}), [lotIdx]: Math.max(0, qty) };
+      return { retDrugUsage: u };
+    });
+  }
 
   iconBtn(kind, title, color, soft, onClick) {
     const SVG = {
@@ -2429,11 +2439,31 @@ class Component extends DCLogic {
       this.logBoxHist(dispEB, `จ่ายให้ ${formDept} (โดย ${this.state.dispenser || '-'})`);
     }
     else {
-      const { retReceiver, retDate } = this.state;
+      const { retReceiver, retDate, retDrugUsage } = this.state;
       const retEB = this._resolveRetEB() || this.state.retEB;
       if (!retEB) { this.flash('ข้อผิดพลาด: ไม่พบกล่องยาที่เลือก'); return; }
       const retBox = this.BOXES.find(b => b.id === retEB) || { id: retEB };
       this._syncBox({ ...retBox, receiver: retReceiver, retDate });
+      // update box_drugs quantities based on recorded drug usage
+      const _prevDrugs = (this.BOX_DRUGS || {})[retEB] || [];
+      if (_prevDrugs.length > 0) {
+        const _updatedDrugs = _prevDrugs.map((drug, di) => {
+          const _drugUsage = retDrugUsage[di] || {};
+          const _updatedLots = (drug.lots || []).map((lot, li) => ({
+            ...lot, qty: Math.max(0, (lot.qty || 0) - (_drugUsage[li] || 0))
+          }));
+          return { ...drug, lots: _updatedLots };
+        });
+        if (window.EB_Sync) window.EB_Sync.syncBoxDrugs(retEB, _updatedDrugs);
+        // log drug usage summary
+        const _usageSummary = _prevDrugs.map((drug, di) => {
+          const _totalUsed = Object.values(retDrugUsage[di] || {}).reduce((s, q) => s + q, 0);
+          return _totalUsed > 0 ? `${drug.name} ใช้ ${_totalUsed}` : null;
+        }).filter(Boolean);
+        if (_usageSummary.length > 0) {
+          this.logBoxHist(retEB, `บันทึกยาที่ใช้: ${_usageSummary.join(', ')}`);
+        }
+      }
       msg = `รับคืน ${retEB} เข้าห้องยาสำเร็จ`;
       this.logAction({ cat: 'return', action: 'รับคืน', eb: retEB, dept: '—', drug: `รับคืน วันที่ ${this.fmtISO(retDate)} · โดย ${retReceiver || '-'}` });
       this.logBoxHist(retEB, `รับคืนเข้าห้องยา วันที่ ${this.fmtISO(retDate)} (โดย ${retReceiver || '-'})`);
@@ -2630,7 +2660,7 @@ td.l{text-align:left;padding-left:4px}
     const outIds     = this.BOXES.filter(b =>  b.dispense && !b.receiver).map(b => b.id);
     if (m === 'register') this.setState({ regMfg: '', regPreparer: '', regChecker: '', regHadConfirm: false, regPrinted: false });
     else if (m === 'dispense') this.setState({ dispEB: inStockIds[0] || '', formDept: 'ER', dispenser: uName, swapReturn: false, swapEB: '', swapReceiver: '', dispDate: today, swapReturnDate: today });
-    else this.setState({ retEB: outIds[0] || '', retReceiver: uName, retDate: today });
+    else this.setState({ retEB: outIds[0] || '', retReceiver: uName, retDate: today, retDrugUsage: {} });
   }
 
   renderVals() {
@@ -3220,7 +3250,14 @@ td.l{text-align:left;padding-left:4px}
     };
 
     // ===== STEP 1: REGISTER =====
-    vals.regEBSelectEl = mkEBChips(st.regEB, (id) => this.setState({ regEB: id }), allIds, '#2B7FE0', _ebStatusMap);
+    vals.regEBSelectEl = mkEBChips(st.regEB, (id) => {
+      const _existBD = (this.BOX_DRUGS || {})[id];
+      const _upd = { regEB: id };
+      if (_existBD && _existBD.length > 0) {
+        _upd.boxDrugs = { ...(this.state.boxDrugs || this.buildBoxDrugs()), [id]: _existBD.map(d => ({ ...d, lots: (d.lots || []).map(l => ({ ...l })) })) };
+      }
+      this.setState(_upd);
+    }, allIds, '#2B7FE0', _ebStatusMap);
     vals.regMfg = st.regMfg;
     vals.regPreparer = st.regPreparer;
     vals.regChecker = st.regChecker;
@@ -3365,7 +3402,7 @@ td.l{text-align:left;padding-left:4px}
     vals.setSwapReceiver = (e) => this.setState({ swapReceiver: e.target.value });
 
     // ===== STEP 3: RETURN =====
-    vals.retEBSelectEl = mkEBChips(st.retEB, (id) => this.setState({ retEB: id }), outIds, '#169C7F', _ebStatusMap);
+    vals.retEBSelectEl = mkEBChips(st.retEB, (id) => this.setState({ retEB: id, retDrugUsage: {} }), outIds, '#169C7F', _ebStatusMap);
     vals.retHintEl = hint(`ค้างรับคืน ${outIds.length} กล่อง · เลือกได้เฉพาะกล่องที่ถูกจ่ายออกไปและยังไม่ได้คืน`, '#B5740F', '#FBF1E0', '#F0DDB8', '#EE8A2B');
     vals.retDate = st.retDate;
     vals.retReceiver = st.retReceiver;
@@ -3382,6 +3419,50 @@ td.l{text-align:left;padding-left:4px}
     vals.retDaysOutColor = retDaysOut > 30 ? '#D97706' : retDaysOut > 15 ? '#B5740F' : '#169C7F';
     vals.retDaysOutSoft  = retDaysOut > 30 ? '#FEF3C7' : retDaysOut > 15 ? '#FBF1E0' : '#E4F4EF';
     vals.retDaysOutBorder = retDaysOut > 30 ? '#FCD34D' : retDaysOut > 15 ? '#F4DEC2' : '#C4E7DB';
+
+    // drug usage table for return form
+    const _retEBU = outIds.includes(st.retEB) ? st.retEB : outIds[0];
+    const _retDrugsU = _retEBU ? ((this.BOX_DRUGS || {})[_retEBU] || []) : [];
+    vals.retDrugUsageEl = _retDrugsU.length > 0 ? h('div', { style: { marginBottom: 20 } },
+      h('label', { style: { display: 'block', fontSize: 12.5, fontWeight: 600, color: '#4A5C6A', marginBottom: 10 } },
+        'บันทึกยาที่ใช้ในกล่อง ',
+        h('span', { style: { fontSize: 11.5, fontWeight: 400, color: '#9AAAB8' } }, '(ใส่ 0 สำหรับยาที่ไม่ได้ใช้)')
+      ),
+      h('div', { style: { border: '1px solid #E7EEF3', borderRadius: 14, overflow: 'hidden' } },
+        ..._retDrugsU.map((drug, di) => {
+          const _lots = drug.lots || [];
+          const _totalUsed = Object.values(st.retDrugUsage[di] || {}).reduce((s, q) => s + q, 0);
+          return h('div', { key: di, style: { borderBottom: di < _retDrugsU.length - 1 ? '1px solid #F0F4F7' : 'none', padding: '10px 14px' } },
+            h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, marginBottom: _lots.length > 0 ? 7 : 0 } },
+              h('span', { style: { fontSize: 13, fontWeight: 700, color: '#15242E' } }, drug.name),
+              drug.had ? h('span', { style: { fontSize: 10.5, fontWeight: 700, color: '#C2410C', background: '#FFF7ED', border: '1px solid #FDBA74', borderRadius: 5, padding: '1px 5px' } }, 'HAD') : null,
+              _totalUsed > 0 ? h('span', { style: { marginLeft: 'auto', fontSize: 11.5, color: '#E03E3E', fontWeight: 700 } }, `ใช้ ${_totalUsed} หน่วย`) : null,
+            ),
+            ..._lots.map((lot, li) => {
+              const _used = (st.retDrugUsage[di] || {})[li] || 0;
+              const _rem = Math.max(0, (lot.qty || 0) - _used);
+              const _today2 = this.isoOf(this.TODAY);
+              return h('div', { key: li, style: { display: 'flex', alignItems: 'center', gap: 8, marginTop: li > 0 ? 5 : 0 } },
+                h('span', { style: { fontSize: 10.5, color: '#9AAAB8', fontWeight: 600, width: 40, flexShrink: 0, textAlign: 'right' } }, `Lot ${li+1}`),
+                h('span', { style: { fontSize: 11.5, color: '#4A5C6A', flex: 1, minWidth: 0 } },
+                  lot.lot ? `#${lot.lot} · ` : '',
+                  `มี ${lot.qty || 0} · Exp `,
+                  h('span', { style: { fontWeight: 600, color: lot.expiry && lot.expiry < _today2 ? '#E03E3E' : '#169C7F' } }, this.fmtISO(lot.expiry) || '-'),
+                ),
+                h('div', { style: { display: 'flex', alignItems: 'center', gap: 0, background: '#F7FAFC', border: '1.5px solid #DBE4EB', borderRadius: 9, overflow: 'hidden', height: 34, flexShrink: 0 } },
+                  h('button', { onClick: () => this.setRetDrugUsage(di, li, _used - 1), style: { width: 30, height: '100%', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 16, fontWeight: 700, color: _used <= 0 ? '#C4D0DA' : '#7B8D9C', display: 'flex', alignItems: 'center', justifyContent: 'center' } }, '−'),
+                  h('input', { type: 'number', min: 0, max: lot.qty || 0, value: _used, onChange: (e) => this.setRetDrugUsage(di, li, parseInt(e.target.value || '0', 10)), style: { width: 40, height: '100%', border: 'none', borderLeft: '1px solid #E7EEF3', borderRight: '1px solid #E7EEF3', textAlign: 'center', fontFamily: "'IBM Plex Mono', monospace", fontSize: 13, fontWeight: 700, color: _used > 0 ? '#E03E3E' : '#15242E', background: 'transparent', outline: 'none' } }),
+                  h('button', { onClick: () => this.setRetDrugUsage(di, li, Math.min(lot.qty || 0, _used + 1)), style: { width: 30, height: '100%', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 16, fontWeight: 700, color: _used >= (lot.qty || 0) ? '#C4D0DA' : '#169C7F', display: 'flex', alignItems: 'center', justifyContent: 'center' } }, '+'),
+                ),
+                h('span', { style: { fontSize: 11.5, fontWeight: 700, color: _rem === 0 && _used > 0 ? '#E03E3E' : _rem < (lot.qty || 0) ? '#D97706' : '#9AAAB8', minWidth: 52, flexShrink: 0 } },
+                  _rem === 0 && _used > 0 ? '⚠ หมด' : `เหลือ ${_rem}`
+                ),
+              );
+            })
+          );
+        })
+      )
+    ) : null;
 
     // autocomplete datalist from audit log person names
     const auditPersons = [...new Set((st.auditLog || this.AUDIT || []).map(r => r.person || '').filter(Boolean).sort())];
@@ -3410,7 +3491,7 @@ td.l{text-align:left;padding-left:4px}
       const _m = st.formMode;
       const _dirty = _m === 'register' ? (st.regMfg || st.regPreparer || st.regChecker)
                    : _m === 'dispense' ? (st.formDept !== 'ER' || (st.dispenser && st.dispenser !== (st.currentUser ? st.currentUser.name : '')) || st.swapReturn)
-                   : (st.retReceiver && st.retReceiver !== (st.currentUser ? st.currentUser.name : ''));
+                   : ((st.retReceiver && st.retReceiver !== (st.currentUser ? st.currentUser.name : '')) || Object.values(st.retDrugUsage || {}).some(d => Object.values(d).some(q => q > 0)));
       if (_dirty) { this.askConfirm({ tone: 'warn', icon: 'warn', title: 'ล้างฟอร์ม?', body: 'ข้อมูลที่กรอกไว้จะหายทั้งหมด', yesLabel: 'ล้าง', noLabel: 'ยกเลิก', onYes: () => this.resetForm() }); } else { this.resetForm(); }
     };
 
