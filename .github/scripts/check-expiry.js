@@ -4,7 +4,7 @@
  *
  * Required GitHub Secrets:
  *   FIREBASE_SERVICE_ACCOUNT - Firebase Admin SDK JSON (already set)
- *   LINE_NOTIFY_TOKEN        - Token from https://notify-bot.line.me
+ *   LINE_CHANNEL_TOKEN       - LINE Messaging API channel access token
  *   EMAIL_FROM               - Gmail address (sender)
  *   EMAIL_PASS               - Gmail App Password (16-char, not account password)
  *   EMAIL_TO                 - Recipient email (comma-separated for multiple)

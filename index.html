@@ -1727,6 +1727,7 @@ class Component extends DCLogic {
     const patch = {};
     if (!this.state.boxDrugs) patch.boxDrugs = this.buildBoxDrugs();
     if (!this.state.auditLog || !this.state.auditLog.length) patch.auditLog = this.AUDIT.map(a => ({ ...a, cat: a.action === 'จ่าย' ? 'dispense' : (a.action === 'รับคืน' ? 'return' : 'other') }));
+    try { const saved = localStorage.getItem('eb_remember_user'); if (saved) patch.loginUser = saved; } catch (_) {}
     const today = this.isoOf(this.TODAY);
     if (!this.state.dispDate) patch.dispDate = today;
     if (!this.state.retDate) patch.retDate = today;
@@ -1816,8 +1817,14 @@ class Component extends DCLogic {
     this.setState({ editDrugs: false, saveSuccess: Date.now() });
     setTimeout(() => this.setState({ saveSuccess: null }), 1600);
     if (window.EB_Sync) window.EB_Sync.syncBoxDrugs(id, drugs);
-    this.flash('บันทึกข้อมูลยาในกล่องแล้ว · คำนวณวันหมดอายุและวันส่งคืนใหม่อัตโนมัติ');
+    // also update boxes doc so expiry/nearDrug stay in sync as fallback
     const near = this.nearDrugOf(id);
+    const nearISO = this.regNearISOof(id);
+    const boxToSync = this.BOXES.find(b => b.id === id);
+    if (boxToSync && window.EB_Sync) {
+      this._syncBox({ ...boxToSync, expiry: nearISO || '', nearDrug: near || '' });
+    }
+    this.flash('บันทึกข้อมูลยาในกล่องแล้ว · คำนวณวันหมดอายุและวันส่งคืนใหม่อัตโนมัติ');
     this.logAction({ cat: 'edit', action: 'แก้ไขยา', eb: id, dept: '—', drug: `ปรับจำนวน/วันหมดอายุ · ใกล้หมดอายุสุด: ${near}` });
     this.logBoxHist(id, 'แก้ไขจำนวน/วันหมดอายุยา');
   }
@@ -1919,6 +1926,10 @@ class Component extends DCLogic {
     const updatedU = { ...u, lastLogin };
     const _today = this.isoOf(this.TODAY);
     clearTimeout(this._lockT);
+    try {
+      if (this.state.remember) localStorage.setItem('eb_remember_user', u.username);
+      else localStorage.removeItem('eb_remember_user');
+    } catch (_) {}
     this.setState({ authed: true, currentUser: updatedU, loginError: '', attempts: 0, locked: false, loginPass: '', screen: 'dashboard',
       users: this.state.users.map(x => x.username === u.username ? updatedU : x),
       dispDate: _today, retDate: _today, swapReturnDate: _today, regPrinted: false });

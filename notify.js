@@ -46,18 +46,21 @@
       .set(s, { merge: true }).catch(() => {});
   }
 
+  function todayBangkok() {
+    const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
   function getLastSent() {
     return localStorage.getItem(LAST_SENT_KEY) || '';
   }
 
   function setLastSent() {
-    const today = new Date().toISOString().slice(0, 10);
-    localStorage.setItem(LAST_SENT_KEY, today);
+    localStorage.setItem(LAST_SENT_KEY, todayBangkok());
   }
 
   function alreadySentToday() {
-    const today = new Date().toISOString().slice(0, 10);
-    return getLastSent() === today;
+    return getLastSent() === todayBangkok();
   }
 
   function findExpiringDrugs(component, thresholdDays) {
