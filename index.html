@@ -1641,6 +1641,7 @@ class Component extends DCLogic {
     _publicSynced: false,
     // session
     idleWarn: false,
+    idleCountdown: 60,
     reauth: null,
     reauthPass: '',
     reauthError: '',
@@ -1818,12 +1819,36 @@ class Component extends DCLogic {
     if (!this.state.boxDrugs) patch.boxDrugs = this.buildBoxDrugs();
     if (!this.state.auditLog || !this.state.auditLog.length) patch.auditLog = this.AUDIT.map(a => ({ ...a, cat: a.action === 'จ่าย' ? 'dispense' : (a.action === 'รับคืน' ? 'return' : 'other') }));
     try { const saved = localStorage.getItem('eb_remember_user'); if (saved) patch.loginUser = saved; } catch (_) {}
+    // restore brute-force lockout across page refresh
+    try {
+      const unlockAt = parseInt(sessionStorage.getItem('eb_lockout') || '0', 10);
+      if (unlockAt && Date.now() < unlockAt) {
+        const remaining = unlockAt - Date.now();
+        patch.locked = true; patch.attempts = 5;
+        patch.loginError = `บัญชีถูกล็อกชั่วคราว — เหลือ ${Math.ceil(remaining / 60000)} นาที`;
+        this._lockT = setTimeout(() => {
+          try { sessionStorage.removeItem('eb_lockout'); } catch (_) {}
+          this.setState({ locked: false, attempts: 0, loginError: '' });
+        }, remaining);
+      } else {
+        const savedAttempts = parseInt(sessionStorage.getItem('eb_attempts') || '0', 10);
+        if (savedAttempts > 0) patch.attempts = savedAttempts;
+      }
+    } catch (_) {}
     const today = this.isoOf(this.TODAY);
     if (!this.state.dispDate) patch.dispDate = today;
     if (!this.state.retDate) patch.retDate = today;
     if (!this.state.swapReturnDate) patch.swapReturnDate = today;
     if (Object.keys(patch).length) this.setState(patch);
     this._syncChipStates();
+    // periodic expiry re-check every hour while session is active
+    this._notifyInterval = setInterval(() => {
+      if (!this.state.authed || !window.EB_Notify) return;
+      window.EB_Notify.checkAndNotify(this, false).then(result => {
+        if (!this.state.authed || !result.alerts.length) return;
+        this.setState({ expiryAlerts: result.alerts, showExpiryBanner: true });
+      }).catch(() => {});
+    }, 60 * 60 * 1000);
     this._idleEvents = ['mousemove', 'keydown', 'click', 'touchstart'];
     this._resetIdle = () => this.bumpIdle();
     this._idleEvents.forEach(ev => window.addEventListener(ev, this._resetIdle, true));
@@ -1865,6 +1890,7 @@ class Component extends DCLogic {
     clearTimeout(this._idleT); clearTimeout(this._idleWarnT);
     clearTimeout(this._syncT); clearTimeout(this._lockT);
     clearTimeout(this._t); clearTimeout(this._a);
+    clearInterval(this._notifyInterval); clearInterval(this._idleCountI);
     if (window.EB_Sync) window.EB_Sync.stopAll();
   }
 
@@ -1874,14 +1900,22 @@ class Component extends DCLogic {
   bumpIdle() {
     if (!this.state.authed) return;
     if (this.state.idleWarn) this.setState({ idleWarn: false });
-    clearTimeout(this._idleT); clearTimeout(this._idleWarnT);
+    clearTimeout(this._idleT); clearTimeout(this._idleWarnT); clearInterval(this._idleCountI);
     this._idleT = setTimeout(() => {
       if (!this.state.authed) return;
-      this.setState({ idleWarn: true });
-      this._idleWarnT = setTimeout(() => { if (this.state.authed) { this.logAction({ cat: 'auth', action: 'ออกระบบ', eb: '—', dept: '—', drug: 'หมดเวลาใช้งาน (auto logout)' }); this.logout(); } }, this.IDLE_OUT_MS);
+      const secs = Math.round(this.IDLE_OUT_MS / 1000);
+      this.setState({ idleWarn: true, idleCountdown: secs });
+      clearInterval(this._idleCountI);
+      this._idleCountI = setInterval(() => {
+        this.setState(s => ({ idleCountdown: Math.max(0, s.idleCountdown - 1) }));
+      }, 1000);
+      this._idleWarnT = setTimeout(() => {
+        clearInterval(this._idleCountI);
+        if (this.state.authed) { this.logAction({ cat: 'auth', action: 'ออกระบบ', eb: '—', dept: '—', drug: 'หมดเวลาใช้งาน (auto logout)' }); this.logout(); }
+      }, this.IDLE_OUT_MS);
     }, this.IDLE_WARN_MS);
   }
-  staySignedIn() { this.setState({ idleWarn: false }); this.bumpIdle(); }
+  staySignedIn() { clearInterval(this._idleCountI); this.setState({ idleWarn: false, idleCountdown: 60 }); this.bumpIdle(); }
 
   // ---------- audit log ----------
   nowTime() { const d = new Date(); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
@@ -2004,9 +2038,15 @@ class Component extends DCLogic {
       const attempts = s.attempts + 1;
       if (attempts >= 5) {
         clearTimeout(this._lockT);
-        this._lockT = setTimeout(() => this.setState({ locked: false, attempts: 0, loginError: '' }), 15 * 60 * 1000);
+        const unlockAt = Date.now() + 15 * 60 * 1000;
+        try { sessionStorage.setItem('eb_lockout', String(unlockAt)); } catch (_) {}
+        this._lockT = setTimeout(() => {
+          try { sessionStorage.removeItem('eb_lockout'); } catch (_) {}
+          this.setState({ locked: false, attempts: 0, loginError: '' });
+        }, 15 * 60 * 1000);
         return { attempts, locked: true, loginError: 'บัญชีถูกล็อกชั่วคราว 15 นาที เนื่องจากกรอกผิดเกิน 5 ครั้ง' };
       }
+      try { sessionStorage.setItem('eb_attempts', String(attempts)); } catch (_) {}
       return { attempts, loginError: `รหัสพนักงานหรือรหัสผ่านไม่ถูกต้อง · เหลืออีก ${5 - attempts} ครั้ง` };
     });
   }
@@ -2035,6 +2075,7 @@ class Component extends DCLogic {
     const updatedU = { ...u, lastLogin };
     const _today = this.isoOf(this.TODAY);
     clearTimeout(this._lockT);
+    try { sessionStorage.removeItem('eb_lockout'); sessionStorage.removeItem('eb_attempts'); } catch (_) {}
     try {
       if (this.state.remember) localStorage.setItem('eb_remember_user', u.username);
       else localStorage.removeItem('eb_remember_user');
@@ -2248,6 +2289,20 @@ class Component extends DCLogic {
       this.flash('กรอกไม่ครบ: ' + errs.join(' · '));
       this.setState(s => ({ shakeCount: s.shakeCount + 1 }));
       return;
+    }
+    // safety check: same-day re-registration warning
+    if (this.state.formMode === 'register') {
+      const _regBox = this.BOXES.find(b => b.id === this.state.regEB);
+      if (_regBox && _regBox.registeredAt === this.isoOf(this.TODAY)) {
+        this.askConfirm({
+          tone: 'warn', icon: 'warn',
+          title: `${this.state.regEB} ลงทะเบียนไปแล้ววันนี้!`,
+          body: `กล่องนี้เพิ่งถูกลงทะเบียนวันนี้ (${this.fmtISO(_regBox.registeredAt)}) ยืนยันการลงทะเบียนซ้ำ?`,
+          yesLabel: 'ลงทะเบียนซ้ำ', noLabel: 'ยกเลิก',
+          onYes: () => this.submit(),
+        });
+        return;
+      }
     }
     // clinical safety checks (dispense only)
     if (this.state.formMode === 'dispense') {
@@ -3709,8 +3764,10 @@ td.l{text-align:left;padding-left:4px}
       h('div', { style: { width: '100%', maxWidth: 380, background: '#fff', borderRadius: 20, padding: '26px', textAlign: 'center', boxShadow: '0 24px 60px rgba(14,42,60,.4)', animation: 'modalPop .3s cubic-bezier(.2,.9,.2,1) both' } },
         h('div', { style: { width: 54, height: 54, margin: '0 auto 14px', borderRadius: '50%', background: '#FBF1E0', color: '#D9810F', display: 'flex', alignItems: 'center', justifyContent: 'center' }, dangerouslySetInnerHTML: { __html: '<svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M12 7v5l3 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.8"/></svg>' } }),
         h('div', { style: { fontSize: 17, fontWeight: 700 } }, 'ไม่มีการใช้งาน'),
-        h('div', { style: { fontSize: 13, color: '#6B7C8A', marginTop: 6, lineHeight: 1.55 } }, 'ระบบจะออกจากระบบอัตโนมัติใน 1 นาที เพื่อความปลอดภัยของข้อมูลผู้ป่วย'),
-        h('button', { onClick: () => this.staySignedIn(), style: { width: '100%', height: 47, marginTop: 18, border: 'none', borderRadius: 12, background: 'linear-gradient(135deg, #1A6FA3, #168C84)', color: '#fff', fontFamily: 'inherit', fontSize: 14, fontWeight: 600, cursor: 'pointer' } }, 'ใช้งานต่อ'))) : null;
+        h('div', { style: { fontSize: 13, color: '#6B7C8A', marginTop: 6, lineHeight: 1.55 } }, 'ระบบจะออกจากระบบอัตโนมัติเพื่อความปลอดภัยของข้อมูลผู้ป่วย'),
+        h('div', { style: { fontSize: 36, fontWeight: 700, color: st.idleCountdown <= 10 ? '#E03E3E' : '#D9810F', margin: '14px 0 4px', fontFamily: "'IBM Plex Mono', monospace", transition: 'color .3s' } }, st.idleCountdown),
+        h('div', { style: { fontSize: 12, color: '#9AAAB8', marginBottom: 4 } }, 'วินาที'),
+        h('button', { onClick: () => this.staySignedIn(), style: { width: '100%', height: 47, marginTop: 14, border: 'none', borderRadius: 12, background: 'linear-gradient(135deg, #1A6FA3, #168C84)', color: '#fff', fontFamily: 'inherit', fontSize: 14, fontWeight: 600, cursor: 'pointer' } }, 'ใช้งานต่อ'))) : null;
 
     // ===== ADMIN FULL AUDIT LOG =====
     const _adr = _mkDateRange(st.aDatePreset, st.aFiscalYear, st.aDateFrom, st.aDateTo);
