@@ -1634,8 +1634,9 @@ class Component extends DCLogic {
     expiryAlerts: [],
     showExpiryBanner: false,
     canInstall: false,
-    publicView: false,
-    publicBoxId: '',
+    // QR public view — read URL synchronously at construction so no login-screen flash on scan
+    publicView: (() => { try { const p = new URLSearchParams(window.location.search); return p.get('view') === 'box' && !!p.get('id'); } catch (_) { return false; } })(),
+    publicBoxId: (() => { try { const p = new URLSearchParams(window.location.search); return (p.get('view') === 'box' && p.get('id')) || ''; } catch (_) { return ''; } })(),
     _publicSynced: false,
     // session
     idleWarn: false,
@@ -1821,10 +1822,8 @@ class Component extends DCLogic {
       setTimeout(() => r.remove(), 750);
     };
     document.addEventListener('click', this._ripple, { passive: true });
-    // QR code public box view — detect URL before starting auth flows
-    const _qrP = new URLSearchParams(window.location.search);
-    if (_qrP.get('view') === 'box' && _qrP.get('id')) {
-      this.setState({ publicView: true, publicBoxId: _qrP.get('id') });
+    // QR code public box view — publicView/publicBoxId already parsed from URL in state init
+    if (this.state.publicView && this.state.publicBoxId) {
       if (window.EB_Sync) window.EB_Sync.startPublicSync(this);
     } else {
       // Start users listener immediately so any device can login with any account
