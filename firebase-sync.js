@@ -142,9 +142,13 @@ function listenBoxDrugs(){
   const unsub=db.collection(C.boxDrugs).onSnapshot(snap=>{
     if(!component)return;
     const bd={};snap.forEach(doc=>{const d=doc.data();const boxId=d.boxId||doc.id;if(boxId&&d.drugs)bd[boxId]=d.drugs;});
-    // always update BOX_DRUGS and boxDrugs state even when empty
+    // always update BOX_DRUGS — authoritative source for current Firestore data
     component.BOX_DRUGS=bd;
-    component.setState({boxDrugs:Object.keys(bd).length?bd:{}});
+    // only update boxDrugs state when user is NOT actively editing drugs in a form
+    // prevents listener from silently wiping unsaved edits in register/editDrugs mode
+    const _st=component.state||{};
+    const _editing=_st.editDrugs||(_st.formMode==='register'&&_st.boxDrugs!==null);
+    if(!_editing){component.setState({boxDrugs:Object.keys(bd).length?bd:{}});}
   },err=>console.warn('[Sync] BoxDrugs error:',err.message));
   unsubscribers.push(unsub);
 }

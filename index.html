@@ -2659,7 +2659,7 @@ td.l{text-align:left;padding-left:4px}
     // _syncBox has already updated this.BOXES before resetForm is called from submit()
     const inStockIds = this.BOXES.filter(b => !(b.dispense && !b.receiver)).map(b => b.id);
     const outIds     = this.BOXES.filter(b =>  b.dispense && !b.receiver).map(b => b.id);
-    if (m === 'register') this.setState({ regMfg: '', regPreparer: '', regChecker: '', regHadConfirm: false, regPrinted: false });
+    if (m === 'register') this.setState({ regMfg: '', regPreparer: '', regChecker: '', regHadConfirm: false, regPrinted: false, boxDrugs: null });
     else if (m === 'dispense') this.setState({ dispEB: inStockIds[0] || '', formDept: 'ER', dispenser: uName, swapReturn: false, swapEB: '', swapReceiver: '', dispDate: today, swapReturnDate: today });
     else this.setState({ retEB: outIds[0] || '', retReceiver: uName, retDate: today, retDrugUsage: {} });
   }
