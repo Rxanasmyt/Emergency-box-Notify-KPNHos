@@ -30,7 +30,8 @@
   }
 
   function saveSettings(s) {
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
+    const { githubPAT, ...rest } = s;
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(rest));
   }
 
   function loadFromFirestore() {
@@ -218,7 +219,7 @@
       if (sent) console.log('[Notify] Notifications sent successfully');
     }
 
-    return { alerts, sent };
+    return { alerts, sent, githubPAT: settings.githubPAT || '' };
   }
 
   function requestBrowserPermission() {

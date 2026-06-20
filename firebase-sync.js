@@ -69,6 +69,7 @@ function stopAll(){
 function startPublicSync(comp) {
   if (!window.EB_Firebase) { console.warn('[Sync] Firebase not ready'); return; }
   db = window.EB_Firebase.db; component = comp;
+  if (unsubscribers.length) return; // already listening — just update component ref
   window.EB_Firebase.auth.signInAnonymously()
     .then(() => {
       console.log('[Sync] Public sync: anon auth OK');

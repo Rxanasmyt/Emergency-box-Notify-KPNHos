@@ -1463,7 +1463,7 @@ input:focus, select:focus, textarea:focus {
           <div style="margin-bottom: 14px;">
             <label style="font-size: 12px; font-weight: 600; color: #5A6B79; display: block; margin-bottom: 5px;">GitHub Personal Access Token <span style="font-weight: 400; color: #9AAAB8;">(Fine-grained · scope: Actions: Read &amp; Write)</span></label>
             <input type="password" value="{{ githubPAT }}" oninput="{{ setGithubPAT }}" placeholder="github_pat_…" style="width: 100%; height: 42px; border: 1.5px solid #DBE4EB; border-radius: 10px; padding: 0 14px; font-size: 13px; color: #15242E; background: #fff; box-sizing: border-box; font-family: 'IBM Plex Mono', monospace;">
-            <div style="margin-top: 5px; font-size: 11.5px; color: #9AAAB8;">สร้างที่ github.com/settings/tokens · เก็บใน Firestore (admin เท่านั้น) · ไม่เคยปรากฏในโค้ด</div>
+            <div style="margin-top: 5px; font-size: 11.5px; color: #9AAAB8;">สร้างที่ github.com/settings/tokens · เก็บใน Firestore เท่านั้น (ไม่บันทึกใน browser)</div>
           </div>
           <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
             <button onclick="{{ triggerGHActions }}" style="height: 44px; padding: 0 22px; background: linear-gradient(135deg, #15242E, #1A3A4A); color: #fff; border: none; border-radius: 11px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; display: flex; align-items: center; gap: 8px; transition: all .22s cubic-bezier(.34,1.56,.64,1); white-space: nowrap;" style-hover="transform: translateY(-2px); box-shadow: 0 10px 28px rgba(20,40,55,.28);" style-active="transform: scale(.96);">
@@ -2024,9 +2024,10 @@ class Component extends DCLogic {
       if (window.EB_Notify) {
         window.EB_Notify.checkAndNotify(this, false).then(result => {
           if (!this.state.authed) return;
-          if (result.alerts.length) {
-            this.setState({ expiryAlerts: result.alerts, showExpiryBanner: true });
-          }
+          const patch = {};
+          if (result.alerts.length) { patch.expiryAlerts = result.alerts; patch.showExpiryBanner = true; }
+          if (result.githubPAT && !this.state.ghPAT) patch.ghPAT = result.githubPAT;
+          if (Object.keys(patch).length) this.setState(patch);
         }).catch(err => console.warn('[Notify] checkAndNotify failed:', err));
       }
     }, 500);
@@ -2639,14 +2640,12 @@ td.l{text-align:left;padding-left:4px}
     vals.expiryAlertSummary = (expd ? `หมดอายุแล้ว ${expd} รายการ · ` : '') + (crit ? `วิกฤต ${crit} รายการ · ` : '') + `ทั้งหมด ${alerts.length} รายการ`;
     const lastSent = localStorage.getItem('eb_notify_last_sent');
     vals.notifyLastSentText = lastSent ? `ส่งแจ้งเตือนล่าสุด: ${lastSent}` : 'ยังไม่เคยส่งแจ้งเตือน';
-    // GitHub Actions manual trigger
-    // load PAT into state once (if saved previously and state is still empty)
-    if (!st.ghPAT && nfSettings.githubPAT) this.setState({ ghPAT: nfSettings.githubPAT });
+    // GitHub Actions manual trigger — PAT lives in Firestore only (never localStorage)
     vals.githubPAT = st.ghPAT;
     vals.setGithubPAT = (e) => {
       const v = e.target.value;
       this.setState({ ghPAT: v });
-      if (window.EB_Notify) { const s = window.EB_Notify.loadSettings(); s.githubPAT = v; window.EB_Notify.saveSettings(s); }
+      if (window.EB_Notify) window.EB_Notify.saveToFirestore({ githubPAT: v });
     };
     const _ghState = st.ghTrigger || 'idle';
     const _ghMsgs = { idle: '', loading: '⏳ กำลังส่งคำสั่ง…', success: '✓ ส่งแล้ว — ตรวจสอบ Email ใน 1-2 นาที', error: '✗ เกิดข้อผิดพลาด · ตรวจสอบ PAT หรือสิทธิ์ repository' };
@@ -2834,7 +2833,7 @@ td.l{text-align:left;padding-left:4px}
     }
 
     // ----- DASHBOARD -----
-    const BDdash = st.boxDrugs || this.buildBoxDrugs();
+    const BDdash = st.boxDrugs || this.buildBoxDrugs(); // single source — reused below as regBD and BD
     const exp = (b) => this.boxExpiryISO(b.id, BDdash);
     const active = this.BOXES.filter(b => b.dispense && !b.receiver);
     const criticalList = this.BOXES
@@ -3030,7 +3029,7 @@ td.l{text-align:left;padding-left:4px}
     vals.setRegChecker = (e) => this.setState({ regChecker: e.target.value });
 
     // per-drug editable table for the selected EB (edits boxDrugs directly — single source of truth)
-    const regBD = st.boxDrugs || this.buildBoxDrugs();
+    const regBD = BDdash;
     const regList = regBD[st.regEB] || [];
     const regNearISO = regList.length ? this.boxExpiryISO(st.regEB, regBD) : null;
 
@@ -3175,10 +3174,11 @@ td.l{text-align:left;padding-left:4px}
     vals.retBoxInfoEl = boxInfoCard(this.BOXES.find(b => b.id === (outIds.includes(st.retEB) ? st.retEB : outIds[0])), '#169C7F', regBD);
 
     const effRetBox = this.BOXES.find(b => b.id === (outIds.includes(st.retEB) ? st.retEB : outIds[0]));
-    const retDaysOut = (effRetBox && effRetBox.dispense) ? Math.round((this.TODAY - (this.parse(effRetBox.dispense) || this.TODAY)) / 86400000) : 0;
+    const _retDispDate = effRetBox && effRetBox.dispense ? this.parse(effRetBox.dispense) : null;
+    const retDaysOut = _retDispDate ? Math.round((this.TODAY - _retDispDate) / 86400000) : 0;
     vals.retDaysOut = retDaysOut;
-    vals.retDispensedText = effRetBox && effRetBox.dispense ? this.fmtISO(effRetBox.dispense) : '';
-    vals.hasRetDaysOut = !!(effRetBox && effRetBox.dispense);
+    vals.retDispensedText = _retDispDate ? this.fmtISO(effRetBox.dispense) : '';
+    vals.hasRetDaysOut = !!_retDispDate;
     vals.retDaysOutColor = retDaysOut > 30 ? '#D97706' : retDaysOut > 15 ? '#B5740F' : '#169C7F';
     vals.retDaysOutSoft  = retDaysOut > 30 ? '#FEF3C7' : retDaysOut > 15 ? '#FBF1E0' : '#E4F4EF';
     vals.retDaysOutBorder = retDaysOut > 30 ? '#FCD34D' : retDaysOut > 15 ? '#F4DEC2' : '#C4E7DB';
@@ -3223,7 +3223,7 @@ td.l{text-align:left;padding-left:4px}
     );
 
     // ----- DETAIL -----
-    const BD = st.boxDrugs || this.buildBoxDrugs();
+    const BD = BDdash;
     const canEdit = st.currentUser && st.currentUser.role !== 'nurse';
     vals.ebChipsEl = h(React.Fragment, null, ...this.BOXES.map(b => {
       const on = st.selectedEB === b.id;
