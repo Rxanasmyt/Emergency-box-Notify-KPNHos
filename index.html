@@ -2011,7 +2011,7 @@ class Component extends DCLogic {
       if (!bd[boxId]) return {};
       bd[boxId] = bd[boxId].map((d, i) => {
         if (i !== drugIdx) return d;
-        return { ...d, lots: [...(d.lots || []), { lot: '', qty: 0, expiry: '' }] };
+        return { ...d, lots: [...(d.lots || []), { lot: '', qty: 0, expiry: (d.lots && d.lots.length > 0 ? d.lots[d.lots.length - 1].expiry || '' : '') }] };
       });
       return { boxDrugs: bd };
     });
@@ -2184,18 +2184,26 @@ class Component extends DCLogic {
   flash(msg) {
     this.setState({ actionMsg: msg });
     clearTimeout(this._a);
-    this._a = setTimeout(() => this.setState({ actionMsg: '' }), 3200);
+    const dur = Math.min(5500, Math.max(2200, msg.length * 70));
+    this._a = setTimeout(() => this.setState({ actionMsg: '' }), dur);
   }
   setUserRole(username, role) {
     if (!this.state.currentUser || this.state.currentUser.role !== 'admin') return;
     if (username === this.state.currentUser.username && role !== 'admin') { this.flash('ไม่สามารถเปลี่ยนบทบาทของตัวเองลงได้'); return; }
     const u = this.state.users.find(x => x.username === username);
-    this.setState(s => ({ users: s.users.map(u => u.username === username ? { ...u, role } : u) }));
-    this.flash('อัปเดตบทบาทผู้ใช้แล้ว');
-    if (u) {
-      if (window.EB_Sync) window.EB_Sync.syncUsers({ ...u, role });
-      this.logAction({ cat: 'user', action: 'แก้สิทธิ์', eb: '—', dept: u.dept, drug: `เปลี่ยนบทบาท ${u.name} → ${(this.ROLES[role] || {label: role}).label}` });
-    }
+    if (!u || u.role === role) return;
+    this.askConfirm({
+      tone: 'warn', icon: 'reset',
+      title: 'เปลี่ยนบทบาทผู้ใช้?',
+      body: `เปลี่ยนบทบาทของ ${u.name} จาก "${(this.ROLES[u.role]||{label:u.role}).label}" → "${(this.ROLES[role]||{label:role}).label}"`,
+      yesLabel: 'เปลี่ยนบทบาท', noLabel: 'ยกเลิก',
+      onYes: () => {
+        this.setState(s => ({ users: s.users.map(x => x.username === username ? { ...x, role } : x) }));
+        this.flash('อัปเดตบทบาทผู้ใช้แล้ว');
+        if (window.EB_Sync) window.EB_Sync.syncUsers({ ...u, role });
+        this.logAction({ cat: 'user', action: 'แก้สิทธิ์', eb: '—', dept: u.dept, drug: `เปลี่ยนบทบาท ${u.name} → ${(this.ROLES[role]||{label:role}).label}` });
+      },
+    });
   }
   toggleUserStatus(username) {
     if (!this.state.currentUser || this.state.currentUser.role !== 'admin') return;
@@ -2303,6 +2311,10 @@ class Component extends DCLogic {
       if (!(st.retReceiver || '').trim()) errs.push('ลงชื่อผู้รับคืน');
       if (!st.retDate) errs.push('วันที่รับคืน');
       if (st.retDate && st.retDate > this.isoOf(this.TODAY)) errs.push('วันที่รับคืนต้องไม่เกินวันนี้');
+      if (st.retDate && _effRetEB) {
+        const _retBox = this.BOXES.find(b => b.id === _effRetEB);
+        if (_retBox && _retBox.dispense && st.retDate < _retBox.dispense) errs.push(`วันที่รับคืนต้องไม่ก่อนวันที่จ่ายออก (จ่ายเมื่อ ${this.fmtISO(_retBox.dispense)})`);
+      }
     }
     return errs;
   }
