@@ -1348,7 +1348,7 @@ input:focus, select:focus, textarea:focus {
                       {{ r.dateHeaderText }}
                     </div>
                   </sc-if>
-                  <div class="drug-row" style="display: grid; grid-template-columns: 44px 148px 108px 68px minmax(110px,1fr) minmax(140px,1fr) minmax(160px,1fr); gap: 0; min-width: 860px; align-items: center; padding: 11px 18px; border-bottom: 1px solid #F4F7F9; font-size: 12.5px; background: {{ r.rowBg }};">
+                  <div class="drug-row" onClick="{{ r.goDetail }}" style="display: grid; grid-template-columns: 44px 148px 108px 68px minmax(110px,1fr) minmax(140px,1fr) minmax(160px,1fr); gap: 0; min-width: 860px; align-items: center; padding: 11px 18px; border-bottom: 1px solid #F4F7F9; font-size: 12.5px; background: {{ r.rowBg }}; cursor: {{ r.hasDetail ? 'pointer' : 'default' }};" style-hover="{{ r.hasDetail ? 'background: #F0F7FF;' : '' }}">
                     <span style="font-size: 10px; color: #B0BCCA; font-family: 'IBM Plex Mono', monospace; text-align: center;">{{ r.seq }}</span>
                     <span style="color: #4A5C6A; font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; white-space: nowrap;">{{ r.dateTime }}</span>
                     <span><span style="display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700; color: {{ r.color }}; background: {{ r.soft }}; border-radius: 20px; padding: 3px 10px; white-space: nowrap;">{{ r.icon }} {{ r.action }}</span></span>
@@ -1575,7 +1575,7 @@ class Component extends DCLogic {
     // user management
     showAddUser: false,
     nu_name: '', nu_username: '', nu_role: 'technician', nu_dept: 'ห้องยา', nu_pass: '',
-    showChangePw: false, changePwUsername: null, changePwNew: '', changePwConfirm: '', changePwError: '',
+    showChangePw: false, changePwUsername: null, changePwOld: '', changePwNew: '', changePwConfirm: '', changePwError: '',
     actionMsg: '',
     screen: 'dashboard',
     // entry form
@@ -2146,7 +2146,7 @@ class Component extends DCLogic {
       retEB: '', retReceiver: '', retDate: '',
       selectedEB: 'EB-4', boxDrugs: null,
       boxMeta: {}, editDrugs: false, saveSuccess: null, showChangePw: false, showAddUser: false,
-      changePwUsername: null, changePwNew: '', changePwConfirm: '', changePwError: '',
+      changePwUsername: null, changePwOld: '', changePwNew: '', changePwConfirm: '', changePwError: '',
       nu_name: '', nu_username: '', nu_role: 'technician', nu_dept: 'ห้องยา', nu_pass: '',
       showToast: false, toastTitle: '', toastSubtitle: '', shakeCount: 0, actionMsg: '',
       confirm: null, ghTrigger: 'idle', ghPAT: '', sidebarOpen: false,
@@ -2201,10 +2201,10 @@ class Component extends DCLogic {
     if (!this.state.currentUser) return;
     const isSelf = this.state.currentUser.username === username;
     if (!isSelf && this.state.currentUser.role !== 'admin') return;
-    this.setState({ showChangePw: true, changePwUsername: username, changePwNew: '', changePwConfirm: '', changePwError: '' });
+    this.setState({ showChangePw: true, changePwUsername: username, changePwOld: '', changePwNew: '', changePwConfirm: '', changePwError: '' });
   }
   async saveChangePw() {
-    const { changePwUsername, changePwNew, changePwConfirm, currentUser } = this.state;
+    const { changePwUsername, changePwOld, changePwNew, changePwConfirm, currentUser } = this.state;
     if (!currentUser) return;
     const isSelf = currentUser.username === changePwUsername;
     if (!isSelf && currentUser.role !== 'admin') { this.setState({ changePwError: 'ไม่มีสิทธิ์เปลี่ยนรหัสผ่านบัญชีอื่น' }); return; }
@@ -2213,6 +2213,10 @@ class Component extends DCLogic {
     if (changePwNew.trim() !== changePwConfirm.trim()) { this.setState({ changePwError: 'รหัสผ่านทั้งสองช่องไม่ตรงกัน' }); return; }
     const u = this.state.users.find(x => x.username === changePwUsername);
     if (!u) return;
+    if (isSelf) {
+      const oldHash = await this.hashPw(changePwOld.trim());
+      if (u.password !== changePwOld.trim() && u.password !== oldHash) { this.setState({ changePwError: 'รหัสผ่านเดิมไม่ถูกต้อง' }); return; }
+    }
     const hashed = await this.hashPw(changePwNew.trim());
     const updated = { ...u, password: hashed };
     this.setState(s => ({ users: s.users.map(x => x.username === changePwUsername ? updated : x), showChangePw: false, changePwUsername: null, changePwNew: '', changePwConfirm: '', changePwError: '' }));
@@ -2313,9 +2317,21 @@ class Component extends DCLogic {
     // clinical safety checks (dispense only)
     if (this.state.formMode === 'dispense') {
       const _effD = this._resolveDispEB();
+      // 0. warn if all drug qty = 0 in the box
+      const _bd = this.state.boxDrugs || this.buildBoxDrugs();
+      const _totalQty = (_bd[_effD] || []).reduce((s, d) => s + (d.lots || []).reduce((q, l) => q + (l.qty || 0), 0), 0);
+      if ((_bd[_effD] || []).length > 0 && _totalQty === 0) {
+        this.askConfirm({
+          tone: 'danger', icon: 'warn',
+          title: `${_effD} ยาในกล่องมีจำนวน 0 ทุกรายการ!`,
+          body: 'กล่องนี้ไม่มียาอยู่เลย (qty = 0 ทุก lot) ยืนยันการจ่ายกล่องที่ว่างเปล่า?',
+          yesLabel: 'จ่ายทั้งที่ว่าง', noLabel: 'ยกเลิก',
+          onYes: () => this.submit(),
+        });
+        return;
+      }
       // 1. warn if box has never been registered (no expiry data)
       const _dispBox = this.BOXES.find(b => b.id === _effD);
-      const _bd = this.state.boxDrugs || this.buildBoxDrugs();
       const _hasExpiry = _dispBox && (_dispBox.expiry || (_bd[_effD] || []).some(d => (d.lots || []).some(l => l.expiry)));
       if (!_hasExpiry) {
         this.askConfirm({
@@ -2824,14 +2840,16 @@ td.l{text-align:left;padding-left:4px}
     const isAdmin = st.currentUser && st.currentUser.role === 'admin';
     if (isAdmin) navDefs.push({ key: 'users', label: 'จัดการผู้ใช้งาน', svg: ICONS.users });
     if (isAdmin) navDefs.push({ key: 'notify', label: 'ตั้งค่าแจ้งเตือน', svg: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2C7.6 2 4 5.6 4 10v4l-2 2v1h20v-1l-2-2v-4c0-4.4-3.6-8-8-8z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 19a3 3 0 0 0 6 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>' });
+    const _outCount = this.BOXES.filter(b => b.dispense && !b.receiver).length;
     vals.navEl = h(React.Fragment, null, ...navDefs.map(d => {
       const on = screen === d.key;
+      const badge = d.key === 'entry' && _outCount > 0 ? h('span', { style: { marginLeft: 'auto', minWidth: 20, height: 20, borderRadius: 10, background: on ? 'rgba(255,255,255,.28)' : '#E03E3E', color: '#fff', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 5px' } }, String(_outCount)) : null;
       return h('button', {
         key: d.key + (on ? '_on' : '_off'),
         className: 'nav-item' + (on ? ' nav-item-active' : ''),
         onClick: () => { this.go(d.key); this.setState({ sidebarOpen: false }); },
         style: { display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '11px 12px', border: 'none', borderRadius: 11, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13.5, textAlign: 'left', transition: 'all .22s cubic-bezier(.34,1.56,.64,1)', background: on ? 'linear-gradient(135deg, rgba(43,127,224,.85), rgba(13,185,160,.6))' : 'transparent', color: on ? '#fff' : 'rgba(255,255,255,.6)', fontWeight: on ? 600 : 500, boxShadow: on ? '0 4px 16px rgba(43,127,224,.35)' : 'none', transform: 'translateX(0)' },
-      }, ic(d.svg), h('span', null, d.label));
+      }, ic(d.svg), h('span', null, d.label), badge);
     }));
 
     // Mobile bottom nav bar (max 5 items)
@@ -2849,9 +2867,11 @@ td.l{text-align:left;padding-left:4px}
           key: d.key, className: 'mobile-bottomnav-btn' + (on ? ' active' : ''),
           onClick: () => { this.go(d.key); this.setState({ sidebarOpen: false }); },
           'aria-label': d.label,
+          style: { position: 'relative' },
         },
           h('span', { style: { color: on ? '#fff' : 'rgba(255,255,255,.5)', display: 'flex', transition: 'color .15s' }, dangerouslySetInnerHTML: { __html: d.svg } }),
           h('span', { className: 'mobile-bottomnav-label', style: { color: on ? '#fff' : 'rgba(255,255,255,.5)', transition: 'color .15s' } }, d.label),
+          d.key === 'entry' && _outCount > 0 ? h('span', { style: { position: 'absolute', top: 6, right: 'calc(50% - 14px)', minWidth: 16, height: 16, borderRadius: 8, background: '#E03E3E', color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px', border: '1.5px solid rgba(255,255,255,.3)' } }, String(_outCount)) : null,
         );
       }),
     );
@@ -3093,28 +3113,36 @@ td.l{text-align:left;padding-left:4px}
     }, ids.length ? ids.map(id => h('option', { key: id, value: id }, id)) : h('option', { value: '' }, '— ไม่มีกล่อง —'));
 
     // EB quick-tap chip grid (replaces dropdown for EB selection)
-    const mkEBChips = (value, onChange, ids, accent) => {
+    // statusMap: optional { [id]: statusObj } for expiry dot per chip
+    const mkEBChips = (value, onChange, ids, accent, statusMap) => {
       if (!ids.length) return h('div', { style: { fontSize: 12.5, color: '#E03E3E', padding: '10px 14px', background: '#FCEDED', borderRadius: 10, border: '1px solid #F4C9C9' } }, '— ไม่มีกล่อง —');
       return h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 2 } },
         ...ids.map(id => {
           const on = value === id || (!ids.includes(value) && id === ids[0]);
+          const dotColor = statusMap && statusMap[id] ? statusMap[id].color : null;
+          const dotVisible = dotColor && statusMap[id].key !== 'ok';
           return h('button', {
             key: id, type: 'button',
             onClick: () => onChange(id),
             style: {
-              height: 40, padding: '0 13px', borderRadius: 10,
+              height: 40, padding: '0 13px', borderRadius: 10, display: 'flex', alignItems: 'center', gap: 6,
               fontFamily: "'IBM Plex Mono', monospace", fontSize: 13, fontWeight: 700,
               cursor: 'pointer', transition: 'all .18s cubic-bezier(.34,1.56,.64,1)',
               background: on ? accent : 'rgba(255,255,255,.9)',
               color: on ? '#fff' : '#4A5C6A',
-              border: `1.5px solid ${on ? accent : '#DBE4EB'}`,
+              border: `1.5px solid ${on ? accent : (dotVisible ? dotColor : '#DBE4EB')}`,
               boxShadow: on ? `0 4px 12px ${accent}66` : '0 1px 3px rgba(0,0,0,.05)',
               transform: on ? 'scale(1.07) translateY(-1px)' : 'scale(1)',
             },
-          }, id);
+          },
+            id,
+            dotVisible ? h('span', { style: { width: 7, height: 7, borderRadius: '50%', background: on ? 'rgba(255,255,255,.7)' : dotColor, flexShrink: 0 } }) : null,
+          );
         })
       );
     };
+    const _ebStatusMap = {};
+    this.BOXES.forEach(b => { _ebStatusMap[b.id] = this.statusOf(this.boxExpiryISO(b.id, BDdash)); });
 
     const hint = (text, color, bg, border, dot) => h('div', {
       style: { display: 'flex', alignItems: 'center', gap: 7, marginTop: 8, fontSize: 11.5, lineHeight: 1.45, color, background: bg, border: `1px solid ${border}`, borderRadius: 9, padding: '7px 10px' },
@@ -3140,7 +3168,7 @@ td.l{text-align:left;padding-left:4px}
     };
 
     // ===== STEP 1: REGISTER =====
-    vals.regEBSelectEl = mkEBChips(st.regEB, (id) => this.setState({ regEB: id }), allIds, '#2B7FE0');
+    vals.regEBSelectEl = mkEBChips(st.regEB, (id) => this.setState({ regEB: id }), allIds, '#2B7FE0', _ebStatusMap);
     vals.regMfg = st.regMfg;
     vals.regPreparer = st.regPreparer;
     vals.regChecker = st.regChecker;
@@ -3232,7 +3260,7 @@ td.l{text-align:left;padding-left:4px}
     vals.regAutoDetectEl = h(React.Fragment, null, detectBanner, hadRow);
 
     // ===== STEP 2: DISPENSE / SWAP =====
-    vals.dispEBSelectEl = mkEBChips(st.dispEB, (id) => this.setState({ dispEB: id }), inStockIds, '#1A6FA3');
+    vals.dispEBSelectEl = mkEBChips(st.dispEB, (id) => this.setState({ dispEB: id }), inStockIds, '#1A6FA3', _ebStatusMap);
     vals.dispHintEl = hint(`พร้อมจ่าย ${inStockIds.length} กล่อง · กล่องที่จ่ายไปแล้วต้องรับคืนก่อน จึงจะจ่ายรหัสเดิมซ้ำได้`, '#1A6FA3', '#EEF5FA', '#D3E6F1', '#169C7F');
     vals.dispDate = st.dispDate;
     vals.dispenser = st.dispenser;
@@ -3285,7 +3313,7 @@ td.l{text-align:left;padding-left:4px}
     vals.setSwapReceiver = (e) => this.setState({ swapReceiver: e.target.value });
 
     // ===== STEP 3: RETURN =====
-    vals.retEBSelectEl = mkEBChips(st.retEB, (id) => this.setState({ retEB: id }), outIds, '#169C7F');
+    vals.retEBSelectEl = mkEBChips(st.retEB, (id) => this.setState({ retEB: id }), outIds, '#169C7F', _ebStatusMap);
     vals.retHintEl = hint(`ค้างรับคืน ${outIds.length} กล่อง · เลือกได้เฉพาะกล่องที่ถูกจ่ายออกไปและยังไม่ได้คืน`, '#B5740F', '#FBF1E0', '#F0DDB8', '#EE8A2B');
     vals.retDate = st.retDate;
     vals.retReceiver = st.retReceiver;
@@ -3665,6 +3693,10 @@ td.l{text-align:left;padding-left:4px}
       h('div', { onClick: (e) => e.stopPropagation(), style: { background: '#fff', borderRadius: 18, padding: '28px 30px', width: 360, boxShadow: '0 12px 48px rgba(0,0,0,.18)' } },
         h('div', { style: { fontWeight: 700, fontSize: 16, color: '#15242E', marginBottom: 4 } }, 'เปลี่ยนรหัสผ่าน'),
         h('div', { style: { fontSize: 12.5, color: '#7B8D9C', marginBottom: 20 } }, cpwTarget ? `${cpwTarget.name} (${cpwTarget.username})` : ''),
+        st.currentUser && st.currentUser.username === st.changePwUsername ? h(React.Fragment, null,
+          h('div', { style: { fontSize: 12.5, fontWeight: 600, color: '#4A5C6A', marginBottom: 6 } }, 'รหัสผ่านเดิม'),
+          h('input', { type: 'password', value: st.changePwOld, onInput: (e) => this.setState({ changePwOld: e.target.value, changePwError: '' }), placeholder: 'รหัสผ่านที่ใช้อยู่ปัจจุบัน', autoFocus: true, style: { width: '100%', height: 44, border: '1.5px solid #DBE4EB', borderRadius: 10, padding: '0 14px', fontSize: 14, color: '#15242E', background: '#fff', boxSizing: 'border-box', marginBottom: 12 } }),
+        ) : null,
         h('div', { style: { fontSize: 12.5, fontWeight: 600, color: '#4A5C6A', marginBottom: 6 } }, 'รหัสผ่านใหม่'),
         h('input', { type: 'password', value: st.changePwNew, onInput: (e) => this.setState({ changePwNew: e.target.value, changePwError: '' }), placeholder: 'อย่างน้อย 4 ตัวอักษร', style: { width: '100%', height: 44, border: '1.5px solid #DBE4EB', borderRadius: 10, padding: '0 14px', fontSize: 14, color: '#15242E', background: '#fff', boxSizing: 'border-box', marginBottom: 12 } }),
         h('div', { style: { fontSize: 12.5, fontWeight: 600, color: '#4A5C6A', marginBottom: 6 } }, 'ยืนยันรหัสผ่านใหม่'),
@@ -3825,10 +3857,13 @@ td.l{text-align:left;padding-left:4px}
       const cs = auditCatStyle(r);
       const dl = this.fmtISO(r.date) || '—';
       const sh = dl !== _aLastDate; _aLastDate = dl;
+      const _ebId = r.eb && r.eb !== '—' && this.BOXES.some(b => b.id === r.eb) ? r.eb : null;
       return { key: i, seq: String(_adminFiltered.length - i), showDateHeader: sh, dateHeaderText: sh ? dl : '',
         dateTime: `${dl} · ${r.time||'—'}`, action: r.action||'—', eb: r.eb||'—', dept: r.dept||'—',
         person: r.person||'—', drug: r.drug||'—', icon: cs.icon, color: cs.color, soft: cs.soft,
-        rowBg: r.cat==='dispense'?'rgba(26,111,163,.025)':r.cat==='return'?'rgba(22,156,127,.025)':r.cat==='user'?'rgba(180,33,33,.02)':'#fff' };
+        rowBg: r.cat==='dispense'?'rgba(26,111,163,.025)':r.cat==='return'?'rgba(22,156,127,.025)':r.cat==='user'?'rgba(180,33,33,.02)':'#fff',
+        goDetail: _ebId ? () => { this.setState({ screen: 'detail', selectedEB: _ebId }); } : null,
+        hasDetail: !!_ebId };
     });
     vals.adminAuditCount = _adminFiltered.length;
     vals.adminExportCSV = () => {
