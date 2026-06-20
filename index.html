@@ -1532,8 +1532,6 @@ class Component extends DCLogic {
     // step 1: register / prepare
     regEB: 'EB-9',
     regMfg: '',
-    regExpiry: '',
-    selectedDrugs: ['Dopamine inj. 250mg/10ml'],
     regPreparer: '',
     regChecker: '',
     regHadConfirm: false,
@@ -1857,7 +1855,7 @@ class Component extends DCLogic {
       if (!bd[boxId]) return {};
       bd[boxId] = bd[boxId].map((d, i) => {
         if (i !== drugIdx) return d;
-        return { ...d, lots: [...(d.lots || []), { qty: 0, expiry: '' }] };
+        return { ...d, lots: [...(d.lots || []), { lot: '', qty: 0, expiry: '' }] };
       });
       return { boxDrugs: bd };
     });
@@ -1891,35 +1889,31 @@ class Component extends DCLogic {
   }
 
   // ---------- auth ----------
+  _failLogin() {
+    this.setState(s => {
+      const attempts = s.attempts + 1;
+      if (attempts >= 5) {
+        clearTimeout(this._lockT);
+        this._lockT = setTimeout(() => this.setState({ locked: false, attempts: 0, loginError: '' }), 15 * 60 * 1000);
+        return { attempts, locked: true, loginError: 'บัญชีถูกล็อกชั่วคราว 15 นาที เนื่องจากกรอกผิดเกิน 5 ครั้ง' };
+      }
+      return { attempts, loginError: `รหัสพนักงานหรือรหัสผ่านไม่ถูกต้อง · เหลืออีก ${5 - attempts} ครั้ง` };
+    });
+  }
   doLogin() {
     if (this.state.locked) return;
     const u = this.state.users.find(x => x.username.toLowerCase() === this.state.loginUser.trim().toLowerCase());
     if (!u) {
-      const attempts = this.state.attempts + 1;
-      const left = 5 - attempts;
-      if (attempts >= 5) {
-        this.setState({ attempts, locked: true, loginError: 'บัญชีถูกล็อกชั่วคราว 15 นาที เนื่องจากกรอกผิดเกิน 5 ครั้ง' });
-        clearTimeout(this._lockT);
-        this._lockT = setTimeout(() => this.setState({ locked: false, attempts: 0, loginError: '' }), 15 * 60 * 1000);
-      } else {
-        this.setState({ attempts, loginError: `รหัสพนักงานหรือรหัสผ่านไม่ถูกต้อง · เหลืออีก ${left} ครั้ง` });
-      }
+      this._failLogin();
       return;
     }
     if (u.status === 'suspended') {
+      clearTimeout(this._lockT);
       this.setState({ loginError: 'บัญชีนี้ถูกระงับการใช้งาน · กรุณาติดต่อผู้ดูแลระบบ' });
       return;
     }
     if (u.password !== this.state.loginPass) {
-      const attempts = this.state.attempts + 1;
-      const left = 5 - attempts;
-      if (attempts >= 5) {
-        this.setState({ attempts, locked: true, loginError: 'บัญชีถูกล็อกชั่วคราว 15 นาที เนื่องจากกรอกผิดเกิน 5 ครั้ง' });
-        clearTimeout(this._lockT);
-        this._lockT = setTimeout(() => this.setState({ locked: false, attempts: 0, loginError: '' }), 15 * 60 * 1000);
-      } else {
-        this.setState({ attempts, loginError: `รหัสพนักงานหรือรหัสผ่านไม่ถูกต้อง · เหลืออีก ${left} ครั้ง` });
-      }
+      this._failLogin();
       return;
     }
     const lastLogin = `${this.fmt(this.TODAY)} ${this.nowTime()}`;
@@ -2023,7 +2017,10 @@ class Component extends DCLogic {
     this.setState({ showChangePw: true, changePwUsername: username, changePwNew: '', changePwConfirm: '', changePwError: '' });
   }
   saveChangePw() {
-    const { changePwUsername, changePwNew, changePwConfirm } = this.state;
+    const { changePwUsername, changePwNew, changePwConfirm, currentUser } = this.state;
+    if (!currentUser) return;
+    const isSelf = currentUser.username === changePwUsername;
+    if (!isSelf && currentUser.role !== 'admin') { this.setState({ changePwError: 'ไม่มีสิทธิ์เปลี่ยนรหัสผ่านบัญชีอื่น' }); return; }
     if (!changePwNew.trim()) { this.setState({ changePwError: 'กรุณากรอกรหัสผ่านใหม่' }); return; }
     if (changePwNew.trim().length < 4) { this.setState({ changePwError: 'รหัสผ่านต้องมีอย่างน้อย 4 ตัวอักษร' }); return; }
     if (changePwNew.trim() !== changePwConfirm.trim()) { this.setState({ changePwError: 'รหัสผ่านทั้งสองช่องไม่ตรงกัน' }); return; }
@@ -2063,11 +2060,6 @@ class Component extends DCLogic {
   }
 
   // ---------- entry form ----------
-  toggleDrug(name) {
-    const s = new Set(this.state.selectedDrugs);
-    s.has(name) ? s.delete(name) : s.add(name);
-    this.setState({ selectedDrugs: [...s] });
-  }
   // validation: returns array of missing/invalid messages for current mode
   regNearISOof(id) {
     const list = (this.state.boxDrugs || this.buildBoxDrugs())[id] || [];
@@ -2091,14 +2083,17 @@ class Component extends DCLogic {
       if (!st.formDept || !st.formDept.trim()) errs.push('เลือกหน่วยงานที่เบิก');
       if (!(st.dispenser || '').trim()) errs.push('ลงชื่อผู้จ่าย');
       if (!st.dispDate) errs.push('วันที่จ่าย');
+      if (st.dispDate && st.dispDate > this.isoOf(this.TODAY)) errs.push('วันที่จ่ายต้องไม่เกินวันนี้');
       if (st.swapReturn && !st.swapEB) errs.push('เลือกกล่องเก่าที่รับคืน');
       if (st.swapReturn && !(st.swapReceiver || '').trim()) errs.push('ลงชื่อผู้รับคืนกล่องเก่า');
       if (st.swapReturn && !st.swapReturnDate) errs.push('วันที่รับคืนกล่องเก่า');
+      if (st.swapReturn && st.swapReturnDate && st.swapReturnDate > this.isoOf(this.TODAY)) errs.push('วันที่รับคืนกล่องเก่าต้องไม่เกินวันนี้');
       if (st.swapReturn && st.swapEB && st.swapEB === st.dispEB) errs.push('กล่องที่รับคืนต้องไม่ใช่กล่องเดียวกับกล่องที่จ่าย');
     } else {
       if (!st.retEB) errs.push('เลือกกล่องยาที่รับคืน');
       if (!(st.retReceiver || '').trim()) errs.push('ลงชื่อผู้รับคืน');
       if (!st.retDate) errs.push('วันที่รับคืน');
+      if (st.retDate && st.retDate > this.isoOf(this.TODAY)) errs.push('วันที่รับคืนต้องไม่เกินวันนี้');
     }
     return errs;
   }

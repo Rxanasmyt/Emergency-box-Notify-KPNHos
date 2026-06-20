@@ -66,7 +66,7 @@
   function findExpiringDrugs(component, thresholdDays) {
     if (!component || !component.BOXES) return [];
     const bd = component.state.boxDrugs || (typeof component.buildBoxDrugs === 'function' ? component.buildBoxDrugs() : null) || {};
-    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const today = new Date(todayBangkok() + 'T00:00:00');
     const alerts = [];
 
     component.BOXES.forEach(box => {
@@ -197,7 +197,7 @@
 
     console.log(`[Notify] Found ${alerts.length} expiring drugs`);
 
-    if (settings.browserEnabled) {
+    if (settings.browserEnabled && (force || !alreadySentToday())) {
       sendBrowserNotification(alerts);
     }
 
