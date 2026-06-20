@@ -2079,7 +2079,10 @@ class Component extends DCLogic {
       const list = (st.boxDrugs || this.buildBoxDrugs())[st.regEB] || [];
       if (list.some(d => d.had) && !st.regHadConfirm) errs.push('ยืนยันการตรวจสอบยา HAD');
     } else if (st.formMode === 'dispense') {
-      if (!st.dispEB) errs.push('เลือกกล่องยาที่จ่าย');
+      // resolve effective dispEB: same logic as submit() — chip visual selection may differ from state when state is ''
+      const _inStockV = this.BOXES.filter(b => !(b.dispense && !b.receiver)).map(b => b.id);
+      const _effDispEB = _inStockV.includes(st.dispEB) ? st.dispEB : (_inStockV[0] || '');
+      if (!_effDispEB) errs.push('เลือกกล่องยาที่จ่าย');
       if (!st.formDept || !st.formDept.trim()) errs.push('เลือกหน่วยงานที่เบิก');
       if (!(st.dispenser || '').trim()) errs.push('ลงชื่อผู้จ่าย');
       if (!st.dispDate) errs.push('วันที่จ่าย');
@@ -2088,9 +2091,12 @@ class Component extends DCLogic {
       if (st.swapReturn && !(st.swapReceiver || '').trim()) errs.push('ลงชื่อผู้รับคืนกล่องเก่า');
       if (st.swapReturn && !st.swapReturnDate) errs.push('วันที่รับคืนกล่องเก่า');
       if (st.swapReturn && st.swapReturnDate && st.swapReturnDate > this.isoOf(this.TODAY)) errs.push('วันที่รับคืนกล่องเก่าต้องไม่เกินวันนี้');
-      if (st.swapReturn && st.swapEB && st.swapEB === st.dispEB) errs.push('กล่องที่รับคืนต้องไม่ใช่กล่องเดียวกับกล่องที่จ่าย');
+      if (st.swapReturn && st.swapEB && st.swapEB === _effDispEB) errs.push('กล่องที่รับคืนต้องไม่ใช่กล่องเดียวกับกล่องที่จ่าย');
     } else {
-      if (!st.retEB) errs.push('เลือกกล่องยาที่รับคืน');
+      // resolve effective retEB: same logic as submit() — chip visual selection may differ from state when state is ''
+      const _outV = this.BOXES.filter(b => b.dispense && !b.receiver).map(b => b.id);
+      const _effRetEB = _outV.includes(st.retEB) ? st.retEB : (_outV[0] || '');
+      if (!_effRetEB) errs.push('เลือกกล่องยาที่รับคืน');
       if (!(st.retReceiver || '').trim()) errs.push('ลงชื่อผู้รับคืน');
       if (!st.retDate) errs.push('วันที่รับคืน');
       if (st.retDate && st.retDate > this.isoOf(this.TODAY)) errs.push('วันที่รับคืนต้องไม่เกินวันนี้');
@@ -2859,7 +2865,8 @@ td.l{text-align:left;padding-left:4px}
     vals.regDrugTableEl = h('div', null, rHeader, h('div', null, ...rRows));
 
     // auto-detect banner: nearest-expiry drug + box expiry + return date (live)
-    const regNearDrug = regList.length ? regList.reduce((m, d) => this.drugMinExp(d) < this.drugMinExp(m) ? d : m, regList[0]) : null;
+    // filter out drugs with no expiry first — '' < any-date-string is true in JS, which would incorrectly pick unexpired drugs
+    const regNearDrug = (() => { const withExp = regList.filter(d => this.drugMinExp(d)); if (!withExp.length) return null; return withExp.reduce((m, d) => this.drugMinExp(d) < this.drugMinExp(m) ? d : m, withExp[0]); })();
     const detectBanner = h('div', { style: { display: 'flex', alignItems: 'stretch', gap: 0, borderRadius: 14, overflow: 'hidden', border: '1px solid #CBE3EE' } },
       h('div', { style: { flex: 1, background: 'linear-gradient(120deg, #FFF4EC, #FDEEE4)', padding: '15px 18px', display: 'flex', alignItems: 'center', gap: 13 } },
         h('span', { style: { width: 40, height: 40, flexShrink: 0, borderRadius: 11, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(238,138,43,.2)' }, dangerouslySetInnerHTML: { __html: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 3.5l9 16H3l9-16z" stroke="#EE8A2B" stroke-width="1.9" stroke-linejoin="round"/><path d="M12 10v4M12 16.5v.2" stroke="#EE8A2B" stroke-width="2" stroke-linecap="round"/></svg>' } }),
