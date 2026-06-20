@@ -1986,13 +1986,14 @@ class Component extends DCLogic {
     });
   }
   setLotField(boxId, drugIdx, lotIdx, field, value) {
+    const safeValue = field === 'qty' ? Math.min(999, Math.max(0, value)) : value;
     this.setState(s => {
       const base = s.boxDrugs || this.buildBoxDrugs();
       const bd = { ...base };
       if (!bd[boxId]) return {};
       bd[boxId] = bd[boxId].map((d, i) => {
         if (i !== drugIdx) return d;
-        const lots = (d.lots || []).map((l, j) => j === lotIdx ? { ...l, [field]: value } : l);
+        const lots = (d.lots || []).map((l, j) => j === lotIdx ? { ...l, [field]: safeValue } : l);
         return { ...d, lots };
       });
       return { boxDrugs: bd };
@@ -2248,7 +2249,7 @@ class Component extends DCLogic {
     const nu = { id, name: nu_name.trim(), username: nu_username.trim(), password: hashed, role: nu_role, dept: nu_dept.trim() || '-', status: 'active', lastLogin: 'ยังไม่เคยเข้าระบบ' };
     this.setState({ users: [...users, nu], showAddUser: false, nu_name: '', nu_username: '', nu_role: 'technician', nu_dept: 'ห้องยา', nu_pass: '' });
     if (window.EB_Sync) window.EB_Sync.syncUsers(nu);
-    this.flash('เพิ่มผู้ใช้ใหม่เรียบร้อย');
+    this.flash(nu_pass.trim() ? 'เพิ่มผู้ใช้ใหม่เรียบร้อย' : 'เพิ่มผู้ใช้ใหม่เรียบร้อย · รหัสผ่านเริ่มต้น: 1234');
     this.logAction({ cat: 'user', action: 'จัดการผู้ใช้', eb: '—', dept: nu.dept, drug: `เพิ่มผู้ใช้ใหม่ ${nu.name} (${(this.ROLES[nu_role] || {label: nu_role}).label})` });
   }
 
@@ -2268,6 +2269,7 @@ class Component extends DCLogic {
       if (!(st.regChecker || '').trim()) errs.push('ลงชื่อเภสัชกรผู้ตรวจสอบ');
       const near = this.regNearISOof(st.regEB);
       if (near && near < this.isoOf(this.TODAY)) errs.push('มียาหมดอายุแล้ว — แก้วันหมดอายุก่อนบันทึก');
+      if (st.regMfg && st.regMfg > this.isoOf(this.TODAY)) errs.push('วันผลิตต้องไม่เป็นวันในอนาคต');
       if (st.regMfg && near && st.regMfg > near) errs.push('วันผลิตต้องมาก่อนวันหมดอายุ');
       const list = (st.boxDrugs || this.buildBoxDrugs())[st.regEB] || [];
       if (list.some(d => d.had) && !st.regHadConfirm) errs.push('ยืนยันการตรวจสอบยา HAD');
@@ -2591,6 +2593,7 @@ td.l{text-align:left;padding-left:4px}
     win.document.write(html);
     win.document.close();
     this.setState({ regPrinted: true });
+    this.logBoxHist(this.state.regEB, 'พิมพ์ใบกล่อง EB');
     setTimeout(() => { try { win.print(); } catch(_) {} }, 600);
   }
 
@@ -3822,6 +3825,7 @@ td.l{text-align:left;padding-left:4px}
       { k:'return',     l:'รับคืน' },
       { k:'register',   l:'ลงทะเบียน' },
       { k:'edit',       l:'แก้ไข' },
+      { k:'auth',       l:'เข้า/ออกระบบ' },
       { k:'user',       l:'ผู้ใช้/ระบบ' },
     ];
     const _adminUserCats = ['user', 'auth'];
