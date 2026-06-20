@@ -2215,13 +2215,15 @@ class Component extends DCLogic {
     }
     // clinical safety: dispensing a near-expiry (critical) box → confirm
     if (this.state.formMode === 'dispense') {
-      const near = this.regNearISOof(this.state.dispEB);
+      const _isk = this.BOXES.filter(b => !(b.dispense && !b.receiver)).map(b => b.id);
+      const _effD = _isk.includes(this.state.dispEB) ? this.state.dispEB : (_isk[0] || '');
+      const near = this.regNearISOof(_effD);
       const status = near ? this.statusOf(near) : null;
       if (status && status.key === 'critical') {
         this.askConfirm({
           tone: 'danger', icon: 'warn',
           title: 'กล่องนี้ใกล้หมดอายุ — ยืนยันการจ่าย?',
-          body: `${this.state.dispEB} ถึง/เกินกำหนดส่งคืนแล้ว (หมดอายุ ${this.fmtISO(near)}) ไม่ควรจ่ายออกหน่วยงาน แนะนำให้เปลี่ยนกล่องใหม่ก่อน`,
+          body: `${_effD} ถึง/เกินกำหนดส่งคืนแล้ว (หมดอายุ ${this.fmtISO(near)}) ไม่ควรจ่ายออกหน่วยงาน แนะนำให้เปลี่ยนกล่องใหม่ก่อน`,
           yesLabel: 'ยืนยันจ่ายทั้งที่ใกล้หมดอายุ', noLabel: 'ยกเลิก',
           onYes: () => this.submit(),
         });
