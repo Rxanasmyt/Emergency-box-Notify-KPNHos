@@ -1796,9 +1796,9 @@ class Component extends DCLogic {
     const uName = user ? user.name : '';
     const isPharm = user && (user.role === 'pharmacist' || user.role === 'admin');
     const patch = { formMode, regPrinted: false, swapReturn: false,
-      dispDate: this.state.dispDate || today,
-      retDate: this.state.retDate || today,
-      swapReturnDate: this.state.swapReturnDate || today,
+      dispDate: (this.state.dispDate && this.state.dispDate >= today) ? this.state.dispDate : today,
+      retDate: (this.state.retDate && this.state.retDate >= today) ? this.state.retDate : today,
+      swapReturnDate: (this.state.swapReturnDate && this.state.swapReturnDate >= today) ? this.state.swapReturnDate : today,
     };
     if (formMode === 'dispense' && !this.state.dispenser && uName) patch.dispenser = uName;
     if (formMode === 'return'   && !this.state.retReceiver && uName) patch.retReceiver = uName;
@@ -1852,6 +1852,8 @@ class Component extends DCLogic {
     this._idleEvents = ['mousemove', 'keydown', 'click', 'touchstart'];
     this._resetIdle = () => this.bumpIdle();
     this._idleEvents.forEach(ev => window.addEventListener(ev, this._resetIdle, true));
+    this._onVisibility = () => { if (!document.hidden) this.bumpIdle(); };
+    document.addEventListener('visibilitychange', this._onVisibility);
     this.bumpIdle();
     // PWA install prompt
     window.addEventListener('beforeinstallprompt', (e) => {
@@ -1886,6 +1888,7 @@ class Component extends DCLogic {
   }
   componentWillUnmount() {
     (this._idleEvents || []).forEach(ev => window.removeEventListener(ev, this._resetIdle, true));
+    if (this._onVisibility) document.removeEventListener('visibilitychange', this._onVisibility);
     if (this._ripple) document.removeEventListener('click', this._ripple);
     clearTimeout(this._idleT); clearTimeout(this._idleWarnT);
     clearTimeout(this._syncT); clearTimeout(this._lockT);
@@ -1928,7 +1931,10 @@ class Component extends DCLogic {
   logBoxHist(boxId, text) {
     const who = this.state.currentUser ? this.state.currentUser.name : 'ระบบ';
     const stamp = `${this.fmt(this.TODAY)} ${this.nowTime()}`;
+    // update in-state for immediate UI feedback before Firestore snapshot returns
     this.setState(s => { const bh = { ...(s.boxHist || {}) }; bh[boxId] = [{ text, who, stamp }, ...((bh[boxId]) || [])].slice(0, 8); return { boxHist: bh }; });
+    // persist to Firestore so history survives refresh
+    if (window.EB_Sync) window.EB_Sync.logAudit({ cat: 'boxhist', action: text, eb: boxId, dept: '—', drug: '—', person: who, date: this.isoOf(this.TODAY), time: this.nowTime() });
   }
 
   // ---------- confirm dialog ----------
@@ -3165,7 +3171,7 @@ td.l{text-align:left;padding-left:4px}
             h('button', { onClick: () => this.setLotField(st.regEB, i, li, 'qty', (lot.qty || 0) + 1), style: { width: 32, height: '100%', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 18, fontWeight: 700, color: '#1A6FA3', display: 'flex', alignItems: 'center', justifyContent: 'center' } }, '+'),
           ),
           h('input', { type: 'date', value: lot.expiry, onChange: (e) => this.setLotField(st.regEB, i, li, 'expiry', e.target.value),
-            style: { width: 152, height: 38, border: lotIsMin ? '1.5px solid #EFB789' : '1.5px solid #DBE4EB', borderRadius: 9, padding: '0 10px', fontSize: 13, color: lotIsMin ? '#C2410C' : '#15242E', fontWeight: lotIsMin ? 600 : 400, background: lotIsMin ? '#FFFBF7' : '#fff', flexShrink: 0 } }),
+            style: (() => { const _today = this.isoOf(this.TODAY); const _isPast = lot.expiry && lot.expiry < _today; return { width: 152, height: 38, border: _isPast ? '1.5px solid #E03E3E' : lotIsMin ? '1.5px solid #EFB789' : '1.5px solid #DBE4EB', borderRadius: 9, padding: '0 10px', fontSize: 13, color: _isPast ? '#B91C1C' : lotIsMin ? '#C2410C' : '#15242E', fontWeight: _isPast || lotIsMin ? 600 : 400, background: _isPast ? '#FEF2F2' : lotIsMin ? '#FFFBF7' : '#fff', flexShrink: 0 }; })() }),
           d.lots.length > 1 ? h('button', { onClick: () => this.removeLot(st.regEB, i, li), title: 'ลบ Lot นี้', style: { width: 30, height: 30, flexShrink: 0, border: 'none', borderRadius: 7, background: '#FCEDED', color: '#E03E3E', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700 } }, '×') : null,
         );
       });
@@ -3320,7 +3326,13 @@ td.l{text-align:left;padding-left:4px}
       }, ic('<svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M20 12H7m0 0l5-5m-5 5l5 5" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',15), 'รับคืน EB นี้') : null,
     );
 
-    vals.resetForm = () => this.resetForm();
+    vals.resetForm = () => {
+      const _m = st.formMode;
+      const _dirty = _m === 'register' ? (st.regMfg || st.regPreparer || st.regChecker)
+                   : _m === 'dispense' ? (st.formDept !== 'ER' || (st.dispenser && st.dispenser !== (st.currentUser ? st.currentUser.name : '')) || st.swapReturn)
+                   : (st.retReceiver && st.retReceiver !== (st.currentUser ? st.currentUser.name : ''));
+      if (_dirty) { this.askConfirm({ tone: 'warn', icon: 'warn', title: 'ล้างฟอร์ม?', body: 'ข้อมูลที่กรอกไว้จะหายทั้งหมด', yesLabel: 'ล้าง', noLabel: 'ยกเลิก', onYes: () => this.resetForm() }); } else { this.resetForm(); }
+    };
 
     // Print EB form buttons (register step only) — must print before save is allowed
     const printerSVG = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none"><rect x="5" y="2" width="14" height="6" rx="1" stroke="currentColor" stroke-width="1.8"/><path d="M5 18H3a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1h18a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1h-2" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><rect x="5" y="14" width="14" height="8" rx="1" stroke="currentColor" stroke-width="1.8"/><circle cx="18" cy="11.5" r="1" fill="currentColor"/></svg>';
@@ -3832,7 +3844,10 @@ td.l{text-align:left;padding-left:4px}
     };
 
     // ===== box edit history (detail) =====
-    const bh = (st.boxHist || {})[st.selectedEB] || [];
+    // primary source: auditLog persisted in Firestore (cat='boxhist'); fallback: in-memory for immediate feedback
+    const _bhFromAudit = (st.auditLog || []).filter(r => r.cat === 'boxhist' && r.eb === st.selectedEB).slice(0, 8).map(r => ({ text: r.action || '', who: r.person || '—', stamp: `${r.date || ''} · ${r.time || ''}` }));
+    const _bhInMem = ((st.boxHist || {})[st.selectedEB] || []);
+    const bh = _bhFromAudit.length ? _bhFromAudit : _bhInMem;
     vals.boxHistEl = bh.length ? h(React.Fragment, null, ...bh.map((e, i) => h('div', { key: i, style: { display: 'flex', gap: 10, alignItems: 'flex-start', padding: '8px 0', borderBottom: i < bh.length - 1 ? '1px solid #F4F7F9' : 'none' } },
       h('span', { style: { width: 7, height: 7, flexShrink: 0, borderRadius: '50%', background: '#1A6FA3', marginTop: 6 } }),
       h('div', { style: { minWidth: 0 } }, h('div', { style: { fontSize: 12.5, color: '#15242E', fontWeight: 500 } }, e.text), h('div', { style: { fontSize: 11, color: '#9AAAB8', marginTop: 1 } }, `${e.who} · ${e.stamp}`))))) : h('div', { style: { textAlign: 'center', padding: '20px 10px', animation: 'fadeUp .5s ease both' } },
