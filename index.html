@@ -692,6 +692,11 @@ input:focus, select:focus, textarea:focus {
 </div>
 </sc-if>
 
+<!-- ===================== PUBLIC BOX VIEW (QR Code scan) ===================== -->
+<sc-if value="{{ publicView }}" hint-placeholder-val="{{ false }}">
+{{ publicViewEl }}
+</sc-if>
+
 <!-- ===================== APP ===================== -->
 <sc-if value="{{ authed }}" hint-placeholder-val="{{ false }}">
 <div class="app-wrap" style="display: flex; height: 100vh; min-height: 720px; background: #EDF2F7; color: #15242E; overflow: hidden; position: relative;">
@@ -1101,8 +1106,14 @@ input:focus, select:focus, textarea:focus {
       <!-- ============ EB DETAIL ============ -->
       <sc-if value="{{ isDetail }}" hint-placeholder-val="{{ true }}">
       <div class="page-enter" style="max-width: 1180px; margin: 0 auto; animation: fadeUp .45s ease both;">
-        <!-- EB selector chips -->
-        <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 22px;">{{ ebChipsEl }}</div>
+        <!-- EB selector chips + QR print -->
+        <div style="display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 22px;">
+          <div style="display: flex; flex-wrap: wrap; gap: 8px; flex: 1;">{{ ebChipsEl }}</div>
+          <button onclick="{{ printQRCodes }}" style="display: flex; align-items: center; gap: 7px; height: 40px; padding: 0 16px; background: #fff; border: 1.5px solid #E2EEF5; border-radius: 11px; font-size: 13px; font-weight: 600; color: #1A6FA3; cursor: pointer; font-family: inherit; white-space: nowrap; transition: all .2s cubic-bezier(.34,1.56,.64,1);" style-hover="background: #E8F0F6; border-color: #C3DDEC; transform: translateY(-1px);">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.9"/><rect x="14" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.9"/><rect x="3" y="14" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.9"/><path d="M14 14h7M14 17.5h7M17.5 14v7" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>
+            พิมพ์ QR Code ทั้งหมด
+          </button>
+        </div>
 
         <div class="detail-grid">
           <!-- Box info -->
@@ -1623,6 +1634,9 @@ class Component extends DCLogic {
     expiryAlerts: [],
     showExpiryBanner: false,
     canInstall: false,
+    publicView: false,
+    publicBoxId: '',
+    _publicSynced: false,
     // session
     idleWarn: false,
     reauth: null,
@@ -1807,8 +1821,15 @@ class Component extends DCLogic {
       setTimeout(() => r.remove(), 750);
     };
     document.addEventListener('click', this._ripple, { passive: true });
-    // Start users listener immediately so any device can login with any account
-    if (window.EB_Sync) window.EB_Sync.initUsersOnly(this);
+    // QR code public box view — detect URL before starting auth flows
+    const _qrP = new URLSearchParams(window.location.search);
+    if (_qrP.get('view') === 'box' && _qrP.get('id')) {
+      this.setState({ publicView: true, publicBoxId: _qrP.get('id') });
+      if (window.EB_Sync) window.EB_Sync.startPublicSync(this);
+    } else {
+      // Start users listener immediately so any device can login with any account
+      if (window.EB_Sync) window.EB_Sync.initUsersOnly(this);
+    }
   }
   componentWillUnmount() {
     (this._idleEvents || []).forEach(ev => window.removeEventListener(ev, this._resetIdle, true));
@@ -2010,6 +2031,15 @@ class Component extends DCLogic {
         }).catch(err => console.warn('[Notify] checkAndNotify failed:', err));
       }
     }, 500);
+  }
+  printQRCodes() {
+    const BASE = window.location.href.split('?')[0].split('#')[0];
+    const boxes = this.BOXES;
+    const html = `<!DOCTYPE html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>QR Code — Emergency Box · รพ.กรงปินัง</title><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+Thai:wght@400;600;700&display=swap" rel="stylesheet"><script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'IBM Plex Sans Thai',sans-serif;background:#EDF2F7;color:#15242E}.ui{background:#1A6FA3;color:#fff;padding:14px 22px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:10}.ui h1{font-size:14px;font-weight:700;flex:1}.btn{background:#fff;color:#1A6FA3;border:none;border-radius:9px;padding:8px 20px;font-size:13px;font-weight:700;cursor:pointer}.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;padding:22px}.card{background:#fff;border:1.5px solid #E2EEF5;border-radius:14px;padding:14px 12px;display:flex;flex-direction:column;align-items:center;gap:8px;page-break-inside:avoid}.eb{font-size:17px;font-weight:700;color:#1A6FA3;font-family:'IBM Plex Mono',monospace}.dept{font-size:11px;color:#7B8D9C;background:#EDF2F7;border-radius:6px;padding:2px 9px;font-weight:600}.qrbox{width:160px;height:160px}.url-text{font-size:8.5px;color:#9AAAB8;text-align:center;word-break:break-all;max-width:160px;line-height:1.4}.note{font-size:10px;color:#5A6B79;text-align:center;line-height:1.5}@media print{.ui{display:none}body{background:#fff}.grid{padding:8px;gap:10px}.card{border:1px solid #ccc;padding:10px;border-radius:10px}}</style></head><body><div class="ui"><h1>🏥 QR Code — Emergency Box · โรงพยาบาลกรงปินัง · ${boxes.length} กล่อง</h1><button class="btn" onclick="window.print()">🖨 พิมพ์</button></div><div class="grid">${boxes.map(b=>`<div class="card"><div class="eb">${b.id}</div><div class="dept">${b.dept||'—'}</div><div class="qrbox" id="qr${b.id.replace(/[^a-z0-9]/gi,'_')}"></div><div class="url-text">${BASE}?view=box&amp;id=${encodeURIComponent(b.id)}</div><div class="note">สแกนเพื่อดูข้อมูลกล่องยาแบบ Real-time</div></div>`).join('')}</div><script>window.onload=function(){${boxes.map(b=>`try{new QRCode(document.getElementById('qr${b.id.replace(/[^a-z0-9]/gi,'_')}'),{text:'${BASE}?view=box&id=${encodeURIComponent(b.id)}',width:160,height:160,colorDark:'#15242E',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});}catch(e){}`).join('')}};<\/script></body></html>`;
+    const win = window.open('', '_blank', 'width=1150,height=820');
+    if (!win) { this.flash('กรุณาอนุญาต Pop-up เพื่อพิมพ์ QR Code'); return; }
+    win.document.write(html);
+    win.document.close();
   }
   installApp() {
     if (!this._installPrompt) return;
@@ -2484,10 +2514,12 @@ td.l{text-align:left;padding-left:4px}
       toastTitle: st.toastTitle,
       toastSubtitle: st.toastSubtitle,
       // auth
-      authed: st.authed,
-      notAuthed: !st.authed,
+      authed: st.authed && !st.publicView,
+      notAuthed: !st.authed && !st.publicView,
       canInstall: st.canInstall,
       installApp: () => this.installApp(),
+      publicView: st.publicView,
+      printQRCodes: () => this.printQRCodes(),
     };
 
     // ===== LOGIN SCREEN =====
@@ -2705,6 +2737,100 @@ td.l{text-align:left;padding-left:4px}
         );
       }),
     );
+
+    // ===== PUBLIC BOX VIEW (QR scan — no login) =====
+    if (st.publicView) {
+      const pubBoxId = st.publicBoxId;
+      const pubBox = this.BOXES.find(b => b.id === pubBoxId);
+      const pubBD = (st.boxDrugs || {})[pubBoxId] || [];
+      const isLoaded = st._publicSynced;
+
+      if (!isLoaded) {
+        vals.publicViewEl = h('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', gap: 16, background: '#EDF2F7', fontFamily: "'IBM Plex Sans Thai', sans-serif" } },
+          h('div', { style: { width: 48, height: 48, border: '4px solid #D1E3F0', borderTop: '4px solid #1A6FA3', borderRadius: '50%', animation: 'sweep .8s linear infinite' } }),
+          h('div', { style: { fontSize: 14, color: '#7B8D9C', fontWeight: 500 } }, 'กำลังโหลดข้อมูลกล่อง...'),
+          h('div', { style: { fontSize: 13, color: '#9AAAB8', fontFamily: "'IBM Plex Mono', monospace" } }, pubBoxId)
+        );
+      } else if (!pubBox) {
+        vals.publicViewEl = h('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', gap: 16, background: '#EDF2F7', padding: '0 24px', textAlign: 'center', fontFamily: "'IBM Plex Sans Thai', sans-serif" } },
+          h('div', { style: { fontSize: 44 } }, '❌'),
+          h('div', { style: { fontSize: 20, fontWeight: 700, color: '#E03E3E' } }, `ไม่พบกล่อง ${pubBoxId}`),
+          h('div', { style: { fontSize: 13, color: '#7B8D9C' } }, 'กรุณาตรวจสอบ QR Code หรือติดต่อห้องยา')
+        );
+      } else {
+        const pubExpiry = this.boxExpiryISO(pubBoxId, st.boxDrugs);
+        const pubStatus = this.statusOf(pubExpiry);
+        const pubRetISO = this.returnDateISO(pubExpiry);
+        const pubRetDate = pubRetISO ? this.fmtISO(pubRetISO) : '—';
+        const pubDaysText = this.daysText(pubExpiry);
+        const isOut = !!pubBox.dispense && !pubBox.receiver;
+
+        const drugRows = pubBD.map((d, i) => {
+          const minExp = this.drugMinExp(d);
+          const qty = this.drugQty(d);
+          const expDate = minExp ? this.fmtISO(minExp) : '—';
+          const dRet = minExp ? this.daysBetween(this.addDays(minExp, -15)) : null;
+          let dotColor = '#169C7F';
+          let expColor = '#1B2A34';
+          if (dRet !== null) {
+            if (dRet <= 0) { dotColor = '#E03E3E'; expColor = '#E03E3E'; }
+            else if (dRet <= 15) { dotColor = '#EE8A2B'; expColor = '#D9810F'; }
+          }
+          return h('div', { key: d.name + i, style: { display: 'flex', alignItems: 'center', gap: 12, padding: '11px 16px', borderBottom: '1px solid #F0F4F7' } },
+            h('span', { style: { width: 8, height: 8, borderRadius: '50%', background: dotColor, flexShrink: 0 } }),
+            h('div', { style: { flex: 1, minWidth: 0 } },
+              h('div', { style: { fontSize: 13, lineHeight: 1.4, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' } },
+                h('span', null, d.name),
+                d.had ? h('span', { style: { fontSize: 9, fontWeight: 700, color: '#C2410C', background: '#FCEEE3', borderRadius: 4, padding: '1px 5px' } }, 'HAD') : null
+              )
+            ),
+            h('div', { style: { textAlign: 'right', flexShrink: 0 } },
+              h('div', { style: { fontSize: 12, fontWeight: 600, color: expColor } }, expDate),
+              h('div', { style: { fontSize: 11, color: '#9AAAB8', marginTop: 1 } }, `${qty} หน่วย`)
+            )
+          );
+        });
+
+        vals.publicViewEl = h('div', { style: { minHeight: '100vh', background: '#EDF2F7', fontFamily: "'IBM Plex Sans Thai', sans-serif", WebkitFontSmoothing: 'antialiased' } },
+          h('div', { style: { background: 'linear-gradient(135deg, #1A6FA3 0%, #169C7F 100%)', padding: '32px 20px 52px', color: '#fff' } },
+            h('div', { style: { fontSize: 11.5, opacity: .75, marginBottom: 8, fontWeight: 500, letterSpacing: .3 } }, '🏥 Emergency Box · ฝ่ายเภสัชกรรม รพ.กรงปินัง'),
+            h('div', { style: { fontSize: 38, fontWeight: 700, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: -1, lineHeight: 1 } }, pubBox.id),
+            h('div', { style: { marginTop: 14, display: 'flex', gap: 8, flexWrap: 'wrap' } },
+              h('span', { style: { background: 'rgba(255,255,255,.18)', borderRadius: 9, padding: '6px 14px', fontSize: 13, fontWeight: 600 } }, `หน่วยงาน: ${pubBox.dept || '—'}`),
+              isOut
+                ? h('span', { style: { background: 'rgba(224,62,62,.25)', border: '1px solid rgba(224,62,62,.4)', borderRadius: 9, padding: '6px 14px', fontSize: 13, fontWeight: 600 } }, '📤 จ่ายออกไปแล้ว')
+                : h('span', { style: { background: 'rgba(22,156,127,.3)', border: '1px solid rgba(22,156,127,.4)', borderRadius: 9, padding: '6px 14px', fontSize: 13, fontWeight: 600 } }, '✅ อยู่ในห้องยา')
+            )
+          ),
+          h('div', { style: { padding: '0 16px 40px', marginTop: -24 } },
+            h('div', { style: { background: '#fff', borderRadius: 16, padding: '18px 20px', marginBottom: 14, border: `1.5px solid ${pubStatus.border}`, boxShadow: '0 4px 20px rgba(20,40,55,.1)' } },
+              h('div', { style: { fontSize: 12, fontWeight: 600, color: '#7B8D9C', marginBottom: 6 } }, '📅 กำหนดส่งคืนห้องยา'),
+              h('div', { style: { fontSize: 24, fontWeight: 700, color: pubStatus.color } }, pubRetDate),
+              h('span', { style: { display: 'inline-block', marginTop: 8, fontSize: 12, fontWeight: 700, color: pubStatus.color, background: pubStatus.soft, border: `1px solid ${pubStatus.border}`, borderRadius: 20, padding: '4px 14px' } }, pubDaysText || '—')
+            ),
+            isOut ? h('div', { style: { background: '#fff', borderRadius: 16, padding: '14px 20px', marginBottom: 14, border: '1px solid #E7EEF3', boxShadow: '0 4px 20px rgba(20,40,55,.08)' } },
+              h('div', { style: { fontSize: 12, fontWeight: 600, color: '#7B8D9C', marginBottom: 4 } }, '📤 บันทึกการเบิก'),
+              h('div', { style: { fontSize: 14, fontWeight: 600 } }, `จ่ายเมื่อ ${this.fmtISO(pubBox.dispense)}`),
+              pubBox.dispenser ? h('div', { style: { fontSize: 12, color: '#7B8D9C', marginTop: 3 } }, `โดย ${pubBox.dispenser}`) : null
+            ) : null,
+            h('div', { style: { background: '#fff', borderRadius: 16, overflow: 'hidden', border: '1px solid #E7EEF3', boxShadow: '0 4px 20px rgba(20,40,55,.08)', marginBottom: 14 } },
+              h('div', { style: { padding: '14px 20px 12px', borderBottom: '1px solid #F0F4F7', display: 'flex', alignItems: 'center' } },
+                h('span', { style: { fontSize: 14, fontWeight: 700 } }, '💊 รายการยาในกล่อง'),
+                h('span', { style: { fontSize: 11, color: '#9AAAB8', marginLeft: 'auto' } }, `${pubBD.length} รายการ`)
+              ),
+              pubBD.length ? h(React.Fragment, null, ...drugRows)
+                : h('div', { style: { padding: '20px', textAlign: 'center', color: '#9AAAB8', fontSize: 13 } }, 'ยังไม่มีข้อมูลยา')
+            ),
+            h('div', { style: { textAlign: 'center', fontSize: 11.5, color: '#9AAAB8', lineHeight: 1.7 } },
+              h('div', null, `ข้อมูล Real-time จาก Firebase · ${this.fmt(this.TODAY)}`),
+              h('a', { href: window.location.href.split('?')[0], style: { display: 'inline-block', marginTop: 8, fontSize: 13, color: '#1A6FA3', fontWeight: 600, textDecoration: 'none', background: '#E8F0F6', borderRadius: 8, padding: '6px 18px' } }, '→ เปิดระบบเต็ม (ต้อง Login)')
+            )
+          )
+        );
+      }
+    } else {
+      vals.publicViewEl = null;
+    }
 
     // ----- DASHBOARD -----
     const BDdash = st.boxDrugs || this.buildBoxDrugs();

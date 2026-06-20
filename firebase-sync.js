@@ -65,6 +65,33 @@ function stopAll(){
   component=null;
 }
 
+// Called when viewing public box page (QR code scan) — no login required
+function startPublicSync(comp) {
+  if (!window.EB_Firebase) { console.warn('[Sync] Firebase not ready'); return; }
+  db = window.EB_Firebase.db; component = comp;
+  window.EB_Firebase.auth.signInAnonymously()
+    .then(() => {
+      console.log('[Sync] Public sync: anon auth OK');
+      const u1 = db.collection(C.boxes).onSnapshot(snap => {
+        if (!component) return;
+        const boxes = [];
+        snap.forEach(doc => boxes.push({ id: doc.id, ...doc.data() }));
+        boxes.sort((a, b) => { const n = s => parseInt(s.replace(/\D/g, ''), 10) || 0; return n(a.id) - n(b.id); });
+        component.BOXES = boxes;
+        component.setState({ _publicSynced: true });
+      }, err => console.warn('[Sync] Public boxes error:', err.message));
+      const u2 = db.collection(C.boxDrugs).onSnapshot(snap => {
+        if (!component) return;
+        const bd = {};
+        snap.forEach(doc => { const d = doc.data(); const boxId = d.boxId || doc.id; if (boxId && d.drugs) bd[boxId] = d.drugs; });
+        component.BOX_DRUGS = bd;
+        component.setState({ boxDrugs: Object.keys(bd).length ? bd : {} });
+      }, err => console.warn('[Sync] Public drugs error:', err.message));
+      unsubscribers.push(u1, u2);
+    })
+    .catch(err => console.warn('[Sync] Public anon auth failed:', err.message));
+}
+
 async function seedIfEmpty(){
   if(!component||!db)return;
   try{
@@ -144,5 +171,5 @@ function deleteUser(user){
   if(!docId)return Promise.resolve();
   return db.collection(C.users).doc(docId).delete().catch(err=>console.error('[Sync] User delete failed:',err.message));
 }
-window.EB_Sync={initUsersOnly,initFirebaseSync,stopSync,stopAll,logAudit,syncBoxes,syncUsers,deleteUser,syncBoxDrugs};
+window.EB_Sync={initUsersOnly,initFirebaseSync,startPublicSync,stopSync,stopAll,logAudit,syncBoxes,syncUsers,deleteUser,syncBoxDrugs};
 })();
