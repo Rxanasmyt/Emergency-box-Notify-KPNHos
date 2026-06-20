@@ -732,6 +732,12 @@ input:focus, select:focus, textarea:focus {
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M14 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 12h10m0 0l-3-3m3 3l-3 3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
       </div>
+      <sc-if value="{{ canInstall }}" hint-placeholder-val="{{ false }}">
+      <button onclick="{{ installApp }}" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; height: 38px; background: linear-gradient(135deg, #1A6FA3, #169C7F); color: #fff; border: none; border-radius: 11px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; transition: all .22s cubic-bezier(.34,1.56,.64,1);" style-hover="transform: translateY(-1px); box-shadow: 0 8px 20px rgba(26,111,163,.35);">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 3v13M7 12l5 5 5-5" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 19h14" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>
+        ติดตั้งแอปบนอุปกรณ์นี้
+      </button>
+      </sc-if>
       <div style="text-align: center; font-size: 10px; color: #AEBBC6; line-height: 1.55; padding: 2px 4px 0;">รพ.กรงปินัง จ.ยะลา · จัดทำโดย ภก.อนัส มะยีแต</div>
     </div>
   </aside>
@@ -818,6 +824,32 @@ input:focus, select:focus, textarea:focus {
             <div style="font-size: 12px; color: #C99; margin-top: 2px;">รวมที่เกินกำหนดแล้ว</div>
           </div>
         </div>
+
+        <!-- Overdue boxes warning -->
+        <sc-if value="{{ hasOverdueBoxes }}" hint-placeholder-val="{{ false }}">
+        <div style="background: linear-gradient(135deg, #FFF7ED, #FEF3C7); border: 1.5px solid #FCD34D; border-radius: 16px; padding: 18px 22px; margin-bottom: 22px; animation: fadeUp .4s ease both;">
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+            <span style="width: 34px; height: 34px; border-radius: 10px; background: #FDE68A; color: #D97706; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 7v5l3 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.8"/></svg>
+            </span>
+            <div>
+              <div style="font-size: 14px; font-weight: 700; color: #92400E;">EB ค้างที่หน่วยงานนานเกิน 30 วัน · {{ overdueCount }} กล่อง</div>
+              <div style="font-size: 12px; color: #A16207; margin-top: 2px;">ควรติดตามและรับคืนเพื่อตรวจสอบยา / เปลี่ยนกล่องใหม่</div>
+            </div>
+          </div>
+          <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+            <sc-for list="{{ overdueBoxes }}" as="ob" hint-placeholder-count="2">
+              <div style="display: flex; align-items: center; gap: 10px; background: #fff; border: 1px solid #FCD34D; border-radius: 12px; padding: 10px 14px; min-width: 220px;">
+                <div style="font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 14px; color: #D97706; background: #FEF3C7; border: 1px solid #FCD34D; border-radius: 8px; padding: 5px 10px;">{{ ob.id }}</div>
+                <div>
+                  <div style="font-size: 13px; font-weight: 600; color: #1B2A34;">{{ ob.dept }} · ค้าง {{ ob.daysOut }} วัน</div>
+                  <div style="font-size: 11.5px; color: #7B8D9C; margin-top: 2px;">จ่ายเมื่อ {{ ob.dispenseText }} · โดย {{ ob.dispenser }}</div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        </sc-if>
 
         <!-- Mid row: critical list + status donut -->
         <div class="dash-mid-grid" style="margin-bottom: 22px;">
@@ -1034,6 +1066,14 @@ input:focus, select:focus, textarea:focus {
               {{ retEBSelectEl }}
               {{ retHintEl }}
             </div>
+
+            <sc-if value="{{ hasRetDaysOut }}" hint-placeholder-val="{{ false }}">
+            <div style="display: flex; align-items: center; gap: 10px; background: {{ retDaysOutSoft }}; border: 1px solid {{ retDaysOutBorder }}; border-radius: 12px; padding: 12px 16px; margin-bottom: 16px;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style="flex-shrink:0;color:{{ retDaysOutColor }}"><path d="M12 7v5l3 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.8"/></svg>
+              <span style="font-size: 13px; font-weight: 600; color: {{ retDaysOutColor }};">กล่องนี้ออกไปแล้ว <b>{{ retDaysOut }} วัน</b></span>
+              <span style="font-size: 12px; color: #7B8D9C; margin-left: 4px;">(จ่ายเมื่อ {{ retDispensedText }})</span>
+            </div>
+            </sc-if>
 
             {{ retBoxInfoEl }}
 
@@ -1582,6 +1622,7 @@ class Component extends DCLogic {
     // expiry notifications
     expiryAlerts: [],
     showExpiryBanner: false,
+    canInstall: false,
     // session
     idleWarn: false,
     reauth: null,
@@ -1714,11 +1755,19 @@ class Component extends DCLogic {
   }
   go2(formMode) {
     const today = this.isoOf(this.TODAY);
-    this.setState({ formMode, regPrinted: false, swapReturn: false,
+    const user = this.state.currentUser;
+    const uName = user ? user.name : '';
+    const isPharm = user && (user.role === 'pharmacist' || user.role === 'admin');
+    const patch = { formMode, regPrinted: false, swapReturn: false,
       dispDate: this.state.dispDate || today,
       retDate: this.state.retDate || today,
       swapReturnDate: this.state.swapReturnDate || today,
-    });
+    };
+    if (formMode === 'dispense' && !this.state.dispenser && uName) patch.dispenser = uName;
+    if (formMode === 'return'   && !this.state.retReceiver && uName) patch.retReceiver = uName;
+    if (formMode === 'register' && !this.state.regChecker  && isPharm) patch.regChecker  = uName;
+    if (formMode === 'register' && !this.state.regPreparer && !isPharm && uName) patch.regPreparer = uName;
+    this.setState(patch);
   }
 
   componentDidMount() {
@@ -1735,6 +1784,16 @@ class Component extends DCLogic {
     this._resetIdle = () => this.bumpIdle();
     this._idleEvents.forEach(ev => window.addEventListener(ev, this._resetIdle, true));
     this.bumpIdle();
+    // PWA install prompt
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      this._installPrompt = e;
+      this.setState({ canInstall: true });
+    });
+    window.addEventListener('appinstalled', () => {
+      this._installPrompt = null;
+      this.setState({ canInstall: false });
+    });
     // btn-primary ripple effect
     this._ripple = (e) => {
       const btn = e.target.closest('.btn-primary');
@@ -1926,7 +1985,13 @@ class Component extends DCLogic {
     } catch (_) {}
     this.setState({ authed: true, currentUser: updatedU, loginError: '', attempts: 0, locked: false, loginPass: '', screen: 'dashboard',
       users: this.state.users.map(x => x.username === u.username ? updatedU : x),
-      dispDate: _today, retDate: _today, swapReturnDate: _today, regPrinted: false });
+      dispDate: _today, retDate: _today, swapReturnDate: _today, regPrinted: false,
+      dispenser: u.name,
+      retReceiver: u.name,
+      swapReceiver: u.name,
+      regPreparer: (u.role === 'pharmacist' || u.role === 'admin') ? '' : u.name,
+      regChecker:  (u.role === 'pharmacist' || u.role === 'admin') ? u.name : '',
+    });
     // anon auth already started in componentDidMount — just start remaining Firestore sync
     if (window.EB_Sync) {
       window.EB_Sync.initFirebaseSync(this);
@@ -1945,6 +2010,14 @@ class Component extends DCLogic {
         }).catch(err => console.warn('[Notify] checkAndNotify failed:', err));
       }
     }, 500);
+  }
+  installApp() {
+    if (!this._installPrompt) return;
+    this._installPrompt.prompt();
+    this._installPrompt.userChoice.then(r => {
+      if (r.outcome === 'accepted') this.setState({ canInstall: false });
+      this._installPrompt = null;
+    }).catch(() => { this._installPrompt = null; });
   }
   logout() {
     clearTimeout(this._idleT); clearTimeout(this._idleWarnT); clearTimeout(this._syncT);
@@ -2362,9 +2435,10 @@ td.l{text-align:left;padding-left:4px}
   resetForm() {
     const m = this.state.formMode;
     const today = this.isoOf(this.TODAY);
+    const uName = this.state.currentUser ? this.state.currentUser.name : '';
     if (m === 'register') this.setState({ regMfg: '', regPreparer: '', regChecker: '', regHadConfirm: false, regPrinted: false });
-    else if (m === 'dispense') this.setState({ dispEB: '', formDept: 'ER', dispenser: '', swapReturn: false, swapEB: '', swapReceiver: '', dispDate: today, swapReturnDate: today });
-    else this.setState({ retEB: '', retReceiver: '', retDate: today });
+    else if (m === 'dispense') this.setState({ dispEB: '', formDept: 'ER', dispenser: uName, swapReturn: false, swapEB: '', swapReceiver: '', dispDate: today, swapReturnDate: today });
+    else this.setState({ retEB: '', retReceiver: uName, retDate: today });
   }
 
   renderVals() {
@@ -2412,6 +2486,8 @@ td.l{text-align:left;padding-left:4px}
       // auth
       authed: st.authed,
       notAuthed: !st.authed,
+      canInstall: st.canInstall,
+      installApp: () => this.installApp(),
     };
 
     // ===== LOGIN SCREEN =====
@@ -2685,6 +2761,17 @@ td.l{text-align:left;padding-left:4px}
       soft: t.action === 'จ่าย' ? '#E8F0F6' : '#E4F4EF',
     }));
 
+    const OVERDUE_DAYS = 30;
+    const daysSince = (iso) => { if (!iso) return 0; const d = this.parse(iso); return d ? Math.round((this.TODAY - d) / 86400000) : 0; };
+    const overdueBoxes = active
+      .map(b => ({ ...b, daysOut: daysSince(b.dispense) }))
+      .filter(b => b.daysOut > OVERDUE_DAYS)
+      .sort((a, z) => z.daysOut - a.daysOut)
+      .map(b => ({ id: b.id, dept: b.dept || '—', daysOut: b.daysOut, dispenseText: this.fmtISO(b.dispense), dispenser: b.dispenser || '—' }));
+    vals.overdueBoxes = overdueBoxes;
+    vals.hasOverdueBoxes = overdueBoxes.length > 0;
+    vals.overdueCount = overdueBoxes.length;
+
     // ----- ENTRY (3-step workflow: register → dispense/swap → return) -----
     const mode = st.formMode;
     const isRegister = mode === 'register';
@@ -2935,11 +3022,12 @@ td.l{text-align:left;padding-left:4px}
 
     vals.toggleSwap = () => this.setState(s => {
       const enabling = !s.swapReturn;
-      if (enabling && !s.swapEB) {
+      const uName = (this.state.currentUser || {}).name || '';
+      if (enabling) {
         const firstOut = this.BOXES.filter(b => b.dispense && !b.receiver).map(b => b.id)[0] || '';
-        return { swapReturn: true, swapEB: firstOut };
+        return { swapReturn: true, swapEB: s.swapEB || firstOut, swapReceiver: s.swapReceiver || uName };
       }
-      return { swapReturn: enabling };
+      return { swapReturn: false };
     });
     vals.swapReturn = st.swapReturn;
     vals.swapCheckEl = h('span', { key: 'swapchk_' + st.swapReturn, style: { width: 24, height: 24, flexShrink: 0, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', border: st.swapReturn ? '1.5px solid #1A6FA3' : '1.5px solid #C4D0DA', background: st.swapReturn ? '#1A6FA3' : '#fff' } },
@@ -2958,6 +3046,15 @@ td.l{text-align:left;padding-left:4px}
     vals.setRetDate = (e) => this.setState({ retDate: e.target.value });
     vals.setRetReceiver = (e) => this.setState({ retReceiver: e.target.value });
     vals.retBoxInfoEl = boxInfoCard(this.BOXES.find(b => b.id === (outIds.includes(st.retEB) ? st.retEB : outIds[0])), '#169C7F', regBD);
+
+    const effRetBox = this.BOXES.find(b => b.id === (outIds.includes(st.retEB) ? st.retEB : outIds[0]));
+    const retDaysOut = (effRetBox && effRetBox.dispense) ? Math.round((this.TODAY - (this.parse(effRetBox.dispense) || this.TODAY)) / 86400000) : 0;
+    vals.retDaysOut = retDaysOut;
+    vals.retDispensedText = effRetBox && effRetBox.dispense ? this.fmtISO(effRetBox.dispense) : '';
+    vals.hasRetDaysOut = !!(effRetBox && effRetBox.dispense);
+    vals.retDaysOutColor = retDaysOut > 30 ? '#D97706' : retDaysOut > 15 ? '#B5740F' : '#169C7F';
+    vals.retDaysOutSoft  = retDaysOut > 30 ? '#FEF3C7' : retDaysOut > 15 ? '#FBF1E0' : '#E4F4EF';
+    vals.retDaysOutBorder = retDaysOut > 30 ? '#FCD34D' : retDaysOut > 15 ? '#F4DEC2' : '#C4E7DB';
 
     // autocomplete datalist from audit log person names
     const auditPersons = [...new Set((st.auditLog || this.AUDIT || []).map(r => r.person || '').filter(Boolean).sort())];
