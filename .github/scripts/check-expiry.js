@@ -597,7 +597,7 @@ async function main() {
 
   // ── Smart mode logic ──
   // วันจันทร์ → ส่งรายงานเต็มทุกรายการ
-  // วันอื่น   → ส่งเฉพาะมียาหมดอายุแล้วหรือวิกฤต (≤7 วัน)
+  // วันอื่น   → ส่งเฉพาะมียาหมดอายุแล้วหรือวิกฤต (≤15 วัน)
   const urgentAlerts = alerts.filter(a => a.status === 'expired' || a.status === 'critical');
   const shouldSend = isMonday || urgentAlerts.length > 0;
 
