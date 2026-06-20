@@ -125,6 +125,7 @@ function listenBoxes(){
     boxes.sort((a,b)=>{const n=(s)=>parseInt(s.replace(/\D/g,''),10)||0;return n(a.id)-n(b.id);});
     // always update BOXES even when empty — prevents stale data after deletion
     component.BOXES=boxes;component.setState({});
+    if(typeof component._syncChipStates==='function')component._syncChipStates();
   },err=>console.warn('[Sync] Boxes error:',err.message));
   unsubscribers.push(unsub);
 }

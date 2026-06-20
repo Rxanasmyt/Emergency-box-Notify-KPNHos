@@ -1581,23 +1581,23 @@ class Component extends DCLogic {
     // entry form
     formMode: 'register',
     // step 1: register / prepare
-    regEB: 'EB-9',
+    regEB: '',
     regMfg: '',
     regPreparer: '',
     regChecker: '',
     regHadConfirm: false,
     regPrinted: false,
     // step 2: dispense / swap
-    dispEB: 'EB-9',
+    dispEB: '',
     formDept: 'ER',
     dispDate: '',
     dispenser: '',
     swapReturn: false,
-    swapEB: 'EB-1',
+    swapEB: '',
     swapReturnDate: '',
     swapReceiver: '',
     // step 3: return
-    retEB: 'EB-1',
+    retEB: '',
     retDate: '',
     retReceiver: '',
     showToast: false,
@@ -1696,6 +1696,18 @@ class Component extends DCLogic {
   isoOf(d) { if (!d || isNaN(d.getTime())) return ''; return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
   _resolveDispEB() { const ids = this.BOXES.filter(b => !(b.dispense && !b.receiver)).map(b => b.id); return ids.includes(this.state.dispEB) ? this.state.dispEB : (ids[0] || ''); }
   _resolveRetEB() { const ids = this.BOXES.filter(b => b.dispense && !b.receiver).map(b => b.id); return ids.includes(this.state.retEB) ? this.state.retEB : (ids[0] || ''); }
+  // Keeps chip state in sync with what mkEBChips visually shows as selected.
+  // Call whenever BOXES changes (Firestore sync, submit) or when switching form modes.
+  _syncChipStates() {
+    const patch = {};
+    const inStock = this.BOXES.filter(b => !(b.dispense && !b.receiver)).map(b => b.id);
+    const out     = this.BOXES.filter(b =>  b.dispense && !b.receiver).map(b => b.id);
+    const all     = this.BOXES.map(b => b.id);
+    if (!inStock.includes(this.state.dispEB)) patch.dispEB = inStock[0] || '';
+    if (!out.includes(this.state.retEB))      patch.retEB  = out[0]     || '';
+    if (!all.includes(this.state.regEB))      patch.regEB  = all[0]     || '';
+    if (Object.keys(patch).length) this.setState(patch);
+  }
 
   // par quantities now live in DRUGS[].par
   buildBoxDrugs() {
@@ -1784,6 +1796,13 @@ class Component extends DCLogic {
     if (formMode === 'return'   && !this.state.retReceiver && uName) patch.retReceiver = uName;
     if (formMode === 'register' && !this.state.regChecker  && isPharm) patch.regChecker  = uName;
     if (formMode === 'register' && !this.state.regPreparer && !isPharm && uName) patch.regPreparer = uName;
+    // ensure chip state matches the visually-selected box for this mode
+    const _inStock = this.BOXES.filter(b => !(b.dispense && !b.receiver)).map(b => b.id);
+    const _out     = this.BOXES.filter(b =>  b.dispense && !b.receiver).map(b => b.id);
+    const _all     = this.BOXES.map(b => b.id);
+    if (formMode === 'dispense' && !_inStock.includes(this.state.dispEB)) patch.dispEB = _inStock[0] || '';
+    if (formMode === 'return'   && !_out.includes(this.state.retEB))      patch.retEB  = _out[0]     || '';
+    if (formMode === 'register' && !_all.includes(this.state.regEB))      patch.regEB  = _all[0]     || '';
     this.setState(patch);
   }
 
@@ -1797,6 +1816,7 @@ class Component extends DCLogic {
     if (!this.state.retDate) patch.retDate = today;
     if (!this.state.swapReturnDate) patch.swapReturnDate = today;
     if (Object.keys(patch).length) this.setState(patch);
+    this._syncChipStates();
     this._idleEvents = ['mousemove', 'keydown', 'click', 'touchstart'];
     this._resetIdle = () => this.bumpIdle();
     this._idleEvents.forEach(ev => window.addEventListener(ev, this._resetIdle, true));
@@ -2060,9 +2080,9 @@ class Component extends DCLogic {
       loginError: '', attempts: 0, locked: false,
       idleWarn: false,
       formMode: 'register',
-      regEB: 'EB-9', regMfg: '', regPreparer: '', regChecker: '', regHadConfirm: false, regPrinted: false,
-      dispEB: 'EB-9', formDept: 'ER', dispenser: '', swapReturn: false, swapEB: '', swapReceiver: '', dispDate: '', swapReturnDate: '',
-      retEB: 'EB-1', retReceiver: '', retDate: '',
+      regEB: '', regMfg: '', regPreparer: '', regChecker: '', regHadConfirm: false, regPrinted: false,
+      dispEB: '', formDept: 'ER', dispenser: '', swapReturn: false, swapEB: '', swapReceiver: '', dispDate: '', swapReturnDate: '',
+      retEB: '', retReceiver: '', retDate: '',
       selectedEB: 'EB-4', boxDrugs: null,
       boxMeta: {}, editDrugs: false, saveSuccess: null, showChangePw: false, showAddUser: false,
       changePwUsername: null, changePwNew: '', changePwConfirm: '', changePwError: '',
@@ -2075,6 +2095,7 @@ class Component extends DCLogic {
       expiryAlerts: [], showExpiryBanner: false,
       auditLog: null,
     });
+    this._syncChipStates();
     // keep anonymous Firebase session alive so users listener continues working
     // next login can authenticate against all users in Firestore without re-signing-in
   }
@@ -2463,9 +2484,12 @@ td.l{text-align:left;padding-left:4px}
     const m = this.state.formMode;
     const today = this.isoOf(this.TODAY);
     const uName = this.state.currentUser ? this.state.currentUser.name : '';
+    // _syncBox has already updated this.BOXES before resetForm is called from submit()
+    const inStockIds = this.BOXES.filter(b => !(b.dispense && !b.receiver)).map(b => b.id);
+    const outIds     = this.BOXES.filter(b =>  b.dispense && !b.receiver).map(b => b.id);
     if (m === 'register') this.setState({ regMfg: '', regPreparer: '', regChecker: '', regHadConfirm: false, regPrinted: false });
-    else if (m === 'dispense') this.setState({ dispEB: '', formDept: 'ER', dispenser: uName, swapReturn: false, swapEB: '', swapReceiver: '', dispDate: today, swapReturnDate: today });
-    else this.setState({ retEB: '', retReceiver: uName, retDate: today });
+    else if (m === 'dispense') this.setState({ dispEB: inStockIds[0] || '', formDept: 'ER', dispenser: uName, swapReturn: false, swapEB: '', swapReceiver: '', dispDate: today, swapReturnDate: today });
+    else this.setState({ retEB: outIds[0] || '', retReceiver: uName, retDate: today });
   }
 
   renderVals() {
