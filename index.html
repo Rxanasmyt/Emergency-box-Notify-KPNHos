@@ -2925,7 +2925,14 @@ td.l{text-align:left;padding-left:4px}
       }, icon, ' ', id);
     }));
 
-    vals.toggleSwap = () => this.setState(s => ({ swapReturn: !s.swapReturn }));
+    vals.toggleSwap = () => this.setState(s => {
+      const enabling = !s.swapReturn;
+      if (enabling && !s.swapEB) {
+        const firstOut = this.BOXES.filter(b => b.dispense && !b.receiver).map(b => b.id)[0] || '';
+        return { swapReturn: true, swapEB: firstOut };
+      }
+      return { swapReturn: enabling };
+    });
     vals.swapReturn = st.swapReturn;
     vals.swapCheckEl = h('span', { key: 'swapchk_' + st.swapReturn, style: { width: 24, height: 24, flexShrink: 0, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', border: st.swapReturn ? '1.5px solid #1A6FA3' : '1.5px solid #C4D0DA', background: st.swapReturn ? '#1A6FA3' : '#fff' } },
       st.swapReturn ? ic('<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>', 14) : null);

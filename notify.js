@@ -87,7 +87,7 @@
               lot: lot.lot || '',
               qty: lot.qty || 0,
               isHAD: drug.had || false,
-              status: daysLeft <= 0 ? 'expired' : daysLeft <= 7 ? 'critical' : daysLeft <= 15 ? 'warning' : 'notice',
+              status: daysLeft < 0 ? 'expired' : daysLeft <= 15 ? 'critical' : daysLeft <= 30 ? 'warning' : 'notice',
             });
           }
         });
@@ -117,14 +117,14 @@
       msg += '\n';
     }
     if (critical.length) {
-      msg += `🟠 วิกฤต ≤7 วัน (${critical.length} รายการ):\n`;
+      msg += `🟠 วิกฤต ≤15 วัน (${critical.length} รายการ):\n`;
       critical.forEach(a => {
         msg += `  • ${a.boxId} (${a.dept}) - ${a.drugName} [เหลือ ${a.daysLeft} วัน]${a.isHAD ? ' ⚠️HAD' : ''}\n`;
       });
       msg += '\n';
     }
     if (warning.length) {
-      msg += `🟡 ใกล้กำหนด ≤15 วัน (${warning.length} รายการ):\n`;
+      msg += `🟡 ใกล้กำหนด ≤30 วัน (${warning.length} รายการ):\n`;
       warning.forEach(a => {
         msg += `  • ${a.boxId} (${a.dept}) - ${a.drugName} [เหลือ ${a.daysLeft} วัน]\n`;
       });
