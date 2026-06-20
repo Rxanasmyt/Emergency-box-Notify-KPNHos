@@ -1997,7 +1997,7 @@ class Component extends DCLogic {
     if (username === this.state.currentUser.username) { this.flash('ไม่สามารถระงับบัญชีของตัวเองได้'); return; }
     const targetUser = this.state.users.find(u => u.username === username);
     if (!targetUser) return;
-    const newStatus = targetUser.status === 'active' ? 'suspended' : 'active';
+    const newStatus = (targetUser.status || 'active') === 'active' ? 'suspended' : 'active';
     const changed = { ...targetUser, status: newStatus };
     const label = newStatus === 'active' ? 'เปิดใช้งานบัญชีแล้ว' : 'ระงับบัญชีแล้ว';
     this.setState(s => ({ users: s.users.map(u => u.username === username ? changed : u) }));
@@ -2132,13 +2132,15 @@ class Component extends DCLogic {
       meta[regEB] = { mfg: this.state.regMfg, preparer: this.state.regPreparer, checker: this.state.regChecker, registeredAt: this.isoOf(this.TODAY) };
       this.setState({ boxMeta: meta, regHadConfirm: false });
       const box = this.BOXES.find(b => b.id === regEB) || { id: regEB };
-      this._syncBox({ retDate: '', ...box, mfg: this.state.regMfg, expiry: nearISO || '', nearDrug: near || '', preparer: this.state.regPreparer, checker: this.state.regChecker, registeredAt: this.isoOf(this.TODAY), dispense: '', dispenser: '', receiver: '' });
+      this._syncBox({ ...box, mfg: this.state.regMfg, expiry: nearISO || '', nearDrug: near || '', preparer: this.state.regPreparer, checker: this.state.regChecker, registeredAt: this.isoOf(this.TODAY), dispense: '', dispenser: '', receiver: '', retDate: '' });
       msg = `ลงทะเบียน ${regEB} สำเร็จ · ตรวจพบยาใกล้หมดอายุสุด: ${near}`;
       this.logAction({ cat: 'register', action: 'ลงทะเบียน', eb: regEB, dept: '—', drug: `จัดยาเข้าคลัง · ใกล้หมดอายุสุด: ${near}` });
       this.logBoxHist(regEB, `ลงทะเบียนเข้าคลัง (จัดโดย ${this.state.regPreparer || '-'}, ตรวจโดย ${this.state.regChecker || '-'})`);
     }
     else if (m === 'dispense') {
-      const { dispEB, formDept, swapReturn, swapEB } = this.state;
+      const { formDept, swapReturn, swapEB } = this.state;
+      const inStockIds = this.BOXES.filter(b => !(b.dispense && !b.receiver)).map(b => b.id);
+      const dispEB = inStockIds.includes(this.state.dispEB) ? this.state.dispEB : (inStockIds[0] || this.state.dispEB);
       if (!dispEB) { this.flash('ข้อผิดพลาด: ไม่พบกล่องยาที่เลือก'); return; }
       const box = this.BOXES.find(b => b.id === dispEB) || { id: dispEB };
       this._syncBox({ ...box, dept: formDept, dispense: this.state.dispDate, dispenser: this.state.dispenser, receiver: '' });
@@ -2153,7 +2155,9 @@ class Component extends DCLogic {
       this.logBoxHist(dispEB, `จ่ายให้ ${formDept} (โดย ${this.state.dispenser || '-'})`);
     }
     else {
-      const { retEB, retReceiver, retDate } = this.state;
+      const { retReceiver, retDate } = this.state;
+      const outIds = this.BOXES.filter(b => b.dispense && !b.receiver).map(b => b.id);
+      const retEB = outIds.includes(this.state.retEB) ? this.state.retEB : (outIds[0] || this.state.retEB);
       if (!retEB) { this.flash('ข้อผิดพลาด: ไม่พบกล่องยาที่เลือก'); return; }
       const retBox = this.BOXES.find(b => b.id === retEB) || { id: retEB };
       this._syncBox({ ...retBox, receiver: retReceiver, retDate });

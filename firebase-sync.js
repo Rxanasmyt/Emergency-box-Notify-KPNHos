@@ -103,7 +103,7 @@ function listenBoxes(){
 function listenAudit(){
   const unsub=db.collection(C.audit).orderBy('date','desc').onSnapshot(snap=>{
     if(!component)return;
-    const logs=[];snap.forEach(doc=>{const d=doc.data();logs.push({...d,cat:d.action==='จ่าย'?'dispense':d.action==='รับคืน'?'return':'other'});});
+    const logs=[];snap.forEach(doc=>{const d=doc.data();const cat=d.cat||(d.action==='จ่าย'?'dispense':d.action==='รับคืน'?'return':'other');logs.push({...d,cat});});
     // always update audit even when empty
     component.AUDIT=logs;component.setState({auditLog:logs});
   },err=>console.warn('[Sync] Audit error:',err.message));
