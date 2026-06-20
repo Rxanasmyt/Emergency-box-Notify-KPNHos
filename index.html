@@ -803,18 +803,18 @@ input:focus, select:focus, textarea:focus {
             <div class="kpi-num" style="font-family: 'IBM Plex Mono', monospace; font-size: 34px; font-weight: 600; margin-top: 10px; letter-spacing: -1px; animation: countUp .4s ease .1s both;">{{ kpiTotal }}</div>
             <div style="font-size: 12px; color: #9AAAB8; margin-top: 2px;">EB-1 ถึง EB-{{ kpiTotal }}</div>
           </div>
-          <div class="kpi-card-teal" style="animation: fadeUp .5s cubic-bezier(.34,1.56,.64,1) .09s both; background: #fff; border: 1px solid #E7EEF3; border-radius: 16px; padding: 18px 20px; transition: transform .28s cubic-bezier(.34,1.56,.64,1), box-shadow .28s cubic-bezier(.4,0,.2,1); cursor: default;" style-hover="transform: translateY(-3px); box-shadow: 0 12px 32px rgba(13,185,160,.28);">
+          <div class="kpi-card-teal" onClick="{{ goDetail }}" style="animation: fadeUp .5s cubic-bezier(.34,1.56,.64,1) .09s both; background: #fff; border: 1px solid #E7EEF3; border-radius: 16px; padding: 18px 20px; transition: transform .28s cubic-bezier(.34,1.56,.64,1), box-shadow .28s cubic-bezier(.4,0,.2,1); cursor: pointer;" style-hover="transform: translateY(-3px); box-shadow: 0 12px 32px rgba(13,185,160,.28);">
             <div style="display: flex; align-items: center; justify-content: space-between;">
-              <span style="font-size: 13px; color: #7B8D9C; font-weight: 500;">ถูกเบิกออก (ใช้งาน)</span>
+              <span style="font-size: 13px; color: #7B8D9C; font-weight: 500;">ถูกเบิกออก (ใช้งาน) →</span>
               <span style="width: 34px; height: 34px; border-radius: 10px; background: #E4F4EF; color: #169C7F; display: flex; align-items: center; justify-content: center;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M3 13l4 4L21 5" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
             </div>
             <div class="kpi-num" style="font-family: 'IBM Plex Mono', monospace; font-size: 34px; font-weight: 600; margin-top: 10px; letter-spacing: -1px; animation: countUp .4s ease .2s both;">{{ kpiDispensed }}</div>
             <div style="font-size: 12px; color: #9AAAB8; margin-top: 2px;">{{ kpiDeptText }}</div>
           </div>
-          <div class="kpi-card-rose" style="animation: fadeUp .5s cubic-bezier(.34,1.56,.64,1) .14s both; background: #fff; border: 1px solid #F4C9C9; border-radius: 16px; padding: 18px 20px; position: relative; overflow: hidden; transition: transform .28s cubic-bezier(.34,1.56,.64,1), box-shadow .28s cubic-bezier(.4,0,.2,1); cursor: default;" style-hover="transform: translateY(-3px); box-shadow: 0 12px 32px rgba(244,63,94,.32);">
+          <div class="kpi-card-rose" onClick="{{ goEntryReturn }}" style="animation: fadeUp .5s cubic-bezier(.34,1.56,.64,1) .14s both; background: #fff; border: 1px solid #F4C9C9; border-radius: 16px; padding: 18px 20px; position: relative; overflow: hidden; transition: transform .28s cubic-bezier(.34,1.56,.64,1), box-shadow .28s cubic-bezier(.4,0,.2,1); cursor: pointer;" style-hover="transform: translateY(-3px); box-shadow: 0 12px 32px rgba(244,63,94,.32);">
             <div style="position: absolute; inset: 0; background: linear-gradient(180deg, rgba(255,255,255,.12), transparent 60%);"></div>
             <div style="display: flex; align-items: center; justify-content: space-between; position: relative;">
-              <span style="font-size: 13px; color: #B42121; font-weight: 600;">ต้องส่งคืนด่วน</span>
+              <span style="font-size: 13px; color: #B42121; font-weight: 600;">ต้องส่งคืนด่วน →</span>
               <span style="width: 34px; height: 34px; border-radius: 10px; background: #FCE3E3; color: #E03E3E; display: flex; align-items: center; justify-content: center; animation: pulseRed 1.8s infinite;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M12 3.5l9 16H3l9-16z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 10v4.5M12 17.3v.2" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/></svg></span>
             </div>
             <div class="kpi-num" style="font-family: 'IBM Plex Mono', monospace; font-size: 34px; font-weight: 600; margin-top: 10px; letter-spacing: -1px; color: #E03E3E; position: relative; animation: countUp .4s ease .3s both;">{{ kpiUrgent }}</div>
@@ -930,7 +930,7 @@ input:focus, select:focus, textarea:focus {
             </div>
             <div style="display: flex; flex-direction: column;">
               <sc-for list="{{ recentTx }}" as="tx" hint-placeholder-count="5">
-                <div style="display: flex; align-items: center; gap: 13px; padding: 11px 6px; border-bottom: 1px solid #F0F4F7; border-radius: 10px; transition: background .18s, transform .22s cubic-bezier(.34,1.56,.64,1);" style-hover="background: #F7FAFC; transform: translateX(3px);">
+                <div onClick="{{ tx.goDetail }}" style="display: flex; align-items: center; gap: 13px; padding: 11px 6px; border-bottom: 1px solid #F0F4F7; border-radius: 10px; transition: background .18s, transform .22s cubic-bezier(.34,1.56,.64,1); cursor: {{ tx.hasDetail ? 'pointer' : 'default' }};" style-hover="background: #F0F7FF; transform: translateX(3px);">
                   <span style="width: 32px; height: 32px; flex-shrink: 0; border-radius: 9px; background: {{ tx.soft }}; color: {{ tx.color }}; display: flex; align-items: center; justify-content: center;">{{ tx.icon }}</span>
                   <div style="min-width: 0; flex: 1;">
                     <div style="font-size: 13px; font-weight: 600;"><span style="font-family: 'IBM Plex Mono', monospace;">{{ tx.eb }}</span> · {{ tx.action }} <span style="color: #9AAAB8; font-weight: 500;">→ {{ tx.dept }}</span></div>
@@ -1382,6 +1382,7 @@ input:focus, select:focus, textarea:focus {
             <button onclick="{{ dismissExpiryBanner }}" style="border: none; background: none; cursor: pointer; color: #B42121; font-size: 20px; line-height: 1; padding: 0 4px; opacity: .7;" title="ปิด">×</button>
           </div>
           <div style="font-size: 13px; color: #7B4019; line-height: 1.7;">{{ expiryAlertSummary }}</div>
+          {{ expiryAlertListEl }}
         </div>
         </sc-if>
 
@@ -1572,6 +1573,7 @@ class Component extends DCLogic {
     loginError: '',
     attempts: 0,
     locked: false,
+    lockCountdown: 0,
     // user management
     showAddUser: false,
     nu_name: '', nu_username: '', nu_role: 'technician', nu_dept: 'ห้องยา', nu_pass: '',
@@ -1824,12 +1826,15 @@ class Component extends DCLogic {
       const unlockAt = parseInt(sessionStorage.getItem('eb_lockout') || '0', 10);
       if (unlockAt && Date.now() < unlockAt) {
         const remaining = unlockAt - Date.now();
-        patch.locked = true; patch.attempts = 5;
+        patch.locked = true; patch.attempts = 5; patch.lockCountdown = Math.ceil(remaining / 1000);
         patch.loginError = `บัญชีถูกล็อกชั่วคราว — เหลือ ${Math.ceil(remaining / 60000)} นาที`;
         this._lockT = setTimeout(() => {
           try { sessionStorage.removeItem('eb_lockout'); } catch (_) {}
-          this.setState({ locked: false, attempts: 0, loginError: '' });
+          clearInterval(this._lockCountI);
+          this.setState({ locked: false, attempts: 0, loginError: '', lockCountdown: 0 });
         }, remaining);
+        clearInterval(this._lockCountI);
+        this._lockCountI = setInterval(() => { this.setState(s => ({ lockCountdown: Math.max(0, s.lockCountdown - 1) })); }, 1000);
       } else {
         const savedAttempts = parseInt(sessionStorage.getItem('eb_attempts') || '0', 10);
         if (savedAttempts > 0) patch.attempts = savedAttempts;
@@ -1893,7 +1898,7 @@ class Component extends DCLogic {
     clearTimeout(this._idleT); clearTimeout(this._idleWarnT);
     clearTimeout(this._syncT); clearTimeout(this._lockT);
     clearTimeout(this._t); clearTimeout(this._a);
-    clearInterval(this._notifyInterval); clearInterval(this._idleCountI);
+    clearInterval(this._notifyInterval); clearInterval(this._idleCountI); clearInterval(this._lockCountI);
     if (window.EB_Sync) window.EB_Sync.stopAll();
   }
 
@@ -2041,21 +2046,28 @@ class Component extends DCLogic {
 
   // ---------- auth ----------
   _failLogin() {
+    let _willLock = false;
     this.setState(s => {
       const attempts = s.attempts + 1;
       if (attempts >= 5) {
+        _willLock = true;
         clearTimeout(this._lockT);
         const unlockAt = Date.now() + 15 * 60 * 1000;
         try { sessionStorage.setItem('eb_lockout', String(unlockAt)); } catch (_) {}
         this._lockT = setTimeout(() => {
           try { sessionStorage.removeItem('eb_lockout'); } catch (_) {}
-          this.setState({ locked: false, attempts: 0, loginError: '' });
+          clearInterval(this._lockCountI);
+          this.setState({ locked: false, attempts: 0, loginError: '', lockCountdown: 0 });
         }, 15 * 60 * 1000);
-        return { attempts, locked: true, loginError: 'บัญชีถูกล็อกชั่วคราว 15 นาที เนื่องจากกรอกผิดเกิน 5 ครั้ง' };
+        return { attempts, locked: true, lockCountdown: 15 * 60, loginError: 'บัญชีถูกล็อกชั่วคราว 15 นาที เนื่องจากกรอกผิดเกิน 5 ครั้ง' };
       }
       try { sessionStorage.setItem('eb_attempts', String(attempts)); } catch (_) {}
       return { attempts, loginError: `รหัสพนักงานหรือรหัสผ่านไม่ถูกต้อง · เหลืออีก ${5 - attempts} ครั้ง` };
     });
+    if (_willLock) {
+      clearInterval(this._lockCountI);
+      this._lockCountI = setInterval(() => { this.setState(s => ({ lockCountdown: Math.max(0, s.lockCountdown - 1) })); }, 1000);
+    }
   }
   async doLogin() {
     if (this.state.locked) return;
@@ -2081,7 +2093,7 @@ class Component extends DCLogic {
     const lastLogin = `${this.fmt(this.TODAY)} ${this.nowTime()}`;
     const updatedU = { ...u, lastLogin };
     const _today = this.isoOf(this.TODAY);
-    clearTimeout(this._lockT);
+    clearTimeout(this._lockT); clearInterval(this._lockCountI);
     try { sessionStorage.removeItem('eb_lockout'); sessionStorage.removeItem('eb_attempts'); } catch (_) {}
     try {
       if (this.state.remember) localStorage.setItem('eb_remember_user', u.username);
@@ -2139,7 +2151,7 @@ class Component extends DCLogic {
     if (window.EB_Sync) window.EB_Sync.stopSync();
     this.setState({
       authed: false, currentUser: null, loginUser: '', loginPass: '', showPass: false, screen: 'dashboard',
-      loginError: '', attempts: 0, locked: false,
+      loginError: '', attempts: 0, locked: false, lockCountdown: 0,
       idleWarn: false,
       formMode: 'register',
       regEB: '', regMfg: '', regPreparer: '', regChecker: '', regHadConfirm: false, regPrinted: false,
@@ -2648,6 +2660,7 @@ td.l{text-align:left;padding-left:4px}
       goDashboard: () => this.go('dashboard'),
       goEntry: () => this.go('entry'),
       goDetail: () => this.go('detail'),
+      goEntryReturn: () => { this.go('entry'); this.go2('return'); },
       goHistory: () => this.go('history'),
       showToast: st.showToast,
       toastTitle: st.toastTitle,
@@ -2697,7 +2710,12 @@ td.l{text-align:left;padding-left:4px}
       style: { display: 'flex', alignItems: 'flex-start', gap: 10, background: '#FCEDED', border: '1px solid #F4C9C9', borderRadius: 12, padding: '12px 14px', marginBottom: 18, animation: 'shakeX .4s ease both' },
     },
       h('span', { style: { color: '#E03E3E', flexShrink: 0, display: 'flex', marginTop: 1 }, dangerouslySetInnerHTML: { __html: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/><path d="M12 7.5V13M12 16v.2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>' } }),
-      h('span', { style: { fontSize: 13, color: '#B42121', fontWeight: 500, lineHeight: 1.5 } }, err)
+      h('div', null,
+        h('span', { style: { fontSize: 13, color: '#B42121', fontWeight: 500, lineHeight: 1.5 } }, err),
+        st.locked && st.lockCountdown > 0 ? h('div', { style: { fontSize: 22, fontWeight: 700, color: '#E03E3E', fontFamily: "'IBM Plex Mono', monospace", marginTop: 6, letterSpacing: 1 } },
+          `${String(Math.floor(st.lockCountdown / 60)).padStart(2,'0')}:${String(st.lockCountdown % 60).padStart(2,'0')}`
+        ) : null,
+      ),
     ) : null;
 
     vals.rememberBoxEl = h('span', { key: 'rm_' + st.remember, style: { width: 20, height: 20, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', border: st.remember ? '1.5px solid #1A6FA3' : '1.5px solid #C4D0DA', background: st.remember ? '#1A6FA3' : '#fff' } },
@@ -2775,6 +2793,20 @@ td.l{text-align:left;padding-left:4px}
     const expd = alerts.filter(a => a.status === 'expired').length;
     const crit = alerts.filter(a => a.status === 'critical').length;
     vals.expiryAlertSummary = (expd ? `หมดอายุแล้ว ${expd} รายการ · ` : '') + (crit ? `วิกฤต ${crit} รายการ · ` : '') + `ทั้งหมด ${alerts.length} รายการ`;
+    vals.expiryAlertListEl = alerts.length ? h('div', { style: { marginTop: 10, display: 'flex', flexDirection: 'column', gap: 5 } },
+      ...alerts.slice(0, 6).map((a, i) => {
+        const _isDanger = a.status === 'expired' || a.status === 'critical';
+        const _col = a.status === 'expired' ? '#B42121' : a.status === 'critical' ? '#C2410C' : '#B5740F';
+        const _bg  = a.status === 'expired' ? 'rgba(180,33,33,.08)' : a.status === 'critical' ? 'rgba(194,65,12,.07)' : 'rgba(181,116,15,.07)';
+        const _daysText = a.daysLeft < 0 ? `หมดอายุแล้ว ${-a.daysLeft} วัน` : a.daysLeft === 0 ? 'หมดอายุวันนี้' : `เหลือ ${a.daysLeft} วัน`;
+        return h('div', { key: i, style: { display: 'flex', alignItems: 'center', gap: 10, background: _bg, borderRadius: 8, padding: '6px 10px', fontSize: 12.5 } },
+          h('span', { style: { fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: _col, flexShrink: 0 } }, a.boxId),
+          h('span', { style: { flex: 1, color: '#5A2A00', fontWeight: _isDanger ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, a.drugName + (a.isHAD ? ' ⚠ HAD' : '')),
+          h('span', { style: { fontWeight: 700, color: _col, flexShrink: 0 } }, _daysText),
+        );
+      }),
+      alerts.length > 6 ? h('div', { style: { fontSize: 11.5, color: '#9AAAB8', textAlign: 'center', paddingTop: 3 } }, `...และอีก ${alerts.length - 6} รายการ`) : null,
+    ) : null;
     const lastSent = localStorage.getItem('eb_notify_last_sent');
     vals.notifyLastSentText = lastSent ? `ส่งแจ้งเตือนล่าสุด: ${lastSent}` : 'ยังไม่เคยส่งแจ้งเตือน';
     // GitHub Actions manual trigger — PAT lives in Firestore only (never localStorage)
@@ -3021,12 +3053,17 @@ td.l{text-align:left;padding-left:4px}
     vals.donutOk        = counts.ok;
     vals.donutActionCount = counts.critical + counts.warning;
 
-    vals.recentTx = (st.auditLog || this.AUDIT).filter(t => t.cat === 'dispense' || t.cat === 'return').slice(0, 5).map(t => ({
-      eb: t.eb || '—', action: t.action || '—', dept: t.dept || '—', person: t.person || '—', drug: t.drug || '—', time: t.time || '—',
-      icon: t.action === 'จ่าย' ? '→' : '←',
-      color: t.action === 'จ่าย' ? '#1A6FA3' : '#169C7F',
-      soft: t.action === 'จ่าย' ? '#E8F0F6' : '#E4F4EF',
-    }));
+    vals.recentTx = (st.auditLog || this.AUDIT).filter(t => t.cat === 'dispense' || t.cat === 'return').slice(0, 5).map(t => {
+      const _hasBox = t.eb && t.eb !== '—' && this.BOXES.some(b => b.id === t.eb);
+      return {
+        eb: t.eb || '—', action: t.action || '—', dept: t.dept || '—', person: t.person || '—', drug: t.drug || '—', time: t.time || '—',
+        icon: t.action === 'จ่าย' ? '→' : '←',
+        color: t.action === 'จ่าย' ? '#1A6FA3' : '#169C7F',
+        soft: t.action === 'จ่าย' ? '#E8F0F6' : '#E4F4EF',
+        goDetail: _hasBox ? () => this.setState({ screen: 'detail', selectedEB: t.eb }) : null,
+        hasDetail: _hasBox,
+      };
+    });
 
     const OVERDUE_DAYS = 30;
     const daysSince = (iso) => iso ? -this.daysBetween(this.parse(iso)) : 0;
