@@ -1694,6 +1694,8 @@ class Component extends DCLogic {
   returnDateISO(expiry) { const d = this.addDays(expiry, -15); if (!d) return ''; const m = String(d.getMonth()+1).padStart(2,'0'); const day = String(d.getDate()).padStart(2,'0'); return `${d.getFullYear()}-${m}-${day}`; }
   daysBetween(d) { if (!d || isNaN(+d)) return 0; return Math.round((d - this.TODAY) / 86400000); }
   isoOf(d) { if (!d || isNaN(d.getTime())) return ''; return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+  _resolveDispEB() { const ids = this.BOXES.filter(b => !(b.dispense && !b.receiver)).map(b => b.id); return ids.includes(this.state.dispEB) ? this.state.dispEB : (ids[0] || ''); }
+  _resolveRetEB() { const ids = this.BOXES.filter(b => b.dispense && !b.receiver).map(b => b.id); return ids.includes(this.state.retEB) ? this.state.retEB : (ids[0] || ''); }
 
   // par quantities now live in DRUGS[].par
   buildBoxDrugs() {
@@ -2182,9 +2184,7 @@ class Component extends DCLogic {
       const list = (st.boxDrugs || this.buildBoxDrugs())[st.regEB] || [];
       if (list.some(d => d.had) && !st.regHadConfirm) errs.push('ยืนยันการตรวจสอบยา HAD');
     } else if (st.formMode === 'dispense') {
-      // resolve effective dispEB: same logic as submit() — chip visual selection may differ from state when state is ''
-      const _inStockV = this.BOXES.filter(b => !(b.dispense && !b.receiver)).map(b => b.id);
-      const _effDispEB = _inStockV.includes(st.dispEB) ? st.dispEB : (_inStockV[0] || '');
+      const _effDispEB = this._resolveDispEB();
       if (!_effDispEB) errs.push('เลือกกล่องยาที่จ่าย');
       if (!st.formDept || !st.formDept.trim()) errs.push('เลือกหน่วยงานที่เบิก');
       if (!(st.dispenser || '').trim()) errs.push('ลงชื่อผู้จ่าย');
@@ -2196,9 +2196,7 @@ class Component extends DCLogic {
       if (st.swapReturn && st.swapReturnDate && st.swapReturnDate > this.isoOf(this.TODAY)) errs.push('วันที่รับคืนกล่องเก่าต้องไม่เกินวันนี้');
       if (st.swapReturn && st.swapEB && st.swapEB === _effDispEB) errs.push('กล่องที่รับคืนต้องไม่ใช่กล่องเดียวกับกล่องที่จ่าย');
     } else {
-      // resolve effective retEB: same logic as submit() — chip visual selection may differ from state when state is ''
-      const _outV = this.BOXES.filter(b => b.dispense && !b.receiver).map(b => b.id);
-      const _effRetEB = _outV.includes(st.retEB) ? st.retEB : (_outV[0] || '');
+      const _effRetEB = this._resolveRetEB();
       if (!_effRetEB) errs.push('เลือกกล่องยาที่รับคืน');
       if (!(st.retReceiver || '').trim()) errs.push('ลงชื่อผู้รับคืน');
       if (!st.retDate) errs.push('วันที่รับคืน');
@@ -2216,8 +2214,7 @@ class Component extends DCLogic {
     }
     // clinical safety: dispensing a near-expiry (critical) box → confirm
     if (this.state.formMode === 'dispense') {
-      const _isk = this.BOXES.filter(b => !(b.dispense && !b.receiver)).map(b => b.id);
-      const _effD = _isk.includes(this.state.dispEB) ? this.state.dispEB : (_isk[0] || '');
+      const _effD = this._resolveDispEB();
       const near = this.regNearISOof(_effD);
       const status = near ? this.statusOf(near) : null;
       if (status && status.key === 'critical') {
@@ -2256,8 +2253,7 @@ class Component extends DCLogic {
     }
     else if (m === 'dispense') {
       const { formDept, swapReturn, swapEB } = this.state;
-      const inStockIds = this.BOXES.filter(b => !(b.dispense && !b.receiver)).map(b => b.id);
-      const dispEB = inStockIds.includes(this.state.dispEB) ? this.state.dispEB : (inStockIds[0] || this.state.dispEB);
+      const dispEB = this._resolveDispEB() || this.state.dispEB;
       if (!dispEB) { this.flash('ข้อผิดพลาด: ไม่พบกล่องยาที่เลือก'); return; }
       const box = this.BOXES.find(b => b.id === dispEB) || { id: dispEB };
       this._syncBox({ ...box, dept: formDept, dispense: this.state.dispDate, dispenser: this.state.dispenser, receiver: '' });
@@ -2273,8 +2269,7 @@ class Component extends DCLogic {
     }
     else {
       const { retReceiver, retDate } = this.state;
-      const outIds = this.BOXES.filter(b => b.dispense && !b.receiver).map(b => b.id);
-      const retEB = outIds.includes(this.state.retEB) ? this.state.retEB : (outIds[0] || this.state.retEB);
+      const retEB = this._resolveRetEB() || this.state.retEB;
       if (!retEB) { this.flash('ข้อผิดพลาด: ไม่พบกล่องยาที่เลือก'); return; }
       const retBox = this.BOXES.find(b => b.id === retEB) || { id: retEB };
       this._syncBox({ ...retBox, receiver: retReceiver, retDate });
@@ -2888,7 +2883,7 @@ td.l{text-align:left;padding-left:4px}
     }));
 
     const OVERDUE_DAYS = 30;
-    const daysSince = (iso) => { if (!iso) return 0; const d = this.parse(iso); return d ? Math.round((this.TODAY - d) / 86400000) : 0; };
+    const daysSince = (iso) => iso ? -this.daysBetween(this.parse(iso)) : 0;
     const overdueBoxes = active
       .map(b => ({ ...b, daysOut: daysSince(b.dispense) }))
       .filter(b => b.daysOut > OVERDUE_DAYS)
