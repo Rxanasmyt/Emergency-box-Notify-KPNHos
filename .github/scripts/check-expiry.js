@@ -36,6 +36,16 @@ const TODAY = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Bang
 TODAY.setHours(0, 0, 0, 0);
 
 // ── Helpers ────────────────────────────────────────────────────
+function escHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function isValidISODate(s) {
+  const d = new Date(s + 'T00:00:00');
+  return !isNaN(d.getTime());
+}
+
 function daysUntil(isoDate) {
   const d = new Date(isoDate + 'T00:00:00');
   return Math.round((d - TODAY) / 86400000);
@@ -84,7 +94,7 @@ async function fetchExpiringDrugs() {
     drugs.forEach(drug => {
       const lots = drug.lots || [];
       lots.forEach(lot => {
-        if (!lot.expiry || typeof lot.expiry !== 'string') return;
+        if (!lot.expiry || typeof lot.expiry !== 'string' || !isValidISODate(lot.expiry)) return;
         const days = daysUntil(lot.expiry);
         if (days <= THRESHOLD_DAYS) {
           const returnDeadline = addDaysISO(lot.expiry, -15);
@@ -138,13 +148,13 @@ function buildLineMessage(alerts) {
     });
   }
   if (critical.length) {
-    msg += `\n🟠 วิกฤต ≤7 วัน (${critical.length} รายการ)\n`;
+    msg += `\n🟠 วิกฤต ≤15 วัน (${critical.length} รายการ)\n`;
     critical.forEach(a => {
       msg += `• ${a.boxId} · ${a.dept}\n  ${a.drugName}${a.isHAD ? ' ⚠️HAD' : ''}\n  หมด: ${a.expiryThai} (เหลือ ${a.daysLeft} วัน)\n`;
     });
   }
   if (warning.length) {
-    msg += `\n🟡 ใกล้กำหนด ≤15 วัน (${warning.length} รายการ)\n`;
+    msg += `\n🟡 ใกล้กำหนด ≤30 วัน (${warning.length} รายการ)\n`;
     warning.forEach(a => {
       msg += `• ${a.boxId} · ${a.dept}  ${a.drugName} (${a.daysLeft} วัน)\n`;
     });
@@ -246,12 +256,12 @@ function buildHtmlEmail(alerts) {
         <tbody>
           ${hadAlerts.map(a => {
             const color = a.status === 'expired' ? '#B42121' : a.status === 'critical' ? '#9A5000' : '#7B4F00';
-            const boxStatusLabel = a.boxStatus === 'out' ? `<span style="color:#D9810F;font-weight:700">จ่ายออก</span><br><span style="font-size:11px;color:#7B6030">${a.boxCurrentDept}</span>` : `<span style="color:#169C7F;font-weight:700">อยู่ที่คลัง</span>`;
+            const boxStatusLabel = a.boxStatus === 'out' ? `<span style="color:#D9810F;font-weight:700">จ่ายออก</span><br><span style="font-size:11px;color:#7B6030">${escHtml(a.boxCurrentDept)}</span>` : `<span style="color:#169C7F;font-weight:700">อยู่ที่คลัง</span>`;
             const days = a.daysLeft < 0 ? `เกิน ${Math.abs(a.daysLeft)} วัน` : `เหลือ ${a.daysLeft} วัน`;
             return `<tr style="background:#FFF8F8">
-              <td style="padding:8px 10px;border-bottom:1px solid #F5C6C6;font-weight:700;color:#B42121">${a.boxId}</td>
+              <td style="padding:8px 10px;border-bottom:1px solid #F5C6C6;font-weight:700;color:#B42121">${escHtml(a.boxId)}</td>
               <td style="padding:8px 10px;border-bottom:1px solid #F5C6C6">${boxStatusLabel}</td>
-              <td style="padding:8px 10px;border-bottom:1px solid #F5C6C6;font-weight:600">${a.drugName} <span style="background:#E03E3E;color:#fff;font-size:10px;font-weight:700;padding:2px 5px;border-radius:4px">HAD</span></td>
+              <td style="padding:8px 10px;border-bottom:1px solid #F5C6C6;font-weight:600">${escHtml(a.drugName)} <span style="background:#E03E3E;color:#fff;font-size:10px;font-weight:700;padding:2px 5px;border-radius:4px">HAD</span></td>
               <td style="padding:8px 10px;border-bottom:1px solid #F5C6C6;text-align:center">${a.qty}</td>
               <td style="padding:8px 10px;border-bottom:1px solid #F5C6C6;color:#B42121;font-weight:600">${a.returnDeadlineThai}</td>
               <td style="padding:8px 10px;border-bottom:1px solid #F5C6C6">${a.expiryThai}</td>
@@ -286,13 +296,13 @@ function buildHtmlEmail(alerts) {
     const rowBg = i % 2 === 0 ? '#FFFFFF' : '#F9FBFC';
     const days = a.daysLeft < 0 ? `เกิน ${Math.abs(a.daysLeft)} วัน` : `เหลือ ${a.daysLeft} วัน`;
     const boxStatusLabel = a.boxStatus === 'out'
-      ? `<span style="color:#D9810F;font-weight:700">จ่ายออก</span><br><span style="font-size:11px;color:#7B6030">${a.boxCurrentDept}</span>`
+      ? `<span style="color:#D9810F;font-weight:700">จ่ายออก</span><br><span style="font-size:11px;color:#7B6030">${escHtml(a.boxCurrentDept)}</span>`
       : `<span style="color:#169C7F;font-weight:700">อยู่ที่คลัง</span>`;
     return `
       <tr style="background:${rowBg}">
-        <td style="padding:9px 12px;border-bottom:1px solid #F0F4F8;font-weight:600">${a.boxId}</td>
+        <td style="padding:9px 12px;border-bottom:1px solid #F0F4F8;font-weight:600">${escHtml(a.boxId)}</td>
         <td style="padding:9px 12px;border-bottom:1px solid #F0F4F8">${boxStatusLabel}</td>
-        <td style="padding:9px 12px;border-bottom:1px solid #F0F4F8">${a.drugName}${a.isHAD ? ' <span style="background:#E03E3E;color:#fff;font-size:10px;font-weight:700;padding:2px 5px;border-radius:4px">HAD</span>' : ''}</td>
+        <td style="padding:9px 12px;border-bottom:1px solid #F0F4F8">${escHtml(a.drugName)}${a.isHAD ? ' <span style="background:#E03E3E;color:#fff;font-size:10px;font-weight:700;padding:2px 5px;border-radius:4px">HAD</span>' : ''}</td>
         <td style="padding:9px 12px;border-bottom:1px solid #F0F4F8;text-align:center">${a.qty}</td>
         <td style="padding:9px 12px;border-bottom:1px solid #F0F4F8;color:${color};font-weight:600;white-space:nowrap">${a.returnDeadlineThai}</td>
         <td style="padding:9px 12px;border-bottom:1px solid #F0F4F8;white-space:nowrap">${a.expiryThai}</td>
@@ -528,7 +538,7 @@ async function sendAllClearEmail(boxCount) {
   const from = process.env.EMAIL_FROM;
   const pass = process.env.EMAIL_PASS;
   const to   = process.env.EMAIL_TO;
-  if (!from || !pass || !to) { console.log('⚠️  Email: ไม่ได้ตั้งค่า secrets'); return false; }
+  if (!from || !pass || !to || !to.trim()) { console.log('⚠️  Email: ไม่ได้ตั้งค่า secrets'); return false; }
 
   const transporter = nodemailer.createTransport({ host: 'smtp.gmail.com', port: 465, secure: true, auth: { user: from, pass } });
   const msgId = `<eb-allclear-${Date.now()}@emergencyboxnotyfykpnhos.web.app>`;

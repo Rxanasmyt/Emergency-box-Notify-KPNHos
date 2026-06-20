@@ -1943,16 +1943,25 @@ class Component extends DCLogic {
   }
   logout() {
     clearTimeout(this._idleT); clearTimeout(this._idleWarnT); clearTimeout(this._syncT);
+    clearTimeout(this._lockT); clearTimeout(this._t); clearTimeout(this._a);
     if (window.EB_Sync) window.EB_Sync.stopSync();
     this.setState({
       authed: false, currentUser: null, loginUser: '', loginPass: '', showPass: false, screen: 'dashboard',
+      loginError: '', attempts: 0, locked: false,
       idleWarn: false,
       formMode: 'register',
       regEB: 'EB-9', regMfg: '', regPreparer: '', regChecker: '', regHadConfirm: false, regPrinted: false,
       dispEB: 'EB-9', formDept: 'ER', dispenser: '', swapReturn: false, swapEB: '', swapReceiver: '', dispDate: '', swapReturnDate: '',
       retEB: 'EB-1', retReceiver: '', retDate: '',
       selectedEB: 'EB-4', boxDrugs: null,
-      boxMeta: {}, editDrugs: false, showChangePw: false, showAddUser: false,
+      boxMeta: {}, editDrugs: false, saveSuccess: null, showChangePw: false, showAddUser: false,
+      changePwUsername: null, changePwNew: '', changePwConfirm: '', changePwError: '',
+      nu_name: '', nu_username: '', nu_role: 'technician', nu_dept: 'ห้องยา', nu_pass: '',
+      showToast: false, toastTitle: '', toastSubtitle: '', shakeCount: 0, actionMsg: '',
+      confirm: null, ghTrigger: 'idle', ghPAT: '', sidebarOpen: false,
+      query: '', datePreset: 'all', fiscalYear: 0, dateFrom: '', dateTo: '',
+      aFilter: 'all', aQuery: '', aDatePreset: 'all', aFiscalYear: 0, aDateFrom: '', aDateTo: '',
+      boxHist: {}, reauth: null, reauthPass: '', reauthError: '',
       expiryAlerts: [], showExpiryBanner: false,
       auditLog: null,
     });
@@ -2383,7 +2392,7 @@ td.l{text-align:left;padding-left:4px}
       goHistory: () => this.go('history'),
       showToast: st.showToast,
       toastTitle: st.toastTitle,
-      toastSubtitle: st.toastSubtitle || 'บันทึกลง Audit Log แล้ว',
+      toastSubtitle: st.toastSubtitle,
       // auth
       authed: st.authed,
       notAuthed: !st.authed,
@@ -2476,7 +2485,7 @@ td.l{text-align:left;padding-left:4px}
       const s = window.EB_Notify.loadSettings();
       window.EB_Notify.saveToFirestore(s);
       this.logAction({ cat: 'other', action: 'ตั้งค่าแจ้งเตือน', eb: '—', dept: '—', drug: 'บันทึกการตั้งค่าแจ้งเตือน Email/LINE' });
-      this.setState({ showToast: true, toastTitle: 'บันทึกการตั้งค่าแจ้งเตือนเรียบร้อย' });
+      this.setState({ showToast: true, toastTitle: 'บันทึกการตั้งค่าแจ้งเตือนเรียบร้อย', toastSubtitle: '' });
       clearTimeout(this._t); this._t = setTimeout(() => this.setState({ showToast: false }), 2500);
     };
     vals.testNotify = () => {
@@ -2484,18 +2493,18 @@ td.l{text-align:left;padding-left:4px}
       window.EB_Notify.checkAndNotify(this, true).then(result => {
         if (!result) return;
         if (result.alerts.length) {
-          this.setState({ expiryAlerts: result.alerts, showExpiryBanner: true, showToast: true, toastTitle: `ส่งแจ้งเตือนแล้ว (${result.alerts.length} รายการ)` });
+          this.setState({ expiryAlerts: result.alerts, showExpiryBanner: true, showToast: true, toastTitle: `ส่งแจ้งเตือนแล้ว (${result.alerts.length} รายการ)`, toastSubtitle: '' });
         } else {
-          this.setState({ showToast: true, toastTitle: 'ไม่พบยาใกล้หมดอายุ' });
+          this.setState({ showToast: true, toastTitle: 'ไม่พบยาใกล้หมดอายุ', toastSubtitle: '' });
         }
         clearTimeout(this._t); this._t = setTimeout(() => this.setState({ showToast: false }), 2500);
       }).catch(err => {
         console.warn('[Notify] testNotify failed:', err);
-        this.setState({ showToast: true, toastTitle: 'เกิดข้อผิดพลาดในการทดสอบแจ้งเตือน' });
+        this.setState({ showToast: true, toastTitle: 'เกิดข้อผิดพลาดในการทดสอบแจ้งเตือน', toastSubtitle: '' });
         clearTimeout(this._t); this._t = setTimeout(() => this.setState({ showToast: false }), 2500);
       });
     };
-    vals.dismissExpiryBanner = () => this.setState({ expiryAlerts: [], showExpiryBanner: false });
+    vals.dismissExpiryBanner = () => this.setState({ showExpiryBanner: false });
     const alerts = st.expiryAlerts || [];
     vals.hasExpiryAlerts = alerts.length > 0;
     vals.expiryAlertCount = alerts.length;
@@ -3006,9 +3015,9 @@ td.l{text-align:left;padding-left:4px}
     };
 
     // expiry countdown ring SVG
-    const ringDays = boxExp ? Math.round((new Date(boxExp + 'T00:00:00') - this.TODAY) / 86400000) : 0;
-    const ringPct = Math.min(1, Math.max(0, ringDays / 90));
-    const ringColor = ringDays <= 0 ? '#F43F5E' : ringDays <= 15 ? '#F59E0B' : ringDays <= 30 ? '#0DB9A0' : '#10B981';
+    const ringDays = boxExp ? Math.round((new Date(boxExp + 'T00:00:00') - this.TODAY) / 86400000) : null;
+    const ringPct = ringDays == null ? 0 : Math.min(1, Math.max(0, ringDays / 90));
+    const ringColor = ringDays == null ? '#C5D4E0' : ringDays <= 0 ? '#F43F5E' : ringDays <= 15 ? '#F59E0B' : ringDays <= 30 ? '#0DB9A0' : '#10B981';
     const circ = 226.2;
     vals.expiryRingEl = h('div', { style: { position: 'relative', width: 64, height: 64, flexShrink: 0 } },
       h('svg', { viewBox: '0 0 88 88', width: 64, height: 64 },
@@ -3020,7 +3029,7 @@ td.l{text-align:left;padding-left:4px}
         }),
       ),
       h('div', { style: { position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 0 } },
-        h('span', { style: { fontSize: 15, fontWeight: 800, color: ringColor, fontFamily: "'IBM Plex Mono', monospace", lineHeight: 1.1 } }, ringDays <= 0 ? '!' : ringDays > 999 ? '∞' : ringDays),
+        h('span', { style: { fontSize: 15, fontWeight: 800, color: ringColor, fontFamily: "'IBM Plex Mono', monospace", lineHeight: 1.1 } }, ringDays == null ? '—' : ringDays <= 0 ? '!' : ringDays > 999 ? '∞' : ringDays),
         h('span', { style: { fontSize: 7.5, color: '#9AAAB8', fontWeight: 700, letterSpacing: .5, lineHeight: 1 } }, 'วัน')
       )
     );

@@ -32,5 +32,5 @@
       else console.error('[Firebase] Persistence error:', err);
     });
 
-  window.EB_Firebase = { app, db, auth, config: firebaseConfig };
+  window.EB_Firebase = { app, db, auth };
 })();
