@@ -2504,6 +2504,11 @@ class Component extends DCLogic {
     const st = this.state;
     const eb = st.regEB;
     if (!eb || !eb.trim()) { this.flash('กรุณาเลือกกล่องยาก่อนพิมพ์'); return; }
+    const missing = [];
+    if (!st.regMfg) missing.push('วันที่ผลิต');
+    if (!(st.regPreparer || '').trim()) missing.push('ผู้จัดเตรียม');
+    if (!(st.regChecker || '').trim()) missing.push('เภสัชกรผู้ตรวจสอบ');
+    if (missing.length) { this.flash(`กรอกข้อมูลให้ครบก่อนพิมพ์: ${missing.join(', ')}`); return; }
     const mfg = st.regMfg;
     const preparer = st.regPreparer;
     const checker = st.regChecker;
@@ -2608,13 +2613,13 @@ class Component extends DCLogic {
     const uiLabel = isPortrait ? '🖨️ พิมพ์ (A4 ตั้ง — 1 ใบ)' : '🖨️ พิมพ์ (A4 นอน — 1 ใบ A5 ✂)';
     const tipText = isPortrait
       ? `ตั้งค่าพิมพ์: กระดาษ <b>A4</b> · แนว <b>Portrait</b> · Margins = <b>None</b> · ปิด <b>Headers &amp; footers</b>`
-      : `ตั้งค่าพิมพ์: กระดาษ <b>A4</b> · แนว <b>Landscape</b> · Margins = <b>None</b> · ปิด <b>Headers &amp; footers</b><br>ฟอร์มอยู่ครึ่งซ้าย · ตัดตรงเส้นประ → ได้ใบ A5 + เก็บครึ่งว่างพิมพ์กล่องถัดไป`;
+      : `ตั้งค่าพิมพ์: กระดาษ <b>A4</b> · แนว <b>Landscape</b> · Margins = <b>None</b> · ปิด <b>Headers &amp; footers</b><br>ฟอร์มอยู่ครึ่งซ้าย → ตัดกึ่งกลางกระดาษเพื่อให้ได้ใบ A5`;
     const layoutCSS = isPortrait
       ? `.a4-inner{width:210mm;height:297mm;padding:10mm 12mm 8mm 12mm;overflow:hidden;display:flex;flex-direction:column}`
-      : `.a4-inner{width:297mm;height:210mm;display:flex;flex-direction:row} .half{width:148.5mm;height:210mm;padding:5mm 4mm 4mm 5mm;overflow:hidden;display:flex;flex-direction:column} .blank{flex:1;height:210mm} .vcut{width:0;border-left:1.5px dashed #999;height:210mm;display:flex;align-items:center;overflow:visible;position:relative} .vcut span{background:#fff;padding:2mm 0;font-size:7.5pt;color:#888;writing-mode:vertical-rl;position:absolute;white-space:nowrap}`;
+      : `.a4-inner{width:297mm;height:210mm;display:flex;flex-direction:row} .half{width:148.5mm;height:210mm;padding:5mm 4mm 4mm 5mm;overflow:hidden;display:flex;flex-direction:column} .blank{flex:1;height:210mm}`;
     const bodyContent = isPortrait
       ? `<div class="a4-inner">${formHTML}</div>`
-      : `<div class="a4-inner"><div class="half">${formHTML}</div><div class="vcut"><span>✂ ตัดตรงนี้</span></div><div class="blank"></div></div>`;
+      : `<div class="a4-inner"><div class="half">${formHTML}</div><div class="blank"></div></div>`;
 
     const html = `<!DOCTYPE html><html lang="th"><head><meta charset="utf-8">
 <title>Emergency Box - ${eb}</title>
