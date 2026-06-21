@@ -183,9 +183,13 @@
 
     console.log(`[Notify] Found ${alerts.length} expiring drugs`);
 
-    if (!force && alreadySentToday()) {
-      console.log('[Notify] Already sent today, skipping LINE');
-      return { alerts, sent: false };
+    if (!force) {
+      // check both localStorage (this browser) and Firestore lastSentDate (set by GH Actions cron)
+      const fsLastSent = firestoreSettings && firestoreSettings.lastSentDate ? firestoreSettings.lastSentDate : '';
+      if (alreadySentToday() || fsLastSent === todayBangkok()) {
+        console.log('[Notify] Already sent today, skipping LINE');
+        return { alerts, sent: false };
+      }
     }
 
     let sent = false;
