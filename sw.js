@@ -1,4 +1,4 @@
-const CACHE_NAME = 'eb-notify-v1.4.0';
+const CACHE_NAME = 'eb-notify-v1.4.1';
 const PRECACHE_URLS = ['./index.html','./support.js','./manifest.json','./icons/icon-192.svg','./icons/icon-512.svg','./firebase-init.js','./firebase-sync.js','./notify.js'];
 const CDN_PATTERNS = ['fonts.googleapis.com','fonts.gstatic.com','unpkg.com/react','unpkg.com/react-dom','cdnjs.cloudflare.com','gstatic.com/firebasejs'];
 
@@ -11,7 +11,7 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   if (event.request.method !== 'GET') return;
-  if (url.hostname.includes('firestore.googleapis.com') || url.hostname.includes('firebaseio.com') || url.hostname.includes('identitytoolkit.googleapis.com')) return;
+  if (url.hostname.includes('firestore.googleapis.com') || url.hostname.includes('firebaseio.com') || url.hostname.includes('identitytoolkit.googleapis.com') || url.hostname.includes('securetoken.googleapis.com')) return;
   const isCDN = CDN_PATTERNS.some(p => url.href.includes(p));
   if (isCDN) { event.respondWith(cacheFirst(event.request)); return; }
   if (url.origin === location.origin && /\.(js|svg|css|png|jpg|woff2?)$/i.test(url.pathname)) { event.respondWith(cacheFirst(event.request)); return; }

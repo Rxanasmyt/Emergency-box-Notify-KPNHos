@@ -34,7 +34,7 @@ const THRESHOLD_DAYS = isNaN(_rawDays) || _rawDays <= 0 ? 30 : _rawDays;
 // Use Bangkok time (UTC+7) so expiry comparisons match Thai calendar day
 const TODAY = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
 TODAY.setHours(0, 0, 0, 0);
-const TODAY_ISO = TODAY.toISOString().slice(0, 10);
+const TODAY_ISO = `${TODAY.getFullYear()}-${String(TODAY.getMonth()+1).padStart(2,'0')}-${String(TODAY.getDate()).padStart(2,'0')}`;
 // workflow_dispatch = user pressed button → always send; schedule = cron → dedup
 const IS_MANUAL = process.env.GITHUB_EVENT_NAME === 'workflow_dispatch';
 

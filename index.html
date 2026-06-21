@@ -1791,7 +1791,7 @@ class Component extends DCLogic {
     const user = this.state.currentUser;
     const uName = user ? user.name : '';
     const isPharm = user && (user.role === 'pharmacist' || user.role === 'admin');
-    const patch = { formMode, regPrinted: false, swapReturn: false,
+    const patch = { formMode, regPrinted: false, regHadConfirm: false, swapReturn: false,
       dispDate: (this.state.dispDate && this.state.dispDate >= today) ? this.state.dispDate : today,
       retDate: (this.state.retDate && this.state.retDate >= today) ? this.state.retDate : today,
       swapReturnDate: (this.state.swapReturnDate && this.state.swapReturnDate >= today) ? this.state.swapReturnDate : today,
@@ -2842,14 +2842,15 @@ td.l{text-align:left;padding-left:4px}
     const alerts = st.expiryAlerts || [];
     vals.hasExpiryAlerts = alerts.length > 0;
     vals.expiryAlertCount = alerts.length;
-    const expd = alerts.filter(a => a.status === 'expired').length;
+    const expd = alerts.filter(a => a.status === 'expired' || a.status === 'expired_today').length;
     const crit = alerts.filter(a => a.status === 'critical').length;
-    vals.expiryAlertSummary = (expd ? `หมดอายุแล้ว ${expd} รายการ · ` : '') + (crit ? `วิกฤต ${crit} รายการ · ` : '') + `ทั้งหมด ${alerts.length} รายการ`;
+    vals.expiryAlertSummary = (expd ? `หมดอายุแล้ว/วันนี้ ${expd} รายการ · ` : '') + (crit ? `วิกฤต ${crit} รายการ · ` : '') + `ทั้งหมด ${alerts.length} รายการ`;
     vals.expiryAlertListEl = alerts.length ? h('div', { style: { marginTop: 10, display: 'flex', flexDirection: 'column', gap: 5 } },
       ...alerts.slice(0, 6).map((a, i) => {
-        const _isDanger = a.status === 'expired' || a.status === 'critical';
-        const _col = a.status === 'expired' ? '#B42121' : a.status === 'critical' ? '#C2410C' : '#B5740F';
-        const _bg  = a.status === 'expired' ? 'rgba(180,33,33,.08)' : a.status === 'critical' ? 'rgba(194,65,12,.07)' : 'rgba(181,116,15,.07)';
+        const _isExpired = a.status === 'expired' || a.status === 'expired_today';
+        const _isDanger = _isExpired || a.status === 'critical';
+        const _col = _isExpired ? '#B42121' : a.status === 'critical' ? '#C2410C' : '#B5740F';
+        const _bg  = _isExpired ? 'rgba(180,33,33,.08)' : a.status === 'critical' ? 'rgba(194,65,12,.07)' : 'rgba(181,116,15,.07)';
         const _daysText = a.daysLeft < 0 ? `หมดอายุแล้ว ${-a.daysLeft} วัน` : a.daysLeft === 0 ? 'หมดอายุวันนี้' : `เหลือ ${a.daysLeft} วัน`;
         return h('div', { key: i, style: { display: 'flex', alignItems: 'center', gap: 10, background: _bg, borderRadius: 8, padding: '6px 10px', fontSize: 12.5 } },
           h('span', { style: { fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: _col, flexShrink: 0 } }, a.boxId),
@@ -3264,7 +3265,7 @@ td.l{text-align:left;padding-left:4px}
     // ===== STEP 1: REGISTER =====
     vals.regEBSelectEl = mkEBChips(st.regEB, (id) => {
       const _existBD = (this.BOX_DRUGS || {})[id] || [];
-      const _upd = { regEB: id };
+      const _upd = { regEB: id, regHadConfirm: false };
       _upd.boxDrugs = { ...(this.state.boxDrugs || this.buildBoxDrugs()), [id]: _existBD.map(d => ({ ...d, lots: (d.lots || []).map(l => ({ ...l })) })) };
       this.setState(_upd);
     }, allIds, '#2B7FE0', _ebStatusMap);

@@ -87,7 +87,7 @@
               lot: lot.lot || '',
               qty: lot.qty || 0,
               isHAD: drug.had || false,
-              status: daysLeft < 0 ? 'expired' : daysLeft <= 15 ? 'critical' : daysLeft <= 30 ? 'warning' : 'notice',
+              status: daysLeft < 0 ? 'expired' : daysLeft === 0 ? 'expired_today' : daysLeft <= 15 ? 'critical' : daysLeft <= 30 ? 'warning' : 'notice',
             });
           }
         });
@@ -100,7 +100,7 @@
 
   function buildAlertMessage(alerts) {
     if (!alerts.length) return null;
-    const expired = alerts.filter(a => a.status === 'expired');
+    const expired = alerts.filter(a => a.status === 'expired' || a.status === 'expired_today');
     const critical = alerts.filter(a => a.status === 'critical');
     const warning = alerts.filter(a => a.status === 'warning');
     const notice = alerts.filter(a => a.status === 'notice');
@@ -112,7 +112,8 @@
     if (expired.length) {
       msg += `🔴 หมดอายุแล้ว (${expired.length} รายการ):\n`;
       expired.forEach(a => {
-        msg += `  • ${a.boxId} (${a.dept}) - ${a.drugName} [หมดอายุไปแล้ว ${Math.abs(a.daysLeft)} วัน]${a.isHAD ? ' ⚠️HAD' : ''}\n`;
+        const expLabel = a.daysLeft === 0 ? 'หมดอายุวันนี้' : `หมดอายุไปแล้ว ${Math.abs(a.daysLeft)} วัน`;
+        msg += `  • ${a.boxId} (${a.dept}) - ${a.drugName} [${expLabel}]${a.isHAD ? ' ⚠️HAD' : ''}\n`;
       });
       msg += '\n';
     }
