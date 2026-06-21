@@ -1705,13 +1705,13 @@ class Component extends DCLogic {
   // earliest expiry across lots
   drugMinExp(d) { const exps = (d.lots || []).filter(l => l.expiry).map(l => l.expiry); return exps.length ? exps.sort()[0] : ''; }
   boxExpiryISO(id, BD) {
-    const list = (BD || this.state.boxDrugs || {})[id];
+    const list = (BD || this.state.boxDrugs || this.BOX_DRUGS || {})[id];
     if (!list || !list.length) { const b = this.BOXES.find(x => x.id === id); return b ? b.expiry : ''; }
     const exps = list.map(d => this.drugMinExp(d)).filter(e => e);
     return exps.length ? exps.sort()[0] : '';
   }
   nearDrugOf(id, BD) {
-    const list = (BD || this.state.boxDrugs || {})[id];
+    const list = (BD || this.state.boxDrugs || this.BOX_DRUGS || {})[id];
     if (!list || !list.length) { const b = this.BOXES.find(x => x.id === id); return b ? b.nearDrug : ''; }
     const withExp = list.filter(d => this.drugMinExp(d));
     if (!withExp.length) return (list[0] && list[0].name) ? list[0].name : '';
@@ -1846,7 +1846,8 @@ class Component extends DCLogic {
       window.EB_Notify.checkAndNotify(this, false).then(result => {
         if (!this.state.authed) return;
         const _p = { expiryAlerts: result.alerts };
-        if (!result.alerts.length) _p.showExpiryBanner = false;
+        if (!result.alerts.length) { _p.showExpiryBanner = false; }
+        else if (!this.state.showExpiryBanner) { _p.showExpiryBanner = true; }
         this.setState(_p);
       }).catch(() => {});
     }, 60 * 60 * 1000);
@@ -2259,7 +2260,7 @@ class Component extends DCLogic {
     }
     const hashed = await this.hashPw(changePwNew.trim());
     const updated = { ...u, password: hashed };
-    this.setState(s => ({ users: s.users.map(x => x.username === changePwUsername ? updated : x), showChangePw: false, changePwUsername: null, changePwNew: '', changePwConfirm: '', changePwError: '' }));
+    this.setState(s => ({ users: s.users.map(x => x.username === changePwUsername ? updated : x), showChangePw: false, changePwUsername: null, changePwOld: '', changePwNew: '', changePwConfirm: '', changePwError: '' }));
     if (window.EB_Sync) window.EB_Sync.syncUsers(updated);
     this.flash(`เปลี่ยนรหัสผ่านของ ${u.name} เรียบร้อย`);
     this.logAction({ cat: 'user', action: 'เปลี่ยนรหัสผ่าน', eb: '—', dept: u.dept, drug: `เปลี่ยนรหัสผ่าน ${u.name} (${u.username})` });
@@ -2286,7 +2287,7 @@ class Component extends DCLogic {
     const id = usedIds.length ? Math.max(...usedIds) + 1 : 2;
     const hashed = await this.hashPw(nu_pass.trim() || '1234');
     const nu = { id, name: nu_name.trim(), username: nu_username.trim(), password: hashed, role: nu_role, dept: nu_dept.trim() || '-', status: 'active', lastLogin: 'ยังไม่เคยเข้าระบบ' };
-    this.setState({ users: [...users, nu], showAddUser: false, nu_name: '', nu_username: '', nu_role: 'technician', nu_dept: 'ห้องยา', nu_pass: '' });
+    this.setState(s => ({ users: [...s.users, nu], showAddUser: false, nu_name: '', nu_username: '', nu_role: 'technician', nu_dept: 'ห้องยา', nu_pass: '' }));
     if (window.EB_Sync) window.EB_Sync.syncUsers(nu);
     this.flash(nu_pass.trim() ? 'เพิ่มผู้ใช้ใหม่เรียบร้อย' : 'เพิ่มผู้ใช้ใหม่เรียบร้อย · รหัสผ่านเริ่มต้น: 1234');
     this.logAction({ cat: 'user', action: 'จัดการผู้ใช้', eb: '—', dept: nu.dept, drug: `เพิ่มผู้ใช้ใหม่ ${nu.name} (${(this.ROLES[nu_role] || {label: nu_role}).label})` });
@@ -2895,17 +2896,19 @@ td.l{text-align:left;padding-left:4px}
           body: JSON.stringify({ ref: 'claude/eloquent-heisenberg-vqrypu' }),
         });
         if (res.status === 204) {
+          if (this.state.screen !== 'notify') return;
           this.setState({ ghTrigger: 'success' });
           this.logAction({ cat: 'other', action: 'ส่งแจ้งเตือน', eb: '—', dept: '—', drug: 'Trigger GitHub Actions: manual drug-expiry email' });
-          localStorage.setItem('eb_notify_last_sent', new Date().toLocaleString('th-TH'));
           setTimeout(() => this.setState({ ghTrigger: 'idle' }), 10000);
         } else {
           console.warn('[GH Trigger] status:', res.status, await res.text().catch(()=>''));
+          if (this.state.screen !== 'notify') return;
           this.setState({ ghTrigger: 'error' });
           setTimeout(() => this.setState({ ghTrigger: 'idle' }), 6000);
         }
       } catch (err) {
         console.error('[GH Trigger]', err.message);
+        if (this.state.screen !== 'notify') return;
         this.setState({ ghTrigger: 'error' });
         setTimeout(() => this.setState({ ghTrigger: 'idle' }), 6000);
       }
@@ -3073,7 +3076,7 @@ td.l{text-align:left;padding-left:4px}
     }
 
     // ----- DASHBOARD -----
-    const BDdash = st.boxDrugs || this.buildBoxDrugs(); // single source — reused below as regBD and BD
+    const BDdash = st.boxDrugs || this.BOX_DRUGS || {}; // single source — reused below as regBD and BD
     const exp = (b) => this.boxExpiryISO(b.id, BDdash);
     const active = this.BOXES.filter(b => b.dispense && !b.receiver);
     const criticalList = this.BOXES
