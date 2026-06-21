@@ -1759,15 +1759,26 @@ class Component extends DCLogic {
       if (!u || u.role !== 'admin') return;
     }
     const patch = { screen };
+    if (this.state.screen === 'notify' && screen !== 'notify') patch.ghTrigger = 'idle';
+    if (this.state.editDrugs) {
+      this.askConfirm({
+        tone: 'warn', icon: 'warn',
+        title: 'ออกจากการแก้ไขยา?',
+        body: 'การแก้ไขยาที่ยังไม่ได้บันทึกจะหายไป ยืนยันออกโดยไม่บันทึก?',
+        yesLabel: 'ออกโดยไม่บันทึก', noLabel: 'กลับไปแก้ไข',
+        onYes: () => { this._bdBackup = null; this.setState({ ...patch, editDrugs: false, boxDrugs: screen !== 'entry' ? null : this.state.boxDrugs }); },
+      });
+      return;
+    }
     if (screen !== 'entry') {
-      const hasUnsaved = (this.state.boxDrugs !== null && this.state.formMode === 'register') || this.state.editDrugs;
+      const hasUnsaved = this.state.boxDrugs !== null && this.state.formMode === 'register';
       if (hasUnsaved) {
         this.askConfirm({
           tone: 'warn', icon: 'warn',
-          title: this.state.editDrugs ? 'ออกจากการแก้ไขยา?' : 'ออกจากหน้าลงทะเบียน?',
-          body: this.state.editDrugs ? 'การแก้ไขยาที่ยังไม่ได้บันทึกจะหายไป ยืนยันออกโดยไม่บันทึก?' : 'ข้อมูลยาที่กรอกไว้จะหายไป ยืนยันออกโดยไม่บันทึก?',
+          title: 'ออกจากหน้าลงทะเบียน?',
+          body: 'ข้อมูลยาที่กรอกไว้จะหายไป ยืนยันออกโดยไม่บันทึก?',
           yesLabel: 'ออกโดยไม่บันทึก', noLabel: 'กลับไปแก้ไข',
-          onYes: () => { this._bdBackup = null; this.setState({ screen, boxDrugs: null, editDrugs: false }); },
+          onYes: () => { this.setState({ ...patch, boxDrugs: null }); },
         });
         return;
       }
@@ -1833,8 +1844,10 @@ class Component extends DCLogic {
     this._notifyInterval = setInterval(() => {
       if (!this.state.authed || !window.EB_Notify) return;
       window.EB_Notify.checkAndNotify(this, false).then(result => {
-        if (!this.state.authed || !result.alerts.length) return;
-        this.setState({ expiryAlerts: result.alerts, showExpiryBanner: true });
+        if (!this.state.authed) return;
+        const _p = { expiryAlerts: result.alerts };
+        if (!result.alerts.length) _p.showExpiryBanner = false;
+        this.setState(_p);
       }).catch(() => {});
     }, 60 * 60 * 1000);
     this._idleEvents = ['mousemove', 'keydown', 'click', 'touchstart'];
@@ -2147,7 +2160,7 @@ class Component extends DCLogic {
   logout() {
     clearTimeout(this._idleT); clearTimeout(this._idleWarnT); clearTimeout(this._syncT);
     clearTimeout(this._lockT); clearTimeout(this._t); clearTimeout(this._a);
-    clearInterval(this._idleCountI); clearInterval(this._notifyInterval);
+    clearInterval(this._idleCountI); clearInterval(this._notifyInterval); clearInterval(this._lockCountI);
     this.BOXES = [];
     if (window.EB_Sync) window.EB_Sync.stopSync();
     this.setState({
@@ -2157,7 +2170,8 @@ class Component extends DCLogic {
       formMode: 'register',
       regEB: '', regMfg: '', regPreparer: '', regChecker: '', regHadConfirm: false, regPrinted: false,
       dispEB: '', formDept: 'ER', dispenser: '', swapReturn: false, swapEB: '', swapReceiver: '', dispDate: '', swapReturnDate: '',
-      retEB: '', retReceiver: '', retDate: '',
+      retEB: '', retReceiver: '', retDate: '', retDrugUsage: {},
+      swapRetDrugUsage: {}, submitting: false, capsOn: false,
       selectedEB: 'EB-4', boxDrugs: null,
       boxMeta: {}, editDrugs: false, saveSuccess: null, showChangePw: false, showAddUser: false,
       changePwUsername: null, changePwOld: '', changePwNew: '', changePwConfirm: '', changePwError: '',
@@ -2277,7 +2291,7 @@ class Component extends DCLogic {
   // ---------- entry form ----------
   // validation: returns array of missing/invalid messages for current mode
   regNearISOof(id) {
-    const list = (this.state.boxDrugs || this.buildBoxDrugs())[id] || [];
+    const list = (this.state.boxDrugs || this.BOX_DRUGS || {})[id] || [];
     if (!list.length) return null;
     const exps = list.map(d => this.drugMinExp(d)).filter(e => e);
     return exps.length ? exps.sort()[0] : null;
@@ -2430,9 +2444,11 @@ class Component extends DCLogic {
       const box = this.BOXES.find(b => b.id === dispEB) || { id: dispEB };
       this._syncBox({ ...box, dept: formDept, dispense: this.state.dispDate, dispenser: this.state.dispenser, receiver: '' });
       if (swapReturn) {
-        const swBox = this.BOXES.find(b => b.id === swapEB) || { id: swapEB };
+        const _swOutIds = this.BOXES.filter(b => b.dispense && !b.receiver).map(b => b.id);
+        const resolvedSwapEB = (swapEB && _swOutIds.includes(swapEB)) ? swapEB : (_swOutIds[0] || swapEB);
+        const swBox = this.BOXES.find(b => b.id === resolvedSwapEB) || { id: resolvedSwapEB };
         this._syncBox({ ...swBox, receiver: this.state.swapReceiver, retDate: this.state.swapReturnDate, dispense: '', dispenser: '', dept: '' });
-        const _swPrevDrugs = (this.BOX_DRUGS || {})[swapEB] || [];
+        const _swPrevDrugs = (this.BOX_DRUGS || {})[resolvedSwapEB] || [];
         if (_swPrevDrugs.length > 0) {
           const _swUsage = this.state.swapRetDrugUsage || {};
           const _swUpdated = _swPrevDrugs.map((drug, di) => ({
@@ -2440,15 +2456,15 @@ class Component extends DCLogic {
               ...lot, qty: Math.max(0, (lot.qty || 0) - ((_swUsage[di] || {})[li] || 0))
             }))
           }));
-          if (window.EB_Sync) window.EB_Sync.syncBoxDrugs(swapEB, _swUpdated);
+          if (window.EB_Sync) window.EB_Sync.syncBoxDrugs(resolvedSwapEB, _swUpdated);
           const _swSummary = _swPrevDrugs.map((drug, di) => {
             const _used = Object.values((_swUsage[di] || {})).reduce((s, q) => s + q, 0);
             return _used > 0 ? `${drug.name} ใช้ ${_used}` : null;
           }).filter(Boolean);
-          if (_swSummary.length > 0) this.logBoxHist(swapEB, `บันทึกยาที่ใช้: ${_swSummary.join(', ')}`);
+          if (_swSummary.length > 0) this.logBoxHist(resolvedSwapEB, `บันทึกยาที่ใช้: ${_swSummary.join(', ')}`);
         }
-        this.logAction({ cat: 'return', action: 'รับคืน', eb: swapEB, dept: formDept, drug: `รับคืน วันที่ ${this.fmtISO(this.state.swapReturnDate)} · โดย ${this.state.swapReceiver || '-'}` });
-        this.logBoxHist(swapEB, `รับคืนจาก ${formDept} วันที่ ${this.fmtISO(this.state.swapReturnDate)} (โดย ${this.state.swapReceiver || '-'})`);
+        this.logAction({ cat: 'return', action: 'รับคืน', eb: resolvedSwapEB, dept: formDept, drug: `รับคืน วันที่ ${this.fmtISO(this.state.swapReturnDate)} · โดย ${this.state.swapReceiver || '-'}` });
+        this.logBoxHist(resolvedSwapEB, `รับคืนจาก ${formDept} วันที่ ${this.fmtISO(this.state.swapReturnDate)} (โดย ${this.state.swapReceiver || '-'})`);
       }
       msg = swapReturn ? `เปลี่ยนกล่อง: จ่าย ${dispEB} → ${formDept} · รับคืน ${swapEB} สำเร็จ` : `จ่าย ${dispEB} → ${formDept} สำเร็จ`;
       this.logAction({ cat: 'dispense', action: 'จ่าย', eb: dispEB, dept: formDept, drug: this.nearDrugOf(dispEB) });
@@ -2680,8 +2696,8 @@ td.l{text-align:left;padding-left:4px}
     const inStockIds = this.BOXES.filter(b => !(b.dispense && !b.receiver)).map(b => b.id);
     const outIds     = this.BOXES.filter(b =>  b.dispense && !b.receiver).map(b => b.id);
     if (m === 'register') this.setState({ regMfg: '', regPreparer: '', regChecker: '', regHadConfirm: false, regPrinted: false, boxDrugs: null });
-    else if (m === 'dispense') this.setState({ dispEB: inStockIds[0] || '', formDept: 'ER', dispenser: uName, swapReturn: false, swapEB: '', swapReceiver: '', swapRetDrugUsage: {}, dispDate: today, swapReturnDate: today });
-    else this.setState({ retEB: outIds[0] || '', retReceiver: uName, retDate: today, retDrugUsage: {} });
+    else if (m === 'dispense') this.setState({ dispEB: inStockIds[0] || '', formDept: 'ER', dispenser: uName, swapReturn: false, swapEB: '', swapReceiver: '', swapRetDrugUsage: {}, retDrugUsage: {}, dispDate: today, swapReturnDate: today });
+    else this.setState({ retEB: outIds[0] || '', retReceiver: uName, retDate: today, retDrugUsage: {}, swapRetDrugUsage: {} });
   }
 
   renderVals() {
@@ -3554,7 +3570,11 @@ td.l{text-align:left;padding-left:4px}
       const on = st.selectedEB === b.id;
       const status = this.statusOf(this.boxExpiryISO(b.id, BD));
       return h('button', {
-        key: b.id + (on ? '_on' : '_off'), onClick: () => this.setState({ selectedEB: b.id }),
+        key: b.id + (on ? '_on' : '_off'), onClick: () => {
+          if (this.state.editDrugs) {
+            this.askConfirm({ tone: 'warn', icon: 'warn', title: 'เปลี่ยนกล่อง?', body: 'การแก้ไขยาที่ยังไม่ได้บันทึกจะหายไป', yesLabel: 'เปลี่ยนโดยไม่บันทึก', noLabel: 'กลับไปแก้ไข', onYes: () => { this._bdBackup = null; this.setState({ selectedEB: b.id, editDrugs: false }); } });
+          } else { this.setState({ selectedEB: b.id }); }
+        },
         style: { display: 'inline-flex', alignItems: 'center', gap: 8, padding: '9px 15px', borderRadius: 11, fontFamily: "'IBM Plex Mono', monospace", fontSize: 13, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all .22s cubic-bezier(.34,1.56,.64,1)', background: on ? '#15242E' : '#fff', color: on ? '#fff' : '#4A5C6A', border: on ? '1.5px solid #15242E' : '1.5px solid #E5EBF0' },
       },
         h('span', { style: { width: 8, height: 8, borderRadius: '50%', background: status.color, flexShrink: 0 } }),
@@ -3782,8 +3802,8 @@ td.l{text-align:left;padding-left:4px}
     });
     vals.auditCount = filtered.length;
     // summary cards
-    const _dispCount = LOG.filter(r => r.cat === 'dispense').length;
-    const _retCount  = LOG.filter(r => r.cat === 'return').length;
+    const _dispCount = filtered.filter(r => r.cat === 'dispense').length;
+    const _retCount  = filtered.filter(r => r.cat === 'return').length;
     const _pendCount = this.BOXES.filter(b => b.dispense && !b.receiver).length;
     vals.auditSummaryEl = h(React.Fragment, null,
       h('div', { style: { background: '#fff', border: '1px solid #E7EEF3', borderRadius: 14, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 14 } },
