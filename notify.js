@@ -65,7 +65,7 @@
 
   function findExpiringDrugs(component, thresholdDays) {
     if (!component || !component.BOXES) return [];
-    const bd = component.state.boxDrugs || (typeof component.buildBoxDrugs === 'function' ? component.buildBoxDrugs() : null) || {};
+    const bd = component.BOX_DRUGS || component.state.boxDrugs || {};
     const today = new Date(todayBangkok() + 'T00:00:00');
     const alerts = [];
 

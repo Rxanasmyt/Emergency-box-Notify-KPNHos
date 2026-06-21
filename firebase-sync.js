@@ -150,7 +150,16 @@ function listenBoxDrugs(){
     // but allows dashboard and initial login to receive fresh Firestore data normally
     const _st=component.state||{};
     const _editing=_st.editDrugs||(_st.formMode==='register'&&_st.boxDrugs!==null);
-    if(!_editing){component.setState({boxDrugs:Object.keys(bd).length?bd:{}}); }
+    if(!_editing){
+      const _patch={boxDrugs:Object.keys(bd).length?bd:{}};
+      if(_st.authed&&window.EB_Notify){
+        const _s=window.EB_Notify.loadSettings();
+        const _a=window.EB_Notify.findExpiringDrugs(component,_s.thresholdDays);
+        _patch.expiryAlerts=_a;
+        if(_a.length&&!_st.showExpiryBanner)_patch.showExpiryBanner=true;
+      }
+      component.setState(_patch);
+    }
   },err=>console.warn('[Sync] BoxDrugs error:',err.message));
   unsubscribers.push(unsub);
 }

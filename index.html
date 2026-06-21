@@ -1796,6 +1796,7 @@ class Component extends DCLogic {
     if (formMode === 'dispense' && !_inStock.includes(this.state.dispEB)) patch.dispEB = _inStock[0] || '';
     if (formMode === 'return'   && !_out.includes(this.state.retEB))      patch.retEB  = _out[0]     || '';
     if (formMode === 'register' && !_all.includes(this.state.regEB))      patch.regEB  = _all[0]     || '';
+    patch.boxDrugs = null;
     this.setState(patch);
   }
 
@@ -2146,6 +2147,8 @@ class Component extends DCLogic {
   logout() {
     clearTimeout(this._idleT); clearTimeout(this._idleWarnT); clearTimeout(this._syncT);
     clearTimeout(this._lockT); clearTimeout(this._t); clearTimeout(this._a);
+    clearInterval(this._idleCountI);
+    this.BOXES = [];
     if (window.EB_Sync) window.EB_Sync.stopSync();
     this.setState({
       authed: false, currentUser: null, loginUser: '', loginPass: '', showPass: false, screen: 'dashboard',
@@ -2428,7 +2431,7 @@ class Component extends DCLogic {
       this._syncBox({ ...box, dept: formDept, dispense: this.state.dispDate, dispenser: this.state.dispenser, receiver: '' });
       if (swapReturn) {
         const swBox = this.BOXES.find(b => b.id === swapEB) || { id: swapEB };
-        this._syncBox({ ...swBox, receiver: this.state.swapReceiver, retDate: this.state.swapReturnDate, dispense: '', dispenser: '' });
+        this._syncBox({ ...swBox, receiver: this.state.swapReceiver, retDate: this.state.swapReturnDate, dispense: '', dispenser: '', dept: '' });
         const _swPrevDrugs = (this.BOX_DRUGS || {})[swapEB] || [];
         if (_swPrevDrugs.length > 0) {
           const _swUsage = this.state.swapRetDrugUsage || {};
@@ -2456,7 +2459,7 @@ class Component extends DCLogic {
       const retEB = this._resolveRetEB() || this.state.retEB;
       if (!retEB) { this.setState({ submitting: false }); this.flash('ข้อผิดพลาด: ไม่พบกล่องยาที่เลือก'); return; }
       const retBox = this.BOXES.find(b => b.id === retEB) || { id: retEB };
-      this._syncBox({ ...retBox, receiver: retReceiver, retDate });
+      this._syncBox({ ...retBox, receiver: retReceiver, retDate, dept: '' });
       // update box_drugs quantities based on recorded drug usage
       const _prevDrugs = (this.BOX_DRUGS || {})[retEB] || [];
       if (_prevDrugs.length > 0) {
@@ -3244,11 +3247,9 @@ td.l{text-align:left;padding-left:4px}
 
     // ===== STEP 1: REGISTER =====
     vals.regEBSelectEl = mkEBChips(st.regEB, (id) => {
-      const _existBD = (this.BOX_DRUGS || {})[id];
+      const _existBD = (this.BOX_DRUGS || {})[id] || [];
       const _upd = { regEB: id };
-      if (_existBD && _existBD.length > 0) {
-        _upd.boxDrugs = { ...(this.state.boxDrugs || this.buildBoxDrugs()), [id]: _existBD.map(d => ({ ...d, lots: (d.lots || []).map(l => ({ ...l })) })) };
-      }
+      _upd.boxDrugs = { ...(this.state.boxDrugs || this.buildBoxDrugs()), [id]: _existBD.map(d => ({ ...d, lots: (d.lots || []).map(l => ({ ...l })) })) };
       this.setState(_upd);
     }, allIds, '#2B7FE0', _ebStatusMap);
     vals.regMfg = st.regMfg;
