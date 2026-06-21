@@ -148,8 +148,11 @@ function listenBoxDrugs(){
     // (boxDrugs !== null = user selected a box and data was loaded into the editor)
     // this prevents listener from clobbering in-progress edits
     // but allows dashboard and initial login to receive fresh Firestore data normally
+    // NOTE: must also check screen==='entry' — formMode defaults to 'register' and is
+    // never reset, so without it the guard would wrongly block updates on the detail
+    // screen after an edit/save (which leaves boxDrugs non-null)
     const _st=component.state||{};
-    const _editing=_st.editDrugs||(_st.formMode==='register'&&_st.boxDrugs!==null);
+    const _editing=_st.editDrugs||(_st.screen==='entry'&&_st.formMode==='register'&&_st.boxDrugs!==null);
     if(!_editing){
       const _patch={boxDrugs:Object.keys(bd).length?bd:{}};
       if(_st.authed&&window.EB_Notify){
