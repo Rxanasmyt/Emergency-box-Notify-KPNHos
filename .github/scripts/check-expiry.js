@@ -34,6 +34,22 @@ const THRESHOLD_DAYS = isNaN(_rawDays) || _rawDays <= 0 ? 30 : _rawDays;
 // Use Bangkok time (UTC+7) so expiry comparisons match Thai calendar day
 const TODAY = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
 TODAY.setHours(0, 0, 0, 0);
+const TODAY_ISO = TODAY.toISOString().slice(0, 10);
+// workflow_dispatch = user pressed button → always send; schedule = cron → dedup
+const IS_MANUAL = process.env.GITHUB_EVENT_NAME === 'workflow_dispatch';
+
+async function getLastSentDate() {
+  try {
+    const doc = await db.collection('app_settings').doc('notifications').get();
+    return doc.exists ? (doc.data().lastSentDate || '') : '';
+  } catch { return ''; }
+}
+
+async function markSentToday() {
+  try {
+    await db.collection('app_settings').doc('notifications').set({ lastSentDate: TODAY_ISO }, { merge: true });
+  } catch (err) { console.warn('⚠️  บันทึก lastSentDate ล้มเหลว:', err.message); }
+}
 
 // ── Helpers ────────────────────────────────────────────────────
 function escHtml(s) {
@@ -565,7 +581,18 @@ async function main() {
   const isMonday = TODAY.getDay() === 1;   // 0=Sun … 6=Sat
   console.log(`\n🔍 ตรวจสอบยาใกล้หมดอายุ (ภายใน ${THRESHOLD_DAYS} วัน)...`);
   console.log(`📅 วันที่: ${TODAY.toLocaleDateString('th-TH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`);
-  console.log(`📋 โหมด: ${isMonday ? 'รายงานประจำสัปดาห์ (วันจันทร์)' : 'ตรวจเฉพาะยาวิกฤต (อังคาร–อาทิตย์)'}\n`);
+  console.log(`📋 โหมด: ${IS_MANUAL ? 'ส่งทันที (กดปุ่มจากแอป)' : isMonday ? 'รายงานประจำสัปดาห์ (วันจันทร์)' : 'ตรวจเฉพาะยาวิกฤต (อังคาร–อาทิตย์)'}\n`);
+
+  // dedup: cron เช็คว่าส่งวันนี้ไปแล้วหรือยัง — กดปุ่มเองข้ามการเช็ค
+  if (!IS_MANUAL) {
+    const lastSent = await getLastSentDate();
+    if (lastSent === TODAY_ISO) {
+      console.log(`⏭  ส่งแจ้งเตือนไปแล้วในวันนี้ (${TODAY_ISO}) — ข้ามการส่งซ้ำ`);
+      process.exit(0);
+    }
+  } else {
+    console.log('📲 Manual trigger — ข้ามการเช็ค dedup ส่งทันที');
+  }
 
   let alerts;
   try {
@@ -578,10 +605,11 @@ async function main() {
   if (!alerts.length) {
     console.log(`\n✅ ไม่พบยาใกล้หมดอายุภายใน ${THRESHOLD_DAYS} วัน`);
     console.log('💡 หมายเหตุ: ถ้าในแอปมียาแต่ที่นี่บอกว่าไม่พบ → ข้อมูลใน Firestore อาจยังไม่ถูก sync');
-    if (isMonday) {
-      console.log('\n📬 วันจันทร์ — ส่งรายงานสรุปประจำสัปดาห์ (All Clear)');
+    if (isMonday || IS_MANUAL) {
+      console.log('\n📬 ส่งรายงานสรุป (All Clear)');
       const boxCount = await db.collection('boxes').get().then(s => s.size).catch(() => 0);
-      await sendAllClearEmail(boxCount);
+      const sent = await sendAllClearEmail(boxCount);
+      if (sent) await markSentToday();
     } else {
       console.log('⏭  ไม่ใช่วันจันทร์ — ไม่ส่งแจ้งเตือน');
     }
@@ -631,7 +659,12 @@ async function main() {
     process.exit(1);
   }
 
-  console.log(lineResult || emailResult ? '\n✅ แจ้งเตือนสำเร็จ' : '\n⚠️  ไม่ได้ตั้งค่า secrets — ข้ามการแจ้งเตือน');
+  if (lineResult || emailResult) {
+    await markSentToday();
+    console.log(`\n✅ แจ้งเตือนสำเร็จ — บันทึก lastSentDate: ${TODAY_ISO}`);
+  } else {
+    console.log('\n⚠️  ไม่ได้ตั้งค่า secrets — ข้ามการแจ้งเตือน');
+  }
 }
 
 main().catch(err => { console.error(err); process.exit(1); });
