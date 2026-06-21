@@ -1416,29 +1416,6 @@ input:focus, select:focus, textarea:focus {
           </sc-if>
         </div>
 
-
-        <!-- Threshold + Actions -->
-        <div style="background: #fff; border: 1px solid #E7EEF3; border-radius: 16px; padding: 24px 28px; margin-bottom: 16px;">
-          <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
-            <div>
-              <label style="font-size: 12px; font-weight: 600; color: #5A6B79; display: block; margin-bottom: 4px;">แจ้งเตือนล่วงหน้า (วัน)</label>
-              <input type="number" value="{{ notifyThresholdDays }}" oninput="{{ setThresholdDays }}" min="1" max="90" style="width:100px;height:40px;border:1.5px solid #DBE4EB;border-radius:10px;padding:0 12px;font-size:14px;color:#15242E;text-align:center">
-            </div>
-            <button onclick="{{ saveNotifySettings }}" class="btn-primary" style="height:40px;padding:0 24px;background:#1A6FA3;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:16px">
-              <span style="display:flex;align-items:center;gap:6px">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                บันทึกการตั้งค่า
-              </span>
-            </button>
-            <button onclick="{{ testNotify }}" style="height:40px;padding:0 24px;background:#fff;color:#1A6FA3;border:1.5px solid #1A6FA3;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:16px">
-              <span style="display:flex;align-items:center;gap:6px">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M22 2L11 13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M22 2l-7 20-4-9-9-4 20-7z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
-                ทดสอบส่งแจ้งเตือน
-              </span>
-            </button>
-          </div>
-        </div>
-
         <!-- GitHub Actions Manual Trigger -->
         <div style="background: #fff; border: 1.5px solid #E0E8EF; border-radius: 16px; padding: 24px 28px; margin-bottom: 16px;">
           <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 18px;">
@@ -2826,35 +2803,8 @@ td.l{text-align:left;padding-left:4px}
     vals.notifyLineEnabled = !!nfSettings.lineEnabled;
 
     vals.notifyLineWebhookUrl = nfSettings.lineWebhookUrl || '';
-    vals.notifyThresholdDays = nfSettings.thresholdDays || 30;
     vals.toggleLineEnabled = () => { if (!window.EB_Notify) return; const s = window.EB_Notify.loadSettings(); s.lineEnabled = !s.lineEnabled; window.EB_Notify.saveSettings(s); this.setState({}); };
-
     vals.setLineWebhookUrl = (e) => { if (!window.EB_Notify) return; const s = window.EB_Notify.loadSettings(); s.lineWebhookUrl = e.target.value; window.EB_Notify.saveSettings(s); };
-    vals.setThresholdDays = (e) => { if (!window.EB_Notify) return; const s = window.EB_Notify.loadSettings(); s.thresholdDays = parseInt(e.target.value) || 30; window.EB_Notify.saveSettings(s); };
-    vals.saveNotifySettings = () => {
-      if (!window.EB_Notify) { this.flash('ระบบแจ้งเตือนยังไม่พร้อม'); return; }
-      const s = window.EB_Notify.loadSettings();
-      window.EB_Notify.saveToFirestore(s);
-      this.logAction({ cat: 'other', action: 'ตั้งค่าแจ้งเตือน', eb: '—', dept: '—', drug: 'บันทึกการตั้งค่าแจ้งเตือน Email/LINE' });
-      this.setState({ showToast: true, toastTitle: 'บันทึกการตั้งค่าแจ้งเตือนเรียบร้อย', toastSubtitle: '' });
-      clearTimeout(this._t); this._t = setTimeout(() => this.setState({ showToast: false }), 2500);
-    };
-    vals.testNotify = () => {
-      if (!window.EB_Notify) return;
-      window.EB_Notify.checkAndNotify(this, true).then(result => {
-        if (!result) return;
-        if (result.alerts.length) {
-          this.setState({ expiryAlerts: result.alerts, showExpiryBanner: true, showToast: true, toastTitle: `ส่งแจ้งเตือนแล้ว (${result.alerts.length} รายการ)`, toastSubtitle: '' });
-        } else {
-          this.setState({ showToast: true, toastTitle: 'ไม่พบยาใกล้หมดอายุ', toastSubtitle: '' });
-        }
-        clearTimeout(this._t); this._t = setTimeout(() => this.setState({ showToast: false }), 2500);
-      }).catch(err => {
-        console.warn('[Notify] testNotify failed:', err);
-        this.setState({ showToast: true, toastTitle: 'เกิดข้อผิดพลาดในการทดสอบแจ้งเตือน', toastSubtitle: '' });
-        clearTimeout(this._t); this._t = setTimeout(() => this.setState({ showToast: false }), 2500);
-      });
-    };
     vals.dismissExpiryBanner = () => this.setState({ showExpiryBanner: false });
     vals.showExpiryBanner = st.showExpiryBanner;
     const alerts = st.expiryAlerts || [];
