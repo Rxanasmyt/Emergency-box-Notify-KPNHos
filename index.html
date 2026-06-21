@@ -2973,7 +2973,10 @@ td.l{text-align:left;padding-left:4px}
       const pubBoxId = st.publicBoxId;
       const pubBox = this.BOXES.find(b => b.id === pubBoxId);
       const pubBD = (st.boxDrugs || {})[pubBoxId] || [];
-      const isLoaded = st._publicSynced;
+      // require BOTH the boxes snapshot (_publicSynced) AND the box_drugs snapshot
+      // (boxDrugs flips from null to {} once its listener fires) so the drug list
+      // never paints empty before the separate box_drugs listener has loaded
+      const isLoaded = st._publicSynced && st.boxDrugs !== null;
 
       if (!isLoaded) {
         vals.publicViewEl = h('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', gap: 16, background: '#EDF2F7', fontFamily: "'IBM Plex Sans Thai', sans-serif" } },
@@ -3728,7 +3731,7 @@ td.l{text-align:left;padding-left:4px}
         case '7days':  { const d=new Date(_today); d.setDate(d.getDate()-6); return { from: _isoOf(d), to: _isoOf(_today) }; }
         case 'month':  { const d=new Date(_today.getFullYear(),_today.getMonth(),1); return { from: _isoOf(d), to: _isoOf(_today) }; }
         case 'fiscal': { const f=fy||_curFY; return { from: _isoOf(_fiscalStart(f)), to: _isoOf(_fiscalEnd(f)) }; }
-        case 'custom': return { from: from||null, to: to||null };
+        case 'custom': { let f=from||null, t=to||null; if(f&&t&&f>t){const tmp=f;f=t;t=tmp;} return { from: f, to: t }; }
         default:       return { from: null, to: null };
       }
     };
