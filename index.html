@@ -1823,7 +1823,6 @@ class Component extends DCLogic {
 
   componentDidMount() {
     const patch = {};
-    if (!this.state.boxDrugs) patch.boxDrugs = this.buildBoxDrugs();
     if (!this.state.auditLog || !this.state.auditLog.length) patch.auditLog = this.AUDIT.map(a => ({ ...a, cat: a.action === 'จ่าย' ? 'dispense' : (a.action === 'รับคืน' ? 'return' : 'other') }));
     try { const saved = localStorage.getItem('eb_remember_user'); if (saved) patch.loginUser = saved; } catch (_) {}
     // restore brute-force lockout across page refresh
