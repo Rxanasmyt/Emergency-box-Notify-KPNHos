@@ -1795,7 +1795,9 @@ class Component extends DCLogic {
       const u = this.state.currentUser;
       if (!u || u.role !== 'admin') return;
     }
-    this.setState({ screen });
+    const patch = { screen };
+    if (screen !== 'entry') patch.boxDrugs = null;
+    this.setState(patch);
   }
   go2(formMode) {
     const today = this.isoOf(this.TODAY);
