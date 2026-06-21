@@ -144,11 +144,12 @@ function listenBoxDrugs(){
     const bd={};snap.forEach(doc=>{const d=doc.data();const boxId=d.boxId||doc.id;if(boxId&&d.drugs)bd[boxId]=d.drugs;});
     // always update BOX_DRUGS — authoritative source for current Firestore data
     component.BOX_DRUGS=bd;
-    // never overwrite boxDrugs state while in register mode (user may be editing or submit just fired)
-    // also protect editDrugs mode
-    // register mode: fresh data loaded explicitly when user selects a box (regEBSelectEl callback)
+    // block state update only when user has actively loaded/edited drug data in a form
+    // (boxDrugs !== null = user selected a box and data was loaded into the editor)
+    // this prevents listener from clobbering in-progress edits
+    // but allows dashboard and initial login to receive fresh Firestore data normally
     const _st=component.state||{};
-    const _editing=_st.editDrugs||_st.formMode==='register';
+    const _editing=_st.editDrugs||(_st.formMode==='register'&&_st.boxDrugs!==null);
     if(!_editing){component.setState({boxDrugs:Object.keys(bd).length?bd:{}}); }
   },err=>console.warn('[Sync] BoxDrugs error:',err.message));
   unsubscribers.push(unsub);
