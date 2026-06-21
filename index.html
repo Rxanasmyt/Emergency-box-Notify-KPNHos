@@ -1760,14 +1760,14 @@ class Component extends DCLogic {
     }
     const patch = { screen };
     if (screen !== 'entry') {
-      const hasUnsaved = this.state.boxDrugs !== null && this.state.formMode === 'register';
+      const hasUnsaved = (this.state.boxDrugs !== null && this.state.formMode === 'register') || this.state.editDrugs;
       if (hasUnsaved) {
         this.askConfirm({
           tone: 'warn', icon: 'warn',
-          title: 'ออกจากหน้าลงทะเบียน?',
-          body: 'ข้อมูลยาที่กรอกไว้จะหายไป ยืนยันออกโดยไม่บันทึก?',
+          title: this.state.editDrugs ? 'ออกจากการแก้ไขยา?' : 'ออกจากหน้าลงทะเบียน?',
+          body: this.state.editDrugs ? 'การแก้ไขยาที่ยังไม่ได้บันทึกจะหายไป ยืนยันออกโดยไม่บันทึก?' : 'ข้อมูลยาที่กรอกไว้จะหายไป ยืนยันออกโดยไม่บันทึก?',
           yesLabel: 'ออกโดยไม่บันทึก', noLabel: 'กลับไปแก้ไข',
-          onYes: () => { this.setState({ screen, boxDrugs: null }); },
+          onYes: () => { this._bdBackup = null; this.setState({ screen, boxDrugs: null, editDrugs: false }); },
         });
         return;
       }
@@ -1932,7 +1932,7 @@ class Component extends DCLogic {
 
   // ---------- edit box drugs (qty + expiry) ----------
   startEditDrugs() {
-    const bd = this.state.boxDrugs || this.buildBoxDrugs();
+    const bd = this.state.boxDrugs || this.BOX_DRUGS || {};
     this._bdBackup = JSON.parse(JSON.stringify(bd));
     this.setState({ editDrugs: true, boxDrugs: bd });
   }
@@ -1943,7 +1943,7 @@ class Component extends DCLogic {
   }
   saveEditDrugs() {
     const id = this.state.selectedEB;
-    const drugs = (this.state.boxDrugs || this.buildBoxDrugs())[id] || [];
+    const drugs = (this.state.boxDrugs || this.BOX_DRUGS || {})[id] || [];
     for (const drug of drugs) {
       if (!drug.name || !drug.name.trim()) { this.flash('กรุณากรอกชื่อยาให้ครบทุกรายการ'); return; }
     }
@@ -2147,7 +2147,7 @@ class Component extends DCLogic {
   logout() {
     clearTimeout(this._idleT); clearTimeout(this._idleWarnT); clearTimeout(this._syncT);
     clearTimeout(this._lockT); clearTimeout(this._t); clearTimeout(this._a);
-    clearInterval(this._idleCountI);
+    clearInterval(this._idleCountI); clearInterval(this._notifyInterval);
     this.BOXES = [];
     if (window.EB_Sync) window.EB_Sync.stopSync();
     this.setState({
@@ -2410,7 +2410,7 @@ class Component extends DCLogic {
     let msg;
     if (m === 'register') {
       const { regEB } = this.state;
-      const BD = this.state.boxDrugs || this.buildBoxDrugs();
+      const BD = this.state.boxDrugs || this.BOX_DRUGS || {};
       const near = this.nearDrugOf(regEB, BD);
       const nearISO = this.regNearISOof(regEB);
       const meta = { ...(this.state.boxMeta || {}) };
