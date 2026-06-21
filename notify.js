@@ -19,7 +19,6 @@
     thresholdDays: 30,
     lineEnabled: false,
     lineWebhookUrl: '',
-    browserEnabled: true,
   };
 
   function loadSettings() {
@@ -165,20 +164,6 @@
     }
   }
 
-  function sendBrowserNotification(alerts) {
-    if (!('Notification' in window)) return;
-    if (Notification.permission !== 'granted') {
-      Notification.requestPermission();
-      return;
-    }
-    const expired = alerts.filter(a => a.status === 'expired' || a.status === 'critical');
-    if (!expired.length) return;
-    new Notification('🏥 EB Notify - ยาใกล้หมดอายุ', {
-      body: `พบยา ${expired.length} รายการ ต้องดำเนินการด่วน`,
-      icon: './icons/icon-192.svg',
-      tag: 'eb-expiry-alert',
-    });
-  }
 
   async function checkAndNotify(component, force) {
     const settings = loadSettings();
@@ -198,12 +183,8 @@
 
     console.log(`[Notify] Found ${alerts.length} expiring drugs`);
 
-    if (settings.browserEnabled && (force || !alreadySentToday())) {
-      sendBrowserNotification(alerts);
-    }
-
     if (!force && alreadySentToday()) {
-      console.log('[Notify] Already sent today, skipping email/LINE');
+      console.log('[Notify] Already sent today, skipping LINE');
       return { alerts, sent: false };
     }
 
@@ -212,21 +193,14 @@
       sent = await sendLINE(settings, alerts) || sent;
     }
 
-    // Mark as sent today after any notification attempt (browser or LINE)
-    // so browser notifications don't repeat every trigger throughout the day
-    if (sent || settings.browserEnabled) {
+    if (sent) {
       setLastSent();
-      if (sent) console.log('[Notify] Notifications sent successfully');
+      console.log('[Notify] Notifications sent successfully');
     }
 
     return { alerts, sent, githubPAT: settings.githubPAT || '' };
   }
 
-  function requestBrowserPermission() {
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission();
-    }
-  }
 
   function loadGithubPAT() {
     return loadFromFirestore().then(fs => (fs && fs.githubPAT) || '').catch(() => '');
@@ -239,7 +213,6 @@
     checkAndNotify,
     findExpiringDrugs,
     buildAlertMessage,
-    requestBrowserPermission,
     sendLINE,
     loadGithubPAT,
     DEFAULTS,
