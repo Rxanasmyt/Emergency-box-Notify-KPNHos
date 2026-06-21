@@ -32,6 +32,9 @@
         .then(r => console.log('[SW] Registered:', r.scope))
         .catch(e => console.warn('[SW] Registration failed:', e));
     });
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      window.location.reload();
+    });
   }
 </script>
 </head>
