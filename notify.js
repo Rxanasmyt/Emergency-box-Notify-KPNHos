@@ -228,6 +228,10 @@
     }
   }
 
+  function loadGithubPAT() {
+    return loadFromFirestore().then(fs => (fs && fs.githubPAT) || '').catch(() => '');
+  }
+
   window.EB_Notify = {
     loadSettings,
     saveSettings,
@@ -237,6 +241,7 @@
     buildAlertMessage,
     requestBrowserPermission,
     sendLINE,
+    loadGithubPAT,
     DEFAULTS,
   };
 })();

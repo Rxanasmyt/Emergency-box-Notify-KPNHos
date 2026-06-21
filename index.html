@@ -2142,9 +2142,11 @@ class Component extends DCLogic {
           if (!this.state.authed) return;
           const patch = {};
           if (result.alerts.length) { patch.expiryAlerts = result.alerts; patch.showExpiryBanner = true; }
-          if (result.githubPAT && !this.state.ghPAT) patch.ghPAT = result.githubPAT;
           if (Object.keys(patch).length) this.setState(patch);
         }).catch(err => console.warn('[Notify] checkAndNotify failed:', err));
+        window.EB_Notify.loadGithubPAT().then(pat => {
+          if (pat && !this.state.ghPAT) this.setState({ ghPAT: pat });
+        }).catch(() => {});
       }
     }, 500);
   }
