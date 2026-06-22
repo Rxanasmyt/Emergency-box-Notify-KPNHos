@@ -32,8 +32,10 @@ const db = admin.firestore();
 const _rawDays = parseInt(process.env.NOTIFY_DAYS_AHEAD || '30', 10);
 const THRESHOLD_DAYS = isNaN(_rawDays) || _rawDays <= 0 ? 30 : _rawDays;
 // Use Bangkok time (UTC+7) so expiry comparisons match Thai calendar day
-const TODAY = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
-TODAY.setHours(0, 0, 0, 0);
+// Use Intl.DateTimeFormat with en-CA (yields ISO YYYY-MM-DD) to avoid unreliable
+// locale-string parsing which is implementation-defined in Node.js on Linux
+const _todayISO = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok' }).format(new Date());
+const TODAY = new Date(_todayISO + 'T00:00:00');
 const TODAY_ISO = `${TODAY.getFullYear()}-${String(TODAY.getMonth()+1).padStart(2,'0')}-${String(TODAY.getDate()).padStart(2,'0')}`;
 // workflow_dispatch = user pressed button → always send; schedule = cron → dedup
 const IS_MANUAL = process.env.GITHUB_EVENT_NAME === 'workflow_dispatch';
@@ -608,8 +610,12 @@ async function main() {
     if (isMonday || IS_MANUAL) {
       console.log('\n📬 ส่งรายงานสรุป (All Clear)');
       const boxCount = await db.collection('boxes').get().then(s => s.size).catch(() => 0);
-      const sent = await sendAllClearEmail(boxCount);
-      if (sent) await markSentToday();
+      const emailSent = await sendAllClearEmail(boxCount);
+      if (process.env.LINE_CHANNEL_TOKEN) {
+        const allClearLine = `✅ EB Notify — ไม่พบยาใกล้หมดอายุ\n📦 กล่อง EB ทั้งหมด ${boxCount} กล่อง พร้อมใช้งาน\n📅 ${TODAY.toLocaleDateString('th-TH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`;
+        await sendLineMessage(process.env.LINE_CHANNEL_TOKEN, allClearLine, process.env.LINE_USER_ID || undefined).catch(err => console.error('❌ LINE all-clear error:', err.message));
+      }
+      if (emailSent) await markSentToday();
     } else {
       console.log('⏭  ไม่ใช่วันจันทร์ — ไม่ส่งแจ้งเตือน');
     }

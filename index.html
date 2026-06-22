@@ -1676,7 +1676,7 @@ class Component extends DCLogic {
     const out     = this.BOXES.filter(b =>  b.dispense && !b.receiver).map(b => b.id);
     const all     = this.BOXES.map(b => b.id);
     if (!inStock.includes(this.state.dispEB)) patch.dispEB = inStock[0] || '';
-    if (!out.includes(this.state.retEB))      patch.retEB  = out[0]     || '';
+    if (!out.includes(this.state.retEB))    { patch.retEB = out[0] || ''; patch.retDrugUsage = {}; }
     if (!inStock.includes(this.state.regEB))   patch.regEB  = inStock[0] || '';
     if (Object.keys(patch).length) this.setState(patch);
   }
@@ -2300,7 +2300,7 @@ class Component extends DCLogic {
     }
     const hashed = await this.hashPw(changePwNew.trim());
     const updated = { ...u, password: hashed };
-    this.setState(s => ({ users: s.users.map(x => x.username === changePwUsername ? updated : x), showChangePw: false, changePwUsername: null, changePwOld: '', changePwNew: '', changePwConfirm: '', changePwError: '' }));
+    this.setState(s => ({ users: s.users.map(x => x.username === changePwUsername ? updated : x), currentUser: isSelf ? updated : s.currentUser, showChangePw: false, changePwUsername: null, changePwOld: '', changePwNew: '', changePwConfirm: '', changePwError: '' }));
     if (window.EB_Sync) window.EB_Sync.syncUsers(updated);
     this.flash(`เปลี่ยนรหัสผ่านของ ${u.name} เรียบร้อย`);
     this.logAction({ cat: 'user', action: 'เปลี่ยนรหัสผ่าน', eb: '—', dept: u.dept, drug: `เปลี่ยนรหัสผ่าน ${u.name} (${u.username})` });
@@ -2356,6 +2356,7 @@ class Component extends DCLogic {
       }
       if (!st.regPrinted) errs.push('พิมพ์ใบกล่องก่อนบันทึก (กดปุ่ม พิมพ์ใบกล่อง)');
       if (!st.regMfg) errs.push('กรอกวันที่ผลิต');
+      if (st.regMfg && !this.parse(st.regMfg)) errs.push('วันที่ผลิตไม่ถูกต้อง (ใช้รูปแบบ YYYY-MM-DD)');
       if (!(st.regPreparer || '').trim()) errs.push('ลงชื่อผู้จัดเตรียม (จพ.)');
       if (!(st.regChecker || '').trim()) errs.push('ลงชื่อเภสัชกรผู้ตรวจสอบ');
       const near = this.regNearISOof(st.regEB);
@@ -3479,7 +3480,9 @@ td.l{text-align:left;padding-left:4px}
     vals.setSwapReturnDate = (e) => this.setState({ swapReturnDate: e.target.value });
 
     // drug usage table for swap-return in dispense form
-    const _swapEBU = st.swapEB && outIds.includes(st.swapEB) ? st.swapEB : outIds[0];
+    // exclude the box being dispensed from eligible swap sources — same as submit() logic
+    const _swOutIds = outIds.filter(id => id !== (inStockIds.includes(st.dispEB) ? st.dispEB : inStockIds[0]));
+    const _swapEBU = st.swapEB && _swOutIds.includes(st.swapEB) ? st.swapEB : _swOutIds[0];
     const _swapDrugsU = _swapEBU ? (BDdash[_swapEBU] || []) : [];
     vals.swapRetDrugUsageEl = st.swapReturn && _swapDrugsU.length > 0 ? h('div', { style: { marginTop: 14, paddingTop: 14, borderTop: '1px solid #ECF1F5' } },
       h('label', { style: { display: 'block', fontSize: 12, fontWeight: 600, color: '#4A5C6A', marginBottom: 10 } },
