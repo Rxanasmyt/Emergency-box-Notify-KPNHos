@@ -1677,7 +1677,7 @@ class Component extends DCLogic {
     const all     = this.BOXES.map(b => b.id);
     if (!inStock.includes(this.state.dispEB)) patch.dispEB = inStock[0] || '';
     if (!out.includes(this.state.retEB))      patch.retEB  = out[0]     || '';
-    if (!all.includes(this.state.regEB))      patch.regEB  = all[0]     || '';
+    if (!inStock.includes(this.state.regEB))   patch.regEB  = inStock[0] || '';
     if (Object.keys(patch).length) this.setState(patch);
   }
 
@@ -1970,11 +1970,13 @@ class Component extends DCLogic {
     for (const drug of drugs) {
       if (!drug.name || !drug.name.trim()) { this.flash('กรุณากรอกชื่อยาให้ครบทุกรายการ'); return; }
     }
+    const prevDrugs = (this.BOX_DRUGS || {})[id];
     this._bdBackup = null;
     this.BOX_DRUGS = { ...(this.BOX_DRUGS || {}), [id]: drugs };
     this.setState({ editDrugs: false, saveSuccess: Date.now(), boxDrugs: null });
     setTimeout(() => this.setState({ saveSuccess: null }), 1600);
     if (window.EB_Sync) window.EB_Sync.syncBoxDrugs(id, drugs).then(null, () => {
+      this.BOX_DRUGS = { ...(this.BOX_DRUGS || {}), [id]: prevDrugs };
       this.flash('⚠️ บันทึกข้อมูลยาไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
     });
     // also update boxes doc so expiry/nearDrug stay in sync as fallback
