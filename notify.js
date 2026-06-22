@@ -174,6 +174,7 @@
     if (firestoreSettings) {
       Object.assign(settings, firestoreSettings);
       saveSettings(settings);
+      if (!settings.enabled && !force) return { alerts: [], sent: false };
     }
 
     const alerts = findExpiringDrugs(component, settings.thresholdDays);

@@ -1768,7 +1768,7 @@ class Component extends DCLogic {
         yesLabel: 'ออกโดยไม่บันทึก', noLabel: 'กลับไปแก้ไข',
         onYes: () => { this._bdBackup = null; this.setState({ ...patch, editDrugs: false, boxDrugs: screen !== 'entry' ? null : this.state.boxDrugs }); },
       });
-      return;
+      return false;
     }
     if (screen !== 'entry') {
       const _formTouched = !!(this.state.regMfg || this.state.regPrinted);
@@ -1781,11 +1781,12 @@ class Component extends DCLogic {
           yesLabel: 'ออกโดยไม่บันทึก', noLabel: 'กลับไปแก้ไข',
           onYes: () => { this.setState({ ...patch, boxDrugs: null }); },
         });
-        return;
+        return false;
       }
       patch.boxDrugs = null;
     }
     this.setState(patch);
+    return true;
   }
   go2(formMode) {
     const today = this.isoOf(this.TODAY);
@@ -2183,6 +2184,7 @@ class Component extends DCLogic {
     clearTimeout(this._lockT); clearTimeout(this._t); clearTimeout(this._a);
     clearInterval(this._idleCountI); clearInterval(this._notifyInterval); clearInterval(this._lockCountI);
     this.BOXES = [];
+    this.BOX_DRUGS = {};
     if (window.EB_Sync) window.EB_Sync.stopSync();
     this.setState({
       authed: false, currentUser: null, loginUser: '', loginPass: '', showPass: false, screen: 'dashboard',
@@ -2469,9 +2471,10 @@ class Component extends DCLogic {
       if (!dispEB) { this.setState({ submitting: false }); this.flash('ข้อผิดพลาด: ไม่พบกล่องยาที่เลือก'); return; }
       const box = this.BOXES.find(b => b.id === dispEB) || { id: dispEB };
       this._syncBox({ ...box, dept: formDept, dispense: this.state.dispDate, dispenser: this.state.dispenser, receiver: '' });
+      let resolvedSwapEB = '';
       if (swapReturn) {
         const _swOutIds = this.BOXES.filter(b => b.dispense && !b.receiver).map(b => b.id);
-        const resolvedSwapEB = (swapEB && _swOutIds.includes(swapEB)) ? swapEB : (_swOutIds[0] || swapEB);
+        resolvedSwapEB = (swapEB && _swOutIds.includes(swapEB)) ? swapEB : (_swOutIds[0] || swapEB);
         const swBox = this.BOXES.find(b => b.id === resolvedSwapEB) || { id: resolvedSwapEB };
         this._syncBox({ ...swBox, receiver: this.state.swapReceiver, retDate: this.state.swapReturnDate, dispense: '', dispenser: '', dept: '' });
         const _swPrevDrugs = (this.BOX_DRUGS || {})[resolvedSwapEB] || [];
@@ -2765,7 +2768,7 @@ td.l{text-align:left;padding-left:4px}
       goDashboard: () => this.go('dashboard'),
       goEntry: () => this.go('entry'),
       goDetail: () => this.go('detail'),
-      goEntryReturn: () => { this.go('entry'); this.go2('return'); },
+      goEntryReturn: () => { if (this.go('entry') !== false) this.go2('return'); },
       goHistory: () => this.go('history'),
       showToast: st.showToast,
       toastTitle: st.toastTitle,
@@ -3244,7 +3247,7 @@ td.l{text-align:left;padding-left:4px}
       if (!ids.length) return h('div', { style: { fontSize: 12.5, color: '#E03E3E', padding: '10px 14px', background: '#FCEDED', borderRadius: 10, border: '1px solid #F4C9C9' } }, '— ไม่มีกล่อง —');
       return h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 2 } },
         ...ids.map(id => {
-          const on = value === id || (!ids.includes(value) && id === ids[0]);
+          const on = value === id || (!value && id === ids[0]);
           const dotColor = statusMap && statusMap[id] ? statusMap[id].color : null;
           const dotVisible = dotColor && statusMap[id].key !== 'ok';
           return h('button', {

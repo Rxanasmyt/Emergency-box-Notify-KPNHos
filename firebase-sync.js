@@ -147,15 +147,11 @@ function listenBoxDrugs(){
     const bd={};snap.forEach(doc=>{const d=doc.data();const boxId=d.boxId||doc.id;if(boxId&&d.drugs)bd[boxId]=d.drugs;});
     // always update BOX_DRUGS — authoritative source for current Firestore data
     component.BOX_DRUGS=bd;
-    // block state update only when user has actively loaded/edited drug data in a form
-    // (boxDrugs !== null = user selected a box and data was loaded into the editor)
-    // this prevents listener from clobbering in-progress edits
-    // but allows dashboard and initial login to receive fresh Firestore data normally
-    // NOTE: must also check screen==='entry' — formMode defaults to 'register' and is
-    // never reset, so without it the guard would wrongly block updates on the detail
-    // screen after an edit/save (which leaves boxDrugs non-null)
+    // block state update only while user is actively editing drug lots (editDrugs=true)
+    // this prevents listener from clobbering in-progress drug edits
+    // all other screens (dashboard, detail, register, dispense, return) receive live updates
     const _st=component.state||{};
-    const _editing=_st.editDrugs||(_st.screen==='entry'&&_st.formMode==='register'&&_st.boxDrugs!==null);
+    const _editing=_st.editDrugs;
     if(!_editing){
       const _patch={boxDrugs:Object.keys(bd).length?bd:{}};
       if(_st.authed&&window.EB_Notify){
