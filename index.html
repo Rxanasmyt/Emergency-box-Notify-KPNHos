@@ -1846,8 +1846,14 @@ class Component extends DCLogic {
       window.EB_Notify.checkAndNotify(this, false).then(result => {
         if (!this.state.authed) return;
         const _p = { expiryAlerts: result.alerts };
-        if (!result.alerts.length) { _p.showExpiryBanner = false; }
-        else if (!this.state.showExpiryBanner) { _p.showExpiryBanner = true; }
+        if (!result.alerts.length) {
+          _p.showExpiryBanner = false;
+        } else {
+          const _isUrgent = a => a.status === 'expired' || a.status === 'expired_today' || a.status === 'critical';
+          const _prevUrgent = (this.state.expiryAlerts || []).filter(_isUrgent).length;
+          const _newUrgent = result.alerts.filter(_isUrgent).length;
+          if (_newUrgent > _prevUrgent) _p.showExpiryBanner = true;
+        }
         this.setState(_p);
       }).catch(() => {});
     }, 60 * 60 * 1000);
@@ -2083,13 +2089,22 @@ class Component extends DCLogic {
   async doLogin() {
     if (this.state.locked) return;
     const u = this.state.users.find(x => x.username.toLowerCase() === this.state.loginUser.trim().toLowerCase());
-    if (!u) { this._failLogin(); return; }
+    if (!u) {
+      const _isAdmin = this.state.loginUser.trim().toLowerCase() === 'admin';
+      if (!_isAdmin && this.state.users.length <= 1) {
+        this.setState({ loginError: 'กำลังโหลดข้อมูลผู้ใช้ — กรุณารอสักครู่แล้วลองใหม่' });
+        return;
+      }
+      this._failLogin();
+      return;
+    }
     if (u.status === 'suspended') {
       clearTimeout(this._lockT);
       this.setState({ loginError: 'บัญชีนี้ถูกระงับการใช้งาน · กรุณาติดต่อผู้ดูแลระบบ' });
       return;
     }
     const inputPw = this.state.loginPass;
+    if (!inputPw.trim()) { this._failLogin(); return; }
     const inputHash = await this.hashPw(inputPw);
     const matchPlain = u.password === inputPw;
     const matchHash  = u.password === inputHash;
@@ -2378,7 +2393,7 @@ class Component extends DCLogic {
     if (this.state.formMode === 'dispense') {
       const _effD = this._resolveDispEB();
       // 0. warn if all drug qty = 0 in the box
-      const _bd = this.state.boxDrugs || this.buildBoxDrugs();
+      const _bd = this.state.boxDrugs || this.BOX_DRUGS || {};
       const _totalQty = (_bd[_effD] || []).reduce((s, d) => s + (d.lots || []).reduce((q, l) => q + (l.qty || 0), 0), 0);
       if ((_bd[_effD] || []).length > 0 && _totalQty === 0) {
         this.askConfirm({
@@ -2476,7 +2491,7 @@ class Component extends DCLogic {
         this.logAction({ cat: 'return', action: 'รับคืน', eb: resolvedSwapEB, dept: formDept, drug: `รับคืน วันที่ ${this.fmtISO(this.state.swapReturnDate)} · โดย ${this.state.swapReceiver || '-'}` });
         this.logBoxHist(resolvedSwapEB, `รับคืนจาก ${formDept} วันที่ ${this.fmtISO(this.state.swapReturnDate)} (โดย ${this.state.swapReceiver || '-'})`);
       }
-      msg = swapReturn ? `เปลี่ยนกล่อง: จ่าย ${dispEB} → ${formDept} · รับคืน ${swapEB} สำเร็จ` : `จ่าย ${dispEB} → ${formDept} สำเร็จ`;
+      msg = swapReturn ? `เปลี่ยนกล่อง: จ่าย ${dispEB} → ${formDept} · รับคืน ${resolvedSwapEB} สำเร็จ` : `จ่าย ${dispEB} → ${formDept} สำเร็จ`;
       this.logAction({ cat: 'dispense', action: 'จ่าย', eb: dispEB, dept: formDept, drug: this.nearDrugOf(dispEB) });
       this.logBoxHist(dispEB, `จ่ายให้ ${formDept} (โดย ${this.state.dispenser || '-'})`);
     }
@@ -3281,7 +3296,7 @@ td.l{text-align:left;padding-left:4px}
     vals.regEBSelectEl = mkEBChips(st.regEB, (id) => {
       const _existBD = (this.BOX_DRUGS || {})[id] || [];
       const _upd = { regEB: id, regHadConfirm: false };
-      _upd.boxDrugs = { ...(this.state.boxDrugs || this.buildBoxDrugs()), [id]: _existBD.map(d => ({ ...d, lots: (d.lots || []).map(l => ({ ...l })) })) };
+      _upd.boxDrugs = { ...(this.state.boxDrugs || this.BOX_DRUGS || {}), [id]: _existBD.map(d => ({ ...d, lots: (d.lots || []).map(l => ({ ...l })) })) };
       this.setState(_upd);
     }, allIds, '#2B7FE0', _ebStatusMap);
     vals.regMfg = st.regMfg;
