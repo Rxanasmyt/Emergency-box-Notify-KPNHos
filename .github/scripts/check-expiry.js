@@ -160,7 +160,7 @@ function buildLineMessage(alerts) {
   if (expired.length) {
     msg += `\n🔴 หมดอายุแล้ว (${expired.length} รายการ)\n`;
     expired.forEach(a => {
-      msg += `• ${a.boxId} · ${a.dept}\n  ${a.drugName}${a.isHAD ? ' ⚠️HAD' : ''}\n  หมด: ${a.expiryThai} (เกิน ${Math.abs(a.daysLeft)} วัน)\n`;
+      msg += `• ${a.boxId} · ${a.dept}\n  ${a.drugName}${a.isHAD ? ' ⚠️HAD' : ''}\n  หมด: ${a.expiryThai} (${a.daysLeft === 0 ? 'หมดอายุวันนี้' : `เกิน ${Math.abs(a.daysLeft)} วัน`})\n`;
     });
   }
   if (critical.length) {
@@ -273,7 +273,7 @@ function buildHtmlEmail(alerts) {
           ${hadAlerts.map(a => {
             const color = a.status === 'expired' ? '#B42121' : a.status === 'critical' ? '#9A5000' : '#7B4F00';
             const boxStatusLabel = a.boxStatus === 'out' ? `<span style="color:#D9810F;font-weight:700">จ่ายออก</span><br><span style="font-size:11px;color:#7B6030">${escHtml(a.boxCurrentDept)}</span>` : `<span style="color:#169C7F;font-weight:700">อยู่ที่คลัง</span>`;
-            const days = a.daysLeft < 0 ? `เกิน ${Math.abs(a.daysLeft)} วัน` : `เหลือ ${a.daysLeft} วัน`;
+            const days = a.daysLeft < 0 ? `เกิน ${Math.abs(a.daysLeft)} วัน` : a.daysLeft === 0 ? 'หมดอายุวันนี้' : `เหลือ ${a.daysLeft} วัน`;
             return `<tr style="background:#FFF8F8">
               <td style="padding:8px 10px;border-bottom:1px solid #F5C6C6;font-weight:700;color:#B42121">${escHtml(a.boxId)}</td>
               <td style="padding:8px 10px;border-bottom:1px solid #F5C6C6">${boxStatusLabel}</td>
@@ -310,7 +310,7 @@ function buildHtmlEmail(alerts) {
   const rows = alerts.slice(0, 50).map((a, i) => {
     const color = a.status === 'expired' ? '#B42121' : a.status === 'critical' ? '#9A5000' : a.status === 'warning' ? '#7B4F00' : '#1A6FA3';
     const rowBg = i % 2 === 0 ? '#FFFFFF' : '#F9FBFC';
-    const days = a.daysLeft < 0 ? `เกิน ${Math.abs(a.daysLeft)} วัน` : `เหลือ ${a.daysLeft} วัน`;
+    const days = a.daysLeft < 0 ? `เกิน ${Math.abs(a.daysLeft)} วัน` : a.daysLeft === 0 ? 'หมดอายุวันนี้' : `เหลือ ${a.daysLeft} วัน`;
     const boxStatusLabel = a.boxStatus === 'out'
       ? `<span style="color:#D9810F;font-weight:700">จ่ายออก</span><br><span style="font-size:11px;color:#7B6030">${escHtml(a.boxCurrentDept)}</span>`
       : `<span style="color:#169C7F;font-weight:700">อยู่ที่คลัง</span>`;
@@ -389,7 +389,7 @@ function buildPlainText(alerts) {
 
   const line = (a) => {
     const boxInfo = a.boxStatus === 'out' ? `จ่ายออก → ${a.boxCurrentDept}` : 'อยู่ที่คลัง';
-    const days = a.daysLeft < 0 ? `เกิน ${Math.abs(a.daysLeft)} วัน` : `เหลือ ${a.daysLeft} วัน`;
+    const days = a.daysLeft < 0 ? `เกิน ${Math.abs(a.daysLeft)} วัน` : a.daysLeft === 0 ? 'หมดอายุวันนี้' : `เหลือ ${a.daysLeft} วัน`;
     return `  - ${a.boxId} [${boxInfo}]  ${a.drugName}${a.isHAD ? ' [HAD]' : ''}  จำนวน ${a.qty}  ส่งคืนภายใน: ${a.returnDeadlineThai}  หมดอายุ: ${a.expiryThai} (${days})`;
   };
 

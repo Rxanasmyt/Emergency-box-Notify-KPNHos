@@ -1794,6 +1794,7 @@ class Component extends DCLogic {
     const uName = user ? user.name : '';
     const isPharm = user && (user.role === 'pharmacist' || user.role === 'admin');
     const patch = { formMode, regPrinted: false, regHadConfirm: false, swapReturn: false,
+      swapRetDrugUsage: {}, retDrugUsage: {},
       dispDate: (this.state.dispDate && this.state.dispDate >= today) ? this.state.dispDate : today,
       retDate: (this.state.retDate && this.state.retDate >= today) ? this.state.retDate : today,
       swapReturnDate: (this.state.swapReturnDate && this.state.swapReturnDate >= today) ? this.state.swapReturnDate : today,
@@ -2732,7 +2733,7 @@ td.l{text-align:left;padding-left:4px}
     // _syncBox has already updated this.BOXES before resetForm is called from submit()
     const inStockIds = this.BOXES.filter(b => !(b.dispense && !b.receiver)).map(b => b.id);
     const outIds     = this.BOXES.filter(b =>  b.dispense && !b.receiver).map(b => b.id);
-    if (m === 'register') this.setState({ regMfg: '', regPreparer: '', regChecker: '', regHadConfirm: false, regPrinted: false, boxDrugs: null });
+    if (m === 'register') this.setState({ regEB: '', regMfg: '', regPreparer: '', regChecker: '', regHadConfirm: false, regPrinted: false, boxDrugs: null });
     else if (m === 'dispense') this.setState({ dispEB: inStockIds[0] || '', formDept: 'ER', dispenser: uName, swapReturn: false, swapEB: '', swapReceiver: '', swapRetDrugUsage: {}, retDrugUsage: {}, dispDate: today, swapReturnDate: today });
     else this.setState({ retEB: outIds[0] || '', retReceiver: uName, retDate: today, retDrugUsage: {}, swapRetDrugUsage: {} });
   }
@@ -3288,7 +3289,7 @@ td.l{text-align:left;padding-left:4px}
     // box info card (read-only, shows registration data)
     const boxInfoCard = (b, accentColor, BD_arg) => {
       if (!b) return null;
-      const bexp = this.boxExpiryISO(b.id, BD_arg || st.boxDrugs);
+      const bexp = this.boxExpiryISO(b.id, BD_arg || BDdash);
       const status = this.statusOf(bexp);
       const rows = [
         ['วันหมดอายุยา', this.fmtISO(bexp), status.color],
@@ -3644,7 +3645,7 @@ td.l{text-align:left;padding-left:4px}
       nearDrug: this.nearDrugOf(box.id, BD),
       returnText: this.fmt(this.addDays(boxExp, -15)),
       dispenseText: dispensed ? this.fmtISO(box.dispense) : 'ยังไม่ถูกเบิก',
-      dispenser: dispensed ? (box.dispenser || '—') : '—',
+      dispenser: dispensed ? (box.dispenser || '—') : '',
       returnStateText: returned ? `รับคืนแล้ว` : (dispensed ? 'ยังไม่รับคืน — รออยู่ที่หน่วยงาน' : 'อยู่ในคลัง'),
       receiver: returned ? `โดย ${box.receiver}` : (dispensed ? `กำหนดส่งคืน ${this.fmt(this.addDays(boxExp, -15))}` : 'พร้อมจ่าย'),
       returnColor: returned ? '#169C7F' : bStatus.color,
