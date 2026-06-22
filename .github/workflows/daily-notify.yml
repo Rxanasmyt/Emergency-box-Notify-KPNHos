@@ -2,7 +2,7 @@ name: Daily Drug Expiry Notification
 
 on:
   schedule:
-    - cron: '0 1 * * *'   # 08:00 น. เวลาไทย (UTC+7 = 01:00 UTC)
+    - cron: '0 20 * * *'  # ตั้ง 03:00 น. ไทย (UTC+7 → 20:00 UTC วันก่อน) เผื่อ GH delay ~5 ชม. → ถึงมือ ~08:00 น.
   workflow_dispatch:        # กดรันมือได้จาก GitHub Actions tab
 
 jobs:
