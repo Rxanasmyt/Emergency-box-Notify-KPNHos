@@ -1971,7 +1971,7 @@ class Component extends DCLogic {
     }
     this._bdBackup = null;
     this.BOX_DRUGS = { ...(this.BOX_DRUGS || {}), [id]: drugs };
-    this.setState({ editDrugs: false, saveSuccess: Date.now() });
+    this.setState({ editDrugs: false, saveSuccess: Date.now(), boxDrugs: null });
     setTimeout(() => this.setState({ saveSuccess: null }), 1600);
     if (window.EB_Sync) window.EB_Sync.syncBoxDrugs(id, drugs).then(null, () => {
       this.flash('⚠️ บันทึกข้อมูลยาไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
@@ -2091,7 +2091,7 @@ class Component extends DCLogic {
   }
   async doLogin() {
     if (this.state.locked) return;
-    const u = this.state.users.find(x => x.username.toLowerCase() === this.state.loginUser.trim().toLowerCase());
+    let u = this.state.users.find(x => x.username.toLowerCase() === this.state.loginUser.trim().toLowerCase());
     if (!u) {
       const _isAdmin = this.state.loginUser.trim().toLowerCase() === 'admin';
       if (!_isAdmin && this.state.users.length <= 1) {
@@ -2117,7 +2117,7 @@ class Component extends DCLogic {
       const upgraded = { ...u, password: inputHash };
       this.setState(s => ({ users: s.users.map(x => x.username === u.username ? upgraded : x) }));
       if (window.EB_Sync) window.EB_Sync.syncUsers(upgraded);
-      u.password = inputHash;
+      u = upgraded;
     }
     const lastLogin = `${this.fmt(this.TODAY)} ${this.nowTime()}`;
     const updatedU = { ...u, lastLogin };
@@ -2288,11 +2288,13 @@ class Component extends DCLogic {
     if (!this.state.currentUser || this.state.currentUser.role !== 'admin') return;
     if (username === this.state.currentUser.username) { this.flash('ไม่สามารถลบบัญชีของตัวเองได้'); return; }
     const u = this.state.users.find(x => x.username === username);
-    this.setState(s => ({ users: s.users.filter(u => u.username !== username) }));
-    this.flash('ลบบัญชีผู้ใช้แล้ว');
     if (u) {
+      this.setState(s => ({ users: s.users.filter(x => x.username !== username) }));
+      this.flash('ลบบัญชีผู้ใช้แล้ว');
       if (window.EB_Sync) window.EB_Sync.deleteUser(u);
       this.logAction({ cat: 'user', action: 'ลบผู้ใช้', eb: '—', dept: u.dept, drug: `ลบบัญชี ${u.name} (${u.username})` });
+    } else {
+      this.flash('ไม่พบบัญชีผู้ใช้');
     }
   }
   async addUser() {
@@ -3304,9 +3306,9 @@ td.l{text-align:left;padding-left:4px}
 
     // ===== STEP 1: REGISTER =====
     vals.regEBSelectEl = mkEBChips(st.regEB, (id) => {
-      const _existBD = (this.BOX_DRUGS || {})[id] || [];
+      const _existBD = (st.boxDrugs || this.BOX_DRUGS || {})[id] || [];
       const _upd = { regEB: id, regHadConfirm: false };
-      _upd.boxDrugs = { ...(this.BOX_DRUGS || {}), [id]: _existBD.map(d => ({ ...d, lots: (d.lots || []).map(l => ({ ...l })) })) };
+      _upd.boxDrugs = { ...(st.boxDrugs || this.BOX_DRUGS || {}), [id]: _existBD.map(d => ({ ...d, lots: (d.lots || []).map(l => ({ ...l })) })) };
       this.setState(_upd);
     }, allIds, '#2B7FE0', _ebStatusMap);
     vals.regMfg = st.regMfg;
@@ -3409,7 +3411,7 @@ td.l{text-align:left;padding-left:4px}
     const dispBox = this.BOXES.find(b => b.id === (inStockIds.includes(st.dispEB) ? st.dispEB : inStockIds[0]));
     let dispWarn = null;
     if (dispBox) {
-      const dexp = this.boxExpiryISO(dispBox.id);
+      const dexp = this.boxExpiryISO(dispBox.id, BDdash);
       const dstatus = this.statusOf(dexp);
       const dlist = (regBD[dispBox.id]) || [];
       const low = dlist.filter(d => this.drugQty(d) < d.par);
@@ -3642,7 +3644,7 @@ td.l{text-align:left;padding-left:4px}
       nearDrug: this.nearDrugOf(box.id, BD),
       returnText: this.fmt(this.addDays(boxExp, -15)),
       dispenseText: dispensed ? this.fmtISO(box.dispense) : 'ยังไม่ถูกเบิก',
-      dispenser: (dispensed && !returned) ? box.dispenser : 'อยู่ในคลังพร้อมใช้',
+      dispenser: dispensed ? (box.dispenser || '—') : '—',
       returnStateText: returned ? `รับคืนแล้ว` : (dispensed ? 'ยังไม่รับคืน — รออยู่ที่หน่วยงาน' : 'อยู่ในคลัง'),
       receiver: returned ? `โดย ${box.receiver}` : (dispensed ? `กำหนดส่งคืน ${this.fmt(this.addDays(boxExp, -15))}` : 'พร้อมจ่าย'),
       returnColor: returned ? '#169C7F' : bStatus.color,
