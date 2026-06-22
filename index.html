@@ -1809,7 +1809,7 @@ class Component extends DCLogic {
     const _all     = this.BOXES.map(b => b.id);
     if (formMode === 'dispense' && !_inStock.includes(this.state.dispEB)) patch.dispEB = _inStock[0] || '';
     if (formMode === 'return'   && !_out.includes(this.state.retEB))      patch.retEB  = _out[0]     || '';
-    if (formMode === 'register' && !_all.includes(this.state.regEB))      patch.regEB  = _all[0]     || '';
+    if (formMode === 'register' && !_inStock.includes(this.state.regEB))   patch.regEB  = _inStock[0] || '';
     patch.boxDrugs = null;
     this.setState(patch);
   }
@@ -2129,15 +2129,15 @@ class Component extends DCLogic {
       if (this.state.remember) localStorage.setItem('eb_remember_user', u.username);
       else localStorage.removeItem('eb_remember_user');
     } catch (_) {}
-    this.setState({ authed: true, currentUser: updatedU, loginError: '', attempts: 0, locked: false, loginPass: '', screen: 'dashboard',
-      users: this.state.users.map(x => x.username === u.username ? updatedU : x),
+    this.setState(s => ({ authed: true, currentUser: updatedU, loginError: '', attempts: 0, locked: false, loginPass: '', screen: 'dashboard',
+      users: s.users.map(x => x.username === u.username ? updatedU : x),
       dispDate: _today, retDate: _today, swapReturnDate: _today, regPrinted: false,
       dispenser: u.name,
       retReceiver: u.name,
       swapReceiver: u.name,
       regPreparer: (u.role === 'pharmacist' || u.role === 'admin') ? '' : u.name,
       regChecker:  (u.role === 'pharmacist' || u.role === 'admin') ? u.name : '',
-    });
+    }));
     // anon auth already started in componentDidMount — just start remaining Firestore sync
     if (window.EB_Sync) {
       window.EB_Sync.initFirebaseSync(this);
@@ -2733,7 +2733,7 @@ td.l{text-align:left;padding-left:4px}
     // _syncBox has already updated this.BOXES before resetForm is called from submit()
     const inStockIds = this.BOXES.filter(b => !(b.dispense && !b.receiver)).map(b => b.id);
     const outIds     = this.BOXES.filter(b =>  b.dispense && !b.receiver).map(b => b.id);
-    if (m === 'register') this.setState({ regEB: '', regMfg: '', regPreparer: '', regChecker: '', regHadConfirm: false, regPrinted: false, boxDrugs: null });
+    if (m === 'register') this.setState({ regEB: inStockIds[0] || '', regMfg: '', regPreparer: '', regChecker: '', regHadConfirm: false, regPrinted: false, boxDrugs: null });
     else if (m === 'dispense') this.setState({ dispEB: inStockIds[0] || '', formDept: 'ER', dispenser: uName, swapReturn: false, swapEB: '', swapReceiver: '', swapRetDrugUsage: {}, retDrugUsage: {}, dispDate: today, swapReturnDate: today });
     else this.setState({ retEB: outIds[0] || '', retReceiver: uName, retDate: today, retDrugUsage: {}, swapRetDrugUsage: {} });
   }
@@ -3444,7 +3444,7 @@ td.l{text-align:left;padding-left:4px}
         const firstOut = this.BOXES.filter(b => b.dispense && !b.receiver).map(b => b.id)[0] || '';
         return { swapReturn: true, swapEB: s.swapEB || firstOut, swapReceiver: s.swapReceiver || uName };
       }
-      return { swapReturn: false };
+      return { swapReturn: false, swapEB: '', swapReceiver: '', swapReturnDate: this.isoOf(this.TODAY), swapRetDrugUsage: {} };
     });
     vals.swapReturn = st.swapReturn;
     vals.swapCheckEl = h('span', { key: 'swapchk_' + st.swapReturn, style: { width: 24, height: 24, flexShrink: 0, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', border: st.swapReturn ? '1.5px solid #1A6FA3' : '1.5px solid #C4D0DA', background: st.swapReturn ? '#1A6FA3' : '#fff' } },
@@ -3575,12 +3575,12 @@ td.l{text-align:left;padding-left:4px}
     vals.detailQuickActionsEl = h('div', { style: { display: 'flex', gap: 8, marginTop: 14, paddingTop: 14, borderTop: '1px solid #EFF3F6' } },
       !selBoxOut ? h('button', {
         className: 'btn-primary quick-act-btn',
-        onClick: () => this.setState({ screen: 'entry', formMode: 'dispense', dispEB: st.selectedEB, swapReturn: false, regPrinted: false }),
+        onClick: () => { this.go2('dispense'); this.setState({ screen: 'entry', dispEB: st.selectedEB }); },
         style: { flex: 1, height: 44, borderRadius: 11, border: 'none', background: 'linear-gradient(135deg,#1E4FD8,#2B7FE0)', color: '#fff', fontFamily: 'inherit', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, boxShadow: '0 4px 14px rgba(43,127,224,.4)', transition: 'all .22s cubic-bezier(.34,1.56,.64,1)' },
       }, ic('<svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M4 12h13m0 0l-5-5m5 5l-5 5" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',15), 'จ่าย EB นี้') : null,
       selBoxOut ? h('button', {
         className: 'btn-primary quick-act-btn',
-        onClick: () => this.setState({ screen: 'entry', formMode: 'return', retEB: st.selectedEB }),
+        onClick: () => { this.go2('return'); this.setState({ screen: 'entry', retEB: st.selectedEB }); },
         style: { flex: 1, height: 44, borderRadius: 11, border: 'none', background: 'linear-gradient(135deg,#059669,#0DB9A0)', color: '#fff', fontFamily: 'inherit', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, boxShadow: '0 4px 14px rgba(13,185,160,.4)', transition: 'all .22s cubic-bezier(.34,1.56,.64,1)' },
       }, ic('<svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M20 12H7m0 0l5-5m-5 5l5 5" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',15), 'รับคืน EB นี้') : null,
     );
