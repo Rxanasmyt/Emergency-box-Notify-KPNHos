@@ -1766,7 +1766,7 @@ class Component extends DCLogic {
         title: 'ออกจากการแก้ไขยา?',
         body: 'การแก้ไขยาที่ยังไม่ได้บันทึกจะหายไป ยืนยันออกโดยไม่บันทึก?',
         yesLabel: 'ออกโดยไม่บันทึก', noLabel: 'กลับไปแก้ไข',
-        onYes: () => { this._bdBackup = null; this.setState({ ...patch, editDrugs: false, boxDrugs: screen !== 'entry' ? null : this.state.boxDrugs }); },
+        onYes: () => { this._bdBackup = null; this.setState({ ...patch, editDrugs: false, boxDrugs: null }); },
       });
       return false;
     }
@@ -2802,7 +2802,19 @@ td.l{text-align:left;padding-left:4px}
       goDashboard: () => this.go('dashboard'),
       goEntry: () => this.go('entry'),
       goDetail: () => this.go('detail'),
-      goEntryReturn: () => { if (this.go('entry') !== false) this.go2('return'); },
+      goEntryReturn: () => {
+        if (this.state.editDrugs) {
+          this.askConfirm({
+            tone: 'warn', icon: 'warn',
+            title: 'ออกจากการแก้ไขยา?',
+            body: 'การแก้ไขยาที่ยังไม่ได้บันทึกจะหายไป ยืนยันออกโดยไม่บันทึก?',
+            yesLabel: 'ออกโดยไม่บันทึก', noLabel: 'กลับไปแก้ไข',
+            onYes: () => { this._bdBackup = null; this.setState({ screen: 'entry', editDrugs: false, boxDrugs: null }); this.go2('return'); },
+          });
+          return;
+        }
+        if (this.go('entry') !== false) this.go2('return');
+      },
       goHistory: () => this.go('history'),
       showToast: st.showToast,
       toastTitle: st.toastTitle,
