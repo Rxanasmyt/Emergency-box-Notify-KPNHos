@@ -3296,7 +3296,7 @@ td.l{text-align:left;padding-left:4px}
         ['กำหนดส่งคืน', this.fmt(this.addDays(bexp, -15)), '#15242E'],
         ['สถานะ', status.label + ' · ' + this.daysText(bexp), status.color],
       ];
-      if (b.dispense) { rows.unshift(['จ่ายให้', `${b.dept} · ${this.fmtISO(b.dispense)}`, '#15242E']); }
+      if (b.dispense) { rows.unshift(['จ่ายให้', `${b.dept || '—'} · ${this.fmtISO(b.dispense)}`, '#15242E']); }
       return h('div', { key: 'boxinfo_' + b.id, style: { display: 'grid', gridTemplateColumns: `repeat(${rows.length}, 1fr)`, gap: 1, background: '#EFF3F6', border: '1px solid #E7EEF3', borderRadius: 13, overflow: 'hidden' } },
         ...rows.map((r, i) => h('div', { key: i, style: { background: '#FAFCFD', padding: '12px 14px' } },
           h('div', { style: { fontSize: 11, color: '#9AAAB8', fontWeight: 500 } }, r[0]),
@@ -3331,7 +3331,7 @@ td.l{text-align:left;padding-left:4px}
       const isNear = dExp === regNearISO;
       const totalQty = this.drugQty(d);
       const qtyOk = totalQty >= d.par;
-      const lotRows = d.lots.map((lot, li) => {
+      const lotRows = (d.lots || []).map((lot, li) => {
         const lotIsMin = lot.expiry === dExp && lot.expiry === regNearISO;
         return h('div', { key: li, style: { display: 'flex', alignItems: 'center', gap: 8, marginTop: li > 0 ? 6 : 0 } },
           h('span', { style: { fontSize: 10.5, color: '#9AAAB8', fontWeight: 600, width: 42, textAlign: 'right', flexShrink: 0 } }, `Lot ${li + 1}`),
@@ -3640,7 +3640,7 @@ td.l{text-align:left;padding-left:4px}
     const dispensed = !!box.dispense;
     const meta = (st.boxMeta || {})[box.id] || {};
     vals.box = {
-      id: box.id, dept: box.dept, statusLabel: bStatus.label, color: bStatus.color, soft: bStatus.soft, border: bStatus.border,
+      id: box.id, dept: box.dept || '', statusLabel: bStatus.label, color: bStatus.color, soft: bStatus.soft, border: bStatus.border,
       mfgText: this.fmtISO(meta.mfg || box.mfg), expiryText: this.fmtISO(boxExp),
       nearDrug: this.nearDrugOf(box.id, BD),
       returnText: this.fmt(this.addDays(boxExp, -15)),
@@ -3700,7 +3700,7 @@ td.l{text-align:left;padding-left:4px}
       const totalQ = this.drugQty(d);
       const qtyOk = totalQ >= d.par;
       const isNearDrug = dExp === this.boxExpiryISO(box.id, BD);
-      const lotEls = d.lots.map((lot, li) => {
+      const lotEls = (d.lots || []).map((lot, li) => {
         const lotIsMin = lot.expiry === dExp && isNearDrug;
         const status = lot.expiry ? this.statusOf(lot.expiry) : null;
         if (editing) {
