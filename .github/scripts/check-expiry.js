@@ -235,8 +235,8 @@ function sendLineMessage(channelToken, message, userId) {
         }
       });
     });
-    req.on('timeout', () => { console.error('❌ LINE timeout (30s)'); req.destroy(); resolve(false); });
-    req.on('error', err => { console.error('❌ LINE error:', err.message); resolve(false); });
+    req.on('timeout', () => { console.error('❌ LINE timeout (30s)'); req.destroy(); });
+    req.on('error', err => { if (err.code !== 'ERR_SOCKET_DESTROYED') console.error('❌ LINE error:', err.message); resolve(false); });
     req.write(payload);
     req.end();
   });
@@ -611,11 +611,12 @@ async function main() {
       console.log('\n📬 ส่งรายงานสรุป (All Clear)');
       const boxCount = await db.collection('boxes').get().then(s => s.size).catch(() => 0);
       const emailSent = await sendAllClearEmail(boxCount);
+      let lineSentAC = false;
       if (process.env.LINE_CHANNEL_TOKEN) {
         const allClearLine = `✅ EB Notify — ไม่พบยาใกล้หมดอายุ\n📦 กล่อง EB ทั้งหมด ${boxCount} กล่อง พร้อมใช้งาน\n📅 ${TODAY.toLocaleDateString('th-TH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`;
-        await sendLineMessage(process.env.LINE_CHANNEL_TOKEN, allClearLine, process.env.LINE_USER_ID || undefined).catch(err => console.error('❌ LINE all-clear error:', err.message));
+        lineSentAC = await sendLineMessage(process.env.LINE_CHANNEL_TOKEN, allClearLine, process.env.LINE_USER_ID || undefined).catch(err => { console.error('❌ LINE all-clear error:', err.message); return false; });
       }
-      if (emailSent) await markSentToday();
+      if (emailSent || lineSentAC) await markSentToday();
     } else {
       console.log('⏭  ไม่ใช่วันจันทร์ — ไม่ส่งแจ้งเตือน');
     }

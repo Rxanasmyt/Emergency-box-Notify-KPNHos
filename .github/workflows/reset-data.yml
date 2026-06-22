@@ -12,9 +12,16 @@ jobs:
   reset:
     name: Clear Firestore Test Data
     runs-on: ubuntu-latest
-    if: github.event.inputs.confirm == 'YES'
 
     steps:
+      - name: Verify confirmation (must be exactly "YES")
+        run: |
+          if [ "${{ github.event.inputs.confirm }}" != "YES" ]; then
+            echo "❌ ยืนยันไม่ถูกต้อง — ต้องพิมพ์ YES (ตัวพิมพ์ใหญ่เท่านั้น) จึงจะลบข้อมูลได้"
+            exit 1
+          fi
+          echo "✅ ยืนยันแล้ว — เริ่มลบข้อมูล Firestore"
+
       - name: Checkout
         uses: actions/checkout@v4
 

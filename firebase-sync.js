@@ -103,7 +103,7 @@ async function seedIfEmpty(){
       component.BOXES.forEach(box=>{const ref=db.collection(C.boxes).doc(box.id);const{id,...data}=box;batch.set(ref,data);});
       await batch.commit();
       const ab=db.batch();
-      component.AUDIT.forEach((a,i)=>{const ref=db.collection(C.audit).doc('audit-'+i);ab.set(ref,a);});
+      component.AUDIT.filter(a=>a.date).forEach((a,i)=>{const ref=db.collection(C.audit).doc('audit-'+i);ab.set(ref,a);});
       await ab.commit();
     }
     // seed box_drugs separately — may be empty even when boxes exist
@@ -177,7 +177,8 @@ function syncBoxes(box){
 function syncUsers(user){
   if(!db)return Promise.resolve();
   const{uid,...data}=user;
-  const docId=uid||user.username||db.collection(C.users).doc().id;
+  const docId=uid||user.username;
+  if(!docId){console.error('[Sync] syncUsers: missing uid and username — write skipped');return Promise.resolve();}
   return db.collection(C.users).doc(docId).set(data,{merge:true}).catch(err=>console.error('[Sync] User write failed:',err.message));
 }
 function syncBoxDrugs(boxId,drugs){
