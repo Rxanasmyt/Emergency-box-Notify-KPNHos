@@ -3136,7 +3136,7 @@ td.l{text-align:left;padding-left:4px}
       .filter(x => x.status.key !== 'ok')
       .sort((a, z) => a.days - z.days)
       .map(({ b, status }) => ({
-        id: b.id, dept: b.dept, nearDrug: this.nearDrugOf(b.id, BDdash), expiryText: this.fmtISO(exp(b)),
+        id: b.id, dept: b.dept || '—', nearDrug: this.nearDrugOf(b.id, BDdash), expiryText: this.fmtISO(exp(b)),
         daysText: this.daysText(exp(b)), color: status.color, soft: status.soft, border: status.border,
         statusKey: status.key,
       }));
@@ -3947,7 +3947,7 @@ td.l{text-align:left;padding-left:4px}
     });
     vals.showChangePw = st.showChangePw;
     vals.changePwUsername = st.changePwUsername;
-    const cpwTarget = st.changePwUsername ? st.users.find(u => u.username === st.changePwUsername) : null;
+    const cpwTarget = st.changePwUsername ? (st.users || []).find(u => u.username === st.changePwUsername) : null;
     vals.changePwModalEl = !st.showChangePw ? null : h('div', { onClick: () => this.setState({ showChangePw: false }), style: { position: 'fixed', inset: 0, background: 'rgba(14,42,60,.45)', zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center' } },
       h('div', { onClick: (e) => e.stopPropagation(), style: { background: '#fff', borderRadius: 18, padding: '28px 30px', width: 360, boxShadow: '0 12px 48px rgba(0,0,0,.18)' } },
         h('div', { style: { fontWeight: 700, fontSize: 16, color: '#15242E', marginBottom: 4 } }, 'เปลี่ยนรหัสผ่าน'),

@@ -173,7 +173,6 @@
     const firestoreSettings = await loadFromFirestore();
     if (firestoreSettings) {
       Object.assign(settings, firestoreSettings);
-      saveSettings(settings);
       if (!settings.enabled && !force) return { alerts: [], sent: false };
     }
 
