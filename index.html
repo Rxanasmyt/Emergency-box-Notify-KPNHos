@@ -2183,9 +2183,9 @@ class Component extends DCLogic {
     clearTimeout(this._idleT); clearTimeout(this._idleWarnT); clearTimeout(this._syncT);
     clearTimeout(this._lockT); clearTimeout(this._t); clearTimeout(this._a);
     clearInterval(this._idleCountI); clearInterval(this._notifyInterval); clearInterval(this._lockCountI);
+    if (window.EB_Sync) window.EB_Sync.stopSync();
     this.BOXES = [];
     this.BOX_DRUGS = {};
-    if (window.EB_Sync) window.EB_Sync.stopSync();
     this.setState({
       authed: false, currentUser: null, loginUser: '', loginPass: '', showPass: false, screen: 'dashboard',
       loginError: '', attempts: 0, locked: false, lockCountdown: 0,
@@ -2470,11 +2470,14 @@ class Component extends DCLogic {
       const dispEB = this._resolveDispEB() || this.state.dispEB;
       if (!dispEB) { this.setState({ submitting: false }); this.flash('ข้อผิดพลาด: ไม่พบกล่องยาที่เลือก'); return; }
       const box = this.BOXES.find(b => b.id === dispEB) || { id: dispEB };
-      this._syncBox({ ...box, dept: formDept, dispense: this.state.dispDate, dispenser: this.state.dispenser, receiver: '' });
+      // resolve swap box BEFORE syncing dispense — prevents the just-dispensed box from entering the out-list fallback
       let resolvedSwapEB = '';
       if (swapReturn) {
-        const _swOutIds = this.BOXES.filter(b => b.dispense && !b.receiver).map(b => b.id);
+        const _swOutIds = this.BOXES.filter(b => b.dispense && !b.receiver && b.id !== dispEB).map(b => b.id);
         resolvedSwapEB = (swapEB && _swOutIds.includes(swapEB)) ? swapEB : (_swOutIds[0] || swapEB);
+      }
+      this._syncBox({ ...box, dept: formDept, dispense: this.state.dispDate, dispenser: this.state.dispenser, receiver: '' });
+      if (swapReturn) {
         const swBox = this.BOXES.find(b => b.id === resolvedSwapEB) || { id: resolvedSwapEB };
         this._syncBox({ ...swBox, receiver: this.state.swapReceiver, retDate: this.state.swapReturnDate, dispense: '', dispenser: '', dept: '' });
         const _swPrevDrugs = (this.BOX_DRUGS || {})[resolvedSwapEB] || [];
@@ -2486,6 +2489,7 @@ class Component extends DCLogic {
             })).filter(l => l.qty > 0)
           }));
           if (window.EB_Sync) window.EB_Sync.syncBoxDrugs(resolvedSwapEB, _swUpdated);
+          this.BOX_DRUGS = { ...(this.BOX_DRUGS || {}), [resolvedSwapEB]: _swUpdated };
           const _swSummary = _swPrevDrugs.map((drug, di) => {
             const _used = Object.values((_swUsage[di] || {})).reduce((s, q) => s + q, 0);
             return _used > 0 ? `${drug.name} ใช้ ${_used}` : null;
@@ -2516,6 +2520,7 @@ class Component extends DCLogic {
           return { ...drug, lots: _updatedLots };
         });
         if (window.EB_Sync) window.EB_Sync.syncBoxDrugs(retEB, _updatedDrugs);
+        this.BOX_DRUGS = { ...(this.BOX_DRUGS || {}), [retEB]: _updatedDrugs };
         // log drug usage summary
         const _usageSummary = _prevDrugs.map((drug, di) => {
           const _totalUsed = Object.values(retDrugUsage[di] || {}).reduce((s, q) => s + q, 0);
@@ -3300,7 +3305,7 @@ td.l{text-align:left;padding-left:4px}
     vals.regEBSelectEl = mkEBChips(st.regEB, (id) => {
       const _existBD = (this.BOX_DRUGS || {})[id] || [];
       const _upd = { regEB: id, regHadConfirm: false };
-      _upd.boxDrugs = { ...(this.state.boxDrugs || this.BOX_DRUGS || {}), [id]: _existBD.map(d => ({ ...d, lots: (d.lots || []).map(l => ({ ...l })) })) };
+      _upd.boxDrugs = { ...(this.BOX_DRUGS || {}), [id]: _existBD.map(d => ({ ...d, lots: (d.lots || []).map(l => ({ ...l })) })) };
       this.setState(_upd);
     }, allIds, '#2B7FE0', _ebStatusMap);
     vals.regMfg = st.regMfg;
@@ -3447,7 +3452,7 @@ td.l{text-align:left;padding-left:4px}
 
     // drug usage table for swap-return in dispense form
     const _swapEBU = st.swapEB && outIds.includes(st.swapEB) ? st.swapEB : outIds[0];
-    const _swapDrugsU = _swapEBU ? ((this.BOX_DRUGS || {})[_swapEBU] || []) : [];
+    const _swapDrugsU = _swapEBU ? (BDdash[_swapEBU] || []) : [];
     vals.swapRetDrugUsageEl = st.swapReturn && _swapDrugsU.length > 0 ? h('div', { style: { marginTop: 14, paddingTop: 14, borderTop: '1px solid #ECF1F5' } },
       h('label', { style: { display: 'block', fontSize: 12, fontWeight: 600, color: '#4A5C6A', marginBottom: 10 } },
         'บันทึกยาที่ใช้ในกล่องที่รับคืน ',
@@ -3511,7 +3516,7 @@ td.l{text-align:left;padding-left:4px}
 
     // drug usage table for return form
     const _retEBU = outIds.includes(st.retEB) ? st.retEB : outIds[0];
-    const _retDrugsU = _retEBU ? ((this.BOX_DRUGS || {})[_retEBU] || []) : [];
+    const _retDrugsU = _retEBU ? (BDdash[_retEBU] || []) : [];
     vals.retDrugUsageEl = _retDrugsU.length > 0 ? h('div', { style: { marginBottom: 20 } },
       h('label', { style: { display: 'block', fontSize: 12.5, fontWeight: 600, color: '#4A5C6A', marginBottom: 10 } },
         'บันทึกยาที่ใช้ในกล่อง ',
@@ -3636,7 +3641,7 @@ td.l{text-align:left;padding-left:4px}
       nearDrug: this.nearDrugOf(box.id, BD),
       returnText: this.fmt(this.addDays(boxExp, -15)),
       dispenseText: dispensed ? this.fmtISO(box.dispense) : 'ยังไม่ถูกเบิก',
-      dispenser: dispensed ? box.dispenser : 'อยู่ในคลังพร้อมใช้',
+      dispenser: (dispensed && !returned) ? box.dispenser : 'อยู่ในคลังพร้อมใช้',
       returnStateText: returned ? `รับคืนแล้ว` : (dispensed ? 'ยังไม่รับคืน — รออยู่ที่หน่วยงาน' : 'อยู่ในคลัง'),
       receiver: returned ? `โดย ${box.receiver}` : (dispensed ? `กำหนดส่งคืน ${this.fmt(this.addDays(boxExp, -15))}` : 'พร้อมจ่าย'),
       returnColor: returned ? '#169C7F' : bStatus.color,
@@ -4015,7 +4020,8 @@ td.l{text-align:left;padding-left:4px}
       const cIco = { warn: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 3.5l9 16H3l9-16z" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/><path d="M12 10v4.5M12 17.3v.2" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/></svg>',
         trash: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M5 7h14M10 7V5a1.5 1.5 0 0 1 1.5-1.5h1A1.5 1.5 0 0 1 14 5v2M6.5 7l.7 12a2 2 0 0 0 2 1.9h5.6a2 2 0 0 0 2-1.9l.7-12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
         lock: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none"><rect x="4.5" y="10.5" width="15" height="9.5" rx="2.5" stroke="currentColor" stroke-width="1.9"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>',
-        logout: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M14 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 12h10m0 0l-3-3m3 3l-3 3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>' }[cf.icon || 'warn'];
+        logout: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M14 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 12h10m0 0l-3-3m3 3l-3 3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+        reset: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1M3.5 4.5V9H8" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>' }[cf.icon || 'warn'];
       vals.confirmEl = h('div', { onClick: () => this.closeConfirm(), style: { position: 'fixed', inset: 0, background: 'rgba(14,42,60,.5)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 300, animation: 'overlayIn .2s ease both' } },
         h('div', { onClick: (e) => e.stopPropagation(), style: { width: '100%', maxWidth: 420, background: '#fff', borderRadius: 20, padding: '26px 26px 22px', boxShadow: '0 24px 60px rgba(14,42,60,.4)', animation: 'modalPop .3s cubic-bezier(.2,.9,.2,1) both' } },
           h('div', { style: { display: 'flex', gap: 14, marginBottom: 18 } },

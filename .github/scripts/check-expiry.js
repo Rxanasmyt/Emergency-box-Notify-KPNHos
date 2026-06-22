@@ -556,7 +556,7 @@ async function sendAllClearEmail(boxCount) {
   const to   = process.env.EMAIL_TO;
   if (!from || !pass || !to || !to.trim()) { console.log('⚠️  Email: ไม่ได้ตั้งค่า secrets'); return false; }
 
-  const transporter = nodemailer.createTransport({ host: 'smtp.gmail.com', port: 465, secure: true, auth: { user: from, pass } });
+  const transporter = nodemailer.createTransport({ host: 'smtp.gmail.com', port: 465, secure: true, auth: { user: from, pass }, connectionTimeout: 15000, greetingTimeout: 10000, socketTimeout: 20000 });
   const msgId = `<eb-allclear-${Date.now()}@emergencyboxnotyfykpnhos.web.app>`;
   try {
     await transporter.sendMail({
@@ -627,19 +627,19 @@ async function main() {
   // วันจันทร์ → ส่งรายงานเต็มทุกรายการ
   // วันอื่น   → ส่งเฉพาะมียาหมดอายุแล้วหรือวิกฤต (≤15 วัน)
   const urgentAlerts = alerts.filter(a => a.status === 'expired' || a.status === 'critical');
-  const shouldSend = isMonday || urgentAlerts.length > 0;
+  const shouldSend = IS_MANUAL || isMonday || urgentAlerts.length > 0;
 
   if (!shouldSend) {
     console.log('\n⏭  ไม่มียาวิกฤต และไม่ใช่วันจันทร์ — ข้ามการส่งแจ้งเตือนวันนี้');
     process.exit(0);
   }
 
-  // วันจันทร์ส่งทุกรายการ / วันอื่นส่งเฉพาะวิกฤต
-  const alertsToSend = isMonday ? alerts : urgentAlerts;
-  if (!isMonday) {
+  // จันทร์/กดปุ่มเอง → ส่งทุกรายการ / วันอื่น cron → ส่งเฉพาะวิกฤต
+  const alertsToSend = (isMonday || IS_MANUAL) ? alerts : urgentAlerts;
+  if (!isMonday && !IS_MANUAL) {
     console.log(`\n🚨 พบยาวิกฤต ${urgentAlerts.length} รายการ — ส่งแจ้งเตือนด่วน`);
   } else {
-    console.log(`\n📬 วันจันทร์ — ส่งรายงานสัปดาห์ (${alertsToSend.length} รายการ)`);
+    console.log(`\n📬 ${IS_MANUAL ? 'กดปุ่มเอง' : 'วันจันทร์'} — ส่งรายงานทั้งหมด (${alertsToSend.length} รายการ)`);
   }
 
   const lineResult = process.env.LINE_CHANNEL_TOKEN
