@@ -2145,6 +2145,24 @@ class Component extends DCLogic {
       window.EB_Sync.initFirebaseSync(this);
       this._syncT = setTimeout(() => { if (window.EB_Sync) window.EB_Sync.syncUsers(updatedU); }, 1500);
     }
+    // restart hourly expiry check (logout clears it; must re-arm on every login)
+    clearInterval(this._notifyInterval);
+    this._notifyInterval = setInterval(() => {
+      if (!this.state.authed || !window.EB_Notify) return;
+      window.EB_Notify.checkAndNotify(this, false).then(result => {
+        if (!this.state.authed) return;
+        const _p = { expiryAlerts: result.alerts };
+        if (!result.alerts.length) {
+          _p.showExpiryBanner = false;
+        } else {
+          const _isUrgent = a => a.status === 'expired' || a.status === 'expired_today' || a.status === 'critical';
+          const _prevUrgent = (this.state.expiryAlerts || []).filter(_isUrgent).length;
+          const _newUrgent = result.alerts.filter(_isUrgent).length;
+          if (_newUrgent > _prevUrgent) _p.showExpiryBanner = true;
+        }
+        this.setState(_p);
+      }).catch(() => {});
+    }, 60 * 60 * 1000);
     // restore GitHub PAT immediately (not inside the 500ms timeout) so the notify
     // screen field does not flash blank right after login
     if (window.EB_Notify) {
@@ -2307,9 +2325,12 @@ class Component extends DCLogic {
     if (/\s/.test(nu_username.trim())) { this.flash('username ต้องไม่มีช่องว่าง'); return; }
     if (nu_pass && !nu_pass.trim()) { this.flash('รหัสผ่านต้องไม่เป็นช่องว่าง'); return; }
     if (users.some(u => u.username.toLowerCase() === nu_username.trim().toLowerCase())) { this.flash('username นี้มีอยู่แล้ว'); return; }
-    const usedIds = users.map(u => u.id).filter(x => typeof x === 'number' && !isNaN(x));
-    const id = usedIds.length ? Math.max(...usedIds) + 1 : 2;
     const hashed = await this.hashPw(nu_pass.trim() || '1234');
+    // re-check after async gap in case another admin added the same username concurrently
+    const currentUsers = this.state.users;
+    if (currentUsers.some(u => u.username.toLowerCase() === nu_username.trim().toLowerCase())) { this.flash('username นี้มีอยู่แล้ว'); return; }
+    const usedIds = currentUsers.map(u => u.id).filter(x => typeof x === 'number' && !isNaN(x));
+    const id = usedIds.length ? Math.max(...usedIds) + 1 : 2;
     const nu = { id, name: nu_name.trim(), username: nu_username.trim(), password: hashed, role: nu_role, dept: nu_dept.trim() || '-', status: 'active', lastLogin: 'ยังไม่เคยเข้าระบบ' };
     this.setState(s => ({ users: [...s.users, nu], showAddUser: false, nu_name: '', nu_username: '', nu_role: 'technician', nu_dept: 'ห้องยา', nu_pass: '' }));
     if (window.EB_Sync) window.EB_Sync.syncUsers(nu);
@@ -2555,9 +2576,10 @@ class Component extends DCLogic {
     if (!(st.regPreparer || '').trim()) missing.push('ผู้จัดเตรียม');
     if (!(st.regChecker || '').trim()) missing.push('เภสัชกรผู้ตรวจสอบ');
     if (missing.length) { this.flash(`กรอกข้อมูลให้ครบก่อนพิมพ์: ${missing.join(', ')}`); return; }
+    const _esc = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     const mfg = st.regMfg;
-    const preparer = st.regPreparer;
-    const checker = st.regChecker;
+    const preparer = _esc(st.regPreparer);
+    const checker = _esc(st.regChecker);
     const BD = st.boxDrugs || this.BOX_DRUGS || {};
     const drugs = BD[eb] || [];
 

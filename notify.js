@@ -204,7 +204,7 @@
       console.log('[Notify] Notifications sent successfully');
     }
 
-    return { alerts, sent, githubPAT: settings.githubPAT || '' };
+    return { alerts, sent };
   }
 
 
