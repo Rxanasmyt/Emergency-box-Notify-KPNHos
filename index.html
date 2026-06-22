@@ -1147,7 +1147,7 @@ input:focus, select:focus, textarea:focus {
               <h4 style="margin: 0 0 14px; font-size: 13.5px; font-weight: 700; color: #4A5C6A;">บันทึกการจ่าย-รับคืน</h4>
               <div style="display: flex; gap: 12px; align-items: flex-start; margin-bottom: 14px;">
                 <span style="width: 30px; height: 30px; flex-shrink: 0; border-radius: 8px; background: #E4F4EF; color: #169C7F; display: flex; align-items: center; justify-content: center;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M4 12h13m0 0l-5-5m5 5l-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-                <div><div style="font-size: 13px; font-weight: 600;">จ่ายเมื่อ {{ box.dispenseText }}</div><div style="font-size: 12px; color: #7B8D9C; margin-top: 2px;">โดย {{ box.dispenser }}</div></div>
+                <div><div style="font-size: 13px; font-weight: 600;">จ่ายเมื่อ {{ box.dispenseText }}</div><div style="font-size: 12px; color: #7B8D9C; margin-top: 2px;">{{ box.dispenserLine }}</div></div>
               </div>
               <div style="display: flex; gap: 12px; align-items: flex-start;">
                 <span style="width: 30px; height: 30px; flex-shrink: 0; border-radius: 8px; background: {{ box.returnSoft }}; color: {{ box.returnColor }}; display: flex; align-items: center; justify-content: center;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M20 12H7m0 0l5-5m-5 5l5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
@@ -3672,7 +3672,7 @@ td.l{text-align:left;padding-left:4px}
       nearDrug: this.nearDrugOf(box.id, BD),
       returnText: this.fmt(this.addDays(boxExp, -15)),
       dispenseText: dispensed ? this.fmtISO(box.dispense) : 'ยังไม่ถูกเบิก',
-      dispenser: dispensed ? (box.dispenser || '—') : '',
+      dispenserLine: dispensed ? `โดย ${box.dispenser || '—'}` : '',
       returnStateText: returned ? `รับคืนแล้ว` : (dispensed ? 'ยังไม่รับคืน — รออยู่ที่หน่วยงาน' : 'อยู่ในคลัง'),
       receiver: returned ? `โดย ${box.receiver}` : (dispensed ? `กำหนดส่งคืน ${this.fmt(this.addDays(boxExp, -15))}` : 'พร้อมจ่าย'),
       returnColor: returned ? '#169C7F' : bStatus.color,
