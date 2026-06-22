@@ -1771,7 +1771,8 @@ class Component extends DCLogic {
       return;
     }
     if (screen !== 'entry') {
-      const hasUnsaved = this.state.boxDrugs !== null && this.state.formMode === 'register';
+      const _formTouched = !!(this.state.regMfg || (this.state.regPreparer || '').trim() || (this.state.regChecker || '').trim() || this.state.regPrinted);
+      const hasUnsaved = this.state.boxDrugs !== null && this.state.formMode === 'register' && _formTouched;
       if (hasUnsaved) {
         this.askConfirm({
           tone: 'warn', icon: 'warn',
