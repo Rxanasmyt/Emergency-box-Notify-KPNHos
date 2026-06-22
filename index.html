@@ -1970,6 +1970,7 @@ class Component extends DCLogic {
       if (!drug.name || !drug.name.trim()) { this.flash('กรุณากรอกชื่อยาให้ครบทุกรายการ'); return; }
     }
     this._bdBackup = null;
+    this.BOX_DRUGS = { ...(this.BOX_DRUGS || {}), [id]: drugs };
     this.setState({ editDrugs: false, saveSuccess: Date.now() });
     setTimeout(() => this.setState({ saveSuccess: null }), 1600);
     if (window.EB_Sync) window.EB_Sync.syncBoxDrugs(id, drugs).then(null, () => {
@@ -2479,7 +2480,7 @@ class Component extends DCLogic {
       this._syncBox({ ...box, dept: formDept, dispense: this.state.dispDate, dispenser: this.state.dispenser, receiver: '' });
       if (swapReturn) {
         const swBox = this.BOXES.find(b => b.id === resolvedSwapEB) || { id: resolvedSwapEB };
-        this._syncBox({ ...swBox, receiver: this.state.swapReceiver, retDate: this.state.swapReturnDate, dispense: '', dispenser: '', dept: '' });
+        this._syncBox({ ...swBox, receiver: this.state.swapReceiver, retDate: this.state.swapReturnDate, dept: '' });
         const _swPrevDrugs = (this.BOX_DRUGS || {})[resolvedSwapEB] || [];
         if (_swPrevDrugs.length > 0) {
           const _swUsage = this.state.swapRetDrugUsage || {};

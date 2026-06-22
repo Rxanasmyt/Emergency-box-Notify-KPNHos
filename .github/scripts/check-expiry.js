@@ -129,7 +129,7 @@ async function fetchExpiringDrugs() {
             returnDeadlineThai: thaiDate(returnDeadline),
             daysLeft: days,
             // ตรงกับเกณฑ์แอป: วิกฤต = หมดอายุภายใน 15 วัน (= วันส่งคืนผ่านแล้ว)
-            status: days < 0 ? 'expired' : days <= 15 ? 'critical' : days <= 30 ? 'warning' : 'notice',
+            status: days <= 0 ? 'expired' : days <= 15 ? 'critical' : days <= 30 ? 'warning' : 'notice',
             statusLabel: statusLabel(days),
           });
         }
