@@ -140,7 +140,7 @@ const DRUGS = {
     color: '#0369A1',
     icon: '💊',
     category: 'Electrolyte',
-    had: false,
+    had: true,
     indications: [
       { label: 'ภาวะแคลเซียมในเลือดต่ำ', en: 'Hypocalcemia', icon: '⬇️' },
       { label: 'ภาวะโพแทสเซียมในเลือดสูง', en: 'Hyperkalemia', icon: '⬆️' },
@@ -219,7 +219,7 @@ const DRUGS = {
     color: '#059669',
     icon: '🧪',
     category: 'Alkalinizing Agent',
-    had: false,
+    had: true,
     indications: [
       { label: 'หัวใจหยุดเต้น', en: 'Cardiac Arrest', icon: '🔴' },
       { label: 'พิษต่อหัวใจ', en: 'Cardiotoxicity', icon: '💔' },
@@ -384,7 +384,7 @@ const DRUGS = {
     ],
     doses: [
       { label: 'ผู้ใหญ่ (ครั้งที่ 1)', value: '6 mg (2 mL) IV push ภายใน 1–2 วินาที + NSS flush 20 mL' },
-      { label: 'ผู้ใหญ่ (ถ้าไม่ดีขึ้น)', value: '12 mg (4 mL) IV push ภายใน 1–2 วินาที (Max 12 mg/dose)' },
+      { label: 'ผู้ใหญ่ (ถ้าไม่ conversion ใน 1–2 นาที)', value: '12 mg (4 mL) IV push ภายใน 1–2 วินาที + NSS flush 20 mL จนกว่าคลื่นไฟฟ้าหัวใจกลับมาปกติ; Max 12 mg/dose' },
       { label: 'เด็ก BW <50 kg', value: '0.05–0.1 mg/kg/dose IV push + NSS flush 5–20 mL; Max 6 mg/dose; ซ้ำ 0.05–0.1 mg/kg ทุก 1–2 นาที จนกว่า ECG ปกติ; Max single dose 0.3 mg/kg' },
       { label: 'เด็ก BW ≥50 kg', value: 'เท่ากับผู้ใหญ่ Max 12 mg/dose' },
       { label: 'วิธีเตรียม', value: 'ไม่ต้อง DILUTE ใช้ได้ทันที หากตกตะกอนห้ามใช้' },
