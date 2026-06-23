@@ -3100,12 +3100,20 @@ td.l{text-align:left;padding-left:4px}
             if (dRet <= 0) { dotColor = '#E03E3E'; expColor = '#E03E3E'; }
             else if (dRet <= 15) { dotColor = '#EE8A2B'; expColor = '#D9810F'; }
           }
-          return h('div', { key: d.name + i, style: { display: 'flex', alignItems: 'center', gap: 12, padding: '11px 16px', borderBottom: '1px solid #F0F4F7' } },
+          const drugInfoId = this.drugNameToId(d.name);
+          const drugInfoUrl = drugInfoId ? `./drug.html?id=${drugInfoId}` : null;
+          const rowEl = h('div', { key: d.name + i,
+            onClick: drugInfoUrl ? () => window.open(drugInfoUrl, '_blank') : undefined,
+            style: { display: 'flex', alignItems: 'center', gap: 12, padding: '11px 16px', borderBottom: '1px solid #F0F4F7', cursor: drugInfoUrl ? 'pointer' : 'default', transition: 'background .15s', WebkitTapHighlightColor: 'transparent' },
+            onMouseEnter: drugInfoUrl ? (e) => { e.currentTarget.style.background = '#F5F9FC'; } : undefined,
+            onMouseLeave: drugInfoUrl ? (e) => { e.currentTarget.style.background = ''; } : undefined,
+          },
             h('span', { style: { width: 8, height: 8, borderRadius: '50%', background: dotColor, flexShrink: 0 } }),
             h('div', { style: { flex: 1, minWidth: 0 } },
               h('div', { style: { fontSize: 13, lineHeight: 1.4, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' } },
-                h('span', null, d.name),
-                d.had ? h('span', { style: { fontSize: 9, fontWeight: 700, color: '#C2410C', background: '#FCEEE3', borderRadius: 4, padding: '1px 5px' } }, 'HAD') : null
+                h('span', { style: { color: drugInfoUrl ? '#1A6FA3' : 'inherit', fontWeight: drugInfoUrl ? 600 : 400 } }, d.name),
+                d.had ? h('span', { style: { fontSize: 9, fontWeight: 700, color: '#C2410C', background: '#FCEEE3', borderRadius: 4, padding: '1px 5px' } }, 'HAD') : null,
+                drugInfoUrl ? h('span', { style: { fontSize: 10, color: '#7BB8D8', fontWeight: 500 } }, 'ดูข้อมูล →') : null
               )
             ),
             h('div', { style: { textAlign: 'right', flexShrink: 0 } },
@@ -3113,6 +3121,7 @@ td.l{text-align:left;padding-left:4px}
               h('div', { style: { fontSize: 11, color: '#9AAAB8', marginTop: 1 } }, `${qty} หน่วย`)
             )
           );
+          return rowEl;
         });
 
         vals.publicViewEl = h('div', { style: { minHeight: '100vh', background: '#EDF2F7', fontFamily: "'IBM Plex Sans Thai', sans-serif", WebkitFontSmoothing: 'antialiased' } },
