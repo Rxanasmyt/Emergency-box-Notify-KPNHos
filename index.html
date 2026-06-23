@@ -1518,6 +1518,8 @@ input:focus, select:focus, textarea:focus {
   <!-- Confirm dialog / idle warning -->
   <sc-if value="{{ showConfirm }}" hint-placeholder-val="{{ false }}">{{ confirmEl }}</sc-if>
   <sc-if value="{{ showIdle }}" hint-placeholder-val="{{ false }}">{{ idleEl }}</sc-if>
+  <!-- Drug QR Code modal -->
+  {{ drugQrEl }}
 
   <!-- Mobile bottom navigation bar -->
   {{ mobileBottomNavEl }}
@@ -1601,6 +1603,8 @@ class Component extends DCLogic {
     boxHist: {},
     // confirm dialog
     confirm: null,
+    // drug QR modal
+    showDrugQR: null,
     // expiry notifications
     expiryAlerts: [],
     showExpiryBanner: false,
@@ -1702,6 +1706,20 @@ class Component extends DCLogic {
   }
   // total qty across lots
   drugQty(d) { return (d.lots || []).reduce((s, l) => s + (l.qty || 0), 0); }
+  drugNameToId(name) {
+    const n = (name || '').toLowerCase();
+    if (n.includes('adrenaline') || n.includes('epinephrine')) return 'adrenaline';
+    if (n.includes('adenosine')) return 'adenosine';
+    if (n.includes('amiodarone')) return 'amiodarone';
+    if (n.includes('atropine')) return 'atropine';
+    if (n.includes('calcium') || n.includes('ca gluconate') || n.includes('gluconate')) return 'calcium_gluconate';
+    if (n.includes('dopamine')) return 'dopamine';
+    if (n.includes('glucose') || n.includes('dextrose 50')) return 'glucose';
+    if (n.includes('bicarbonate') || n.includes('bicarb') || n.includes('nahco')) return 'sodium_bicarbonate';
+    if (n.includes('levophed') || n.includes('noradrenaline') || n.includes('norepinephrine')) return 'noradrenaline';
+    if (n.includes('diazepam')) return 'diazepam';
+    return null;
+  }
   // earliest expiry across lots
   drugMinExp(d) { const exps = (d.lots || []).filter(l => l.expiry).map(l => l.expiry); return exps.length ? exps.sort()[0] : ''; }
   boxExpiryISO(id, BD) {
@@ -3476,7 +3494,7 @@ td.l{text-align:left;padding-left:4px}
 
     vals.toggleSwap = () => this.setState(s => {
       const enabling = !s.swapReturn;
-      const uName = (this.state.currentUser || {}).name || '';
+      const uName = (s.currentUser || {}).name || '';
       if (enabling) {
         const firstOut = this.BOXES.filter(b => b.dispense && !b.receiver).map(b => b.id)[0] || '';
         return { swapReturn: true, swapEB: s.swapEB || firstOut, swapReceiver: s.swapReceiver || uName };
@@ -3627,7 +3645,7 @@ td.l{text-align:left;padding-left:4px}
     vals.resetForm = () => {
       const _m = st.formMode;
       const _dirty = _m === 'register' ? (st.regMfg || st.regPreparer || st.regChecker)
-                   : _m === 'dispense' ? (st.formDept !== 'ER' || (st.dispenser && st.dispenser !== (st.currentUser ? st.currentUser.name : '')) || st.swapReturn)
+                   : _m === 'dispense' ? (st.formDept !== 'ER' || st.dispDate !== this.isoOf(this.TODAY) || (st.dispenser && st.dispenser !== (st.currentUser ? st.currentUser.name : '')) || st.swapReturn)
                    : ((st.retReceiver && st.retReceiver !== (st.currentUser ? st.currentUser.name : '')) || Object.values(st.retDrugUsage || {}).some(d => Object.values(d).some(q => q > 0)));
       if (_dirty) { this.askConfirm({ tone: 'warn', icon: 'warn', title: 'ล้างฟอร์ม?', body: 'ข้อมูลที่กรอกไว้จะหายทั้งหมด', yesLabel: 'ล้าง', noLabel: 'ยกเลิก', onYes: () => this.resetForm() }); } else { this.resetForm(); }
     };
@@ -3787,7 +3805,11 @@ td.l{text-align:left;padding-left:4px}
       h('span', null, 'รวมจำนวนยา ', h('b', { style: { color: '#15242E', fontFamily: "'IBM Plex Mono', monospace" } }, totalQty+'/'+totalPar), ' หน่วย'),
       h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, h('span', { style: { width: 6, height: 6, borderRadius: '50%', background: bStatus.color } }), 'ใกล้หมดอายุสุด ', h('b', { style: { color: bStatus.color } }, this.fmtISO(boxExp))),
       lowCount ? h('span', { style: { color: '#E03E3E', fontWeight: 600 } }, '· ยาต่ำกว่า par '+lowCount+' รายการ') : null,
-      editing ? h('span', { style: { marginLeft: 'auto', color: '#1A6FA3', fontWeight: 600 } }, 'กำลังแก้ไข — กด "บันทึก" เพื่อยืนยัน') : null);
+      editing ? h('span', { style: { marginLeft: 'auto', color: '#1A6FA3', fontWeight: 600 } }, 'กำลังแก้ไข — กด "บันทึก" เพื่อยืนยัน') : null,
+      !editing ? h('button', {
+        onClick: () => this.setState({ showDrugQR: box.id }),
+        style: { marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6, height: 32, padding: '0 12px', borderRadius: 9, border: '1.5px solid #C3DDEC', background: '#EEF5FA', color: '#1A6FA3', fontFamily: 'inherit', fontSize: 12, fontWeight: 600, cursor: 'pointer' }
+      }, h('span', { dangerouslySetInnerHTML: { __html: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="2"/><rect x="14" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="2"/><rect x="3" y="14" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="2"/><rect x="14" y="14" width="4" height="4" rx="1" fill="currentColor"/></svg>' } }), 'QR Code ยา') : null);
 
     // ----- HISTORY (dispense + return only, all users) -----
     const LOG = st.auditLog || this.AUDIT;
@@ -4076,6 +4098,39 @@ td.l{text-align:left;padding-left:4px}
             h('button', { onClick: () => { this.bumpIdle(); this.runConfirm(); }, style: { flex: 1, height: 47, border: 'none', borderRadius: 12, background: tone.c, color: '#fff', fontFamily: 'inherit', fontSize: 14, fontWeight: 600, cursor: 'pointer' } }, cf.yesLabel || 'ยืนยัน'),
             h('button', { onClick: () => { this.bumpIdle(); this.closeConfirm(); }, style: { height: 47, padding: '0 20px', border: '1.5px solid #DBE4EB', background: '#fff', color: '#4A5C6A', borderRadius: 12, fontFamily: 'inherit', fontSize: 14, fontWeight: 600, cursor: 'pointer' } }, cf.noLabel || 'ยกเลิก'))));
     } else vals.confirmEl = null;
+
+    // ===== Drug QR Code modal =====
+    const qrBoxId = st.showDrugQR;
+    if (qrBoxId) {
+      const qrDrugs = (BD[qrBoxId] || []);
+      const BASE_URL = 'https://emergencyboxnotyfykpnhos.web.app/drug.html';
+      const qrItems = qrDrugs.map(d => {
+        const drugId = this.drugNameToId(d.name);
+        const url = drugId ? BASE_URL + '?id=' + drugId : null;
+        const qrImg = url ? `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(url)}&size=140x140&margin=6&ecc=M` : null;
+        return { name: d.name, url, qrImg };
+      });
+      vals.drugQrEl = h('div', {
+        onClick: () => this.setState({ showDrugQR: null }),
+        style: { position: 'fixed', inset: 0, background: 'rgba(14,42,60,.55)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 300, overflowY: 'auto', padding: '20px 12px 40px', animation: 'overlayIn .2s ease both' }
+      }, h('div', { onClick: (e) => e.stopPropagation(), style: { width: '100%', maxWidth: 560, background: '#fff', borderRadius: 20, padding: '22px 22px 26px', boxShadow: '0 24px 60px rgba(14,42,60,.4)', animation: 'modalPop .3s cubic-bezier(.2,.9,.2,1) both' } },
+        h('div', { style: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 } },
+          h('div', { style: { flex: 1 } },
+            h('div', { style: { fontSize: 16, fontWeight: 700, color: '#15242E' } }, 'QR Code ข้อมูลยา — ' + qrBoxId),
+            h('div', { style: { fontSize: 12, color: '#7B8D9C', marginTop: 3 } }, 'สแกน QR เพื่อดูรายละเอียดยาแต่ละรายการ')),
+          h('button', { onClick: () => this.setState({ showDrugQR: null }), style: { width: 34, height: 34, border: '1.5px solid #DBE4EB', borderRadius: 9, background: '#F7FAFC', color: '#7B8D9C', cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontFamily: 'inherit' } }, '×')),
+        h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 12, marginBottom: 18 } },
+          ...qrItems.map(item => h('div', { key: item.name, style: { background: '#F8F9FC', borderRadius: 14, padding: '14px 10px 10px', textAlign: 'center', border: '1.5px solid #EFF3F6' } },
+            item.qrImg
+              ? h('img', { src: item.qrImg, alt: item.name, width: 110, height: 110, style: { borderRadius: 8, display: 'block', margin: '0 auto 8px' }, loading: 'lazy' })
+              : h('div', { style: { width: 110, height: 110, margin: '0 auto 8px', background: '#E9EEF4', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#9AAAB8' } }, 'ไม่มีข้อมูล'),
+            h('div', { style: { fontSize: 11, fontWeight: 600, color: '#374151', lineHeight: 1.35, wordBreak: 'break-word' } }, item.name)))),
+        h('div', { style: { display: 'flex', gap: 10, alignItems: 'center', paddingTop: 14, borderTop: '1px solid #EFF3F6' } },
+          h('div', { style: { flex: 1, fontSize: 11.5, color: '#9AAAB8', lineHeight: 1.5 } }, 'QR ที่ไม่มีข้อมูลหมายถึงยาที่ยังไม่มีข้อมูลรายละเอียดในระบบ'),
+          h('button', { onClick: () => { this.setState({ showDrugQR: null }); window.print(); }, style: { display: 'inline-flex', alignItems: 'center', gap: 7, height: 40, padding: '0 18px', border: 'none', borderRadius: 11, background: 'linear-gradient(135deg,#1E4FD8,#2B7FE0)', color: '#fff', fontFamily: 'inherit', fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 4px 12px rgba(30,79,216,.3)' } },
+            h('span', { dangerouslySetInnerHTML: { __html: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none"><rect x="5" y="2" width="14" height="6" rx="1" stroke="currentColor" stroke-width="1.8"/><path d="M5 18H3a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1h18a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1h-2" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><rect x="5" y="14" width="14" height="8" rx="1" stroke="currentColor" stroke-width="1.8"/><circle cx="18" cy="11.5" r="1" fill="currentColor"/></svg>' } }),
+            'พิมพ์'))));
+    } else vals.drugQrEl = null;
 
     // ===== idle warning =====
     vals.showIdle = st.authed && st.idleWarn;

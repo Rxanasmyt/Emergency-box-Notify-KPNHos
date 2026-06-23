@@ -216,7 +216,6 @@ function sendLineMessage(channelToken, message, userId) {
       hostname: 'api.line.me',
       path,
       method: 'POST',
-      timeout: 30000,
       headers: {
         'Authorization': `Bearer ${channelToken}`,
         'Content-Type': 'application/json',
@@ -235,7 +234,7 @@ function sendLineMessage(channelToken, message, userId) {
         }
       });
     });
-    req.on('timeout', () => { console.error('❌ LINE timeout (30s)'); req.destroy(); });
+    req.setTimeout(30000, () => { console.error('❌ LINE timeout (30s)'); req.destroy(); });
     req.on('error', err => { if (err.code !== 'ERR_SOCKET_DESTROYED') console.error('❌ LINE error:', err.message); resolve(false); });
     req.write(payload);
     req.end();

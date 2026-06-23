@@ -65,7 +65,7 @@
 
   function findExpiringDrugs(component, thresholdDays) {
     if (!component || !component.BOXES) return [];
-    const bd = component.BOX_DRUGS || component.state.boxDrugs || {};
+    const bd = component.BOX_DRUGS || (component.state && component.state.boxDrugs) || {};
     const today = new Date(todayBangkok() + 'T00:00:00');
     const alerts = [];
 
@@ -144,7 +144,8 @@
   }
 
   async function sendLINE(settings, alerts) {
-    if (!settings.lineEnabled || !settings.lineWebhookUrl) return false;
+    if (!settings.lineEnabled) return false;
+    if (!settings.lineWebhookUrl) { console.warn('[Notify] LINE enabled but no webhook URL configured'); return false; }
     const msg = buildAlertMessage(alerts);
     if (!msg) return false;
     try {

@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="theme-color" content="#1E4FD8">
+<title>ข้อมูลยา Emergency Box — KPN Hospital</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%231E4FD8'/><path d='M14 8h4v6h6v4h-6v6h-4v-6H8v-4h6z' fill='white'/></svg>">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Noto Sans Thai',Sarabun,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F0F4FA;min-height:100vh;color:#1A2B4A;}
+  .header{background:linear-gradient(135deg,#1E4FD8,#2B7FE0);color:#fff;padding:16px 20px 14px;position:sticky;top:0;z-index:10;box-shadow:0 2px 12px rgba(30,79,216,.35);}
+  .header-inner{max-width:600px;margin:0 auto;display:flex;align-items:center;gap:12px;}
+  .header-logo{width:36px;height:36px;background:rgba(255,255,255,.2);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .header-logo svg{width:22px;height:22px;}
+  .header-title{font-size:16px;font-weight:700;line-height:1.2;}
+  .header-sub{font-size:11px;opacity:.8;margin-top:2px;}
+  .back-btn{margin-left:auto;background:rgba(255,255,255,.18);border:none;color:#fff;border-radius:8px;padding:7px 13px;font-size:13px;font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:5px;font-weight:600;text-decoration:none;white-space:nowrap;}
+  .back-btn:hover{background:rgba(255,255,255,.28);}
+
+  /* Drug list view */
+  .drug-list{max-width:600px;margin:0 auto;padding:16px;}
+  .list-title{font-size:18px;font-weight:700;color:#1A2B4A;margin-bottom:4px;}
+  .list-sub{font-size:13px;color:#6B7A99;margin-bottom:16px;}
+  .drug-card-thumb{background:#fff;border-radius:16px;padding:16px;margin-bottom:10px;display:flex;align-items:center;gap:14px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.07);border:1.5px solid transparent;transition:all .2s;}
+  .drug-card-thumb:hover,.drug-card-thumb:active{box-shadow:0 4px 16px rgba(30,79,216,.18);border-color:#2B7FE0;transform:translateY(-1px);}
+  .drug-icon{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:22px;}
+  .drug-thumb-info{flex:1;min-width:0;}
+  .drug-thumb-name{font-size:15px;font-weight:700;color:#1A2B4A;}
+  .drug-thumb-form{font-size:12px;color:#6B7A99;margin-top:2px;}
+  .drug-thumb-tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px;}
+  .tag{font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:20px;}
+  .tag-blue{background:#DBEAFE;color:#1D4ED8;}
+  .tag-red{background:#FEE2E2;color:#DC2626;}
+  .tag-green{background:#D1FAE5;color:#059669;}
+  .tag-orange{background:#FEF3C7;color:#D97706;}
+  .tag-purple{background:#EDE9FE;color:#7C3AED;}
+  .drug-arrow{color:#B0BAD0;font-size:18px;margin-left:auto;flex-shrink:0;}
+  .no-data{text-align:center;padding:40px 20px;color:#9AA5BF;}
+  .no-data-icon{font-size:40px;margin-bottom:10px;}
+
+  /* Drug detail view */
+  .drug-detail{max-width:600px;margin:0 auto;padding:0 0 40px;}
+  .drug-hero{background:var(--drug-color,#1E4FD8);padding:20px;color:#fff;position:relative;overflow:hidden;}
+  .drug-hero::before{content:'';position:absolute;top:-30px;right:-30px;width:140px;height:140px;border-radius:50%;background:rgba(255,255,255,.1);}
+  .drug-hero::after{content:'';position:absolute;bottom:-20px;left:30%;width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,.07);}
+  .drug-hero-content{position:relative;z-index:1;}
+  .drug-badge{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.2);border-radius:20px;padding:4px 12px;font-size:11px;font-weight:600;margin-bottom:10px;}
+  .drug-hero-name{font-size:22px;font-weight:800;line-height:1.2;margin-bottom:4px;}
+  .drug-hero-generic{font-size:13px;opacity:.85;margin-bottom:8px;}
+  .drug-hero-form{font-size:13px;font-weight:600;opacity:.9;}
+  .had-badge{display:inline-flex;align-items:center;gap:4px;background:rgba(255,200,0,.25);border:1.5px solid rgba(255,200,0,.6);color:#FFE566;border-radius:8px;padding:3px 10px;font-size:11.5px;font-weight:700;margin-top:8px;}
+
+  .section{background:#fff;border-radius:16px;margin:12px 12px 0;padding:16px;box-shadow:0 1px 6px rgba(0,0,0,.06);}
+  .section-title{font-size:12px;font-weight:700;color:#6B7A99;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;display:flex;align-items:center;gap:6px;}
+  .section-title-icon{font-size:14px;}
+
+  .indication-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+  .indication-chip{background:#EEF5FA;border-radius:10px;padding:9px 12px;font-size:12.5px;font-weight:600;color:#1A6FA3;display:flex;align-items:flex-start;gap:7px;line-height:1.35;}
+  .indication-chip span{font-size:16px;flex-shrink:0;}
+
+  .dose-table{width:100%;border-collapse:collapse;}
+  .dose-table td{padding:7px 0;font-size:13px;vertical-align:top;}
+  .dose-table td:first-child{color:#6B7A99;font-weight:600;min-width:90px;padding-right:10px;white-space:nowrap;}
+  .dose-table tr+tr td{border-top:1px solid #F0F4FA;}
+
+  .compat-list{display:flex;flex-wrap:wrap;gap:6px;}
+  .compat-chip{background:#D1FAE5;color:#065F46;border-radius:8px;padding:4px 11px;font-size:12.5px;font-weight:600;}
+  .incompat-chip{background:#FEE2E2;color:#991B1B;border-radius:8px;padding:4px 11px;font-size:12.5px;font-weight:600;}
+
+  .warn-box{background:#FFF3CD;border:1.5px solid #FFC107;border-radius:12px;padding:12px 14px;display:flex;gap:10px;align-items:flex-start;}
+  .warn-box-icon{font-size:18px;flex-shrink:0;margin-top:1px;}
+  .warn-box-text{font-size:13px;color:#92400E;line-height:1.5;}
+
+  .alert-list li{font-size:13px;color:#1A2B4A;padding:5px 0;padding-left:18px;position:relative;line-height:1.4;}
+  .alert-list li::before{content:'•';position:absolute;left:4px;color:#EF4444;font-weight:700;}
+  .alert-list{list-style:none;}
+
+  .monitor-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+  .monitor-item{background:#F8F9FC;border-radius:10px;padding:9px 12px;font-size:12.5px;font-weight:600;color:#374151;display:flex;align-items:center;gap:7px;}
+  .monitor-icon{font-size:15px;}
+
+  .safety-pills{display:flex;flex-wrap:wrap;gap:6px;}
+  .safety-pill{border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;}
+
+  .footer-note{margin:16px 12px 0;background:#EEF5FA;border-radius:12px;padding:12px 14px;font-size:12px;color:#1A6FA3;line-height:1.5;}
+  .footer-note strong{font-weight:700;}
+
+  .coming-soon{text-align:center;padding:60px 20px;}
+  .coming-soon-icon{font-size:48px;margin-bottom:12px;}
+  .coming-soon-title{font-size:18px;font-weight:700;color:#1A2B4A;margin-bottom:6px;}
+  .coming-soon-sub{font-size:14px;color:#6B7A99;line-height:1.5;}
+
+  @media(prefers-color-scheme:dark){
+    body{background:#0F172A;color:#E2E8F0;}
+    .drug-card-thumb{background:#1E293B;box-shadow:0 2px 8px rgba(0,0,0,.3);}
+    .drug-thumb-name{color:#E2E8F0;}
+    .drug-thumb-form{color:#94A3B8;}
+    .drug-arrow{color:#475569;}
+    .section{background:#1E293B;}
+    .section-title{color:#94A3B8;}
+    .indication-chip{background:#1E3A5F;color:#60A5FA;}
+    .dose-table td:first-child{color:#94A3B8;}
+    .dose-table tr+tr td{border-color:#334155;}
+    .monitor-item{background:#0F172A;color:#CBD5E1;}
+    .footer-note{background:#1E3A5F;color:#60A5FA;}
+    .list-title{color:#E2E8F0;}
+    .list-sub{color:#94A3B8;}
+    .header{background:linear-gradient(135deg,#1E3A8A,#1D4ED8);}
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-inner">
+    <div class="header-logo">
+      <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="4" stroke="white" stroke-width="2"/><path d="M12 8v8M8 12h8" stroke="white" stroke-width="2.2" stroke-linecap="round"/></svg>
+    </div>
+    <div>
+      <div class="header-title">ข้อมูลยา Emergency Box</div>
+      <div class="header-sub">โรงพยาบาลกรุงเทพ-พนาสนิกุล (KPN Hospital)</div>
+    </div>
+    <a href="javascript:void(0)" class="back-btn" id="backBtn" style="display:none" onclick="showList()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M20 12H4M4 12l7-7M4 12l7 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      รายการยา
+    </a>
+  </div>
+</div>
+
+<div id="app"></div>
+
+<script>
+const DRUGS = {
+  calcium_gluconate: {
+    id: 'calcium_gluconate',
+    name: 'Calcium Gluconate 10%',
+    generic: 'Calcium Gluconate',
+    form: '1 g/10 mL · Vial',
+    color: '#0369A1',
+    icon: '💊',
+    category: 'Electrolyte',
+    had: false,
+    indications: [
+      { label: 'ภาวะแคลเซียมในเลือดต่ำ', en: 'Hypocalcemia', icon: '⬇️' },
+      { label: 'ภาวะโพแทสเซียมในเลือดสูง', en: 'Hyperkalemia', icon: '⬆️' },
+    ],
+    doses: [
+      { label: 'Hypocalcemia', value: '1–2 g (10–20 mL) IV ช้าๆ ≤1.5 mL/min' },
+      { label: 'Hyperkalemia', value: '1–3 g IV ช้าๆ ภายใน 2–5 นาที' },
+      { label: 'วิธีให้', value: 'IV push ช้าๆ ห้ามให้ IM หรือ SC' },
+    ],
+    compatible: ['SWI', 'D5W'],
+    incompatible: ['Bicarbonates', 'Phosphates', 'Sulfates'],
+    stability: 'เก็บที่อุณหภูมิห้อง (15–30°C) ป้องกันแสง',
+    monitoring: [
+      { icon: '❤️', label: 'Heart Rate (HR)' },
+      { icon: '🩺', label: 'Blood Pressure (BP)' },
+      { icon: '📈', label: 'EKG (โดยเฉพาะผู้ป่วย Digitalis)' },
+      { icon: '🧪', label: 'Serum Calcium' },
+    ],
+    alerts: [
+      'ระวังในผู้ป่วยที่ได้รับยา Digitalis อาจเกิด Cardiac arrest',
+      'ให้ช้าๆ เสมอ อย่างน้อย 2–5 นาที ป้องกัน bradycardia',
+      'หากเส้นเลือดรั่ว (Extravasation) หยุดให้ยาทันที ทำความเย็น',
+      'ห้ามผสมกับยากลุ่ม Bicarbonates เพราะจะตกตะกอน',
+    ],
+    pregnancy: 'C',
+    categoryColor: '#0369A1',
+  },
+
+  atropine: {
+    id: 'atropine',
+    name: 'Atropine',
+    generic: 'Atropine Sulfate',
+    form: '0.6 mg/mL · Ampule',
+    color: '#B45309',
+    icon: '💉',
+    category: 'Anticholinergic',
+    had: true,
+    indications: [
+      { label: 'หัวใจเต้นช้า', en: 'Bradycardia', icon: '🫀' },
+      { label: 'หัวใจหยุดเต้น', en: 'Asystole', icon: '🔴' },
+      { label: 'หลอดลมหดเกร็ง', en: 'Bronchospasm', icon: '🫁' },
+      { label: 'พิษสารกำจัดแมลง', en: 'Organophosphate Poisoning', icon: '☠️' },
+    ],
+    doses: [
+      { label: 'Bradycardia', value: '0.5–1 mg IV push ทุก 3–5 นาที สูงสุด 3 mg' },
+      { label: 'Asystole/PEA', value: '1 mg IV push ทุก 3–5 นาที สูงสุด 3 mg (ACLS)' },
+      { label: 'Organophosphate', value: '2–4 mg IV จนหมด Secretions' },
+      { label: 'วิธีให้', value: 'IV push เร็ว (rapid IV push)' },
+    ],
+    compatible: ['D5W', 'NSS'],
+    incompatible: ['NaHCO₃ (Sodium Bicarbonate)', 'Levophed (Noradrenaline)'],
+    stability: 'เก็บที่อุณหภูมิห้อง ป้องกันแสงและความร้อน',
+    monitoring: [
+      { icon: '❤️', label: 'Heart Rate (HR)' },
+      { icon: '🩺', label: 'Blood Pressure (BP)' },
+      { icon: '👁️', label: 'ขนาดรูม่านตา (Pupil)' },
+      { icon: '💧', label: 'Secretions / ความแห้งของเยื่อเมือก' },
+    ],
+    alerts: [
+      'ขนาด <0.5 mg อาจเกิด Paradoxical bradycardia',
+      'ระวังในผู้ป่วย Narrow-angle glaucoma, BPH',
+      'ห้ามผสมกับ NaHCO₃ เพราะจะเกิดการตกตะกอน',
+      'ในกรณี Organophosphate ให้จนกว่า Secretions จะแห้ง',
+    ],
+    pregnancy: 'C',
+    categoryColor: '#B45309',
+  },
+
+  sodium_bicarbonate: {
+    id: 'sodium_bicarbonate',
+    name: 'Sodium Bicarbonate 7.5%',
+    generic: 'Sodium Bicarbonate',
+    form: '44.6 mEq/50 mL · Syringe',
+    color: '#059669',
+    icon: '🧪',
+    category: 'Alkalinizing Agent',
+    had: false,
+    indications: [
+      { label: 'หัวใจหยุดเต้น', en: 'Cardiac Arrest', icon: '🔴' },
+      { label: 'กรดเกินในเลือด', en: 'Metabolic Acidosis', icon: '⚗️' },
+      { label: 'โพแทสเซียมสูงในเลือด', en: 'Hyperkalemia', icon: '⬆️' },
+    ],
+    doses: [
+      { label: 'Cardiac Arrest', value: '1 mEq/kg IV bolus; ซ้ำ 0.5 mEq/kg ทุก 10 นาที' },
+      { label: 'Metabolic Acidosis', value: 'คำนวณตาม base deficit: (0.3 × wt × base deficit) mEq' },
+      { label: 'Hyperkalemia', value: '44–88 mEq IV ภายใน 5 นาที' },
+      { label: 'วิธีให้', value: 'IV push หรือ IV drip ขึ้นกับสถานการณ์' },
+    ],
+    compatible: ['D5S', 'D5W', 'NSS'],
+    incompatible: ['Atropine', 'Calcium salts (Calcium Gluconate)', 'Dopamine', 'Adrenaline (Epinephrine)'],
+    stability: 'เก็บที่อุณหภูมิห้อง ป้องกันแสง ห้ามแช่แข็ง',
+    monitoring: [
+      { icon: '🧪', label: 'ABG (pH, HCO₃⁻, pCO₂)' },
+      { icon: '⚡', label: 'Serum Electrolytes' },
+      { icon: '🩺', label: 'Blood Pressure (BP)' },
+      { icon: '📈', label: 'เฝ้าระวัง Metabolic Alkalosis' },
+    ],
+    alerts: [
+      'ห้ามผสมกับยาอื่นในสาย IV เดียวกัน ล้าง flush ก่อนและหลัง',
+      'ให้เร็วเกินไปอาจเกิด Hypernatremia, Metabolic alkalosis',
+      'ระวังในผู้ป่วยที่มี CHF หรือ Edema (มี Na+ สูง)',
+      'ในภาวะ Cardiac arrest ให้หลังทำ CPR ≥2 รอบ และใส่ท่อช่วยหายใจแล้ว',
+    ],
+    pregnancy: 'C',
+    categoryColor: '#059669',
+  },
+
+  noradrenaline: {
+    id: 'noradrenaline',
+    name: 'Noradrenaline (Levophed)',
+    generic: 'Norepinephrine Bitartrate',
+    form: '4 mg/4 mL · Ampule',
+    color: '#DC2626',
+    icon: '⚡',
+    category: 'Vasopressor',
+    had: true,
+    indications: [
+      { label: 'ภาวะช็อก', en: 'Shock (Septic/Distributive)', icon: '🚨' },
+      { label: 'ความดันต่ำรุนแรง', en: 'Severe Hypotension', icon: '⬇️' },
+    ],
+    doses: [
+      { label: 'Initial', value: '0.01–0.3 mcg/kg/min IV drip' },
+      { label: 'Usual dose', value: '0.1–2 mcg/kg/min (titrate ตาม BP)' },
+      { label: 'การเจือจาง', value: 'Levophed 4 mg + D5W หรือ D5S ให้ได้ความเข้มข้นที่ต้องการ' },
+      { label: 'วิธีให้', value: 'IV drip ผ่าน Central vein เท่านั้น (หลีกเลี่ยง peripheral)' },
+    ],
+    compatible: ['D5W', 'D5S (D5 in 0.9% NaCl)'],
+    incompatible: ['NSS (0.9% NaCl) — ห้ามใช้เพราะออกซิเดชันสูง', 'NaHCO₃ (Sodium Bicarbonate)', 'Alkaline solutions', 'Whole blood', 'Insulin'],
+    stability: 'ผสมแล้วเสถียร 24 ชั่วโมง ที่อุณหภูมิห้อง ป้องกันแสง',
+    monitoring: [
+      { icon: '🩺', label: 'BP ทุก 2 นาที จนคงที่ จากนั้นทุก 5 นาที' },
+      { icon: '❤️', label: 'Heart Rate & Rhythm (EKG)' },
+      { icon: '🩸', label: 'Urine Output (≥0.5 mL/kg/hr)' },
+      { icon: '💉', label: 'ตำแหน่ง IV site (Extravasation)' },
+    ],
+    alerts: [
+      '⚠️ Extravasation: หยุดยาทันที ดูดยาออก แจ้งแพทย์ ให้ Phentolamine 5–10 mg ใต้ผิวหนังบริเวณนั้น',
+      'ห้ามหยุดยาทันที ต้อง Taper ลดขนาดอย่างช้าๆ',
+      'ควรให้ผ่าน Central venous catheter เพื่อลด Extravasation',
+      'ห้ามใช้สารน้ำ NSS เพราะจะเกิดออกซิเดชัน ลดประสิทธิภาพยา',
+    ],
+    pregnancy: 'B',
+    categoryColor: '#DC2626',
+  },
+
+  dopamine: {
+    id: 'dopamine',
+    name: 'Dopamine',
+    generic: 'Dopamine Hydrochloride',
+    form: '250 mg/10 mL · Ampule',
+    color: '#7C3AED',
+    icon: '💜',
+    category: 'Vasopressor / Inotrope',
+    had: true,
+    indications: [
+      { label: 'ช็อกหัวใจ', en: 'Cardiogenic Shock', icon: '💔' },
+      { label: 'หัวใจล้มเหลว', en: 'Congestive Heart Failure', icon: '🫀' },
+      { label: 'ช็อกจากการติดเชื้อ', en: 'Septic Shock', icon: '🦠' },
+    ],
+    doses: [
+      { label: 'Low dose', value: '1–3 mcg/kg/min → เพิ่ม Renal/Mesenteric blood flow' },
+      { label: 'Medium dose', value: '3–10 mcg/kg/min → β1 effect (↑ HR, ↑ Contractility)' },
+      { label: 'High dose', value: '10–20 mcg/kg/min → α effect (Vasoconstriction)' },
+      { label: 'การเจือจาง', value: 'Dopamine 200–400 mg + สารน้ำ 250 mL' },
+      { label: 'วิธีให้', value: 'IV drip ต่อเนื่อง ผ่าน Central vein แนะนำ' },
+    ],
+    compatible: ['D5W', 'D5S', 'NSS', 'D5S/2 (0.45% NaCl)', 'D10W'],
+    incompatible: ['NaHCO₃ (Sodium Bicarbonate)', 'Alkaline solutions'],
+    stability: 'ผสมแล้วเสถียร 24–48 ชั่วโมง ที่อุณหภูมิห้อง',
+    monitoring: [
+      { icon: '🩺', label: 'V/S ทุก 1 ชั่วโมง' },
+      { icon: '❤️', label: 'Heart Rate & Rhythm (EKG)' },
+      { icon: '🩸', label: 'Urine Output' },
+      { icon: '💉', label: 'IV site — Extravasation' },
+    ],
+    alerts: [
+      '⚠️ Extravasation: เปลี่ยนตำแหน่ง IV site ทันที ห้ามกดนวด แจ้งแพทย์',
+      'ห้ามผสมกับ NaHCO₃ เพราะจะสลายตัวและเปลี่ยนสี (yellow → pink/purple)',
+      'ขนาดสูง >10 mcg/kg/min อาจเกิด Tachycardia, Arrhythmia',
+      'ระวังในผู้ป่วย Pheochromocytoma',
+    ],
+    pregnancy: 'C',
+    categoryColor: '#7C3AED',
+  },
+};
+
+// Placeholder for drugs without data yet
+const DRUG_STUBS = [
+  { id: 'adrenaline',  name: 'Adrenaline', form: '1 mg/mL · Ampule', icon: '⚡', color: '#DC2626' },
+  { id: 'adenosine',   name: 'Adenosine', form: '6 mg/2 mL · Ampule', icon: '🫀', color: '#0369A1' },
+  { id: 'amiodarone',  name: 'Amiodarone', form: '150 mg/3 mL · Ampule', icon: '💙', color: '#1E4FD8' },
+  { id: 'glucose',     name: '50% Glucose', form: '25 g/50 mL · Syringe', icon: '🍬', color: '#D97706' },
+  { id: 'diazepam',   name: 'Diazepam', form: '10 mg/2 mL · Ampule', icon: '💊', color: '#6B7280' },
+];
+
+function getParam(name) {
+  return new URLSearchParams(window.location.search).get(name) || '';
+}
+
+function showList() {
+  history.pushState({}, '', window.location.pathname);
+  render();
+}
+
+function showDrug(id) {
+  history.pushState({}, '', '?id=' + id);
+  render();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function render() {
+  const id = getParam('id');
+  const app = document.getElementById('app');
+  const backBtn = document.getElementById('backBtn');
+
+  if (id) {
+    backBtn.style.display = 'flex';
+    const drug = DRUGS[id];
+    if (!drug) {
+      app.innerHTML = renderComingSoon(id);
+    } else {
+      app.innerHTML = renderDrugDetail(drug);
+    }
+  } else {
+    backBtn.style.display = 'none';
+    app.innerHTML = renderDrugList();
+  }
+}
+
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function renderDrugList() {
+  const allDrugs = Object.values(DRUGS);
+  const stubs = DRUG_STUBS;
+
+  let html = '<div class="drug-list">';
+  html += '<div class="list-title">รายการยาใน Emergency Box</div>';
+  html += '<div class="list-sub">กดเลือกยาเพื่อดูข้อมูลรายละเอียด</div>';
+
+  allDrugs.forEach(d => {
+    const tags = [{ cls: 'tag-blue', label: d.category }];
+    if (d.had) tags.push({ cls: 'tag-red', label: 'HAD ⚠️' });
+    tags.push({ cls: 'tag-green', label: 'Pregnancy ' + d.pregnancy });
+
+    html += `<div class="drug-card-thumb" onclick="showDrug('${esc(d.id)}')">
+      <div class="drug-icon" style="background:${esc(d.color)}22;">${esc(d.icon)}</div>
+      <div class="drug-thumb-info">
+        <div class="drug-thumb-name">${esc(d.name)}</div>
+        <div class="drug-thumb-form">${esc(d.form)}</div>
+        <div class="drug-thumb-tags">${tags.map(t => `<span class="tag ${esc(t.cls)}">${esc(t.label)}</span>`).join('')}</div>
+      </div>
+      <div class="drug-arrow">›</div>
+    </div>`;
+  });
+
+  if (stubs.length) {
+    html += '<div style="font-size:12px;font-weight:700;color:#9AA5BF;text-transform:uppercase;letter-spacing:.06em;padding:8px 4px 6px;margin-top:4px;">กำลังรวบรวมข้อมูล</div>';
+    stubs.forEach(d => {
+      html += `<div class="drug-card-thumb" style="opacity:.7;" onclick="showDrug('${esc(d.id)}')">
+        <div class="drug-icon" style="background:${esc(d.color)}22;">${esc(d.icon)}</div>
+        <div class="drug-thumb-info">
+          <div class="drug-thumb-name">${esc(d.name)}</div>
+          <div class="drug-thumb-form">${esc(d.form)}</div>
+          <div class="drug-thumb-tags"><span class="tag tag-orange">ยังไม่มีข้อมูล</span></div>
+        </div>
+        <div class="drug-arrow">›</div>
+      </div>`;
+    });
+  }
+
+  html += '</div>';
+  return html;
+}
+
+function renderComingSoon(id) {
+  const stub = DRUG_STUBS.find(d => d.id === id);
+  const name = stub ? stub.name : id;
+  return `<div class="coming-soon">
+    <div class="coming-soon-icon">🔬</div>
+    <div class="coming-soon-title">${esc(name)}</div>
+    <div class="coming-soon-sub">ข้อมูลยานี้กำลังอยู่ระหว่างการรวบรวม<br>จะอัปเดตในเร็วๆ นี้</div>
+  </div>`;
+}
+
+function renderDrugDetail(d) {
+  let html = `<div class="drug-detail">
+    <div class="drug-hero" style="--drug-color:${esc(d.color)}; background:linear-gradient(135deg,${esc(d.color)},${esc(d.color)}CC);">
+      <div class="drug-hero-content">
+        <div class="drug-badge"><span>${esc(d.icon)}</span>${esc(d.category)}</div>
+        <div class="drug-hero-name">${esc(d.name)}</div>
+        <div class="drug-hero-generic">${esc(d.generic)}</div>
+        <div class="drug-hero-form">${esc(d.form)}</div>
+        ${d.had ? '<div class="had-badge">⚠️ HAD — High Alert Drug</div>' : ''}
+      </div>
+    </div>`;
+
+  // Indications
+  html += `<div class="section">
+    <div class="section-title"><span class="section-title-icon">📋</span>ข้อบ่งใช้ (Indications)</div>
+    <div class="indication-grid">
+      ${d.indications.map(ind => `<div class="indication-chip"><span>${esc(ind.icon)}</span><div><div>${esc(ind.label)}</div><div style="font-size:11px;opacity:.7;font-weight:500">${esc(ind.en)}</div></div></div>`).join('')}
+    </div>
+  </div>`;
+
+  // Dosage
+  html += `<div class="section">
+    <div class="section-title"><span class="section-title-icon">💉</span>ขนาดยาและวิธีใช้</div>
+    <table class="dose-table">${d.doses.map(ds => `<tr><td>${esc(ds.label)}</td><td>${esc(ds.value)}</td></tr>`).join('')}</table>
+  </div>`;
+
+  // Compatibility
+  html += `<div class="section">
+    <div class="section-title"><span class="section-title-icon">🧴</span>สารน้ำที่ใช้ผสม</div>
+    <div style="margin-bottom:10px;">
+      <div style="font-size:11.5px;font-weight:700;color:#065F46;margin-bottom:6px;">✅ เข้ากันได้ (Compatible)</div>
+      <div class="compat-list">${d.compatible.map(c => `<span class="compat-chip">${esc(c)}</span>`).join('')}</div>
+    </div>
+    <div>
+      <div style="font-size:11.5px;font-weight:700;color:#991B1B;margin-bottom:6px;">❌ ห้ามผสม (Incompatible)</div>
+      <div class="compat-list">${d.incompatible.map(c => `<span class="incompat-chip">${esc(c)}</span>`).join('')}</div>
+    </div>
+  </div>`;
+
+  // Stability
+  html += `<div class="section">
+    <div class="section-title"><span class="section-title-icon">🌡️</span>ความคงตัว (Stability)</div>
+    <div style="font-size:13px;color:#374151;line-height:1.5;">${esc(d.stability)}</div>
+  </div>`;
+
+  // Monitoring
+  html += `<div class="section">
+    <div class="section-title"><span class="section-title-icon">📊</span>การติดตามผู้ป่วย (Monitoring)</div>
+    <div class="monitor-grid">${d.monitoring.map(m => `<div class="monitor-item"><span class="monitor-icon">${esc(m.icon)}</span>${esc(m.label)}</div>`).join('')}</div>
+  </div>`;
+
+  // Alerts
+  html += `<div class="section">
+    <div class="warn-box">
+      <div class="warn-box-icon">⚠️</div>
+      <div class="warn-box-text" style="flex:1;">
+        <div style="font-size:12.5px;font-weight:700;margin-bottom:6px;">แจ้งแพทย์ / ข้อควรระวัง</div>
+        <ul class="alert-list">${d.alerts.map(a => `<li>${esc(a)}</li>`).join('')}</ul>
+      </div>
+    </div>
+  </div>`;
+
+  // Safety
+  html += `<div class="section">
+    <div class="section-title"><span class="section-title-icon">🛡️</span>ความปลอดภัย</div>
+    <div class="safety-pills">
+      <span class="safety-pill" style="background:#DBEAFE;color:#1D4ED8;">Pregnancy Cat. ${esc(d.pregnancy)}</span>
+      ${d.had ? '<span class="safety-pill" style="background:#FEE2E2;color:#DC2626;">⚠️ High Alert Drug</span>' : ''}
+      <span class="safety-pill" style="background:#F3F4F6;color:#374151;">ฝ่ายเภสัชกรรม KPN Hospital</span>
+    </div>
+  </div>`;
+
+  html += `<div class="footer-note">
+    <strong>หมายเหตุ:</strong> ข้อมูลนี้จัดทำโดยฝ่ายเภสัชกรรม โรงพยาบาลกรุงเทพ-พนาสนิกุล (KPN Hospital)
+    เพื่อใช้ในการบริหารยา Emergency Box ในสถานพยาบาลเท่านั้น
+    กรุณาปรึกษาเภสัชกรหรือแพทย์ก่อนการใช้ยาทุกครั้ง
+  </div>`;
+
+  html += '</div>';
+  return html;
+}
+
+window.addEventListener('popstate', render);
+render();
+</script>
+</body>
+</html>
