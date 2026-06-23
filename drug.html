@@ -91,6 +91,19 @@
   .coming-soon-title{font-size:18px;font-weight:700;color:#1A2B4A;margin-bottom:6px;}
   .coming-soon-sub{font-size:14px;color:#6B7A99;line-height:1.5;}
 
+  /* Dilution rate tables */
+  .dilu-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:10px;border:1px solid #E2E8F0;margin-top:4px;}
+  .dilu-prep{background:#EEF5FA;border-radius:8px;padding:8px 12px;font-size:12px;color:#1A6FA3;line-height:1.6;margin-bottom:8px;}
+  .dilu-tbl{width:100%;border-collapse:collapse;font-size:11.5px;white-space:nowrap;}
+  .dilu-tbl th{background:#1E4FD8;color:#fff;padding:5px 7px;text-align:center;font-weight:700;}
+  .dilu-tbl th.left{text-align:left;min-width:110px;}
+  .dilu-tbl td{padding:5px 7px;text-align:center;border-bottom:1px solid #F0F4FA;}
+  .dilu-tbl td.lbl{background:#EEF5FA;color:#1A6FA3;font-weight:700;text-align:left;}
+  .d-low{background:#D1FAE5;color:#065F46;font-weight:600;}
+  .d-med{background:#FEF3C7;color:#92400E;font-weight:600;}
+  .d-hi{background:#FEE2E2;color:#991B1B;font-weight:600;}
+  .d-cat{font-size:10px;font-weight:700;padding:2px 5px;border-bottom:none;}
+
   @media(prefers-color-scheme:dark){
     body{background:#0F172A;color:#E2E8F0;}
     .drug-card-thumb{background:#1E293B;box-shadow:0 2px 8px rgba(0,0,0,.3);}
@@ -287,6 +300,24 @@ const DRUGS = {
       'แจ้งแพทย์เมื่อ: ผิวซีดหรือเขียว หรือเกิด Extravasation',
       'ห้ามผสมใน NSS เด็ดขาด — จะทำให้ความแรงของยาลดลง',
     ],
+    dilutionTables: [
+      {
+        title: 'Levophed 1:25 → 40 mcg/mL',
+        prep: '4 mg (4 mL) ใน D5W หรือ D5S 100 mL',
+        type: 'norad',
+        cats: ['low','low','low','low','low','low','low','med','med','med','med','med','hi','hi','hi','hi','hi','hi'],
+        doses: [2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,32,34,36],
+        rates: [3,6,9,12,15,18,21,24,27,30,33,36,39,42,45,48,51,54],
+      },
+      {
+        title: 'Levophed 1:62.5 → 16 mcg/mL',
+        prep: '1.6 mg (1.6 mL) ใน D5W หรือ D5S 100 mL',
+        type: 'norad',
+        cats: ['low','low','low','low','low','low','low','med','med','med','med','med','hi','hi','hi','hi','hi','hi'],
+        doses: [2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,32,34,36],
+        rates: [8,15,23,30,38,45,53,60,68,75,83,90,98,105,113,120,128,135],
+      },
+    ],
     pregnancy: 'B',
     categoryColor: '#DC2626',
   },
@@ -325,6 +356,37 @@ const DRUGS = {
       'แจ้งแพทย์เมื่อ: เด็ก BP >120/80 mmHg หรือ HR >180/min',
       'แจ้งแพทย์เมื่อ: Urine output <25 cc/hr หรือเกิด Extravasation',
       'ห้ามผสมกับ NaHCO₃ หรือสารละลายด่าง — สลายตัว เปลี่ยนสี',
+    ],
+    dilutionTables: [
+      {
+        title: 'Dopamine 1:1 → 1 mg/mL',
+        type: 'dopa',
+        preps: ['แบบที่ 1: ยา 100 mg (4 mL) → 100 mL','แบบที่ 2: ยา 250 mg (10 mL, 1 amp) → 250 mL','แบบที่ 3: ยา 500 mg (20 mL, 2 amp) → 500 mL'],
+        solvents: 'D5W หรือ NSS',
+        bws: [35,40,45,50,55,60,65,70,75,80,85,90],
+        rows: [
+          {d:5,  r:[11,12,14,15,17,18,20,21,23,24,26,27]},
+          {d:7,  r:[15,17,19,21,23,25,27,29,32,34,36,38]},
+          {d:10, r:[21,24,27,30,33,36,39,42,45,48,51,54]},
+          {d:15, r:[32,36,41,45,50,54,59,63,68,72,77,81]},
+          {d:20, r:[42,48,54,60,66,72,78,84,90,96,102,108]},
+        ],
+      },
+      {
+        title: 'Dopamine 2:1 → 2 mg/mL',
+        type: 'dopa',
+        preps: ['แบบที่ 2: ยา 500 mg (20 mL, 2 amp) → 250 mL','แบบที่ 3: ยา 1000 mg (40 mL, 4 amp) → 500 mL'],
+        solvents: 'D5W หรือ NSS',
+        bws: [35,40,45,50,55,60,65,70,75,80,85,90],
+        rows: [
+          {d:3,  r:[3,4,4,5,5,5,6,6,7,7,8,8]},
+          {d:5,  r:[5,6,7,8,8,9,10,11,11,12,13,14]},
+          {d:7,  r:[7,8,9,11,12,13,14,15,16,17,18,19]},
+          {d:10, r:[11,12,14,15,17,18,20,21,23,24,26,27]},
+          {d:15, r:[16,18,20,23,25,27,29,32,34,36,38,41]},
+          {d:20, r:[21,24,27,30,33,36,39,42,45,48,51,54]},
+        ],
+      },
     ],
     pregnancy: 'C',
     categoryColor: '#7C3AED',
@@ -585,6 +647,51 @@ function renderComingSoon(id) {
   </div>`;
 }
 
+function renderDilutionTables(d) {
+  if (!d.dilutionTables || !d.dilutionTables.length) return '';
+  let html = '';
+  const catBg = {low:'#D1FAE5',med:'#FEF3C7',hi:'#FEE2E2'};
+  const catFg = {low:'#065F46',med:'#92400E',hi:'#991B1B'};
+  const catLabel = {low:'Low',med:'Med',hi:'High'};
+
+  d.dilutionTables.forEach(tbl => {
+    html += `<div class="section">
+      <div class="section-title"><span class="section-title-icon">📋</span>ตารางอัตราการหยดยา — ${esc(tbl.title)}</div>`;
+
+    if (tbl.type === 'norad') {
+      html += `<div class="dilu-prep">💧 ${esc(tbl.prep)}<br><span style="font-size:10.5px;color:#6B7A99;">หน่วย: Rate = mL/hr | Dose = mcg/min</span></div>`;
+      html += `<div class="dilu-wrap"><table class="dilu-tbl">`;
+      // Category row
+      html += `<tr><td class="lbl d-cat">หมวด</td>` + tbl.doses.map((_, i) => {
+        const c = tbl.cats[i];
+        return `<td class="d-cat" style="background:${catBg[c]};color:${catFg[c]};">${catLabel[c]}</td>`;
+      }).join('') + `</tr>`;
+      // Dose row
+      html += `<tr><th class="left">Dose (mcg/min)</th>` + tbl.doses.map(d => `<th>${d}</th>`).join('') + `</tr>`;
+      // Rate row
+      html += `<tr><td class="lbl">Rate (mL/hr)</td>` + tbl.rates.map((r, i) => {
+        const c = tbl.cats[i];
+        return `<td class="d-${c}">${r}</td>`;
+      }).join('') + `</tr>`;
+      html += `</table></div>`;
+    } else if (tbl.type === 'dopa') {
+      html += `<div class="dilu-prep">`;
+      tbl.preps.forEach(p => { html += `• ${esc(p)}<br>`; });
+      html += `<span style="font-weight:700;">สารละลาย: ${esc(tbl.solvents)}</span><br>`;
+      html += `<span style="font-size:10.5px;color:#6B7A99;">หน่วย: Rate = mL/hr | BW = น้ำหนักตัว (kg)</span>`;
+      html += `</div>`;
+      html += `<div class="dilu-wrap"><table class="dilu-tbl">`;
+      html += `<tr><th class="left">Dose↓ / BW→</th>` + tbl.bws.map(w => `<th>${w}</th>`).join('') + `</tr>`;
+      tbl.rows.forEach(row => {
+        html += `<tr><td class="lbl">${row.d} mcg/kg/min</td>` + row.r.map(v => `<td>${v}</td>`).join('') + `</tr>`;
+      });
+      html += `</table></div>`;
+    }
+    html += `</div>`;
+  });
+  return html;
+}
+
 function renderDrugDetail(d) {
   let html = `<div class="drug-detail">
     <div class="drug-hero" style="--drug-color:${esc(d.color)}; background:linear-gradient(135deg,${esc(d.color)},${esc(d.color)}CC);">
@@ -610,6 +717,7 @@ function renderDrugDetail(d) {
     <div class="section-title"><span class="section-title-icon">💉</span>ขนาดยาและวิธีใช้</div>
     <table class="dose-table">${d.doses.map(ds => `<tr><td>${esc(ds.label)}</td><td>${esc(ds.value)}</td></tr>`).join('')}</table>
   </div>`;
+  html += renderDilutionTables(d);
 
   // Compatibility
   html += `<div class="section">
