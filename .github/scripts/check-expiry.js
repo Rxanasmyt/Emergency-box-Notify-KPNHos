@@ -117,11 +117,11 @@ async function fetchExpiringDrugs() {
         const days = daysUntil(lot.expiry);
         if (days <= THRESHOLD_DAYS) {
           const returnDeadline = addDaysISO(lot.expiry, -15);
+          const isOut = !!(box.dispense && !box.receiver);
           alerts.push({
             boxId,
-            dept: box.dept || '—',
-            boxStatus: (box.dispense && !box.receiver) ? 'out' : 'in',
-            boxCurrentDept: (box.dispense && !box.receiver && box.dept) ? box.dept : '—',
+            location: isOut ? (box.dispense || 'หน่วยงาน') : 'ห้องยา',
+            isOut,
             drugName: drug.name || '—',
             isHAD: !!drug.had,
             expiry: lot.expiry,
@@ -131,7 +131,6 @@ async function fetchExpiringDrugs() {
             returnDeadline,
             returnDeadlineThai: thaiDate(returnDeadline),
             daysLeft: days,
-            // ตรงกับเกณฑ์แอป: วิกฤต = หมดอายุภายใน 15 วัน (= วันส่งคืนผ่านแล้ว)
             status: days <= 0 ? 'expired' : days <= 15 ? 'critical' : days <= 30 ? 'warning' : 'notice',
             statusLabel: statusLabel(days),
           });
@@ -151,11 +150,14 @@ function buildLineMessage(alerts) {
   const warning  = alerts.filter(a => a.status === 'warning');
   const notice   = alerts.filter(a => a.status === 'notice');
 
-  const todayStr = new Date().toLocaleDateString('th-TH', {
-    year: 'numeric', month: 'long', day: 'numeric', weekday: 'long',
+  const todayStr = TODAY.toLocaleDateString('th-TH', {
+    year: 'numeric', month: 'long', day: 'numeric', weekday: 'long', timeZone: 'Asia/Bangkok',
   });
 
-  let msg = `\n🏥 EB Notify — รพ.กรงปินัง\n`;
+  const locIcon = a => a.isOut ? '🏥' : '💊';
+  const locLabel = a => a.isOut ? `เบิกออก → ${a.location}` : 'ห้องยา';
+
+  let msg = `🏥 EB Notify — รพ.กรงปินัง\n`;
   msg += `📅 ${todayStr}\n`;
   msg += `━━━━━━━━━━━━━━━━━━━━\n`;
   msg += `พบยาที่ต้องดำเนินการ ${alerts.length} รายการ\n`;
@@ -163,27 +165,32 @@ function buildLineMessage(alerts) {
   if (expired.length) {
     msg += `\n🔴 หมดอายุแล้ว (${expired.length} รายการ)\n`;
     expired.forEach(a => {
-      msg += `• ${a.boxId} · ${a.dept}\n  ${a.drugName}${a.isHAD ? ' ⚠️HAD' : ''}\n  หมด: ${a.expiryThai} (${a.daysLeft === 0 ? 'หมดอายุวันนี้' : `เกิน ${Math.abs(a.daysLeft)} วัน`})\n`;
+      msg += `• ${a.boxId.toUpperCase()} ${a.isHAD ? '⚠️HAD ' : ''}${a.drugName}\n`;
+      msg += `  ${locIcon(a)} ${locLabel(a)}\n`;
+      msg += `  หมด: ${a.expiryThai} (${a.daysLeft === 0 ? 'หมดอายุวันนี้' : `เกิน ${Math.abs(a.daysLeft)} วัน`})\n`;
     });
   }
   if (critical.length) {
     msg += `\n🟠 วิกฤต ≤15 วัน (${critical.length} รายการ)\n`;
     critical.forEach(a => {
-      msg += `• ${a.boxId} · ${a.dept}\n  ${a.drugName}${a.isHAD ? ' ⚠️HAD' : ''}\n  หมด: ${a.expiryThai} (เหลือ ${a.daysLeft} วัน)\n`;
+      msg += `• ${a.boxId.toUpperCase()} ${a.isHAD ? '⚠️HAD ' : ''}${a.drugName}\n`;
+      msg += `  ${locIcon(a)} ${locLabel(a)}\n`;
+      msg += `  หมด: ${a.expiryThai} (เหลือ ${a.daysLeft} วัน)\n`;
     });
   }
   if (warning.length) {
     msg += `\n🟡 ใกล้กำหนด ≤30 วัน (${warning.length} รายการ)\n`;
     warning.forEach(a => {
-      msg += `• ${a.boxId} · ${a.dept}  ${a.drugName} (${a.daysLeft} วัน)\n`;
+      msg += `• ${a.boxId.toUpperCase()} ${a.isHAD ? '⚠️HAD ' : ''}${a.drugName}\n`;
+      msg += `  ${locIcon(a)} ${locLabel(a)} · หมด: ${a.expiryThai} (${a.daysLeft} วัน)\n`;
     });
   }
   if (notice.length) {
     msg += `\n🔵 เตือนล่วงหน้า (${notice.length} รายการ)\n`;
-    notice.slice(0, 8).forEach(a => {
-      msg += `• ${a.boxId} · ${a.drugName.split(' ')[0]}... (${a.daysLeft} วัน)\n`;
+    notice.slice(0, 6).forEach(a => {
+      msg += `• ${a.boxId.toUpperCase()} ${a.drugName.split(' ')[0]} · ${locLabel(a)} (${a.daysLeft} วัน)\n`;
     });
-    if (notice.length > 8) msg += `  ... อีก ${notice.length - 8} รายการ\n`;
+    if (notice.length > 6) msg += `  ... อีก ${notice.length - 6} รายการ\n`;
   }
 
   msg += `\n🔗 emergencyboxnotyfykpnhos.web.app`;
