@@ -143,8 +143,8 @@ async function fetchExpiringDrugs() {
   return alerts;
 }
 
-// ── Build LINE message ─────────────────────────────────────────
-function buildLineMessage(alerts) {
+// ── Build Flex Messages (carousel) ────────────────────────────
+function buildFlexMessages(alerts) {
   const expired  = alerts.filter(a => a.status === 'expired');
   const critical = alerts.filter(a => a.status === 'critical');
   const warning  = alerts.filter(a => a.status === 'warning');
@@ -154,62 +154,118 @@ function buildLineMessage(alerts) {
     year: 'numeric', month: 'long', day: 'numeric', weekday: 'long', timeZone: 'Asia/Bangkok',
   });
 
-  const locIcon = a => a.isOut ? '🏥' : '💊';
-  const locLabel = a => a.isOut ? `เบิกออก → ${a.location}` : 'ห้องยา';
+  const bubbles = [];
 
-  let msg = `🏥 EB Notify — รพ.กรงปินัง\n`;
-  msg += `📅 ${todayStr}\n`;
-  msg += `━━━━━━━━━━━━━━━━━━━━\n`;
-  msg += `พบยาที่ต้องดำเนินการ ${alerts.length} รายการ\n`;
+  // ── Summary bubble ──
+  const summaryRows = [];
+  if (expired.length)  summaryRows.push({ text: `🔴 หมดอายุแล้ว`, count: expired.length,  color: '#C0392B' });
+  if (critical.length) summaryRows.push({ text: `🟠 วิกฤต ≤15 วัน`, count: critical.length, color: '#E17055' });
+  if (warning.length)  summaryRows.push({ text: `🟡 ใกล้กำหนด ≤30 วัน`, count: warning.length,  color: '#D68910' });
+  if (notice.length)   summaryRows.push({ text: `🔵 เตือนล่วงหน้า`, count: notice.length,  color: '#1A6BAA' });
 
-  if (expired.length) {
-    msg += `\n🔴 หมดอายุแล้ว (${expired.length} รายการ)\n`;
-    expired.forEach(a => {
-      msg += `• ${a.boxId.toUpperCase()} ${a.isHAD ? '⚠️HAD ' : ''}${a.drugName}\n`;
-      msg += `  ${locIcon(a)} ${locLabel(a)}\n`;
-      msg += `  หมด: ${a.expiryThai} (${a.daysLeft === 0 ? 'หมดอายุวันนี้' : `เกิน ${Math.abs(a.daysLeft)} วัน`})\n`;
-    });
-  }
-  if (critical.length) {
-    msg += `\n🟠 วิกฤต ≤15 วัน (${critical.length} รายการ)\n`;
-    critical.forEach(a => {
-      msg += `• ${a.boxId.toUpperCase()} ${a.isHAD ? '⚠️HAD ' : ''}${a.drugName}\n`;
-      msg += `  ${locIcon(a)} ${locLabel(a)}\n`;
-      msg += `  หมด: ${a.expiryThai} (เหลือ ${a.daysLeft} วัน)\n`;
-    });
-  }
-  if (warning.length) {
-    msg += `\n🟡 ใกล้กำหนด ≤30 วัน (${warning.length} รายการ)\n`;
-    warning.forEach(a => {
-      msg += `• ${a.boxId.toUpperCase()} ${a.isHAD ? '⚠️HAD ' : ''}${a.drugName}\n`;
-      msg += `  ${locIcon(a)} ${locLabel(a)} · หมด: ${a.expiryThai} (${a.daysLeft} วัน)\n`;
-    });
-  }
-  if (notice.length) {
-    msg += `\n🔵 เตือนล่วงหน้า (${notice.length} รายการ)\n`;
-    notice.slice(0, 6).forEach(a => {
-      msg += `• ${a.boxId.toUpperCase()} ${a.drugName.split(' ')[0]} · ${locLabel(a)} (${a.daysLeft} วัน)\n`;
-    });
-    if (notice.length > 6) msg += `  ... อีก ${notice.length - 6} รายการ\n`;
-  }
+  bubbles.push({
+    type: 'bubble', size: 'mega',
+    header: {
+      type: 'box', layout: 'vertical', paddingAll: '0px',
+      contents: [{ type: 'image', url: 'https://cdns.yellow-idea.com/moph/20250602/moph-flex-header-1.png', size: 'full', aspectRatio: '3120:885', aspectMode: 'cover' }],
+    },
+    body: {
+      type: 'box', layout: 'vertical', spacing: 'md', paddingAll: '16px',
+      contents: [
+        { type: 'text', text: 'EB Notify — รพ.กรงปินัง', weight: 'bold', size: 'lg', color: '#1a1a2e' },
+        { type: 'text', text: todayStr, size: 'xs', color: '#777777', wrap: true },
+        { type: 'separator', margin: 'md' },
+        ...summaryRows.map(r => ({
+          type: 'box', layout: 'horizontal', margin: 'sm',
+          contents: [
+            { type: 'text', text: r.text, size: 'sm', color: r.color, weight: 'bold', flex: 5 },
+            { type: 'text', text: `${r.count} รายการ`, size: 'sm', color: r.color, weight: 'bold', align: 'end', flex: 2 },
+          ],
+        })),
+        { type: 'separator', margin: 'md' },
+        { type: 'text', text: `รวม ${alerts.length} รายการ`, size: 'sm', color: '#444444', align: 'center', weight: 'bold' },
+        { type: 'button', margin: 'lg', style: 'link', height: 'sm',
+          action: { type: 'uri', label: '🔗 เปิดแอป EB Notify', uri: 'https://emergencyboxnotyfykpnhos.web.app' } },
+      ],
+    },
+  });
 
-  msg += `\n🔗 emergencyboxnotyfykpnhos.web.app`;
-  return msg;
+  // ── Per-severity bubbles ──
+  const severities = [
+    { list: expired,  label: '🔴 หมดอายุแล้ว',       hBg: '#C0392B', hFg: '#FFFFFF', iBg: '#FEF0EF' },
+    { list: critical, label: '🟠 วิกฤต ≤15 วัน',     hBg: '#E17055', hFg: '#FFFFFF', iBg: '#FEF4F2' },
+    { list: warning,  label: '🟡 ใกล้กำหนด ≤30 วัน', hBg: '#F0B429', hFg: '#FFFFFF', iBg: '#FFFBF0' },
+    { list: notice,   label: '🔵 เตือนล่วงหน้า',     hBg: '#1A6BAA', hFg: '#FFFFFF', iBg: '#EEF6FF' },
+  ];
+
+  severities.forEach(({ list, label, hBg, hFg, iBg }) => {
+    if (!list.length) return;
+    // สูงสุด 8 รายการต่อ bubble เพื่อไม่ให้ยาวเกิน
+    for (let i = 0; i < list.length; i += 8) {
+      const chunk = list.slice(i, i + 8);
+      const titleSuffix = list.length > 8 ? ` (${Math.floor(i/8)+1}/${Math.ceil(list.length/8)})` : '';
+      const itemContents = [];
+
+      chunk.forEach((a, idx) => {
+        if (idx > 0) itemContents.push({ type: 'separator', margin: 'sm', color: '#DDDDDD' });
+        const locText = a.isOut ? `🏥 เบิกออก → ${a.location}` : '💊 ห้องยา';
+        const dayText = a.daysLeft < 0
+          ? `เกิน ${Math.abs(a.daysLeft)} วัน`
+          : a.daysLeft === 0 ? 'หมดวันนี้' : `เหลือ ${a.daysLeft} วัน`;
+
+        itemContents.push({
+          type: 'box', layout: 'vertical', margin: 'sm',
+          backgroundColor: iBg, cornerRadius: '8px', paddingAll: '10px',
+          contents: [
+            {
+              type: 'box', layout: 'horizontal',
+              contents: [
+                { type: 'text', text: a.boxId.toUpperCase(), size: 'sm', weight: 'bold', color: hBg, flex: 2 },
+                { type: 'text', text: `${a.drugName}${a.isHAD ? ' ⚠️' : ''}`, size: 'sm', weight: 'bold', color: '#1a1a2e', flex: 7, wrap: true },
+              ],
+            },
+            { type: 'text', text: locText, size: 'xs', color: '#555555', margin: 'xs' },
+            {
+              type: 'box', layout: 'horizontal', margin: 'xs',
+              contents: [
+                { type: 'text', text: `หมดอายุ: ${a.expiryThai}`, size: 'xs', color: '#888888', flex: 1 },
+                { type: 'text', text: dayText, size: 'xs', color: hBg, weight: 'bold', align: 'end', flex: 1 },
+              ],
+            },
+          ],
+        });
+      });
+
+      bubbles.push({
+        type: 'bubble', size: 'mega',
+        header: {
+          type: 'box', layout: 'vertical', backgroundColor: hBg, paddingAll: '14px',
+          contents: [
+            { type: 'text', text: `${label}${titleSuffix}`, color: hFg, weight: 'bold', size: 'md' },
+            { type: 'text', text: `${chunk.length} รายการ`, color: hFg, size: 'xs', margin: 'xs' },
+          ],
+        },
+        body: {
+          type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: '12px',
+          contents: itemContents,
+        },
+      });
+    }
+  });
+
+  return [{
+    type: 'flex',
+    altText: `EB Notify — พบยาที่ต้องดำเนินการ ${alerts.length} รายการ`,
+    contents: { type: 'carousel', contents: bubbles },
+  }];
 }
 
 // ── Send MOPH Notify ──────────────────────────────────────────
 // ส่งข้อความเข้ากลุ่ม LINE ที่บอท หมอพร้อม อยู่ในกลุ่ม
 // Endpoint: POST https://morpromt2f.moph.go.th/api/notify/send
-function sendMOPHNotify(clientKey, secretKey, message) {
+// messages = array of LINE message objects (text, flex, etc.)
+function sendMOPHNotify(clientKey, secretKey, messages) {
   return new Promise((resolve) => {
-    const messages = [];
-    if (message.length > 4500) {
-      messages.push({ type: 'text', text: message.slice(0, 4500) });
-      messages.push({ type: 'text', text: message.slice(4500) });
-    } else {
-      messages.push({ type: 'text', text: message });
-    }
-
     const payload = JSON.stringify({ messages });
 
     const req = https.request({
@@ -614,7 +670,7 @@ async function main() {
       let lineSentAC = false;
       if (process.env.MOPH_NOTIFY_CLIENT_KEY && process.env.MOPH_NOTIFY_SECRET_KEY) {
         const allClearLine = `✅ EB Notify — ไม่พบยาใกล้หมดอายุ\n📦 กล่อง EB ทั้งหมด ${boxCount} กล่อง พร้อมใช้งาน\n📅 ${TODAY.toLocaleDateString('th-TH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`;
-        lineSentAC = await sendMOPHNotify(process.env.MOPH_NOTIFY_CLIENT_KEY, process.env.MOPH_NOTIFY_SECRET_KEY, allClearLine).catch(err => { console.error('❌ MOPH Notify all-clear error:', err.message); return false; });
+        lineSentAC = await sendMOPHNotify(process.env.MOPH_NOTIFY_CLIENT_KEY, process.env.MOPH_NOTIFY_SECRET_KEY, [{ type: 'text', text: allClearLine }]).catch(err => { console.error('❌ MOPH Notify all-clear error:', err.message); return false; });
       }
       if (emailSent || lineSentAC) await markSentToday();
     } else {
@@ -650,7 +706,7 @@ async function main() {
   }
 
   const lineResult = (process.env.MOPH_NOTIFY_CLIENT_KEY && process.env.MOPH_NOTIFY_SECRET_KEY)
-    ? await sendMOPHNotify(process.env.MOPH_NOTIFY_CLIENT_KEY, process.env.MOPH_NOTIFY_SECRET_KEY, buildLineMessage(alertsToSend)).catch(err => { console.error('❌ MOPH Notify exception:', err.message); return false; })
+    ? await sendMOPHNotify(process.env.MOPH_NOTIFY_CLIENT_KEY, process.env.MOPH_NOTIFY_SECRET_KEY, buildFlexMessages(alertsToSend)).catch(err => { console.error('❌ MOPH Notify exception:', err.message); return false; })
     : (console.log('⚠️  MOPH Notify: ไม่ได้ตั้งค่า MOPH_NOTIFY_CLIENT_KEY / MOPH_NOTIFY_SECRET_KEY'), false);
 
   const emailResult = await sendEmail(alertsToSend).catch(err => { console.error('❌ Email exception:', err.message); return false; });
