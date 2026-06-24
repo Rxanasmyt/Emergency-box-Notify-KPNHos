@@ -3,12 +3,13 @@
  * Runs via GitHub Actions every day at 08:00 AM Bangkok time (01:00 UTC)
  *
  * Required GitHub Secrets:
- *   FIREBASE_SERVICE_ACCOUNT - Firebase Admin SDK JSON (already set)
- *   LINE_CHANNEL_TOKEN       - LINE Messaging API channel access token
- *   EMAIL_FROM               - Gmail address (sender)
- *   EMAIL_PASS               - Gmail App Password (16-char, not account password)
- *   EMAIL_TO                 - Recipient email (comma-separated for multiple)
- *   NOTIFY_DAYS_AHEAD        - (optional) days threshold, default 30
+ *   FIREBASE_SERVICE_ACCOUNT   - Firebase Admin SDK JSON (already set)
+ *   MOPH_NOTIFY_CLIENT_KEY     - client-key จาก CMS MOPH Notify (ส่งเข้ากลุ่ม LINE หมอพร้อม)
+ *   MOPH_NOTIFY_SECRET_KEY     - secret-key จาก CMS MOPH Notify
+ *   EMAIL_FROM                 - Gmail address (sender)
+ *   EMAIL_PASS                 - Gmail App Password (16-char, not account password)
+ *   EMAIL_TO                   - Recipient email (comma-separated for multiple)
+ *   NOTIFY_DAYS_AHEAD          - (optional) days threshold, default 30
  */
 
 'use strict';
@@ -189,18 +190,12 @@ function buildLineMessage(alerts) {
   return msg;
 }
 
-// ── Send LINE Messaging API ────────────────────────────────────
-// ส่งแบบ push (ถ้ามี LINE_USER_ID) หรือ broadcast (ส่งถึงทุก follower)
-function sendLineMessage(channelToken, message, userId) {
+// ── Send MOPH Notify ──────────────────────────────────────────
+// ส่งข้อความเข้ากลุ่ม LINE ที่บอท หมอพร้อม อยู่ในกลุ่ม
+// Endpoint: POST https://morpromt2f.moph.go.th/api/notify/send
+function sendMOPHNotify(clientKey, secretKey, message) {
   return new Promise((resolve) => {
-    const useBroadcast = !userId;
-    const path = useBroadcast
-      ? '/v2/bot/message/broadcast'
-      : '/v2/bot/message/push';
-
-    // LINE Messaging API รองรับข้อความสูงสุด 5000 ตัวอักษร ต่อ message object
     const messages = [];
-    // ถ้าข้อความยาวเกิน แยกส่ง 2 bubble
     if (message.length > 4500) {
       messages.push({ type: 'text', text: message.slice(0, 4500) });
       messages.push({ type: 'text', text: message.slice(4500) });
@@ -208,17 +203,16 @@ function sendLineMessage(channelToken, message, userId) {
       messages.push({ type: 'text', text: message });
     }
 
-    const payload = JSON.stringify(
-      useBroadcast ? { messages } : { to: userId, messages }
-    );
+    const payload = JSON.stringify({ messages });
 
     const req = https.request({
-      hostname: 'api.line.me',
-      path,
+      hostname: 'morpromt2f.moph.go.th',
+      path: '/api/notify/send',
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${channelToken}`,
         'Content-Type': 'application/json',
+        'client-key': clientKey,
+        'secret-key': secretKey,
         'Content-Length': Buffer.byteLength(payload),
       },
     }, res => {
@@ -226,16 +220,16 @@ function sendLineMessage(channelToken, message, userId) {
       res.on('data', chunk => { data += chunk; });
       res.on('end', () => {
         if (res.statusCode === 200) {
-          console.log(`✅ LINE Messaging API: ส่งสำเร็จ (${useBroadcast ? 'broadcast' : `push → ${userId}`})`);
+          console.log('✅ MOPH Notify: ส่งเข้ากลุ่ม LINE สำเร็จ');
           resolve(true);
         } else {
-          console.error(`❌ LINE Messaging API: ${res.statusCode} — ${data}`);
+          console.error(`❌ MOPH Notify: ${res.statusCode} — ${data}`);
           resolve(false);
         }
       });
     });
-    req.setTimeout(30000, () => { console.error('❌ LINE timeout (30s)'); req.destroy(); });
-    req.on('error', err => { if (err.code !== 'ERR_SOCKET_DESTROYED') console.error('❌ LINE error:', err.message); resolve(false); });
+    req.setTimeout(30000, () => { console.error('❌ MOPH Notify timeout (30s)'); req.destroy(); });
+    req.on('error', err => { if (err.code !== 'ERR_SOCKET_DESTROYED') console.error('❌ MOPH Notify error:', err.message); resolve(false); });
     req.write(payload);
     req.end();
   });
@@ -611,9 +605,9 @@ async function main() {
       const boxCount = await db.collection('boxes').get().then(s => s.size).catch(() => 0);
       const emailSent = await sendAllClearEmail(boxCount);
       let lineSentAC = false;
-      if (process.env.LINE_CHANNEL_TOKEN) {
+      if (process.env.MOPH_NOTIFY_CLIENT_KEY && process.env.MOPH_NOTIFY_SECRET_KEY) {
         const allClearLine = `✅ EB Notify — ไม่พบยาใกล้หมดอายุ\n📦 กล่อง EB ทั้งหมด ${boxCount} กล่อง พร้อมใช้งาน\n📅 ${TODAY.toLocaleDateString('th-TH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`;
-        lineSentAC = await sendLineMessage(process.env.LINE_CHANNEL_TOKEN, allClearLine, process.env.LINE_USER_ID || undefined).catch(err => { console.error('❌ LINE all-clear error:', err.message); return false; });
+        lineSentAC = await sendMOPHNotify(process.env.MOPH_NOTIFY_CLIENT_KEY, process.env.MOPH_NOTIFY_SECRET_KEY, allClearLine).catch(err => { console.error('❌ MOPH Notify all-clear error:', err.message); return false; });
       }
       if (emailSent || lineSentAC) await markSentToday();
     } else {
@@ -648,9 +642,9 @@ async function main() {
     console.log(`\n📬 ${IS_MANUAL ? 'กดปุ่มเอง' : 'วันจันทร์'} — ส่งรายงานทั้งหมด (${alertsToSend.length} รายการ)`);
   }
 
-  const lineResult = process.env.LINE_CHANNEL_TOKEN
-    ? await sendLineMessage(process.env.LINE_CHANNEL_TOKEN, buildLineMessage(alertsToSend), process.env.LINE_USER_ID || undefined).catch(err => { console.error('❌ LINE exception:', err.message); return false; })
-    : (console.log('⚠️  LINE: ไม่ได้ตั้งค่า LINE_CHANNEL_TOKEN'), false);
+  const lineResult = (process.env.MOPH_NOTIFY_CLIENT_KEY && process.env.MOPH_NOTIFY_SECRET_KEY)
+    ? await sendMOPHNotify(process.env.MOPH_NOTIFY_CLIENT_KEY, process.env.MOPH_NOTIFY_SECRET_KEY, buildLineMessage(alertsToSend)).catch(err => { console.error('❌ MOPH Notify exception:', err.message); return false; })
+    : (console.log('⚠️  MOPH Notify: ไม่ได้ตั้งค่า MOPH_NOTIFY_CLIENT_KEY / MOPH_NOTIFY_SECRET_KEY'), false);
 
   const emailResult = await sendEmail(alertsToSend).catch(err => { console.error('❌ Email exception:', err.message); return false; });
 
@@ -659,7 +653,7 @@ async function main() {
   console.log(`Email: ${emailResult ? '✅ สำเร็จ' : '❌ ล้มเหลว / ไม่ได้ตั้งค่า'}`);
 
   // ต้องส่งได้อย่างน้อย 1 ช่องทาง — ถ้าไม่ได้เลย exit 1 ให้ GitHub Actions แสดงสีแดง
-  const atLeastOneConfigured = process.env.LINE_CHANNEL_TOKEN || (process.env.EMAIL_FROM && process.env.EMAIL_PASS && process.env.EMAIL_TO);
+  const atLeastOneConfigured = (process.env.MOPH_NOTIFY_CLIENT_KEY && process.env.MOPH_NOTIFY_SECRET_KEY) || (process.env.EMAIL_FROM && process.env.EMAIL_PASS && process.env.EMAIL_TO);
   if (atLeastOneConfigured && !lineResult && !emailResult) {
     console.error('\n❌ การแจ้งเตือนล้มเหลวทุกช่องทาง');
     process.exit(1);
