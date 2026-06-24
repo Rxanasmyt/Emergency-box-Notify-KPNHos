@@ -30,7 +30,7 @@ admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
 const db = admin.firestore();
 
 // แจ้งเตือนยาที่หมดอายุภายใน 30 วัน (= ถึงวันส่งคืนภายใน 15 วัน)
-const _rawDays = parseInt(process.env.NOTIFY_DAYS_AHEAD || '30', 10);
+const _rawDays = parseInt(process.env.NOTIFY_DAYS_AHEAD || '60', 10);
 const THRESHOLD_DAYS = isNaN(_rawDays) || _rawDays <= 0 ? 30 : _rawDays;
 // Use Bangkok time (UTC+7) so expiry comparisons match Thai calendar day
 // Use Intl.DateTimeFormat with en-CA (yields ISO YYYY-MM-DD) to avoid unreliable

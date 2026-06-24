@@ -34,4 +34,4 @@ jobs:
           EMAIL_FROM:                ${{ secrets.EMAIL_FROM }}
           EMAIL_PASS:                ${{ secrets.EMAIL_PASS }}
           EMAIL_TO:                  ${{ secrets.EMAIL_TO }}
-          NOTIFY_DAYS_AHEAD:         ${{ vars.NOTIFY_DAYS_AHEAD || '30' }}
+          NOTIFY_DAYS_AHEAD:         ${{ vars.NOTIFY_DAYS_AHEAD || '60' }}
