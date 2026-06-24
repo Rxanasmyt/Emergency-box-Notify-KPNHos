@@ -28,10 +28,10 @@ jobs:
       - name: Run expiry check & send notifications
         run: node .github/scripts/check-expiry.js
         env:
-          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          LINE_CHANNEL_TOKEN:       ${{ secrets.LINE_CHANNEL_TOKEN }}
-          LINE_USER_ID:             ${{ secrets.LINE_USER_ID }}
-          EMAIL_FROM:               ${{ secrets.EMAIL_FROM }}
-          EMAIL_PASS:               ${{ secrets.EMAIL_PASS }}
-          EMAIL_TO:                 ${{ secrets.EMAIL_TO }}
-          NOTIFY_DAYS_AHEAD:        ${{ vars.NOTIFY_DAYS_AHEAD || '30' }}
+          FIREBASE_SERVICE_ACCOUNT:  ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          MOPH_NOTIFY_CLIENT_KEY:    ${{ secrets.MOPH_NOTIFY_CLIENT_KEY }}
+          MOPH_NOTIFY_SECRET_KEY:    ${{ secrets.MOPH_NOTIFY_SECRET_KEY }}
+          EMAIL_FROM:                ${{ secrets.EMAIL_FROM }}
+          EMAIL_PASS:                ${{ secrets.EMAIL_PASS }}
+          EMAIL_TO:                  ${{ secrets.EMAIL_TO }}
+          NOTIFY_DAYS_AHEAD:         ${{ vars.NOTIFY_DAYS_AHEAD || '30' }}
