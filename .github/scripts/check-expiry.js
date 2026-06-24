@@ -143,7 +143,7 @@ async function fetchExpiringDrugs() {
   return alerts;
 }
 
-// ── Build Flex Messages (carousel) ────────────────────────────
+// ── Build Flex Messages (premium carousel) ─────────────────────
 function buildFlexMessages(alerts) {
   const expired  = alerts.filter(a => a.status === 'expired');
   const critical = alerts.filter(a => a.status === 'critical');
@@ -154,6 +154,72 @@ function buildFlexMessages(alerts) {
     year: 'numeric', month: 'long', day: 'numeric', weekday: 'long', timeZone: 'Asia/Bangkok',
   });
 
+  // ── Helper: stat box (2×2 grid in summary) ──
+  function statBox(emoji, count, label, activeBg) {
+    const bg = count > 0 ? activeBg : '#2C3E50';
+    const fg = count > 0 ? '#FFFFFF' : '#607D8B';
+    return {
+      type: 'box', layout: 'vertical', flex: 1, margin: 'sm',
+      backgroundColor: bg, cornerRadius: '14px', paddingAll: '14px',
+      contents: [
+        { type: 'text', text: String(count), size: '3xl', weight: 'bold', color: '#FFFFFF', align: 'center' },
+        { type: 'text', text: emoji, size: 'lg', align: 'center', margin: 'xs' },
+        { type: 'text', text: label, size: 'xxs', color: fg, align: 'center', wrap: true, margin: 'xs' },
+      ],
+    };
+  }
+
+  // ── Helper: pill badge ──
+  function pill(text, bg, fg = '#FFFFFF') {
+    return {
+      type: 'box', layout: 'vertical', flex: 0,
+      backgroundColor: bg, cornerRadius: '20px',
+      paddingTop: '4px', paddingBottom: '4px', paddingStart: '10px', paddingEnd: '10px',
+      contents: [{ type: 'text', text, color: fg, size: 'xxs', weight: 'bold' }],
+    };
+  }
+
+  // ── Helper: drug card (colored-border style) ──
+  function drugCard(a, borderColor, itemBg) {
+    const locText = a.isOut ? `🏥  เบิกออก → ${a.location}` : '💊  ห้องยา';
+    const dayText = a.daysLeft < 0
+      ? `เกิน ${Math.abs(a.daysLeft)} วัน`
+      : a.daysLeft === 0 ? 'หมดวันนี้' : `เหลือ ${a.daysLeft} วัน`;
+    const dayBadgeColor = a.daysLeft < 0 ? '#B71C1C' : a.daysLeft <= 7 ? '#C62828' : a.daysLeft <= 15 ? '#E64A19' : '#1565C0';
+
+    const nameRow = [
+      pill(a.boxId.toUpperCase(), borderColor),
+      { type: 'text', text: a.drugName, size: 'sm', weight: 'bold', color: '#1A1A2E', flex: 1, margin: 'sm', wrap: true },
+    ];
+    if (a.isHAD) nameRow.push(pill('⚠ HAD', '#B71C1C'));
+
+    return {
+      // Outer colored border (2px padding trick)
+      type: 'box', layout: 'vertical', margin: 'md',
+      backgroundColor: borderColor, cornerRadius: '14px', paddingAll: '2px',
+      contents: [{
+        type: 'box', layout: 'vertical',
+        backgroundColor: itemBg, cornerRadius: '12px', paddingAll: '14px',
+        contents: [
+          { type: 'box', layout: 'horizontal', alignItems: 'center', contents: nameRow },
+          {
+            type: 'box', layout: 'horizontal', margin: 'sm', alignItems: 'center',
+            backgroundColor: '#EEF2F7', cornerRadius: '20px',
+            paddingTop: '6px', paddingBottom: '6px', paddingStart: '12px', paddingEnd: '12px',
+            contents: [{ type: 'text', text: locText, size: 'xs', color: '#455A64' }],
+          },
+          {
+            type: 'box', layout: 'horizontal', margin: 'sm', alignItems: 'center',
+            contents: [
+              { type: 'text', text: `หมดอายุ  ${a.expiryThai}`, size: 'xs', color: '#78909C', flex: 1 },
+              pill(dayText, dayBadgeColor),
+            ],
+          },
+        ],
+      }],
+    };
+  }
+
   const bubbles = [];
 
   // ── Summary bubble ──
@@ -163,6 +229,7 @@ function buildFlexMessages(alerts) {
   if (warning.length)  summaryRows.push({ text: `🟡 ใกล้กำหนด ≤30 วัน`, count: warning.length,  color: '#D68910' });
   if (notice.length)   summaryRows.push({ text: `🔵 เตือนล่วงหน้า`, count: notice.length,  color: '#1A6BAA' });
 
+  // ── Summary bubble (dark navy) ──
   bubbles.push({
     type: 'bubble', size: 'mega',
     header: {
@@ -170,84 +237,69 @@ function buildFlexMessages(alerts) {
       contents: [{ type: 'image', url: 'https://cdns.yellow-idea.com/moph/20250602/moph-flex-header-1.png', size: 'full', aspectRatio: '3120:885', aspectMode: 'cover' }],
     },
     body: {
-      type: 'box', layout: 'vertical', spacing: 'md', paddingAll: '16px',
+      type: 'box', layout: 'vertical', backgroundColor: '#1B2A4A', paddingAll: '20px', spacing: 'none',
       contents: [
-        { type: 'text', text: 'EB Notify — รพ.กรงปินัง', weight: 'bold', size: 'lg', color: '#1a1a2e' },
-        { type: 'text', text: todayStr, size: 'xs', color: '#777777', wrap: true },
-        { type: 'separator', margin: 'md' },
-        ...summaryRows.map(r => ({
-          type: 'box', layout: 'horizontal', margin: 'sm',
+        { type: 'text', text: '🏥  EB Notify', weight: 'bold', size: 'xl', color: '#FFFFFF' },
+        { type: 'text', text: 'โรงพยาบาลกรงปินัง · ห้องยา', size: 'xs', color: '#90CAF9', margin: 'xs' },
+        { type: 'text', text: `📅  ${todayStr}`, size: 'xs', color: '#B0BEC5', margin: 'sm', wrap: true },
+        { type: 'separator', margin: 'lg', color: '#2E4272' },
+        { type: 'box', layout: 'horizontal', margin: 'lg',
           contents: [
-            { type: 'text', text: r.text, size: 'sm', color: r.color, weight: 'bold', flex: 5 },
-            { type: 'text', text: `${r.count} รายการ`, size: 'sm', color: r.color, weight: 'bold', align: 'end', flex: 2 },
+            statBox('🔴', expired.length,  'หมดอายุ',     '#C62828'),
+            statBox('🟠', critical.length, 'วิกฤต',       '#E64A19'),
           ],
-        })),
-        { type: 'separator', margin: 'md' },
-        { type: 'text', text: `รวม ${alerts.length} รายการ`, size: 'sm', color: '#444444', align: 'center', weight: 'bold' },
-        { type: 'button', margin: 'lg', style: 'link', height: 'sm',
-          action: { type: 'uri', label: '🔗 เปิดแอป EB Notify', uri: 'https://emergencyboxnotyfykpnhos.web.app' } },
+        },
+        { type: 'box', layout: 'horizontal', margin: 'sm',
+          contents: [
+            statBox('🟡', warning.length,  'ใกล้กำหนด',   '#E65100'),
+            statBox('🔵', notice.length,   'เตือนล่วงหน้า','#1565C0'),
+          ],
+        },
+        { type: 'separator', margin: 'lg', color: '#2E4272' },
+        { type: 'text', text: `รวม ${alerts.length} รายการที่ต้องดำเนินการ`, size: 'xs', color: '#90A4AE', align: 'center', margin: 'md' },
       ],
+    },
+    footer: {
+      type: 'box', layout: 'vertical', backgroundColor: '#0D1B2E', paddingAll: '14px',
+      contents: [{
+        type: 'button', style: 'primary', color: '#1E88E5', height: 'sm',
+        action: { type: 'uri', label: '🔗  เปิดแอป EB Notify', uri: 'https://emergencyboxnotyfykpnhos.web.app' },
+      }],
     },
   });
 
   // ── Per-severity bubbles ──
   const severities = [
-    { list: expired,  label: '🔴 หมดอายุแล้ว',       hBg: '#C0392B', hFg: '#FFFFFF', iBg: '#FEF0EF' },
-    { list: critical, label: '🟠 วิกฤต ≤15 วัน',     hBg: '#E17055', hFg: '#FFFFFF', iBg: '#FEF4F2' },
-    { list: warning,  label: '🟡 ใกล้กำหนด ≤30 วัน', hBg: '#F0B429', hFg: '#FFFFFF', iBg: '#FFFBF0' },
-    { list: notice,   label: '🔵 เตือนล่วงหน้า',     hBg: '#1A6BAA', hFg: '#FFFFFF', iBg: '#EEF6FF' },
+    { list: expired,  label: 'หมดอายุแล้ว',        emoji: '🔴', hBg: '#B71C1C', hFg: '#FFFFFF', bodyBg: '#FFF5F5', borderColor: '#C62828', itemBg: '#FFFFFF' },
+    { list: critical, label: 'วิกฤต ≤ 15 วัน',     emoji: '🟠', hBg: '#BF360C', hFg: '#FFFFFF', bodyBg: '#FFF8F5', borderColor: '#E64A19', itemBg: '#FFFFFF' },
+    { list: warning,  label: 'ใกล้กำหนด ≤ 30 วัน', emoji: '🟡', hBg: '#E65100', hFg: '#FFFFFF', bodyBg: '#FFFBF0', borderColor: '#F57F17', itemBg: '#FFFFFF' },
+    { list: notice,   label: 'เตือนล่วงหน้า',      emoji: '🔵', hBg: '#0D47A1', hFg: '#FFFFFF', bodyBg: '#F0F8FF', borderColor: '#1565C0', itemBg: '#FFFFFF' },
   ];
 
-  severities.forEach(({ list, label, hBg, hFg, iBg }) => {
+  severities.forEach(({ list, label, emoji, hBg, hFg, bodyBg, borderColor, itemBg }) => {
     if (!list.length) return;
-    // สูงสุด 8 รายการต่อ bubble เพื่อไม่ให้ยาวเกิน
-    for (let i = 0; i < list.length; i += 8) {
-      const chunk = list.slice(i, i + 8);
-      const titleSuffix = list.length > 8 ? ` (${Math.floor(i/8)+1}/${Math.ceil(list.length/8)})` : '';
-      const itemContents = [];
-
-      chunk.forEach((a, idx) => {
-        if (idx > 0) itemContents.push({ type: 'separator', margin: 'sm', color: '#DDDDDD' });
-        const locText = a.isOut ? `🏥 เบิกออก → ${a.location}` : '💊 ห้องยา';
-        const dayText = a.daysLeft < 0
-          ? `เกิน ${Math.abs(a.daysLeft)} วัน`
-          : a.daysLeft === 0 ? 'หมดวันนี้' : `เหลือ ${a.daysLeft} วัน`;
-
-        itemContents.push({
-          type: 'box', layout: 'vertical', margin: 'sm',
-          backgroundColor: iBg, cornerRadius: '8px', paddingAll: '10px',
-          contents: [
-            {
-              type: 'box', layout: 'horizontal',
-              contents: [
-                { type: 'text', text: a.boxId.toUpperCase(), size: 'sm', weight: 'bold', color: hBg, flex: 2 },
-                { type: 'text', text: `${a.drugName}${a.isHAD ? ' ⚠️' : ''}`, size: 'sm', weight: 'bold', color: '#1a1a2e', flex: 7, wrap: true },
-              ],
-            },
-            { type: 'text', text: locText, size: 'xs', color: '#555555', margin: 'xs' },
-            {
-              type: 'box', layout: 'horizontal', margin: 'xs',
-              contents: [
-                { type: 'text', text: `หมดอายุ: ${a.expiryThai}`, size: 'xs', color: '#888888', flex: 1 },
-                { type: 'text', text: dayText, size: 'xs', color: hBg, weight: 'bold', align: 'end', flex: 1 },
-              ],
-            },
-          ],
-        });
-      });
+    for (let i = 0; i < list.length; i += 6) {
+      const chunk = list.slice(i, i + 6);
+      const titleSuffix = list.length > 6 ? ` (${Math.floor(i/6)+1}/${Math.ceil(list.length/6)})` : '';
 
       bubbles.push({
         type: 'bubble', size: 'mega',
         header: {
-          type: 'box', layout: 'vertical', backgroundColor: hBg, paddingAll: '14px',
+          type: 'box', layout: 'horizontal', backgroundColor: hBg, paddingAll: '16px', alignItems: 'center',
           contents: [
-            { type: 'text', text: `${label}${titleSuffix}`, color: hFg, weight: 'bold', size: 'md' },
-            { type: 'text', text: `${chunk.length} รายการ`, color: hFg, size: 'xs', margin: 'xs' },
+            { type: 'text', text: emoji, size: 'xxl', flex: 0 },
+            {
+              type: 'box', layout: 'vertical', margin: 'md', flex: 1,
+              contents: [
+                { type: 'text', text: `${label}${titleSuffix}`, color: hFg, weight: 'bold', size: 'lg' },
+                { type: 'text', text: `${chunk.length} รายการ`, color: hFg, size: 'xs', margin: 'xs' },
+              ],
+            },
           ],
         },
         body: {
-          type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: '12px',
-          contents: itemContents,
+          type: 'box', layout: 'vertical', backgroundColor: bodyBg, paddingAll: '12px', spacing: 'none',
+          contents: chunk.map(a => drugCard(a, borderColor, itemBg)),
         },
       });
     }
@@ -255,7 +307,7 @@ function buildFlexMessages(alerts) {
 
   return [{
     type: 'flex',
-    altText: `EB Notify — พบยาที่ต้องดำเนินการ ${alerts.length} รายการ`,
+    altText: `🏥 EB Notify — พบยาที่ต้องดำเนินการ ${alerts.length} รายการ`,
     contents: { type: 'carousel', contents: bubbles },
   }];
 }
