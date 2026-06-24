@@ -91,6 +91,17 @@
   .coming-soon-title{font-size:18px;font-weight:700;color:#1A2B4A;margin-bottom:6px;}
   .coming-soon-sub{font-size:14px;color:#6B7A99;line-height:1.5;}
 
+  /* Reference section */
+  .ref-box{background:linear-gradient(135deg,#F0F7FF,#EEF5FA);border:1.5px solid #BFDBFE;border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:12px;}
+  .ref-icon{width:42px;height:42px;background:#DBEAFE;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:20px;}
+  .ref-body{flex:1;min-width:0;}
+  .ref-title{font-size:11px;font-weight:700;color:#1D4ED8;letter-spacing:.04em;text-transform:uppercase;margin-bottom:3px;}
+  .ref-label{font-size:12.5px;color:#1A2B4A;line-height:1.4;margin-bottom:8px;}
+  .ref-btn{display:inline-flex;align-items:center;gap:6px;background:#1E4FD8;color:#fff;border-radius:8px;padding:7px 14px;font-size:13px;font-weight:700;text-decoration:none;font-family:inherit;}
+  .ref-btn:hover{background:#1741B5;}
+  .ref-btn svg{flex-shrink:0;}
+  @media(prefers-color-scheme:dark){.ref-box{background:linear-gradient(135deg,#1E3A5F,#1E293B);border-color:#3B5888;}.ref-label{color:#CBD5E1;}.ref-icon{background:#1D3A6A;}.ref-title{color:#60A5FA;}}
+
   /* Dilution rate tables */
   .dilu-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:10px;border:1px solid #E2E8F0;margin-top:4px;}
   .dilu-prep{background:#EEF5FA;border-radius:8px;padding:8px 12px;font-size:12px;color:#1A6FA3;line-height:1.6;margin-bottom:8px;}
@@ -152,6 +163,7 @@ const DRUGS = {
     form: '1 g/10 mL · Ampule',
     color: '#0369A1',
     icon: '💊',
+    pdfRef: { file: 'pdfs/calcium_gluconate.pdf', label: 'ข้อมูลยา Calcium Gluconate 10% — ฝ่ายเภสัชกรรม รพ.กรงปินัง (ม.ค. 2567)' },
     category: 'Electrolyte',
     had: true,
     indications: [
@@ -189,6 +201,7 @@ const DRUGS = {
     name: 'Atropine',
     generic: 'Atropine Sulfate',
     form: '0.6 mg/mL · Ampule',
+    pdfRef: { file: 'pdfs/atropine.pdf', label: 'ข้อมูลยา Atropine 0.6 mg/mL — ฝ่ายเภสัชกรรม รพ.กรงปินัง (ม.ค. 2567)' },
     color: '#B45309',
     icon: '💉',
     category: 'Anticholinergic',
@@ -229,6 +242,7 @@ const DRUGS = {
     name: 'Sodium Bicarbonate 7.5%',
     generic: 'Sodium Bicarbonate',
     form: '44.6 mEq/50 mL',
+    pdfRef: { file: 'pdfs/sodium_bicarbonate.pdf', label: 'ข้อมูลยา Sodium Bicarbonate 7.5% — ฝ่ายเภสัชกรรม รพ.กรงปินัง (ม.ค. 2567)' },
     color: '#059669',
     icon: '🧪',
     category: 'Alkalinizing Agent',
@@ -270,6 +284,7 @@ const DRUGS = {
     name: 'Noradrenaline (Levophed)',
     generic: 'Norepinephrine',
     form: '4 mg/4 mL · Ampule',
+    pdfRef: { file: 'pdfs/noradrenaline.pdf', label: 'ข้อมูลยา Noradrenaline inj. 4 mg/4mL — ฝ่ายเภสัชกรรม รพ.กรงปินัง (ม.ค. 2567)' },
     color: '#DC2626',
     icon: '⚡',
     category: 'Vasopressor',
@@ -327,6 +342,7 @@ const DRUGS = {
     name: 'Dopamine',
     generic: 'Dopamine Hydrochloride',
     form: '250 mg/10 mL · Ampule',
+    pdfRef: { file: 'pdfs/dopamine.pdf', label: 'ข้อมูลยา Dopamine 250 mg/10mL — ฝ่ายเภสัชกรรม รพ.กรงปินัง (ม.ค. 2567)' },
     color: '#7C3AED',
     icon: '💜',
     category: 'Vasopressor / Inotrope',
@@ -396,6 +412,7 @@ const DRUGS = {
     name: 'Adrenaline',
     generic: 'Epinephrine',
     form: '1 mg/mL · Ampule (1 mL)',
+    pdfRef: { file: 'pdfs/adrenaline.pdf', label: 'ข้อมูลยา Adrenaline 1 mg/mL — ฝ่ายเภสัชกรรม รพ.กรงปินัง (ม.ค. 2567)' },
     color: '#DC2626',
     icon: '⚡',
     category: 'Sympathomimetic',
@@ -437,6 +454,7 @@ const DRUGS = {
     name: 'Adenosine',
     generic: 'Adenosine',
     form: '6 mg/2 mL · Ampule',
+    pdfRef: { file: 'pdfs/adenosine.pdf', label: 'ข้อมูลยา Adenosine 6 mg/2mL — ฝ่ายเภสัชกรรม รพ.กรงปินัง (ม.ค. 2567)' },
     color: '#0369A1',
     icon: '🫀',
     category: 'Antiarrhythmic',
@@ -476,6 +494,7 @@ const DRUGS = {
     name: 'Amiodarone',
     generic: 'Amiodarone HCl',
     form: '150 mg/3 mL · Ampule',
+    pdfRef: { file: 'pdfs/amiodarone.pdf', label: 'ข้อมูลยา Amiodarone inj. 150 mg/3mL — ฝ่ายเภสัชกรรม รพ.กรงปินัง (ม.ค. 2567)' },
     color: '#1E4FD8',
     icon: '💙',
     category: 'Antiarrhythmic',
@@ -516,6 +535,7 @@ const DRUGS = {
     name: '50% Glucose',
     generic: 'Dextrose 50%',
     form: '25 g/50 mL · Vial',
+    pdfRef: { file: 'pdfs/glucose_50.pdf', label: 'ข้อมูลยา Glucose 50% 25g/50mL — ฝ่ายเภสัชกรรม รพ.กรงปินัง (ม.ค. 2567)' },
     color: '#D97706',
     icon: '🍬',
     category: 'Dextrose Solution',
@@ -764,6 +784,24 @@ function renderDrugDetail(d) {
       <span class="safety-pill" style="background:#F3F4F6;color:#374151;">ฝ่ายเภสัชกรรม โรงพยาบาลกรงปินัง</span>
     </div>
   </div>`;
+
+  // Reference PDF
+  if (d.pdfRef) {
+    html += `<div class="section">
+      <div class="section-title"><span class="section-title-icon">📄</span>เอกสารอ้างอิง (Reference)</div>
+      <div class="ref-box">
+        <div class="ref-icon">📑</div>
+        <div class="ref-body">
+          <div class="ref-title">แหล่งที่มา · คกก.พัฒนาระบบยา</div>
+          <div class="ref-label">${esc(d.pdfRef.label)}</div>
+          <a class="ref-btn" href="${esc(d.pdfRef.file)}" target="_blank" rel="noopener">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            เปิดเอกสาร PDF
+          </a>
+        </div>
+      </div>
+    </div>`;
+  }
 
   html += `<div class="footer-note">
     <strong>หมายเหตุ:</strong> ข้อมูลนี้จัดทำโดยฝ่ายเภสัชกรรม โรงพยาบาลกรงปินัง
