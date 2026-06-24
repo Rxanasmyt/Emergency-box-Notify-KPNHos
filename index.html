@@ -2193,6 +2193,12 @@ class Component extends DCLogic {
       window.EB_Sync.initFirebaseSync(this);
       this._syncT = setTimeout(() => { if (window.EB_Sync) window.EB_Sync.syncUsers(updatedU); }, 1500);
     }
+    // load lastSentDate from Firestore so notify screen shows accurate last-sent info
+    if (window.EB_Firebase && window.EB_Firebase.db) {
+      window.EB_Firebase.db.collection('app_settings').doc('notifications').get()
+        .then(doc => { if (doc.exists && doc.data().lastSentDate) this.setState({ _fsLastSentDate: doc.data().lastSentDate }); })
+        .catch(() => {});
+    }
     // restart hourly expiry check (logout clears it; must re-arm on every login)
     clearInterval(this._notifyInterval);
     this._notifyInterval = setInterval(() => {
@@ -2270,7 +2276,7 @@ class Component extends DCLogic {
       changePwUsername: null, changePwOld: '', changePwNew: '', changePwConfirm: '', changePwError: '',
       nu_name: '', nu_username: '', nu_role: 'technician', nu_dept: 'ห้องยา', nu_pass: '',
       showToast: false, toastTitle: '', toastSubtitle: '', shakeCount: 0, actionMsg: '',
-      confirm: null, ghTrigger: 'idle', ghPAT: '', sidebarOpen: false,
+      confirm: null, ghTrigger: 'idle', ghPAT: '', sidebarOpen: false, _fsLastSentDate: '',
       query: '', datePreset: 'all', fiscalYear: 0, dateFrom: '', dateTo: '',
       aFilter: 'all', aQuery: '', aDatePreset: 'all', aFiscalYear: 0, aDateFrom: '', aDateTo: '',
       boxHist: {}, reauth: null, reauthPass: '', reauthError: '',
@@ -2955,11 +2961,6 @@ td.l{text-align:left;padding-left:4px}
     vals.userAvatarColor = cu ? cuRole.color : '#1A6FA3';
     // ===== NOTIFY SETTINGS =====
     const nfSettings = window.EB_Notify ? window.EB_Notify.loadSettings() : {};
-    vals.notifyLineEnabled = !!nfSettings.lineEnabled;
-
-    vals.notifyLineWebhookUrl = nfSettings.lineWebhookUrl || '';
-    vals.toggleLineEnabled = () => { if (!window.EB_Notify) return; const s = window.EB_Notify.loadSettings(); s.lineEnabled = !s.lineEnabled; window.EB_Notify.saveSettings(s); window.EB_Notify.saveToFirestore({ lineEnabled: s.lineEnabled }); this.setState({}); };
-    vals.setLineWebhookUrl = (e) => { if (!window.EB_Notify) return; const s = window.EB_Notify.loadSettings(); s.lineWebhookUrl = e.target.value; window.EB_Notify.saveSettings(s); window.EB_Notify.saveToFirestore({ lineWebhookUrl: s.lineWebhookUrl }); };
     vals.dismissExpiryBanner = () => this.setState({ showExpiryBanner: false });
     vals.showExpiryBanner = st.showExpiryBanner;
     const alerts = st.expiryAlerts || [];
@@ -2983,8 +2984,9 @@ td.l{text-align:left;padding-left:4px}
       }),
       alerts.length > 6 ? h('div', { style: { fontSize: 11.5, color: '#9AAAB8', textAlign: 'center', paddingTop: 3 } }, `...และอีก ${alerts.length - 6} รายการ`) : null,
     ) : null;
-    const lastSent = localStorage.getItem('eb_notify_last_sent');
-    vals.notifyLastSentText = lastSent ? `ส่งแจ้งเตือนล่าสุด: ${lastSent}` : 'ยังไม่เคยส่งแจ้งเตือน';
+    // lastSentDate is written by GitHub Actions to Firestore — read it from there, not localStorage
+    const _fsLastSent = st._fsLastSentDate || '';
+    vals.notifyLastSentText = _fsLastSent ? `ส่งแจ้งเตือนล่าสุด: ${_fsLastSent}` : 'ยังไม่มีข้อมูลการส่งล่าสุด';
     // GitHub Actions manual trigger — PAT lives in Firestore only (never localStorage)
     vals.githubPAT = st.ghPAT;
     vals.setGithubPAT = (e) => {
@@ -2993,7 +2995,7 @@ td.l{text-align:left;padding-left:4px}
       if (window.EB_Notify) window.EB_Notify.saveToFirestore({ githubPAT: v });
     };
     const _ghState = st.ghTrigger || 'idle';
-    const _ghMsgs = { idle: '', loading: '⏳ กำลังส่งคำสั่ง…', success: '✓ ส่งแล้ว — ตรวจสอบ Email ใน 1-2 นาที', error: '✗ เกิดข้อผิดพลาด · ตรวจสอบ PAT หรือสิทธิ์ repository' };
+    const _ghMsgs = { idle: '', loading: '⏳ กำลังส่งคำสั่ง…', success: '✓ ส่งแล้ว — LINE + Email จะถึงภายใน 1-2 นาที', error: '✗ เกิดข้อผิดพลาด · ตรวจสอบว่ากรอก PAT และมีสิทธิ์ Actions' };
     const _ghColors = { idle: '#7B8D9C', loading: '#D9810F', success: '#169C7F', error: '#B42121' };
     vals.ghTriggerMsg   = _ghMsgs[_ghState];
     vals.ghTriggerColor = _ghColors[_ghState];
@@ -3011,7 +3013,7 @@ td.l{text-align:left;padding-left:4px}
         if (res.status === 204) {
           if (this.state.screen !== 'notify') return;
           this.setState({ ghTrigger: 'success' });
-          this.logAction({ cat: 'other', action: 'ส่งแจ้งเตือน', eb: '—', dept: '—', drug: 'Trigger GitHub Actions: manual drug-expiry email' });
+          this.logAction({ cat: 'other', action: 'ส่งแจ้งเตือน', eb: '—', dept: '—', drug: 'Trigger GitHub Actions: manual LINE + Email drug-expiry alert' });
           setTimeout(() => this.setState({ ghTrigger: 'idle' }), 10000);
         } else {
           console.warn('[GH Trigger] status:', res.status, await res.text().catch(()=>''));

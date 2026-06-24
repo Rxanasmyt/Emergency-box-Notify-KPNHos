@@ -29,9 +29,9 @@ try {
 admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
 const db = admin.firestore();
 
-// แจ้งเตือนยาที่หมดอายุภายใน 30 วัน (= ถึงวันส่งคืนภายใน 15 วัน)
+// แจ้งเตือนยาที่หมดอายุภายใน NOTIFY_DAYS_AHEAD วัน (default 60 วัน)
 const _rawDays = parseInt(process.env.NOTIFY_DAYS_AHEAD || '60', 10);
-const THRESHOLD_DAYS = isNaN(_rawDays) || _rawDays <= 0 ? 30 : _rawDays;
+const THRESHOLD_DAYS = isNaN(_rawDays) || _rawDays <= 0 ? 60 : _rawDays;
 // Use Bangkok time (UTC+7) so expiry comparisons match Thai calendar day
 // Use Intl.DateTimeFormat with en-CA (yields ISO YYYY-MM-DD) to avoid unreliable
 // locale-string parsing which is implementation-defined in Node.js on Linux
@@ -164,7 +164,7 @@ function buildFlexMessages(alerts) {
       contents: [
         { type: 'text', text: String(count), size: '3xl', weight: 'bold', color: '#FFFFFF', align: 'center' },
         { type: 'text', text: emoji, size: 'lg', align: 'center', margin: 'xs' },
-        { type: 'text', text: label, size: 'xxs', color: fg, align: 'center', wrap: true, margin: 'xs' },
+        { type: 'text', text: label, size: 'xs', color: fg, align: 'center', wrap: true, margin: 'xs' },
       ],
     };
   }
@@ -175,7 +175,7 @@ function buildFlexMessages(alerts) {
       type: 'box', layout: 'vertical', flex: 0,
       backgroundColor: bg, cornerRadius: '20px',
       paddingTop: '4px', paddingBottom: '4px', paddingStart: '10px', paddingEnd: '10px',
-      contents: [{ type: 'text', text, color: fg, size: 'xxs', weight: 'bold' }],
+      contents: [{ type: 'text', text, color: fg, size: 'xs', weight: 'bold' }],
     };
   }
 
@@ -276,9 +276,12 @@ function buildFlexMessages(alerts) {
     { list: notice,   label: 'เตือนล่วงหน้า',      emoji: '🔵', hBg: '#0D47A1', hFg: '#FFFFFF', bodyBg: '#F0F8FF', borderColor: '#1565C0', itemBg: '#FFFFFF' },
   ];
 
+  // LINE carousel limit = 12 bubbles; 1 reserved for summary → max 11 severity bubbles
+  let severityBubbleCount = 0;
   severities.forEach(({ list, label, emoji, hBg, hFg, bodyBg, borderColor, itemBg }) => {
     if (!list.length) return;
     for (let i = 0; i < list.length; i += 6) {
+      if (severityBubbleCount >= 11) break;
       const chunk = list.slice(i, i + 6);
       const titleSuffix = list.length > 6 ? ` (${Math.floor(i/6)+1}/${Math.ceil(list.length/6)})` : '';
 
@@ -302,6 +305,7 @@ function buildFlexMessages(alerts) {
           contents: chunk.map(a => drugCard(a, borderColor, itemBg)),
         },
       });
+      severityBubbleCount++;
     }
   });
 
@@ -382,7 +386,7 @@ function buildHtmlEmail(alerts) {
         <tbody>
           ${hadAlerts.map(a => {
             const color = a.status === 'expired' ? '#B42121' : a.status === 'critical' ? '#9A5000' : '#7B4F00';
-            const boxStatusLabel = a.boxStatus === 'out' ? `<span style="color:#D9810F;font-weight:700">จ่ายออก</span><br><span style="font-size:11px;color:#7B6030">${escHtml(a.boxCurrentDept)}</span>` : `<span style="color:#169C7F;font-weight:700">อยู่ที่คลัง</span>`;
+            const boxStatusLabel = a.isOut ? `<span style="color:#D9810F;font-weight:700">จ่ายออก</span><br><span style="font-size:11px;color:#7B6030">${escHtml(a.location)}</span>` : `<span style="color:#169C7F;font-weight:700">อยู่ที่คลัง</span>`;
             const days = a.daysLeft < 0 ? `เกิน ${Math.abs(a.daysLeft)} วัน` : a.daysLeft === 0 ? 'หมดอายุวันนี้' : `เหลือ ${a.daysLeft} วัน`;
             return `<tr style="background:#FFF8F8">
               <td style="padding:8px 10px;border-bottom:1px solid #F5C6C6;font-weight:700;color:#B42121">${escHtml(a.boxId)}</td>
@@ -421,8 +425,8 @@ function buildHtmlEmail(alerts) {
     const color = a.status === 'expired' ? '#B42121' : a.status === 'critical' ? '#9A5000' : a.status === 'warning' ? '#7B4F00' : '#1A6FA3';
     const rowBg = i % 2 === 0 ? '#FFFFFF' : '#F9FBFC';
     const days = a.daysLeft < 0 ? `เกิน ${Math.abs(a.daysLeft)} วัน` : a.daysLeft === 0 ? 'หมดอายุวันนี้' : `เหลือ ${a.daysLeft} วัน`;
-    const boxStatusLabel = a.boxStatus === 'out'
-      ? `<span style="color:#D9810F;font-weight:700">จ่ายออก</span><br><span style="font-size:11px;color:#7B6030">${escHtml(a.boxCurrentDept)}</span>`
+    const boxStatusLabel = a.isOut
+      ? `<span style="color:#D9810F;font-weight:700">จ่ายออก</span><br><span style="font-size:11px;color:#7B6030">${escHtml(a.location)}</span>`
       : `<span style="color:#169C7F;font-weight:700">อยู่ที่คลัง</span>`;
     return `
       <tr style="background:${rowBg}">
@@ -498,7 +502,7 @@ function buildPlainText(alerts) {
   const dateStr   = new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
 
   const line = (a) => {
-    const boxInfo = a.boxStatus === 'out' ? `จ่ายออก → ${a.boxCurrentDept}` : 'อยู่ที่คลัง';
+    const boxInfo = a.isOut ? `จ่ายออก → ${a.location}` : 'อยู่ที่คลัง';
     const days = a.daysLeft < 0 ? `เกิน ${Math.abs(a.daysLeft)} วัน` : a.daysLeft === 0 ? 'หมดอายุวันนี้' : `เหลือ ${a.daysLeft} วัน`;
     return `  - ${a.boxId} [${boxInfo}]  ${a.drugName}${a.isHAD ? ' [HAD]' : ''}  จำนวน ${a.qty}  ส่งคืนภายใน: ${a.returnDeadlineThai}  หมดอายุ: ${a.expiryThai} (${days})`;
   };
