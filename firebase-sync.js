@@ -35,7 +35,7 @@ function _startUsersListener(){
       const u={uid:doc.id,...doc.data()};
       if(u.username&&!seen.has(u.username)){seen.add(u.username);users.push(u);}
     });
-    if(users.length){component.setState({users});}
+    component.setState({users});
   },err=>console.warn('[Sync] Users error:',err.message));
 }
 

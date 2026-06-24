@@ -1901,9 +1901,8 @@ class Component extends DCLogic {
           _p.showExpiryBanner = false;
         } else {
           const _isUrgent = a => a.status === 'expired' || a.status === 'expired_today' || a.status === 'critical';
-          const _prevUrgent = (this.state.expiryAlerts || []).filter(_isUrgent).length;
           const _newUrgent = result.alerts.filter(_isUrgent).length;
-          if (_newUrgent > _prevUrgent) _p.showExpiryBanner = true;
+          if (_newUrgent > 0) _p.showExpiryBanner = true;
         }
         this.setState(_p);
       }).catch(() => {});
@@ -2017,6 +2016,9 @@ class Component extends DCLogic {
     const drugs = (this.state.boxDrugs || this.BOX_DRUGS || {})[id] || [];
     for (const drug of drugs) {
       if (!drug.name || !drug.name.trim()) { this.flash('กรุณากรอกชื่อยาให้ครบทุกรายการ'); return; }
+      for (const lot of (drug.lots || [])) {
+        if (!lot.expiry) { this.flash('กรุณากรอกวันหมดอายุให้ครบทุก Lot'); return; }
+      }
     }
     const prevDrugs = (this.BOX_DRUGS || {})[id];
     this._bdBackup = null;
@@ -2048,7 +2050,7 @@ class Component extends DCLogic {
     });
   }
   setLotField(boxId, drugIdx, lotIdx, field, value) {
-    const safeValue = field === 'qty' ? Math.min(999, Math.max(0, value)) : value;
+    const safeValue = field === 'qty' ? Math.min(999, Math.max(0, isNaN(value) ? 0 : value)) : value;
     this.setState(s => {
       const base = s.boxDrugs || this.BOX_DRUGS || {};
       const bd = { ...base };
@@ -2068,7 +2070,7 @@ class Component extends DCLogic {
       if (!bd[boxId]) return {};
       bd[boxId] = bd[boxId].map((d, i) => {
         if (i !== drugIdx) return d;
-        return { ...d, lots: [...(d.lots || []), { lot: '', qty: 0, expiry: (d.lots && d.lots.length > 0 ? d.lots[d.lots.length - 1].expiry || '' : '') }] };
+        return { ...d, lots: [...(d.lots || []), { lot: '', qty: 0, expiry: '' }] };
       });
       return { boxDrugs: bd };
     });
@@ -2210,9 +2212,8 @@ class Component extends DCLogic {
           _p.showExpiryBanner = false;
         } else {
           const _isUrgent = a => a.status === 'expired' || a.status === 'expired_today' || a.status === 'critical';
-          const _prevUrgent = (this.state.expiryAlerts || []).filter(_isUrgent).length;
           const _newUrgent = result.alerts.filter(_isUrgent).length;
-          if (_newUrgent > _prevUrgent) _p.showExpiryBanner = true;
+          if (_newUrgent > 0) _p.showExpiryBanner = true;
         }
         this.setState(_p);
       }).catch(() => {});
@@ -2424,6 +2425,7 @@ class Component extends DCLogic {
     } else if (st.formMode === 'dispense') {
       const _effDispEB = this._resolveDispEB();
       if (!_effDispEB) errs.push('เลือกกล่องยาที่จ่าย');
+      else if (_effDispEB !== st.dispEB) errs.push(`กล่อง ${st.dispEB} ถูกจ่ายออกไปแล้ว — กรุณาเลือกกล่องอื่น`);
       if (!st.formDept || !st.formDept.trim()) errs.push('เลือกหน่วยงานที่เบิก');
       if (!(st.dispenser || '').trim()) errs.push('ลงชื่อผู้จ่าย');
       if (!st.dispDate) errs.push('วันที่จ่าย');
@@ -2558,7 +2560,7 @@ class Component extends DCLogic {
         const _swOutIds = this.BOXES.filter(b => b.dispense && !b.receiver && b.id !== dispEB).map(b => b.id);
         resolvedSwapEB = (swapEB && _swOutIds.includes(swapEB)) ? swapEB : (_swOutIds[0] || swapEB);
       }
-      this._syncBox({ ...box, dept: formDept, dispense: this.state.dispDate, dispenser: this.state.dispenser, receiver: '' });
+      this._syncBox({ ...box, dept: formDept, dispense: this.state.dispDate, dispenser: this.state.dispenser, receiver: '', retDate: '' });
       if (swapReturn) {
         const swBox = this.BOXES.find(b => b.id === resolvedSwapEB) || { id: resolvedSwapEB };
         this._syncBox({ ...swBox, receiver: this.state.swapReceiver, retDate: this.state.swapReturnDate, dept: '' });
@@ -3247,7 +3249,7 @@ td.l{text-align:left;padding-left:4px}
     vals.donutOk        = counts.ok;
     vals.donutActionCount = counts.critical + counts.warning;
 
-    vals.recentTx = (st.auditLog || this.AUDIT).filter(t => t.cat === 'dispense' || t.cat === 'return').slice(0, 5).map(t => {
+    vals.recentTx = (st.auditLog || this.AUDIT.map(a => ({ ...a, cat: a.action === 'จ่าย' ? 'dispense' : (a.action === 'รับคืน' ? 'return' : 'other') }))).filter(t => t.cat === 'dispense' || t.cat === 'return').slice(0, 5).map(t => {
       const _hasBox = t.eb && t.eb !== '—' && this.BOXES.some(b => b.id === t.eb);
       return {
         eb: t.eb || '—', action: t.action || '—', dept: t.dept || '—', person: t.person || '—', drug: t.drug || '—', time: t.time || '—',
