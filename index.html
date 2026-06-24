@@ -726,9 +726,9 @@ input:focus, select:focus, textarea:focus {
       <div style="background: #F4F8FA; border: 1px solid #E5EEF2; border-radius: 14px; padding: 14px;">
         <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
           <span style="width: 8px; height: 8px; border-radius: 50%; background: #169C7F; box-shadow: 0 0 0 3px rgba(22,156,127,.16);"></span>
-          <span style="font-size: 12px; font-weight: 600; color: #15242E;">LINE Notify &amp; Email</span>
+          <span style="font-size: 12px; font-weight: 600; color: #15242E;">MOPH Notify LINE &amp; Email</span>
         </div>
-        <div style="font-size: 11.5px; color: #7B8D9C; line-height: 1.5;">แจ้งเตือนล่วงหน้า <b style="color:#1A6FA3;">15 วัน</b> ก่อนยาหมดอายุ · เชื่อมต่ออยู่</div>
+        <div style="font-size: 11.5px; color: #7B8D9C; line-height: 1.5;">แจ้งเตือนล่วงหน้า <b style="color:#1A6FA3;">60 วัน</b> · ทุกวัน 08:30 น.</div>
       </div>
       <div style="display: flex; align-items: center; gap: 11px; padding: 8px 8px; border-radius: 12px; background: #F7FAFC; border: 1px solid #EAF0F5;">
         <div style="width: 38px; height: 38px; flex-shrink: 0; border-radius: 50%; background: {{ userAvatarBg }}; color: {{ userAvatarColor }}; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px;">{{ userInitials }}</div>
@@ -1392,57 +1392,87 @@ input:focus, select:focus, textarea:focus {
         </div>
         </sc-if>
 
-        <!-- LINE Settings -->
-        <div style="background: #fff; border: 1px solid #E7EEF3; border-radius: 16px; padding: 24px 28px; margin-bottom: 16px;">
-          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 18px;">
-            <span style="width: 36px; height: 36px; border-radius: 10px; background: #E4F4EF; color: #06C755; display: flex; align-items: center; justify-content: center;">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 2C6.48 2 2 5.82 2 10.5c0 2.34 1.1 4.47 2.88 6.06L4 22l4.35-2.38c1.14.35 2.38.54 3.65.54 5.52 0 10-3.82 10-8.5S17.52 2 12 2z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+        <!-- Notification Status Card -->
+        <div style="background: linear-gradient(135deg, #0B1E3D 0%, #0D2B52 100%); border-radius: 16px; padding: 22px 26px; margin-bottom: 16px; color: #fff;">
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px;">
+            <span style="width: 36px; height: 36px; border-radius: 10px; background: rgba(255,255,255,.12); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6z" stroke="#90CAF9" stroke-width="1.8" stroke-linejoin="round"/><path d="M10 20a2 2 0 0 0 4 0" stroke="#90CAF9" stroke-width="1.8" stroke-linecap="round"/></svg>
             </span>
             <div>
-              <div style="font-size: 15px; font-weight: 700; color: #15242E;">แจ้งเตือนผ่าน LINE</div>
-              <div style="font-size: 12px; color: #7B8D9C;">ใส่ Webhook URL ของ LINE Bot / LINE Notify</div>
+              <div style="font-size: 15px; font-weight: 700;">สถานะการแจ้งเตือนอัตโนมัติ</div>
+              <div style="font-size: 12px; color: #90CAF9; margin-top: 2px;">ทำงานผ่าน GitHub Actions ทุกวัน</div>
             </div>
-            <label style="margin-left: auto; position: relative; width: 46px; height: 26px; cursor: pointer;">
-              <input type="checkbox" onchange="{{ toggleLineEnabled }}" style="opacity:0;width:0;height:0;position:absolute">
-              <span style="position:absolute;inset:0;border-radius:13px;transition:all .3s;background:{{ notifyLineEnabled ? '#06C755' : '#D1D9E0' }}"></span>
-              <span style="position:absolute;top:3px;left:{{ notifyLineEnabled ? '23px' : '3px' }};width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:all .3s"></span>
-            </label>
+            <span style="margin-left: auto; background: #1B5E20; color: #A5D6A7; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; white-space: nowrap;">● เปิดใช้งาน</span>
           </div>
-          <sc-if value="{{ notifyLineEnabled }}" hint-placeholder-val="{{ false }}">
-          <div>
-            <label style="font-size: 12px; font-weight: 600; color: #5A6B79; display: block; margin-bottom: 4px;">LINE Webhook URL</label>
-            <input type="url" value="{{ notifyLineWebhookUrl }}" oninput="{{ setLineWebhookUrl }}" placeholder="https://api.line.me/v2/bot/message/push หรือ Webhook URL อื่น" style="width:100%;height:40px;border:1.5px solid #DBE4EB;border-radius:10px;padding:0 12px;font-size:13px;color:#15242E">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;">
+            <div style="background: rgba(255,255,255,.08); border-radius: 12px; padding: 12px 14px;">
+              <div style="font-size: 11px; color: #90CAF9; margin-bottom: 4px;">⏰ กำหนดการส่ง</div>
+              <div style="font-size: 13.5px; font-weight: 700;">ทุกวัน 08:30 น.</div>
+              <div style="font-size: 11px; color: #B0BEC5; margin-top: 2px;">วันจันทร์ = รายงานครบทุกระดับ</div>
+            </div>
+            <div style="background: rgba(255,255,255,.08); border-radius: 12px; padding: 12px 14px;">
+              <div style="font-size: 11px; color: #90CAF9; margin-bottom: 4px;">📋 ระยะเตือนล่วงหน้า</div>
+              <div style="font-size: 13.5px; font-weight: 700;">60 วัน</div>
+              <div style="font-size: 11px; color: #B0BEC5; margin-top: 2px;">🔴 หมด · 🟠 ≤15 · 🟡 ≤30 · 🔵 ≤60</div>
+            </div>
           </div>
-          </sc-if>
+          <div style="border-top: 1px solid rgba(255,255,255,.1); padding-top: 12px; display: flex; gap: 16px; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 7px;">
+              <span style="width: 28px; height: 28px; border-radius: 8px; background: #E4F4EF; display: flex; align-items: center; justify-content: center;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 2C6.48 2 2 5.82 2 10.5c0 2.34 1.1 4.47 2.88 6.06L4 22l4.35-2.38c1.14.35 2.38.54 3.65.54 5.52 0 10-3.82 10-8.5S17.52 2 12 2z" stroke="#06C755" stroke-width="1.7" stroke-linejoin="round"/></svg>
+              </span>
+              <div>
+                <div style="font-size: 12px; font-weight: 600;">LINE กลุ่ม</div>
+                <div style="font-size: 10.5px; color: #90CAF9;">ผ่าน MOPH Notify</div>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 7px;">
+              <span style="width: 28px; height: 28px; border-radius: 8px; background: #FEF3E2; display: flex; align-items: center; justify-content: center;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="14" rx="2" stroke="#E65100" stroke-width="1.7"/><path d="M3 8l9 6 9-6" stroke="#E65100" stroke-width="1.7" stroke-linecap="round"/></svg>
+              </span>
+              <div>
+                <div style="font-size: 12px; font-weight: 600;">Email</div>
+                <div style="font-size: 10.5px; color: #90CAF9;">Gmail SMTP</div>
+              </div>
+            </div>
+            <div style="margin-left: auto; font-size: 11.5px; color: #90CAF9; align-self: center;">{{ notifyLastSentText }}</div>
+          </div>
         </div>
 
-        <!-- GitHub Actions Manual Trigger -->
+        <!-- Manual Trigger Card -->
         <div style="background: #fff; border: 1.5px solid #E0E8EF; border-radius: 16px; padding: 24px 28px; margin-bottom: 16px;">
-          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 18px;">
-            <span style="width: 36px; height: 36px; border-radius: 10px; background: #15242E; color: #fff; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/><path d="M12 8v4l3 3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <div style="display: flex; align-items: flex-start; gap: 12px; margin-bottom: 20px;">
+            <span style="width: 40px; height: 40px; border-radius: 12px; background: linear-gradient(135deg, #1A6FA3, #168C84); color: #fff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M22 2L11 13" stroke="#fff" stroke-width="1.9" stroke-linecap="round"/><path d="M22 2l-7 20-4-9-9-4 20-7z" stroke="#fff" stroke-width="1.9" stroke-linejoin="round"/></svg>
             </span>
             <div>
-              <div style="font-size: 15px; font-weight: 700; color: #15242E;">ส่งแจ้งเตือน Email ทันที</div>
-              <div style="font-size: 12px; color: #7B8D9C;">ใช้ Gmail SMTP ผ่าน GitHub Actions · ไม่ต้องรอกำหนดการอัตโนมัติ</div>
+              <div style="font-size: 15px; font-weight: 700; color: #15242E;">ส่งแจ้งเตือนทันที</div>
+              <div style="font-size: 12.5px; color: #5A6B79; margin-top: 3px; line-height: 1.6;">กดเพื่อส่ง <strong>LINE กลุ่ม + Email</strong> พร้อมกันทันที<br>โดยไม่ต้องรอกำหนดการ 08:30 น.</div>
             </div>
           </div>
-          <div style="margin-bottom: 14px;">
-            <label style="font-size: 12px; font-weight: 600; color: #5A6B79; display: block; margin-bottom: 5px;">GitHub Personal Access Token <span style="font-weight: 400; color: #9AAAB8;">(Fine-grained · scope: Actions: Read &amp; Write)</span></label>
+
+          <!-- PAT field -->
+          <div style="background: #F6F9FC; border-radius: 12px; padding: 16px 18px; margin-bottom: 16px;">
+            <label style="font-size: 12px; font-weight: 700; color: #5A6B79; display: block; margin-bottom: 6px;">
+              🔑 GitHub Personal Access Token
+              <span style="font-weight: 400; color: #9AAAB8; font-size: 11px;"> · Fine-grained · scope: Actions Read &amp; Write</span>
+            </label>
             <input type="password" value="{{ githubPAT }}" oninput="{{ setGithubPAT }}" placeholder="github_pat_…" style="width: 100%; height: 42px; border: 1.5px solid #DBE4EB; border-radius: 10px; padding: 0 14px; font-size: 13px; color: #15242E; background: #fff; box-sizing: border-box; font-family: 'IBM Plex Mono', monospace;">
-            <div style="margin-top: 5px; font-size: 11.5px; color: #9AAAB8;">สร้างที่ github.com/settings/tokens · เก็บใน Firestore เท่านั้น (ไม่บันทึกใน browser)</div>
+            <div style="margin-top: 6px; font-size: 11px; color: #9AAAB8; display: flex; align-items: center; gap: 5px;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="#9AAAB8" stroke-width="1.8" stroke-linejoin="round"/></svg>
+              เก็บใน Firestore เท่านั้น — ไม่บันทึกใน browser · สร้างที่ github.com/settings/tokens
+            </div>
           </div>
-          <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-            <button onclick="{{ triggerGHActions }}" style="height: 44px; padding: 0 22px; background: linear-gradient(135deg, #15242E, #1A3A4A); color: #fff; border: none; border-radius: 11px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; display: flex; align-items: center; gap: 8px; transition: all .22s cubic-bezier(.34,1.56,.64,1); white-space: nowrap;" style-hover="transform: translateY(-2px); box-shadow: 0 10px 28px rgba(20,40,55,.28);" style-active="transform: scale(.96);">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M22 2L11 13" stroke="#fff" stroke-width="1.9" stroke-linecap="round"/><path d="M22 2l-7 20-4-9-9-4 20-7z" stroke="#fff" stroke-width="1.9" stroke-linejoin="round"/></svg>
-              ส่งแจ้งเตือนยาใกล้หมดอายุตอนนี้
+
+          <!-- Send button + status -->
+          <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
+            <button onclick="{{ triggerGHActions }}" style="height: 46px; padding: 0 28px; background: linear-gradient(135deg, #1A6FA3, #168C84); color: #fff; border: none; border-radius: 12px; font-size: 14.5px; font-weight: 700; cursor: pointer; font-family: inherit; display: flex; align-items: center; gap: 9px; transition: all .22s cubic-bezier(.34,1.56,.64,1); white-space: nowrap; box-shadow: 0 4px 16px rgba(26,111,163,.25);" style-hover="transform: translateY(-2px); box-shadow: 0 10px 28px rgba(26,111,163,.35);" style-active="transform: scale(.96);">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M22 2L11 13" stroke="#fff" stroke-width="1.9" stroke-linecap="round"/><path d="M22 2l-7 20-4-9-9-4 20-7z" stroke="#fff" stroke-width="1.9" stroke-linejoin="round"/></svg>
+              ส่ง LINE + Email ตอนนี้
             </button>
             <span style="font-size: 13px; font-weight: 600; color: {{ ghTriggerColor }};">{{ ghTriggerMsg }}</span>
           </div>
         </div>
-
-        <!-- Last sent info -->
-        <div style="text-align: center; font-size: 12px; color: #7B8D9C; margin-top: 8px;">{{ notifyLastSentText }}</div>
 
       </div>
       </sc-if>
