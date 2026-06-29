@@ -2,7 +2,7 @@ name: Daily Drug Expiry Notification
 
 on:
   schedule:
-    - cron: '30 1 * * *'  # 08:30 น. ไทย (UTC+7 → 01:30 UTC)
+    - cron: '0 2 * * *'   # 09:00 น. ไทย (UTC+7 → 02:00 UTC)
   workflow_dispatch:        # กดรันมือได้จาก GitHub Actions tab
 
 jobs:
