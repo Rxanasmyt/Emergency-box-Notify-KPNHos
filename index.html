@@ -1650,7 +1650,7 @@ class Component extends DCLogic {
     reauthPass: '',
     reauthError: '',
     users: [
-      { id: 1, name: 'ผู้ดูแลระบบ', username: 'admin', password: '1234', role: 'admin', dept: 'IT / ห้องยา', status: 'active', lastLogin: '' },
+      { id: 1, name: 'ผู้ดูแลระบบ', username: 'admin', password: '03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4', role: 'admin', dept: 'IT / ห้องยา', status: 'active', lastLogin: '' },
     ],
   };
 
@@ -2009,11 +2009,13 @@ class Component extends DCLogic {
   cancelEditDrugs() {
     const backup = this._bdBackup;
     this._bdBackup = null;
-    this.setState({ editDrugs: false, boxDrugs: backup || this.state.boxDrugs });
+    // null forces UI to read from BOX_DRUGS (Firestore source) — avoids showing dirty edited state
+    this.setState({ editDrugs: false, boxDrugs: backup || null });
   }
   saveEditDrugs() {
     const id = this.state.selectedEB;
     const drugs = (this.state.boxDrugs || this.BOX_DRUGS || {})[id] || [];
+    if (drugs.length === 0) { this.flash('กล่องยาต้องมียาอย่างน้อย 1 รายการ'); return; }
     for (const drug of drugs) {
       if (!drug.name || !drug.name.trim()) { this.flash('กรุณากรอกชื่อยาให้ครบทุกรายการ'); return; }
       for (const lot of (drug.lots || [])) {
@@ -2089,16 +2091,18 @@ class Component extends DCLogic {
     });
   }
   setRetDrugUsage(drugIdx, lotIdx, qty) {
+    const safeQty = isNaN(qty) || qty === '' ? 0 : Math.max(0, parseInt(qty, 10) || 0);
     this.setState(s => {
       const u = { ...s.retDrugUsage };
-      u[drugIdx] = { ...(u[drugIdx] || {}), [lotIdx]: Math.max(0, qty) };
+      u[drugIdx] = { ...(u[drugIdx] || {}), [lotIdx]: safeQty };
       return { retDrugUsage: u };
     });
   }
   setSwapRetDrugUsage(drugIdx, lotIdx, qty) {
+    const safeQty = isNaN(qty) || qty === '' ? 0 : Math.max(0, parseInt(qty, 10) || 0);
     this.setState(s => {
       const u = { ...s.swapRetDrugUsage };
-      u[drugIdx] = { ...(u[drugIdx] || {}), [lotIdx]: Math.max(0, qty) };
+      u[drugIdx] = { ...(u[drugIdx] || {}), [lotIdx]: safeQty };
       return { swapRetDrugUsage: u };
     });
   }
@@ -2132,10 +2136,10 @@ class Component extends DCLogic {
           clearInterval(this._lockCountI);
           this.setState({ locked: false, attempts: 0, loginError: '', lockCountdown: 0 });
         }, 15 * 60 * 1000);
-        return { attempts, locked: true, lockCountdown: 15 * 60, loginError: 'บัญชีถูกล็อกชั่วคราว 15 นาที เนื่องจากกรอกผิดเกิน 5 ครั้ง' };
+        return { attempts, locked: true, lockCountdown: 15 * 60, loginPass: '', loginError: 'บัญชีถูกล็อกชั่วคราว 15 นาที เนื่องจากกรอกผิดเกิน 5 ครั้ง' };
       }
       try { sessionStorage.setItem('eb_attempts', String(attempts)); } catch (_) {}
-      return { attempts, loginError: `รหัสพนักงานหรือรหัสผ่านไม่ถูกต้อง · เหลืออีก ${5 - attempts} ครั้ง` };
+      return { attempts, loginPass: '', loginError: `รหัสพนักงานหรือรหัสผ่านไม่ถูกต้อง · เหลืออีก ${5 - attempts} ครั้ง` };
     });
     if (_willLock) {
       clearInterval(this._lockCountI);
@@ -2155,8 +2159,7 @@ class Component extends DCLogic {
       return;
     }
     if (u.status === 'suspended') {
-      clearTimeout(this._lockT);
-      this.setState({ loginError: 'บัญชีนี้ถูกระงับการใช้งาน · กรุณาติดต่อผู้ดูแลระบบ' });
+      this.setState({ loginError: 'บัญชีนี้ถูกระงับการใช้งาน · กรุณาติดต่อผู้ดูแลระบบ', loginPass: '' });
       return;
     }
     const inputPw = this.state.loginPass;
@@ -2558,12 +2561,22 @@ class Component extends DCLogic {
       let resolvedSwapEB = '';
       if (swapReturn) {
         const _swOutIds = this.BOXES.filter(b => b.dispense && !b.receiver && b.id !== dispEB).map(b => b.id);
-        resolvedSwapEB = (swapEB && _swOutIds.includes(swapEB)) ? swapEB : (_swOutIds[0] || swapEB);
+        if (swapEB && !_swOutIds.includes(swapEB)) {
+          this.setState({ submitting: false });
+          this.flash(`กล่อง ${swapEB} ไม่ได้อยู่ในสถานะ "จ่ายออก" — กรุณารีเฟรชและเลือกกล่องใหม่`);
+          return;
+        }
+        resolvedSwapEB = swapEB || _swOutIds[0] || '';
+        if (!resolvedSwapEB) {
+          this.setState({ submitting: false });
+          this.flash('ไม่พบกล่องยาที่จ่ายออกสำหรับรับคืนพร้อมกัน');
+          return;
+        }
       }
       this._syncBox({ ...box, dept: formDept, dispense: this.state.dispDate, dispenser: this.state.dispenser, receiver: '', retDate: '' });
       if (swapReturn) {
         const swBox = this.BOXES.find(b => b.id === resolvedSwapEB) || { id: resolvedSwapEB };
-        this._syncBox({ ...swBox, receiver: this.state.swapReceiver, retDate: this.state.swapReturnDate, dept: '' });
+        this._syncBox({ ...swBox, receiver: this.state.swapReceiver, retDate: this.state.swapReturnDate });
         const _swPrevDrugs = (this.BOX_DRUGS || {})[resolvedSwapEB] || [];
         if (_swPrevDrugs.length > 0) {
           const _swUsage = this.state.swapRetDrugUsage || {};
@@ -2589,10 +2602,16 @@ class Component extends DCLogic {
     }
     else {
       const { retReceiver, retDate, retDrugUsage } = this.state;
-      const retEB = this._resolveRetEB() || this.state.retEB;
+      const _effRetEB = this._resolveRetEB();
+      if (_effRetEB && this.state.retEB && _effRetEB !== this.state.retEB) {
+        this.setState({ submitting: false });
+        this.flash(`กล่อง ${this.state.retEB} ไม่ได้อยู่ในสถานะ "จ่ายออก" — กรุณารีเฟรชและเลือกกล่องใหม่`);
+        return;
+      }
+      const retEB = _effRetEB || this.state.retEB;
       if (!retEB) { this.setState({ submitting: false }); this.flash('ข้อผิดพลาด: ไม่พบกล่องยาที่เลือก'); return; }
       const retBox = this.BOXES.find(b => b.id === retEB) || { id: retEB };
-      this._syncBox({ ...retBox, receiver: retReceiver, retDate, dept: '' });
+      this._syncBox({ ...retBox, receiver: retReceiver, retDate });
       // update box_drugs quantities based on recorded drug usage
       const _prevDrugs = (this.BOX_DRUGS || {})[retEB] || [];
       if (_prevDrugs.length > 0) {
@@ -3716,7 +3735,7 @@ td.l{text-align:left;padding-left:4px}
       return h('button', {
         key: b.id + (on ? '_on' : '_off'), onClick: () => {
           if (this.state.editDrugs) {
-            this.askConfirm({ tone: 'warn', icon: 'warn', title: 'เปลี่ยนกล่อง?', body: 'การแก้ไขยาที่ยังไม่ได้บันทึกจะหายไป', yesLabel: 'เปลี่ยนโดยไม่บันทึก', noLabel: 'กลับไปแก้ไข', onYes: () => { this._bdBackup = null; this.setState({ selectedEB: b.id, editDrugs: false }); } });
+            this.askConfirm({ tone: 'warn', icon: 'warn', title: 'เปลี่ยนกล่อง?', body: 'การแก้ไขยาที่ยังไม่ได้บันทึกจะหายไป', yesLabel: 'เปลี่ยนโดยไม่บันทึก', noLabel: 'กลับไปแก้ไข', onYes: () => { this._bdBackup = null; this.setState({ selectedEB: b.id, editDrugs: false, boxDrugs: null }); } });
           } else { this.setState({ selectedEB: b.id }); }
         },
         style: { display: 'inline-flex', alignItems: 'center', gap: 8, padding: '9px 15px', borderRadius: 11, fontFamily: "'IBM Plex Mono', monospace", fontSize: 13, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all .22s cubic-bezier(.34,1.56,.64,1)', background: on ? '#15242E' : '#fff', color: on ? '#fff' : '#4A5C6A', border: on ? '1.5px solid #15242E' : '1.5px solid #E5EBF0' },

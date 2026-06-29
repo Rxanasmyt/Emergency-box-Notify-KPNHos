@@ -16,7 +16,7 @@
 
   const DEFAULTS = {
     enabled: true,
-    thresholdDays: 30,
+    thresholdDays: 60,
     lineEnabled: false,
     lineWebhookUrl: '',
   };
