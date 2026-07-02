@@ -2166,7 +2166,7 @@ class Component extends DCLogic {
     }
     const inputPw = this.state.loginPass;
     if (!inputPw.trim()) { this._failLogin(); return; }
-    const inputHash = await this.hashPw(inputPw);
+    const inputHash = await this.hashPw(inputPw.trim());
     // re-fetch user after async gap — state may have changed (password reset, suspension)
     const uFresh = this.state.users.find(x => x.username === u.username);
     if (!uFresh || uFresh.status === 'suspended') { this._failLogin(); return; }
@@ -2455,6 +2455,7 @@ class Component extends DCLogic {
     } else {
       const _effRetEB = this._resolveRetEB();
       if (!_effRetEB) errs.push('เลือกกล่องยาที่รับคืน');
+      else if (st.retEB && _effRetEB !== st.retEB) errs.push(`กล่อง ${st.retEB} ไม่ได้อยู่ในสถานะ "จ่ายออก" อีกต่อไป — กรุณารีเฟรชหน้าจอ`);
       if (!(st.retReceiver || '').trim()) errs.push('ลงชื่อผู้รับคืน');
       if (!st.retDate) errs.push('วันที่รับคืน');
       if (st.retDate && st.retDate > this.isoOf(this.TODAY)) errs.push('วันที่รับคืนต้องไม่เกินวันนี้');
@@ -2556,7 +2557,7 @@ class Component extends DCLogic {
       const box = this.BOXES.find(b => b.id === regEB) || { id: regEB };
       this._syncBox({ ...box, mfg: this.state.regMfg, expiry: nearISO || '', nearDrug: near || '', preparer: this.state.regPreparer, checker: this.state.regChecker, registeredAt: this.isoOf(this.TODAY), dispense: '', dispenser: '', receiver: '', retDate: '' });
       if (window.EB_Sync) window.EB_Sync.syncBoxDrugs(regEB, BD[regEB] || []);
-      msg = `ลงทะเบียน ${regEB} สำเร็จ · ตรวจพบยาใกล้หมดอายุสุด: ${near}`;
+      msg = `ลงทะเบียน ${regEB} สำเร็จ · ตรวจพบยาใกล้หมดอายุสุด: ${near || 'ไม่มีข้อมูล'}`;
       this.logAction({ cat: 'register', action: 'ลงทะเบียน', eb: regEB, dept: '—', drug: `จัดยาเข้าคลัง · ใกล้หมดอายุสุด: ${near}` });
       this.logBoxHist(regEB, `ลงทะเบียนเข้าคลัง (จัดโดย ${this.state.regPreparer || '-'}, ตรวจโดย ${this.state.regChecker || '-'})`);
     }
@@ -2601,8 +2602,8 @@ class Component extends DCLogic {
           }).filter(Boolean);
           if (_swSummary.length > 0) this.logBoxHist(resolvedSwapEB, `บันทึกยาที่ใช้: ${_swSummary.join(', ')}`);
         }
-        this.logAction({ cat: 'return', action: 'รับคืน', eb: resolvedSwapEB, dept: formDept, drug: `รับคืน วันที่ ${this.fmtISO(this.state.swapReturnDate)} · โดย ${this.state.swapReceiver || '-'}` });
-        this.logBoxHist(resolvedSwapEB, `รับคืนจาก ${formDept} วันที่ ${this.fmtISO(this.state.swapReturnDate)} (โดย ${this.state.swapReceiver || '-'})`);
+        this.logAction({ cat: 'return', action: 'รับคืน', eb: resolvedSwapEB, dept: swBox.dept || formDept, drug: `รับคืน วันที่ ${this.fmtISO(this.state.swapReturnDate)} · โดย ${this.state.swapReceiver || '-'}` });
+        this.logBoxHist(resolvedSwapEB, `รับคืนจาก ${swBox.dept || formDept} วันที่ ${this.fmtISO(this.state.swapReturnDate)} (โดย ${this.state.swapReceiver || '-'})`);
       }
       msg = swapReturn ? `เปลี่ยนกล่อง: จ่าย ${dispEB} → ${formDept} · รับคืน ${resolvedSwapEB} สำเร็จ` : `จ่าย ${dispEB} → ${formDept} สำเร็จ`;
       this.logAction({ cat: 'dispense', action: 'จ่าย', eb: dispEB, dept: formDept, drug: this.nearDrugOf(dispEB) });
