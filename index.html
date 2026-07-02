@@ -1762,7 +1762,10 @@ class Component extends DCLogic {
     const list = (BD || this.state.boxDrugs || this.BOX_DRUGS || {})[id];
     if (!list || !list.length) { const b = this.BOXES.find(x => x.id === id); return b ? b.nearDrug : ''; }
     const withExp = list.filter(d => this.drugMinExp(d));
-    if (!withExp.length) return (list[0] && list[0].name) ? list[0].name : '';
+    if (!withExp.length) {
+      const b = this.BOXES.find(x => x.id === id);
+      return (b && b.nearDrug) ? b.nearDrug : ((list[0] && list[0].name) ? list[0].name : '');
+    }
     const nearest = withExp.reduce((m, d) => this.drugMinExp(d) < this.drugMinExp(m) ? d : m, withExp[0]);
     return (nearest && nearest.name) ? nearest.name : '';
   }
@@ -2150,8 +2153,7 @@ class Component extends DCLogic {
     if (this.state.locked) return;
     let u = this.state.users.find(x => x.username.toLowerCase() === this.state.loginUser.trim().toLowerCase());
     if (!u) {
-      const _isAdmin = this.state.loginUser.trim().toLowerCase() === 'admin';
-      if (!_isAdmin && this.state.users.length <= 1) {
+      if (this.state.users.length === 0) {
         this.setState({ loginError: 'กำลังโหลดข้อมูลผู้ใช้ — กรุณารอสักครู่แล้วลองใหม่' });
         return;
       }
@@ -2165,9 +2167,13 @@ class Component extends DCLogic {
     const inputPw = this.state.loginPass;
     if (!inputPw.trim()) { this._failLogin(); return; }
     const inputHash = await this.hashPw(inputPw);
-    const matchPlain = u.password === inputPw;
-    const matchHash  = u.password === inputHash;
+    // re-fetch user after async gap — state may have changed (password reset, suspension)
+    const uFresh = this.state.users.find(x => x.username === u.username);
+    if (!uFresh || uFresh.status === 'suspended') { this._failLogin(); return; }
+    const matchPlain = uFresh.password === inputPw;
+    const matchHash  = uFresh.password === inputHash;
     if (!matchPlain && !matchHash) { this._failLogin(); return; }
+    u = uFresh;
     // auto-upgrade plain-text password to hash on first login after update
     if (matchPlain && !matchHash) {
       const upgraded = { ...u, password: inputHash };
@@ -2266,6 +2272,7 @@ class Component extends DCLogic {
     if (window.EB_Sync) window.EB_Sync.stopSync();
     this.BOXES = [];
     this.BOX_DRUGS = {};
+    this.AUDIT = [];
     this.setState({
       authed: false, currentUser: null, loginUser: '', loginPass: '', showPass: false, screen: 'dashboard',
       loginError: '', attempts: 0, locked: false, lockCountdown: 0,
