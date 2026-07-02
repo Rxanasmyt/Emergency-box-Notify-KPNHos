@@ -1407,7 +1407,7 @@ input:focus, select:focus, textarea:focus {
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;">
             <div style="background: rgba(255,255,255,.08); border-radius: 12px; padding: 12px 14px;">
               <div style="font-size: 11px; color: #90CAF9; margin-bottom: 4px;">⏰ กำหนดการส่ง</div>
-              <div style="font-size: 13.5px; font-weight: 700;">ทุกวัน 08:30 น.</div>
+              <div style="font-size: 13.5px; font-weight: 700;">ทุกวัน 09:00 น.</div>
               <div style="font-size: 11px; color: #B0BEC5; margin-top: 2px;">วันจันทร์ = รายงานครบทุกระดับ</div>
             </div>
             <div style="background: rgba(255,255,255,.08); border-radius: 12px; padding: 12px 14px;">
@@ -1905,7 +1905,7 @@ class Component extends DCLogic {
         } else {
           const _isUrgent = a => a.status === 'expired' || a.status === 'expired_today' || a.status === 'critical';
           const _newUrgent = result.alerts.filter(_isUrgent).length;
-          if (_newUrgent > 0) _p.showExpiryBanner = true;
+          if (_newUrgent > 0 && !this.state._expiryBannerDismissed) _p.showExpiryBanner = true;
         }
         this.setState(_p);
       }).catch(() => {});
@@ -2222,7 +2222,7 @@ class Component extends DCLogic {
         } else {
           const _isUrgent = a => a.status === 'expired' || a.status === 'expired_today' || a.status === 'critical';
           const _newUrgent = result.alerts.filter(_isUrgent).length;
-          if (_newUrgent > 0) _p.showExpiryBanner = true;
+          if (_newUrgent > 0 && !this.state._expiryBannerDismissed) _p.showExpiryBanner = true;
         }
         this.setState(_p);
       }).catch(() => {});
@@ -2242,7 +2242,7 @@ class Component extends DCLogic {
         window.EB_Notify.checkAndNotify(this, false).then(result => {
           if (!this.state.authed) return;
           const patch = {};
-          if (result.alerts.length) { patch.expiryAlerts = result.alerts; patch.showExpiryBanner = true; }
+          if (result.alerts.length) { patch.expiryAlerts = result.alerts; if (!this.state._expiryBannerDismissed) patch.showExpiryBanner = true; }
           if (Object.keys(patch).length) this.setState(patch);
         }).catch(err => console.warn('[Notify] checkAndNotify failed:', err));
       }
@@ -2291,7 +2291,7 @@ class Component extends DCLogic {
       query: '', datePreset: 'all', fiscalYear: 0, dateFrom: '', dateTo: '',
       aFilter: 'all', aQuery: '', aDatePreset: 'all', aFiscalYear: 0, aDateFrom: '', aDateTo: '',
       boxHist: {}, reauth: null, reauthPass: '', reauthError: '',
-      expiryAlerts: [], showExpiryBanner: false,
+      expiryAlerts: [], showExpiryBanner: false, _expiryBannerDismissed: false,
       auditLog: null,
     });
     this._syncChipStates();
@@ -2357,18 +2357,20 @@ class Component extends DCLogic {
     if (!changePwNew.trim()) { this.setState({ changePwError: 'กรุณากรอกรหัสผ่านใหม่' }); return; }
     if (changePwNew.trim().length < 4) { this.setState({ changePwError: 'รหัสผ่านต้องมีอย่างน้อย 4 ตัวอักษร' }); return; }
     if (changePwNew.trim() !== changePwConfirm.trim()) { this.setState({ changePwError: 'รหัสผ่านทั้งสองช่องไม่ตรงกัน' }); return; }
-    const u = this.state.users.find(x => x.username === changePwUsername);
+    let u = this.state.users.find(x => x.username === changePwUsername);
     if (!u) return;
     if (isSelf) {
       const oldHash = await this.hashPw(changePwOld.trim());
+      u = this.state.users.find(x => x.username === changePwUsername) || u; // re-fetch after async gap
       if (u.password !== changePwOld.trim() && u.password !== oldHash) { this.setState({ changePwError: 'รหัสผ่านเดิมไม่ถูกต้อง' }); return; }
     }
     const hashed = await this.hashPw(changePwNew.trim());
-    const updated = { ...u, password: hashed };
+    const uFresh = this.state.users.find(x => x.username === changePwUsername) || u; // re-fetch after async gap
+    const updated = { ...uFresh, password: hashed };
     this.setState(s => ({ users: s.users.map(x => x.username === changePwUsername ? updated : x), currentUser: isSelf ? updated : s.currentUser, showChangePw: false, changePwUsername: null, changePwOld: '', changePwNew: '', changePwConfirm: '', changePwError: '' }));
     if (window.EB_Sync) window.EB_Sync.syncUsers(updated);
-    this.flash(`เปลี่ยนรหัสผ่านของ ${u.name} เรียบร้อย`);
-    this.logAction({ cat: 'user', action: 'เปลี่ยนรหัสผ่าน', eb: '—', dept: u.dept, drug: `เปลี่ยนรหัสผ่าน ${u.name} (${u.username})` });
+    this.flash(`เปลี่ยนรหัสผ่านของ ${uFresh.name} เรียบร้อย`);
+    this.logAction({ cat: 'user', action: 'เปลี่ยนรหัสผ่าน', eb: '—', dept: uFresh.dept, drug: `เปลี่ยนรหัสผ่าน ${uFresh.name} (${uFresh.username})` });
   }
   deleteUser(username) {
     if (!this.state.currentUser || this.state.currentUser.role !== 'admin') return;
@@ -2993,7 +2995,7 @@ td.l{text-align:left;padding-left:4px}
     vals.userAvatarColor = cu ? cuRole.color : '#1A6FA3';
     // ===== NOTIFY SETTINGS =====
     const nfSettings = window.EB_Notify ? window.EB_Notify.loadSettings() : {};
-    vals.dismissExpiryBanner = () => this.setState({ showExpiryBanner: false });
+    vals.dismissExpiryBanner = () => this.setState({ showExpiryBanner: false, _expiryBannerDismissed: true });
     vals.showExpiryBanner = st.showExpiryBanner;
     const alerts = st.expiryAlerts || [];
     vals.hasExpiryAlerts = alerts.length > 0;

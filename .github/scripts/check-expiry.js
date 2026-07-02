@@ -31,7 +31,7 @@ const db = admin.firestore();
 
 // แจ้งเตือนยาที่หมดอายุภายใน NOTIFY_DAYS_AHEAD วัน (default 60 วัน)
 const _rawDays = parseInt(process.env.NOTIFY_DAYS_AHEAD || '60', 10);
-const THRESHOLD_DAYS = isNaN(_rawDays) || _rawDays <= 0 ? 60 : _rawDays;
+const THRESHOLD_DAYS = isNaN(_rawDays) || _rawDays <= 0 ? 60 : Math.min(_rawDays, 365);
 // Use Bangkok time (UTC+7) so expiry comparisons match Thai calendar day
 // Use Intl.DateTimeFormat with en-CA (yields ISO YYYY-MM-DD) to avoid unreliable
 // locale-string parsing which is implementation-defined in Node.js on Linux
@@ -107,6 +107,7 @@ async function fetchExpiringDrugs() {
     const data = doc.data();
     if (!data) return;
     const boxId = doc.id;
+    if (!boxes[boxId]) console.warn(`[checkExpiry] box_drugs doc "${boxId}" has no matching box — dept will show as 'ห้องยา'`);
     const box = boxes[boxId] || {};
     const drugs = data.drugs || [];
 
@@ -331,7 +332,7 @@ function sendMOPHNotify(clientKey, secretKey, messages) {
       let data = '';
       res.on('data', chunk => { data += chunk; });
       res.on('end', () => {
-        if (res.statusCode === 200) {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
           console.log('✅ MOPH Notify: ส่งเข้ากลุ่ม LINE สำเร็จ');
           resolve(true);
         } else {
@@ -685,7 +686,7 @@ async function sendAllClearEmail(boxCount) {
 
 // ── Main ───────────────────────────────────────────────────────
 async function main() {
-  const isMonday = TODAY.getDay() === 1;   // 0=Sun … 6=Sat
+  const isMonday = new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: 'Asia/Bangkok' }).format(new Date()) === 'Mon';
   console.log(`\n🔍 ตรวจสอบยาใกล้หมดอายุ (ภายใน ${THRESHOLD_DAYS} วัน)...`);
   console.log(`📅 วันที่: ${TODAY.toLocaleDateString('th-TH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`);
   console.log(`📋 โหมด: ${IS_MANUAL ? 'ส่งทันที (กดปุ่มจากแอป)' : isMonday ? 'รายงานประจำสัปดาห์ (วันจันทร์)' : 'ตรวจเฉพาะยาวิกฤต (อังคาร–อาทิตย์)'}\n`);

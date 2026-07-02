@@ -160,7 +160,7 @@ function listenBoxDrugs(){
         const _s=window.EB_Notify.loadSettings();
         const _a=window.EB_Notify.findExpiringDrugs(component,_s.thresholdDays);
         _patch.expiryAlerts=_a;
-        if(_a.length&&!_st.showExpiryBanner)_patch.showExpiryBanner=true;
+        if(_a.length&&!_st.showExpiryBanner&&!_st._expiryBannerDismissed)_patch.showExpiryBanner=true;
       }
       component.setState(_patch);
     }
