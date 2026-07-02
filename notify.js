@@ -29,6 +29,7 @@
   }
 
   function saveSettings(s) {
+    if (!s) return;
     const { githubPAT, ...rest } = s;
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(rest));
   }
@@ -63,7 +64,7 @@
     return getLastSent() === todayBangkok();
   }
 
-  function findExpiringDrugs(component, thresholdDays) {
+  function findExpiringDrugs(component, thresholdDays = DEFAULTS.thresholdDays) {
     if (!component || !component.BOXES) return [];
     const bd = component.BOX_DRUGS || (component.state && component.state.boxDrugs) || {};
     const today = new Date(todayBangkok() + 'T00:00:00');
@@ -174,6 +175,9 @@
     const firestoreSettings = await loadFromFirestore();
     if (firestoreSettings) {
       Object.assign(settings, firestoreSettings);
+      // sanitize types — Firestore may return string or null for numeric/boolean fields
+      settings.thresholdDays = Number(settings.thresholdDays) || DEFAULTS.thresholdDays;
+      if (typeof settings.enabled !== 'boolean') settings.enabled = DEFAULTS.enabled;
       if (!settings.enabled && !force) return { alerts: [], sent: false };
     }
 
