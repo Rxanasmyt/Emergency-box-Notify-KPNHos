@@ -2389,6 +2389,7 @@ class Component extends DCLogic {
     if (!nu_name.trim() || !nu_username.trim()) { this.flash('กรุณากรอกชื่อและ username'); return; }
     if (/\s/.test(nu_username.trim())) { this.flash('username ต้องไม่มีช่องว่าง'); return; }
     if (nu_pass && !nu_pass.trim()) { this.flash('รหัสผ่านต้องไม่เป็นช่องว่าง'); return; }
+    if (nu_pass && nu_pass.trim().length < 4) { this.flash('รหัสผ่านต้องมีอย่างน้อย 4 ตัวอักษร'); return; }
     if (users.some(u => u.username.toLowerCase() === nu_username.trim().toLowerCase())) { this.flash('username นี้มีอยู่แล้ว'); return; }
     const hashed = await this.hashPw(nu_pass.trim() || '1234');
     // re-check after async gap in case another admin added the same username concurrently
@@ -3020,7 +3021,8 @@ td.l{text-align:left;padding-left:4px}
     vals.setGithubPAT = (e) => {
       const v = e.target.value;
       this.setState({ ghPAT: v });
-      if (window.EB_Notify) window.EB_Notify.saveToFirestore({ githubPAT: v });
+      clearTimeout(this._patT);
+      this._patT = setTimeout(() => { if (window.EB_Notify) window.EB_Notify.saveToFirestore({ githubPAT: v }); }, 800);
     };
     const _ghState = st.ghTrigger || 'idle';
     const _ghMsgs = { idle: '', loading: '⏳ กำลังส่งคำสั่ง…', success: '✓ ส่งแล้ว — LINE + Email จะถึงภายใน 1-2 นาที', error: '✗ เกิดข้อผิดพลาด · ตรวจสอบว่ากรอก PAT และมีสิทธิ์ Actions' };
@@ -4098,7 +4100,7 @@ td.l{text-align:left;padding-left:4px}
         h('div', { style: { display: 'flex', gap: 6, justifyContent: 'flex-end' } },
           this.iconBtn('reset', 'เปลี่ยนรหัสผ่าน', '#7C5CD6', '#EFEAFB', () => this.openChangePw(u.username)),
           isSelfRow(u) ? null : this.iconBtn(suspended ? 'unlock' : 'lock', suspended ? 'เปิดใช้งาน' : 'ระงับบัญชี', suspended ? '#169C7F' : '#D9810F', suspended ? '#E4F4EF' : '#FBF1E0', () => {
-            if (suspended) { this.toggleUserStatus(u.username); }
+            if (suspended) { this.askConfirm({ tone: 'warn', icon: 'unlock', title: 'เปิดใช้งานบัญชี?', body: `${u.name} (${u.username}) จะสามารถเข้าระบบได้อีกครั้ง`, yesLabel: 'เปิดใช้งาน', noLabel: 'ยกเลิก', onYes: () => this.toggleUserStatus(u.username) }); }
             else this.askConfirm({ tone: 'warn', icon: 'lock', title: 'ระงับบัญชีผู้ใช้?', body: `${u.name} (${u.username}) จะเข้าระบบไม่ได้จนกว่าจะเปิดใช้งานอีกครั้ง`, yesLabel: 'ระงับบัญชี', noLabel: 'ยกเลิก', onYes: () => this.toggleUserStatus(u.username) });
           }),
           isSelfRow(u) ? null : this.iconBtn('trash', 'ลบบัญชี', '#E03E3E', '#FCEDED', () => this.askConfirm({ tone: 'danger', icon: 'trash', title: 'ลบบัญชีผู้ใช้ถาวร?', body: `ลบ ${u.name} (${u.username}) ออกจากระบบ การกระทำนี้ย้อนกลับไม่ได้`, yesLabel: 'ลบถาวร', noLabel: 'ยกเลิก', onYes: () => this.deleteUser(u.username) })),
