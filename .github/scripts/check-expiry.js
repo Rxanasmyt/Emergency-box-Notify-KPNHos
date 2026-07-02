@@ -484,7 +484,7 @@ function buildHtmlEmail(alerts) {
       </div>
     </div>
     <div style="background:#F5F7FA;padding:14px 32px;border:1px solid #E2E8F0;border-top:0;border-radius:0 0 16px 16px;font-size:11px;color:#9AAAB8;text-align:center">
-      ส่งอัตโนมัติทุกวัน 08:00 น. โดยระบบ EB Notify — ฝ่ายเภสัชกรรม รพ.กรงปินัง · <a href="https://emergencyboxnotyfykpnhos.web.app" style="color:#1A6FA3;text-decoration:none">emergencyboxnotyfykpnhos.web.app</a>
+      ส่งอัตโนมัติทุกวัน 09:00 น. โดยระบบ EB Notify — ฝ่ายเภสัชกรรม รพ.กรงปินัง · <a href="https://emergencyboxnotyfykpnhos.web.app" style="color:#1A6FA3;text-decoration:none">emergencyboxnotyfykpnhos.web.app</a>
     </div>
   </div>
 </body>
@@ -554,7 +554,7 @@ function buildPlainText(alerts) {
     t += '\n';
   }
   t += `ตรวจสอบเพิ่มเติม: https://emergencyboxnotyfykpnhos.web.app\n`;
-  t += `\nอีเมลนี้ส่งอัตโนมัติทุกวัน 08:00 น. โดยระบบ EB Notify ฝ่ายเภสัชกรรม รพ.กรงปินัง`;
+  t += `\nอีเมลนี้ส่งอัตโนมัติทุกวัน 09:00 น. โดยระบบ EB Notify ฝ่ายเภสัชกรรม รพ.กรงปินัง`;
   return t;
 }
 
