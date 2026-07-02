@@ -3133,9 +3133,12 @@ td.l{text-align:left;padding-left:4px}
       const isLoaded = st._publicSynced && st.boxDrugs !== null;
 
       if (!isLoaded) {
+        const _loadingTooLong = st._publicLoadError;
         vals.publicViewEl = h('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', gap: 16, background: '#EDF2F7', fontFamily: "'IBM Plex Sans Thai', sans-serif" } },
-          h('div', { style: { width: 48, height: 48, border: '4px solid #D1E3F0', borderTop: '4px solid #1A6FA3', borderRadius: '50%', animation: 'sweep .8s linear infinite' } }),
-          h('div', { style: { fontSize: 14, color: '#7B8D9C', fontWeight: 500 } }, 'กำลังโหลดข้อมูลกล่อง...'),
+          _loadingTooLong
+            ? h('div', { style: { fontSize: 15, color: '#B42121', fontWeight: 600 } }, '⚠ ไม่สามารถเชื่อมต่อได้ — กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วโหลดซ้ำ')
+            : h('div', { style: { width: 48, height: 48, border: '4px solid #D1E3F0', borderTop: '4px solid #1A6FA3', borderRadius: '50%', animation: 'sweep .8s linear infinite' } }),
+          !_loadingTooLong && h('div', { style: { fontSize: 14, color: '#7B8D9C', fontWeight: 500 } }, 'กำลังโหลดข้อมูลกล่อง...'),
           h('div', { style: { fontSize: 13, color: '#9AAAB8', fontFamily: "'IBM Plex Mono', monospace" } }, pubBoxId)
         );
       } else if (!pubBox) {
@@ -3716,7 +3719,13 @@ td.l{text-align:left;padding-left:4px}
 
     vals.resetForm = () => {
       const _m = st.formMode;
-      const _dirty = _m === 'register' ? (st.regMfg || st.regPreparer || st.regChecker)
+      const _uName = st.currentUser ? st.currentUser.name : '';
+      const _isPharm = st.currentUser && (st.currentUser.role === 'pharmacist' || st.currentUser.role === 'admin');
+      const _dirty = _m === 'register' ? (
+        !!st.regMfg ||
+        st.regPreparer !== (!_isPharm ? _uName : '') ||
+        st.regChecker  !== (_isPharm  ? _uName : '')
+      )
                    : _m === 'dispense' ? (st.formDept !== 'ER' || st.dispDate !== this.isoOf(this.TODAY) || (st.dispenser && st.dispenser !== (st.currentUser ? st.currentUser.name : '')) || st.swapReturn)
                    : ((st.retReceiver && st.retReceiver !== (st.currentUser ? st.currentUser.name : '')) || st.retDate !== this.isoOf(this.TODAY) || Object.values(st.retDrugUsage || {}).some(d => Object.values(d).some(q => q > 0)));
       if (_dirty) { this.askConfirm({ tone: 'warn', icon: 'warn', title: 'ล้างฟอร์ม?', body: 'ข้อมูลที่กรอกไว้จะหายทั้งหมด', yesLabel: 'ล้าง', noLabel: 'ยกเลิก', onYes: () => this.resetForm() }); } else { this.resetForm(); }
@@ -4011,7 +4020,7 @@ td.l{text-align:left;padding-left:4px}
     // CSV export
     vals.exportCSV = () => {
       const hdr = ['ลำดับ', 'วันที่', 'เวลา', 'ประเภท', 'EB', 'หน่วยงาน', 'ผู้ทำรายการ', 'ยาที่ใกล้หมดอายุ'];
-      const esc = (v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+      const esc = (v) => { let s = String(v == null ? '' : v); if (s.length > 0 && '=+-@\t\r'.includes(s[0])) s = "'" + s; return '"' + s.replace(/"/g, '""') + '"'; };
       const lines = [hdr.map(esc).join(',')];
       filtered.forEach((r, i) => {
         lines.push([filtered.length - i, r.date || '', r.time || '', r.action || '', r.eb || '', r.dept || '', r.person || '', r.drug || ''].map(esc).join(','));
@@ -4271,7 +4280,7 @@ td.l{text-align:left;padding-left:4px}
     vals.adminAuditCount = _adminFiltered.length;
     vals.adminExportCSV = () => {
       const hdr = ['ลำดับ','วันที่','เวลา','ประเภท','EB','หน่วยงาน','ผู้ทำรายการ','รายละเอียด'];
-      const esc = (v) => '"' + String(v==null?'':v).replace(/"/g,'""') + '"';
+      const esc = (v) => { let s = String(v==null?'':v); if (s.length>0&&'=+-@\t\r'.includes(s[0])) s="'"+s; return '"'+s.replace(/"/g,'""')+'"'; };
       const lines = [hdr.map(esc).join(',')];
       _adminFiltered.forEach((r,i) => lines.push([_adminFiltered.length-i,r.date||'',r.time||'',r.action||'',r.eb||'',r.dept||'',r.person||'',r.drug||''].map(esc).join(',')));
       const blob = new Blob(['﻿'+lines.join('\r\n')],{type:'text/csv;charset=utf-8;'});

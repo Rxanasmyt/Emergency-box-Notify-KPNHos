@@ -92,7 +92,7 @@ function startPublicSync(comp) {
       }, err => console.warn('[Sync] Public drugs error:', err.message));
       unsubscribers.push(u1, u2);
     })
-    .catch(err => { _publicListening = false; console.warn('[Sync] Public anon auth failed:', err.message); });
+    .catch(err => { _publicListening = false; console.warn('[Sync] Public anon auth failed:', err.message); if (component) component.setState({ _publicLoadError: true }); });
 }
 
 async function seedIfEmpty(){
