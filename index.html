@@ -1991,7 +1991,7 @@ class Component extends DCLogic {
   }
   logBoxHist(boxId, text) {
     const who = this.state.currentUser ? this.state.currentUser.name : 'ระบบ';
-    const stamp = `${this.fmt(this.TODAY)} ${this.nowTime()}`;
+    const stamp = `${this.isoOf(this.TODAY)} · ${this.nowTime()}`;
     // update in-state for immediate UI feedback before Firestore snapshot returns
     this.setState(s => { const bh = { ...(s.boxHist || {}) }; bh[boxId] = [{ text, who, stamp }, ...((bh[boxId]) || [])].slice(0, 8); return { boxHist: bh }; });
     // persist to Firestore so history survives refresh
@@ -2534,9 +2534,11 @@ class Component extends DCLogic {
     this.submit();
   }
   _syncBox(updated) {
+    const prevBox = this.BOXES.find(b => b.id === updated.id);
     this.BOXES = this.BOXES.map(b => b.id === updated.id ? updated : b);
     if (window.EB_Sync) {
       window.EB_Sync.syncBoxes(updated).then(null, () => {
+        if (prevBox) this.BOXES = this.BOXES.map(b => b.id === prevBox.id ? prevBox : b);
         this.flash('⚠️ บันทึกไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
       });
     }

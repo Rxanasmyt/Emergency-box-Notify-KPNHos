@@ -222,13 +222,6 @@ function buildFlexMessages(alerts) {
 
   const bubbles = [];
 
-  // ── Summary bubble ──
-  const summaryRows = [];
-  if (expired.length)  summaryRows.push({ text: `🔴 หมดอายุแล้ว`, count: expired.length,  color: '#C0392B' });
-  if (critical.length) summaryRows.push({ text: `🟠 วิกฤต ≤15 วัน`, count: critical.length, color: '#E17055' });
-  if (warning.length)  summaryRows.push({ text: `🟡 ใกล้กำหนด ≤30 วัน`, count: warning.length,  color: '#D68910' });
-  if (notice.length)   summaryRows.push({ text: `🔵 เตือนล่วงหน้า`, count: notice.length,  color: '#1A6BAA' });
-
   // ── Summary bubble (dark navy) ──
   bubbles.push({
     type: 'bubble', size: 'mega',
@@ -610,7 +603,7 @@ async function sendEmail(alerts) {
 
 // ── All-clear email (Monday, no alerts) ───────────────────────
 function buildAllClearHtml(boxCount) {
-  const dateStr = new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+  const dateStr = new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long', timeZone: 'Asia/Bangkok' });
   return `<!DOCTYPE html>
 <html lang="th">
 <head><meta charset="utf-8"><title>EB Notify — ปลอดภัย</title></head>
@@ -645,7 +638,7 @@ function buildAllClearHtml(boxCount) {
 }
 
 function buildAllClearPlainText(boxCount) {
-  const dateStr = new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+  const dateStr = new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long', timeZone: 'Asia/Bangkok' });
   return [
     'รายงานประจำสัปดาห์ — Emergency Box รพ.กรงปินัง',
     `วันที่: ${dateStr}`,

@@ -132,7 +132,7 @@ function listenBoxes(){
   unsubscribers.push(unsub);
 }
 function listenAudit(){
-  const unsub=db.collection(C.audit).orderBy('date','desc').onSnapshot(snap=>{
+  const unsub=db.collection(C.audit).orderBy('date','desc').limit(500).onSnapshot(snap=>{
     if(!component)return;
     const logs=[];snap.forEach(doc=>{const d=doc.data();const cat=d.cat||(d.action==='จ่าย'?'dispense':d.action==='รับคืน'?'return':'other');logs.push({...d,cat});});
     // Firestore orderBy('date') only sorts by date string — re-sort by date+time
@@ -169,12 +169,12 @@ function listenBoxDrugs(){
 }
 function logAudit(entry){
   if(!db)return Promise.resolve();
-  return db.collection(C.audit).add({...entry,createdAt:firebase.firestore.FieldValue.serverTimestamp()}).catch(err=>console.error('[Sync] Audit write failed:',err.message));
+  return db.collection(C.audit).add({...entry,createdAt:firebase.firestore.FieldValue.serverTimestamp()}).catch(err=>{console.error('[Sync] Audit write failed:',err.message);throw err;});
 }
 function syncBoxes(box){
   if(!db||!box.id)return Promise.resolve();
   const{id,...data}=box;
-  return db.collection(C.boxes).doc(id).set(data,{merge:true}).catch(err=>console.error('[Sync] Box write failed:',err.message));
+  return db.collection(C.boxes).doc(id).set(data,{merge:true}).catch(err=>{console.error('[Sync] Box write failed:',err.message);throw err;});
 }
 function syncUsers(user){
   if(!db)return Promise.resolve();
@@ -185,7 +185,7 @@ function syncUsers(user){
 }
 function syncBoxDrugs(boxId,drugs){
   if(!db)return Promise.resolve();
-  return db.collection(C.boxDrugs).doc(boxId).set({boxId,drugs,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true}).catch(err=>console.error('[Sync] BoxDrugs write failed:',err.message));
+  return db.collection(C.boxDrugs).doc(boxId).set({boxId,drugs,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true}).catch(err=>{console.error('[Sync] BoxDrugs write failed:',err.message);throw err;});
 }
 function deleteUser(user){
   if(!db)return Promise.resolve();
