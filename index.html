@@ -1840,6 +1840,15 @@ class Component extends DCLogic {
     return true;
   }
   go2(formMode) {
+    if (!this._go2Force && this.state.formMode === 'register' && formMode !== 'register') {
+      const _st = this.state;
+      const _touched = !!(_st.regMfg || _st.regPrinted || _st.boxDrugs !== null);
+      if (_touched) {
+        this.askConfirm({ tone: 'warn', icon: 'warn', title: 'เปลี่ยนโหมด?', body: 'ข้อมูลยาที่กรอกไว้จะหายไป ยืนยันเปลี่ยนโหมดโดยไม่บันทึก?', yesLabel: 'เปลี่ยนโหมด', noLabel: 'กลับไปแก้ไข',
+          onYes: () => { this._go2Force = true; this.go2(formMode); this._go2Force = false; } });
+        return;
+      }
+    }
     const today = this.isoOf(this.TODAY);
     const user = this.state.currentUser;
     const uName = user ? user.name : '';
@@ -3739,6 +3748,8 @@ td.l{text-align:left;padding-left:4px}
       const _isPharm = st.currentUser && (st.currentUser.role === 'pharmacist' || st.currentUser.role === 'admin');
       const _dirty = _m === 'register' ? (
         !!st.regMfg ||
+        !!st.regPrinted ||
+        st.boxDrugs !== null ||
         st.regPreparer !== (!_isPharm ? _uName : '') ||
         st.regChecker  !== (_isPharm  ? _uName : '')
       )
