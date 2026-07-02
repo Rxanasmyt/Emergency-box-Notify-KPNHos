@@ -32,8 +32,9 @@
         .then(r => console.log('[SW] Registered:', r.scope))
         .catch(e => console.warn('[SW] Registration failed:', e));
     });
+    const _hadSWController = !!navigator.serviceWorker.controller;
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (navigator.serviceWorker.controller) window.location.reload();
+      if (_hadSWController) window.location.reload();
     });
   }
 </script>
@@ -1753,7 +1754,9 @@ class Component extends DCLogic {
     const list = (BD || this.state.boxDrugs || this.BOX_DRUGS || {})[id];
     if (!list || !list.length) { const b = this.BOXES.find(x => x.id === id); return b ? b.expiry : ''; }
     const exps = list.map(d => this.drugMinExp(d)).filter(e => e);
-    return exps.length ? exps.sort()[0] : '';
+    if (exps.length) return exps.sort()[0];
+    const b = this.BOXES.find(x => x.id === id);
+    return b ? (b.expiry || '') : '';
   }
   nearDrugOf(id, BD) {
     const list = (BD || this.state.boxDrugs || this.BOX_DRUGS || {})[id];
@@ -1819,8 +1822,8 @@ class Component extends DCLogic {
       return false;
     }
     if (screen !== 'entry') {
-      const _formTouched = !!(this.state.regMfg || this.state.regPrinted);
-      const hasUnsaved = this.state.boxDrugs !== null && this.state.formMode === 'register' && _formTouched;
+      const _formTouched = !!(this.state.regMfg || this.state.regPrinted || this.state.boxDrugs !== null);
+      const hasUnsaved = this.state.formMode === 'register' && _formTouched;
       if (hasUnsaved) {
         this.askConfirm({
           tone: 'warn', icon: 'warn',
@@ -1951,6 +1954,7 @@ class Component extends DCLogic {
     clearTimeout(this._idleT); clearTimeout(this._idleWarnT);
     clearTimeout(this._syncT); clearTimeout(this._lockT);
     clearTimeout(this._t); clearTimeout(this._a);
+    clearTimeout(this._saveSuccessT); clearTimeout(this._ghT);
     clearInterval(this._notifyInterval); clearInterval(this._idleCountI); clearInterval(this._lockCountI);
     if (window.EB_Sync) window.EB_Sync.stopAll();
   }
@@ -2013,6 +2017,7 @@ class Component extends DCLogic {
     this.setState({ editDrugs: false, boxDrugs: backup || null });
   }
   saveEditDrugs() {
+    if (this._savingDrugs) return; // prevent double-save race
     const id = this.state.selectedEB;
     const drugs = (this.state.boxDrugs || this.BOX_DRUGS || {})[id] || [];
     if (drugs.length === 0) { this.flash('กล่องยาต้องมียาอย่างน้อย 1 รายการ'); return; }
@@ -2020,17 +2025,21 @@ class Component extends DCLogic {
       if (!drug.name || !drug.name.trim()) { this.flash('กรุณากรอกชื่อยาให้ครบทุกรายการ'); return; }
       for (const lot of (drug.lots || [])) {
         if (!lot.expiry) { this.flash('กรุณากรอกวันหมดอายุให้ครบทุก Lot'); return; }
+        if (lot.expiry < this.isoOf(this.TODAY)) { this.flash('มียาที่หมดอายุแล้ว — แก้วันหมดอายุก่อนบันทึก'); return; }
       }
     }
+    this._savingDrugs = true;
     const prevDrugs = (this.BOX_DRUGS || {})[id];
     this._bdBackup = null;
     this.BOX_DRUGS = { ...(this.BOX_DRUGS || {}), [id]: drugs };
     this.setState({ editDrugs: false, saveSuccess: Date.now(), boxDrugs: null });
-    setTimeout(() => this.setState({ saveSuccess: null }), 1600);
-    if (window.EB_Sync) window.EB_Sync.syncBoxDrugs(id, drugs).then(null, () => {
-      this.BOX_DRUGS = { ...(this.BOX_DRUGS || {}), [id]: prevDrugs };
-      this.flash('⚠️ บันทึกข้อมูลยาไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
-    });
+    clearTimeout(this._saveSuccessT);
+    this._saveSuccessT = setTimeout(() => this.setState({ saveSuccess: null }), 1600);
+    if (window.EB_Sync) window.EB_Sync.syncBoxDrugs(id, drugs).then(
+      () => { this._savingDrugs = false; },
+      () => { this._savingDrugs = false; this.BOX_DRUGS = { ...(this.BOX_DRUGS || {}), [id]: prevDrugs }; this.flash('⚠️ บันทึกข้อมูลยาไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต'); }
+    );
+    else this._savingDrugs = false;
     // also update boxes doc so expiry/nearDrug stay in sync as fallback
     const near = this.nearDrugOf(id);
     const nearISO = this.regNearISOof(id);
@@ -2248,7 +2257,8 @@ class Component extends DCLogic {
   printQRCodes() {
     const BASE = window.location.href.split('?')[0].split('#')[0];
     const boxes = this.BOXES;
-    const html = `<!DOCTYPE html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>QR Code — Emergency Box · รพ.กรงปินัง</title><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+Thai:wght@400;600;700&display=swap" rel="stylesheet"><script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'IBM Plex Sans Thai',sans-serif;background:#EDF2F7;color:#15242E}.ui{background:#1A6FA3;color:#fff;padding:14px 22px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:10}.ui h1{font-size:14px;font-weight:700;flex:1}.btn{background:#fff;color:#1A6FA3;border:none;border-radius:9px;padding:8px 20px;font-size:13px;font-weight:700;cursor:pointer}.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;padding:22px}.card{background:#fff;border:1.5px solid #E2EEF5;border-radius:14px;padding:14px 12px;display:flex;flex-direction:column;align-items:center;gap:8px;page-break-inside:avoid}.eb{font-size:17px;font-weight:700;color:#1A6FA3;font-family:'IBM Plex Mono',monospace}.dept{font-size:11px;color:#7B8D9C;background:#EDF2F7;border-radius:6px;padding:2px 9px;font-weight:600}.qrbox{width:160px;height:160px}.url-text{font-size:8.5px;color:#9AAAB8;text-align:center;word-break:break-all;max-width:160px;line-height:1.4}.note{font-size:10px;color:#5A6B79;text-align:center;line-height:1.5}@media print{.ui{display:none}body{background:#fff}.grid{padding:8px;gap:10px}.card{border:1px solid #ccc;padding:10px;border-radius:10px}}</style></head><body><div class="ui"><h1>🏥 QR Code — Emergency Box · โรงพยาบาลกรงปินัง · ${boxes.length} กล่อง</h1><button class="btn" onclick="window.print()">🖨 พิมพ์</button></div><div class="grid">${boxes.map(b=>`<div class="card"><div class="eb">${b.id}</div><div class="qrbox" id="qr${b.id.replace(/[^a-z0-9]/gi,'_')}"></div><div class="url-text">${BASE}?view=box&amp;id=${encodeURIComponent(b.id)}</div><div class="note">สแกนเพื่อดูข้อมูลกล่องยาแบบ Real-time</div></div>`).join('')}</div><script>window.onload=function(){${boxes.map(b=>`try{new QRCode(document.getElementById('qr${b.id.replace(/[^a-z0-9]/gi,'_')}'),{text:'${BASE}?view=box&id=${encodeURIComponent(b.id)}',width:160,height:160,colorDark:'#15242E',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});}catch(e){}`).join('')}};<\/script></body></html>`;
+    const _escH = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    const html = `<!DOCTYPE html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>QR Code — Emergency Box · รพ.กรงปินัง</title><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+Thai:wght@400;600;700&display=swap" rel="stylesheet"><script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'IBM Plex Sans Thai',sans-serif;background:#EDF2F7;color:#15242E}.ui{background:#1A6FA3;color:#fff;padding:14px 22px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:10}.ui h1{font-size:14px;font-weight:700;flex:1}.btn{background:#fff;color:#1A6FA3;border:none;border-radius:9px;padding:8px 20px;font-size:13px;font-weight:700;cursor:pointer}.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;padding:22px}.card{background:#fff;border:1.5px solid #E2EEF5;border-radius:14px;padding:14px 12px;display:flex;flex-direction:column;align-items:center;gap:8px;page-break-inside:avoid}.eb{font-size:17px;font-weight:700;color:#1A6FA3;font-family:'IBM Plex Mono',monospace}.dept{font-size:11px;color:#7B8D9C;background:#EDF2F7;border-radius:6px;padding:2px 9px;font-weight:600}.qrbox{width:160px;height:160px}.url-text{font-size:8.5px;color:#9AAAB8;text-align:center;word-break:break-all;max-width:160px;line-height:1.4}.note{font-size:10px;color:#5A6B79;text-align:center;line-height:1.5}@media print{.ui{display:none}body{background:#fff}.grid{padding:8px;gap:10px}.card{border:1px solid #ccc;padding:10px;border-radius:10px}}</style></head><body><div class="ui"><h1>🏥 QR Code — Emergency Box · โรงพยาบาลกรงปินัง · ${boxes.length} กล่อง</h1><button class="btn" onclick="window.print()">🖨 พิมพ์</button></div><div class="grid">${boxes.map(b=>`<div class="card"><div class="eb">${_escH(b.id)}</div><div class="qrbox" id="qr${b.id.replace(/[^a-z0-9]/gi,'_')}"></div><div class="url-text">${BASE}?view=box&amp;id=${encodeURIComponent(b.id)}</div><div class="note">สแกนเพื่อดูข้อมูลกล่องยาแบบ Real-time</div></div>`).join('')}</div><script>window.onload=function(){${boxes.map(b=>`try{new QRCode(document.getElementById('qr${b.id.replace(/[^a-z0-9]/gi,'_')}'),{text:'${BASE}?view=box&id=${encodeURIComponent(b.id)}',width:160,height:160,colorDark:'#15242E',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});}catch(e){}`).join('')}};<\/script></body></html>`;
     const win = window.open('', '_blank', 'width=1150,height=820');
     if (!win) { this.flash('กรุณาอนุญาต Pop-up เพื่อพิมพ์ QR Code'); return; }
     win.document.write(html);
@@ -2265,6 +2275,7 @@ class Component extends DCLogic {
   logout() {
     clearTimeout(this._idleT); clearTimeout(this._idleWarnT); clearTimeout(this._syncT);
     clearTimeout(this._lockT); clearTimeout(this._t); clearTimeout(this._a);
+    clearTimeout(this._saveSuccessT); clearTimeout(this._ghT);
     clearInterval(this._idleCountI); clearInterval(this._notifyInterval); clearInterval(this._lockCountI);
     if (window.EB_Sync) window.EB_Sync.stopSync();
     this.BOXES = [];
@@ -3034,7 +3045,7 @@ td.l{text-align:left;padding-left:4px}
     vals.triggerGHActions = async () => {
       if (this.state.ghTrigger === 'loading') return;
       const pat = (st.ghPAT || '').trim();
-      if (!pat) { this.setState({ ghTrigger: 'error' }); setTimeout(() => this.setState({ ghTrigger: 'idle' }), 4000); return; }
+      if (!pat) { this.setState({ ghTrigger: 'error' }); clearTimeout(this._ghT); this._ghT = setTimeout(() => this.setState({ ghTrigger: 'idle' }), 4000); return; }
       this.setState({ ghTrigger: 'loading' });
       try {
         const res = await fetch('https://api.github.com/repos/Rxanasmyt/Emergency-box-Notify-KPNHos/actions/workflows/daily-notify.yml/dispatches', {
@@ -3046,18 +3057,18 @@ td.l{text-align:left;padding-left:4px}
           if (this.state.screen !== 'notify') return;
           this.setState({ ghTrigger: 'success' });
           this.logAction({ cat: 'other', action: 'ส่งแจ้งเตือน', eb: '—', dept: '—', drug: 'Trigger GitHub Actions: manual LINE + Email drug-expiry alert' });
-          setTimeout(() => this.setState({ ghTrigger: 'idle' }), 10000);
+          clearTimeout(this._ghT); this._ghT = setTimeout(() => this.setState({ ghTrigger: 'idle' }), 10000);
         } else {
           console.warn('[GH Trigger] status:', res.status, await res.text().catch(()=>''));
           if (this.state.screen !== 'notify') return;
           this.setState({ ghTrigger: 'error' });
-          setTimeout(() => this.setState({ ghTrigger: 'idle' }), 6000);
+          clearTimeout(this._ghT); this._ghT = setTimeout(() => this.setState({ ghTrigger: 'idle' }), 6000);
         }
       } catch (err) {
         console.error('[GH Trigger]', err.message);
         if (this.state.screen !== 'notify') return;
         this.setState({ ghTrigger: 'error' });
-        setTimeout(() => this.setState({ ghTrigger: 'idle' }), 6000);
+        clearTimeout(this._ghT); this._ghT = setTimeout(() => this.setState({ ghTrigger: 'idle' }), 6000);
       }
     };
 
