@@ -1646,9 +1646,6 @@ class Component extends DCLogic {
     // session
     idleWarn: false,
     idleCountdown: 60,
-    reauth: null,
-    reauthPass: '',
-    reauthError: '',
     users: [
       { id: 1, name: 'ผู้ดูแลระบบ', username: 'admin', password: '03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4', role: 'admin', dept: 'IT / ห้องยา', status: 'active', lastLogin: '' },
     ],
@@ -2290,7 +2287,7 @@ class Component extends DCLogic {
       confirm: null, ghTrigger: 'idle', ghPAT: '', sidebarOpen: false, _fsLastSentDate: '',
       query: '', datePreset: 'all', fiscalYear: 0, dateFrom: '', dateTo: '',
       aFilter: 'all', aQuery: '', aDatePreset: 'all', aFiscalYear: 0, aDateFrom: '', aDateTo: '',
-      boxHist: {}, reauth: null, reauthPass: '', reauthError: '',
+      boxHist: {},
       expiryAlerts: [], showExpiryBanner: false, _expiryBannerDismissed: false,
       auditLog: null,
     });
@@ -2846,9 +2843,9 @@ td.l{text-align:left;padding-left:4px}
     // _syncBox has already updated this.BOXES before resetForm is called from submit()
     const inStockIds = this.BOXES.filter(b => !(b.dispense && !b.receiver)).map(b => b.id);
     const outIds     = this.BOXES.filter(b =>  b.dispense && !b.receiver).map(b => b.id);
-    if (m === 'register') this.setState({ regEB: inStockIds[0] || '', regMfg: '', regPreparer: '', regChecker: '', regHadConfirm: false, regPrinted: false, boxDrugs: null });
-    else if (m === 'dispense') this.setState({ dispEB: inStockIds[0] || '', formDept: 'ER', dispenser: uName, swapReturn: false, swapEB: '', swapReceiver: '', swapRetDrugUsage: {}, retDrugUsage: {}, dispDate: today, swapReturnDate: today });
-    else this.setState({ retEB: outIds[0] || '', retReceiver: uName, retDate: today, retDrugUsage: {}, swapRetDrugUsage: {} });
+    if (m === 'register') this.setState({ submitting: false, regEB: inStockIds[0] || '', regMfg: '', regPreparer: '', regChecker: '', regHadConfirm: false, regPrinted: false, boxDrugs: null, dispenser: '', retReceiver: '' });
+    else if (m === 'dispense') this.setState({ submitting: false, dispEB: inStockIds[0] || '', formDept: 'ER', dispenser: uName, swapReturn: false, swapEB: '', swapReceiver: '', swapRetDrugUsage: {}, retDrugUsage: {}, dispDate: today, swapReturnDate: today, retReceiver: '' });
+    else this.setState({ submitting: false, retEB: outIds[0] || '', retReceiver: uName, retDate: today, retDrugUsage: {}, swapRetDrugUsage: {}, dispenser: '' });
   }
 
   renderVals() {
