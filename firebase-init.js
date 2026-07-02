@@ -16,21 +16,26 @@
     measurementId: 'G-3PF2DHD1VB',
   };
 
-  if (!firebase.apps.length) {
-    firebase.initializeApp(firebaseConfig);
+  try {
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
+
+    const app = firebase.app();
+    const db = firebase.firestore();
+    const auth = firebase.auth();
+
+    db.enablePersistence({ synchronizeTabs: true })
+      .then(() => console.log('[Firebase] Firestore persistence enabled'))
+      .catch(err => {
+        if (err.code === 'failed-precondition') console.warn('[Firebase] Persistence failed: multiple tabs open');
+        else if (err.code === 'unimplemented') console.warn('[Firebase] Persistence not supported in this browser');
+        else console.error('[Firebase] Persistence error:', err);
+      });
+
+    window.EB_Firebase = { app, db, auth };
+  } catch (err) {
+    console.error('[Firebase] Initialization failed — Firebase SDK may not have loaded:', err.message);
+    window.EB_Firebase = null;
   }
-
-  const app = firebase.app();
-  const db = firebase.firestore();
-  const auth = firebase.auth();
-
-  db.enablePersistence({ synchronizeTabs: true })
-    .then(() => console.log('[Firebase] Firestore persistence enabled'))
-    .catch(err => {
-      if (err.code === 'failed-precondition') console.warn('[Firebase] Persistence failed: multiple tabs open');
-      else if (err.code === 'unimplemented') console.warn('[Firebase] Persistence not supported in this browser');
-      else console.error('[Firebase] Persistence error:', err);
-    });
-
-  window.EB_Firebase = { app, db, auth };
 })();

@@ -1,6 +1,6 @@
-const CACHE_NAME = 'eb-notify-v1.4.4';
+const CACHE_NAME = 'eb-notify-v1.4.5';
 const PRECACHE_URLS = ['./index.html','./support.js','./manifest.json','./icons/icon-192.svg','./icons/icon-512.svg','./firebase-init.js','./firebase-sync.js','./notify.js'];
-const CDN_PATTERNS = ['fonts.googleapis.com','fonts.gstatic.com','unpkg.com/react','unpkg.com/react-dom','cdnjs.cloudflare.com','gstatic.com/firebasejs'];
+const CDN_PATTERNS = ['fonts.gstatic.com','unpkg.com/react','unpkg.com/react-dom','cdnjs.cloudflare.com','gstatic.com/firebasejs'];
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(PRECACHE_URLS)).then(() => self.skipWaiting()));
@@ -20,7 +20,7 @@ self.addEventListener('fetch', event => {
 async function cacheFirst(request) {
   const cached = await caches.match(request);
   if (cached) return cached;
-  try { const r = await fetch(request); if (r.ok) { const c = await caches.open(CACHE_NAME); c.put(request, r.clone()); } return r; } catch(e) { if (request.headers.get('accept')?.includes('text/html')) return offlineFallback(); throw e; }
+  try { const r = await fetch(request); if (r.ok) { const c = await caches.open(CACHE_NAME); c.put(request, r.clone()); } return r; } catch(e) { return offlineFallback(); }
 }
 async function networkFirst(request) {
   try { const r = await fetch(request); if (r.ok) { const c = await caches.open(CACHE_NAME); c.put(request, r.clone()); } return r; }
