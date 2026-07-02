@@ -3163,11 +3163,14 @@ td.l{text-align:left;padding-left:4px}
           const minExp = this.drugMinExp(d);
           const qty = this.drugQty(d);
           const expDate = minExp ? this.fmtISO(minExp) : '—';
+          const daysToExp = minExp ? this.daysBetween(minExp) : null;
+          const isExpired = daysToExp !== null && daysToExp < 0;
           const dRet = minExp ? this.daysBetween(this.addDays(minExp, -15)) : null;
           let dotColor = '#169C7F';
           let expColor = '#1B2A34';
           if (dRet !== null) {
-            if (dRet <= 0) { dotColor = '#E03E3E'; expColor = '#E03E3E'; }
+            if (isExpired) { dotColor = '#7B1010'; expColor = '#7B1010'; }
+            else if (dRet <= 0) { dotColor = '#E03E3E'; expColor = '#E03E3E'; }
             else if (dRet <= 15) { dotColor = '#EE8A2B'; expColor = '#D9810F'; }
           }
           const drugInfoId = this.drugNameToId(d.name);
@@ -3183,6 +3186,7 @@ td.l{text-align:left;padding-left:4px}
               h('div', { style: { fontSize: 13, lineHeight: 1.4, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' } },
                 h('span', { style: { color: drugInfoUrl ? '#1A6FA3' : 'inherit', fontWeight: drugInfoUrl ? 600 : 400 } }, d.name),
                 d.had ? h('span', { style: { fontSize: 9, fontWeight: 700, color: '#C2410C', background: '#FCEEE3', borderRadius: 4, padding: '1px 5px' } }, 'HAD') : null,
+                isExpired ? h('span', { style: { fontSize: 9, fontWeight: 700, color: '#fff', background: '#7B1010', borderRadius: 4, padding: '1px 5px' } }, 'หมดอายุแล้ว') : null,
                 drugInfoUrl ? h('span', { style: { fontSize: 10, color: '#7BB8D8', fontWeight: 500 } }, 'ดูข้อมูล →') : null
               )
             ),

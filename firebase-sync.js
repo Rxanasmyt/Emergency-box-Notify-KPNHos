@@ -82,14 +82,14 @@ function startPublicSync(comp) {
         boxes.sort((a, b) => { const n = s => parseInt(s.replace(/\D/g, ''), 10) || 0; return n(a.id) - n(b.id); });
         component.BOXES = boxes;
         component.setState({ _publicSynced: true });
-      }, err => console.warn('[Sync] Public boxes error:', err.message));
+      }, err => { console.warn('[Sync] Public boxes error:', err.message); if (component) component.setState({ _publicLoadError: true }); });
       const u2 = db.collection(C.boxDrugs).onSnapshot(snap => {
         if (!component) return;
         const bd = {};
         snap.forEach(doc => { const d = doc.data(); const boxId = d.boxId || doc.id; if (boxId && d.drugs) bd[boxId] = d.drugs; });
         component.BOX_DRUGS = bd;
         component.setState({ boxDrugs: Object.keys(bd).length ? bd : {} });
-      }, err => console.warn('[Sync] Public drugs error:', err.message));
+      }, err => { console.warn('[Sync] Public drugs error:', err.message); if (component) component.setState({ _publicLoadError: true }); });
       unsubscribers.push(u1, u2);
     })
     .catch(err => { _publicListening = false; console.warn('[Sync] Public anon auth failed:', err.message); if (component) component.setState({ _publicLoadError: true }); });
