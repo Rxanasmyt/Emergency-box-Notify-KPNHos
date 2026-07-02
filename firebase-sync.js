@@ -56,7 +56,7 @@ function initFirebaseSync(comp){
 }
 
 // Called on logout — stops boxes/audit/boxDrugs; users listener stays active for next login
-function stopSync(){unsubscribers.forEach(fn=>fn());unsubscribers=[];}
+function stopSync(){unsubscribers.forEach(fn=>fn());unsubscribers=[];_publicListening=false;}
 
 // Called on componentWillUnmount — stops everything
 function stopAll(){

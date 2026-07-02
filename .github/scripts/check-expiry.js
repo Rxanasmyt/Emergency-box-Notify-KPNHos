@@ -126,7 +126,7 @@ async function fetchExpiringDrugs() {
           const isOut = !!(box.dispense && !box.receiver);
           alerts.push({
             boxId,
-            location: isOut ? (box.dispense || 'หน่วยงาน') : 'ห้องยา',
+            location: isOut ? (box.dept || 'หน่วยงาน') : 'ห้องยา',
             isOut,
             drugName: drug.name || '—',
             isHAD: !!drug.had,
