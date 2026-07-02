@@ -61,8 +61,13 @@ function escHtml(s) {
 }
 
 function isValidISODate(s) {
+  if (!s || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
   const d = new Date(s + 'T00:00:00');
-  return !isNaN(d.getTime());
+  if (isNaN(d.getTime())) return false;
+  // round-trip check: rolled-over dates (e.g. 2025-02-30) parse without error in V8
+  // but the reconstructed ISO string differs from the input
+  const y = d.getFullYear(), mo = String(d.getMonth()+1).padStart(2,'0'), dy = String(d.getDate()).padStart(2,'0');
+  return `${y}-${mo}-${dy}` === s;
 }
 
 function daysUntil(isoDate) {
@@ -386,7 +391,7 @@ function buildHtmlEmail(alerts) {
               <td style="padding:8px 10px;border-bottom:1px solid #F5C6C6;font-weight:700;color:#B42121">${escHtml(a.boxId)}</td>
               <td style="padding:8px 10px;border-bottom:1px solid #F5C6C6">${boxStatusLabel}</td>
               <td style="padding:8px 10px;border-bottom:1px solid #F5C6C6;font-weight:600">${escHtml(a.drugName)} <span style="background:#E03E3E;color:#fff;font-size:10px;font-weight:700;padding:2px 5px;border-radius:4px">HAD</span></td>
-              <td style="padding:8px 10px;border-bottom:1px solid #F5C6C6;text-align:center">${a.qty}</td>
+              <td style="padding:8px 10px;border-bottom:1px solid #F5C6C6;text-align:center">${Number(a.qty) || 0}</td>
               <td style="padding:8px 10px;border-bottom:1px solid #F5C6C6;color:#B42121;font-weight:600">${a.returnDeadlineThai}</td>
               <td style="padding:8px 10px;border-bottom:1px solid #F5C6C6">${a.expiryThai}</td>
               <td style="padding:8px 10px;border-bottom:1px solid #F5C6C6;color:${color};font-weight:600">${a.statusLabel}<br><span style="font-size:11px">${days}</span></td>
@@ -427,7 +432,7 @@ function buildHtmlEmail(alerts) {
         <td style="padding:9px 12px;border-bottom:1px solid #F0F4F8;font-weight:600">${escHtml(a.boxId)}</td>
         <td style="padding:9px 12px;border-bottom:1px solid #F0F4F8">${boxStatusLabel}</td>
         <td style="padding:9px 12px;border-bottom:1px solid #F0F4F8">${escHtml(a.drugName)}${a.isHAD ? ' <span style="background:#E03E3E;color:#fff;font-size:10px;font-weight:700;padding:2px 5px;border-radius:4px">HAD</span>' : ''}</td>
-        <td style="padding:9px 12px;border-bottom:1px solid #F0F4F8;text-align:center">${a.qty}</td>
+        <td style="padding:9px 12px;border-bottom:1px solid #F0F4F8;text-align:center">${Number(a.qty) || 0}</td>
         <td style="padding:9px 12px;border-bottom:1px solid #F0F4F8;color:${color};font-weight:600;white-space:nowrap">${a.returnDeadlineThai}</td>
         <td style="padding:9px 12px;border-bottom:1px solid #F0F4F8;white-space:nowrap">${a.expiryThai}</td>
         <td style="padding:9px 12px;border-bottom:1px solid #F0F4F8;color:${color};font-weight:600">${a.statusLabel}<br><span style="font-size:11px;font-weight:400">${days}</span></td>
@@ -498,7 +503,7 @@ function buildPlainText(alerts) {
   const line = (a) => {
     const boxInfo = a.isOut ? `จ่ายออก → ${a.location}` : 'อยู่ที่คลัง';
     const days = a.daysLeft < 0 ? `เกิน ${Math.abs(a.daysLeft)} วัน` : a.daysLeft === 0 ? 'หมดอายุวันนี้' : `เหลือ ${a.daysLeft} วัน`;
-    return `  - ${a.boxId} [${boxInfo}]  ${a.drugName}${a.isHAD ? ' [HAD]' : ''}  จำนวน ${a.qty}  ส่งคืนภายใน: ${a.returnDeadlineThai}  หมดอายุ: ${a.expiryThai} (${days})`;
+    return `  - ${a.boxId} [${boxInfo}]  ${a.drugName}${a.isHAD ? ' [HAD]' : ''}  จำนวน ${Number(a.qty) || 0}  ส่งคืนภายใน: ${a.returnDeadlineThai}  หมดอายุ: ${a.expiryThai} (${days})`;
   };
 
   let t = `แจ้งเตือนยาใกล้หมดอายุ — Emergency Box รพ.กรงปินัง\n`;
@@ -716,6 +721,7 @@ async function main() {
     if (isMonday || IS_MANUAL) {
       console.log('\n📬 ส่งรายงานสรุป (All Clear)');
       const boxCount = await db.collection('boxes').get().then(s => s.size).catch(() => 0);
+      if (!boxCount) { console.warn('⚠ boxes collection empty — skipping all-clear to avoid false report'); return; }
       const emailSent = await sendAllClearEmail(boxCount);
       let lineSentAC = false;
       if (process.env.MOPH_NOTIFY_CLIENT_KEY && process.env.MOPH_NOTIFY_SECRET_KEY) {

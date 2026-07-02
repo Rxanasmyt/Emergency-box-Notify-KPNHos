@@ -3180,7 +3180,7 @@ td.l{text-align:left;padding-left:4px}
           const minExp = this.drugMinExp(d);
           const qty = this.drugQty(d);
           const expDate = minExp ? this.fmtISO(minExp) : '—';
-          const daysToExp = minExp ? this.daysBetween(minExp) : null;
+          const daysToExp = minExp ? this.daysBetween(this.parse(minExp)) : null;
           const isExpired = daysToExp !== null && daysToExp < 0;
           const dRet = minExp ? this.daysBetween(this.addDays(minExp, -15)) : null;
           let dotColor = '#169C7F';
@@ -3275,7 +3275,7 @@ td.l{text-align:left;padding-left:4px}
 
     const deptCount = { ER: 0, WARD: 0, LR: 0 };
     active.forEach(b => { deptCount[b.dept] = (deptCount[b.dept] || 0) + 1; });
-    const maxDept = Math.max(1, ...Object.values(deptCount));
+    const maxDept = Math.max(1, deptCount.ER, deptCount.WARD, deptCount.LR);
     vals.deptBars = [
       { label: 'ER · ห้องฉุกเฉิน',   sub: `${deptCount.ER} กล่อง`,   pct: `${deptCount.ER/maxDept*100}%`,   color: '#1A6FA3' },
       { label: 'WARD · หอผู้ป่วย',   sub: `${deptCount.WARD} กล่อง`, pct: `${deptCount.WARD/maxDept*100}%`, color: '#169C7F' },
@@ -3790,7 +3790,8 @@ td.l{text-align:left;padding-left:4px}
         h('span', null, b.id)
       );
     }));
-    const box = this.BOXES.find(b => b.id === st.selectedEB) || this.BOXES[0] || null;
+    const _foundBox = this.BOXES.find(b => b.id === st.selectedEB);
+    const box = _foundBox || this.BOXES[0] || null;
     if (!box) {
       vals.box = null;
       vals.expiryRingEl = null; vals.detailQuickActionsEl = null;
@@ -3798,7 +3799,7 @@ td.l{text-align:left;padding-left:4px}
       vals.boxHistEl = null;
       return vals;
     }
-    if (box.id !== st.selectedEB) this.setState({ selectedEB: box.id });
+    if (!_foundBox) Promise.resolve().then(() => this.setState({ selectedEB: box.id }));
     const boxExp = this.boxExpiryISO(box.id, BD);
     const bStatus = this.statusOf(boxExp);
     const returned = !!box.receiver;
