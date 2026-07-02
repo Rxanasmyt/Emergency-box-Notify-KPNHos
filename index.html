@@ -3004,7 +3004,7 @@ td.l{text-align:left;padding-left:4px}
         const _col = _isExpired ? '#B42121' : a.status === 'critical' ? '#C2410C' : '#B5740F';
         const _bg  = _isExpired ? 'rgba(180,33,33,.08)' : a.status === 'critical' ? 'rgba(194,65,12,.07)' : 'rgba(181,116,15,.07)';
         const _daysText = a.daysLeft < 0 ? `หมดอายุแล้ว ${-a.daysLeft} วัน` : a.daysLeft === 0 ? 'หมดอายุวันนี้' : `เหลือ ${a.daysLeft} วัน`;
-        return h('div', { key: i, style: { display: 'flex', alignItems: 'center', gap: 10, background: _bg, borderRadius: 8, padding: '6px 10px', fontSize: 12.5 } },
+        return h('div', { key: a.boxId + '_' + a.drugName + '_' + i, style: { display: 'flex', alignItems: 'center', gap: 10, background: _bg, borderRadius: 8, padding: '6px 10px', fontSize: 12.5 } },
           h('span', { style: { fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: _col, flexShrink: 0 } }, a.boxId),
           h('span', { style: { flex: 1, color: '#5A2A00', fontWeight: _isDanger ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, a.drugName + (a.isHAD ? ' ⚠ HAD' : '')),
           h('span', { style: { fontWeight: 700, color: _col, flexShrink: 0 } }, _daysText),
@@ -3715,7 +3715,7 @@ td.l{text-align:left;padding-left:4px}
       const _m = st.formMode;
       const _dirty = _m === 'register' ? (st.regMfg || st.regPreparer || st.regChecker)
                    : _m === 'dispense' ? (st.formDept !== 'ER' || st.dispDate !== this.isoOf(this.TODAY) || (st.dispenser && st.dispenser !== (st.currentUser ? st.currentUser.name : '')) || st.swapReturn)
-                   : ((st.retReceiver && st.retReceiver !== (st.currentUser ? st.currentUser.name : '')) || Object.values(st.retDrugUsage || {}).some(d => Object.values(d).some(q => q > 0)));
+                   : ((st.retReceiver && st.retReceiver !== (st.currentUser ? st.currentUser.name : '')) || st.retDate !== this.isoOf(this.TODAY) || Object.values(st.retDrugUsage || {}).some(d => Object.values(d).some(q => q > 0)));
       if (_dirty) { this.askConfirm({ tone: 'warn', icon: 'warn', title: 'ล้างฟอร์ม?', body: 'ข้อมูลที่กรอกไว้จะหายทั้งหมด', yesLabel: 'ล้าง', noLabel: 'ยกเลิก', onYes: () => this.resetForm() }); } else { this.resetForm(); }
     };
 
@@ -3852,7 +3852,7 @@ td.l{text-align:left;padding-left:4px}
             h('span', { style: { width: 5, height: 5, borderRadius: '50%', background: status.color } }), this.daysText(lot.expiry)) : null,
         );
       });
-      return h('div', { key: d.name, className: 'drug-row', style: { padding: '11px 4px', borderBottom: '1px solid #F4F7F9', background: isNearDrug ? '#FFF8F2' : 'transparent' } },
+      return h('div', { key: i + '_' + d.name, className: 'drug-row', style: { padding: '11px 4px', borderBottom: '1px solid #F4F7F9', background: isNearDrug ? '#FFF8F2' : 'transparent' } },
         h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: d.lots.length > 0 ? 6 : 0 } },
           h('span', { style: { fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, color: '#B6C2CC', width: 22, textAlign: 'center', flexShrink: 0 } }, String(i+1).padStart(2,'0')),
           h('div', { style: { flex: 1, minWidth: 0, display: 'flex', alignItems: 'baseline', gap: 7, flexWrap: 'wrap' } },

@@ -1,6 +1,6 @@
 /**
  * Daily Drug Expiry Check & Notification
- * Runs via GitHub Actions every day at 08:00 AM Bangkok time (01:00 UTC)
+ * Runs via GitHub Actions every day at 09:00 AM Bangkok time (02:00 UTC)
  *
  * Required GitHub Secrets:
  *   FIREBASE_SERVICE_ACCOUNT   - Firebase Admin SDK JSON (already set)
@@ -9,7 +9,7 @@
  *   EMAIL_FROM                 - Gmail address (sender)
  *   EMAIL_PASS                 - Gmail App Password (16-char, not account password)
  *   EMAIL_TO                   - Recipient email (comma-separated for multiple)
- *   NOTIFY_DAYS_AHEAD          - (optional) days threshold, default 30
+ *   NOTIFY_DAYS_AHEAD          - (optional) days threshold, default 60
  */
 
 'use strict';
@@ -449,7 +449,7 @@ function buildHtmlEmail(alerts) {
       <div style="font-size:13px;opacity:.8;margin-bottom:4px">ฝ่ายเภสัชกรรม · โรงพยาบาลกรงปินัง</div>
       <h1 style="margin:0;font-size:22px;font-weight:700">🏥 แจ้งเตือนยาใกล้หมดอายุ — Emergency Box</h1>
       <div style="margin-top:8px;font-size:14px;opacity:.85">
-        ${new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}
+        ${new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long', timeZone: 'Asia/Bangkok' })}
       </div>
     </div>
     <div style="background:#fff;padding:24px 32px;border:1px solid #E2E8F0;border-top:0">
@@ -499,7 +499,7 @@ function buildPlainText(alerts) {
   const warning   = alerts.filter(a => a.status === 'warning');
   const notice    = alerts.filter(a => a.status === 'notice');
   const hadAlerts = alerts.filter(a => a.isHAD);
-  const dateStr   = new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+  const dateStr   = new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long', timeZone: 'Asia/Bangkok' });
 
   const line = (a) => {
     const boxInfo = a.isOut ? `จ่ายออก → ${a.location}` : 'อยู่ที่คลัง';
@@ -584,7 +584,7 @@ async function sendEmail(alerts) {
   if (expired)        subject = `[ด่วน] ยาหมดอายุแล้ว ${expired} รายการ Emergency Box รพ.กรงปินัง`;
   else if (critical)  subject = `[ด่วน] ยาต้องส่งคืนด่วน ${critical} รายการ Emergency Box รพ.กรงปินัง`;
 
-  const toList = to.split(',').map(e => e.trim());
+  const toList = to.split(',').map(e => e.trim()).filter(Boolean);
   const msgId  = `<eb-notify-${Date.now()}@emergencyboxnotyfykpnhos.web.app>`;
 
   try {
@@ -675,7 +675,7 @@ async function sendAllClearEmail(boxCount) {
   try {
     await transporter.sendMail({
       from: `"EB Notify รพ.กรงปินัง" <${from}>`,
-      to: to.split(',').map(e => e.trim()),
+      to: to.split(',').map(e => e.trim()).filter(Boolean),
       replyTo: from,
       subject: 'รายงานประจำสัปดาห์ Emergency Box — ทุกกล่องปลอดภัย',
       text: buildAllClearPlainText(boxCount),

@@ -1,5 +1,5 @@
 (function(){'use strict';
-let db=null,component=null,unsubscribers=[],_usersUnsub=null;
+let db=null,component=null,unsubscribers=[],_usersUnsub=null,_publicListening=false;
 const C={boxes:'boxes',audit:'audit_log',users:'users',boxDrugs:'box_drugs'};
 
 // Called from componentDidMount — signs in anonymously and starts users listener
@@ -61,6 +61,7 @@ function stopSync(){unsubscribers.forEach(fn=>fn());unsubscribers=[];}
 // Called on componentWillUnmount — stops everything
 function stopAll(){
   stopSync();
+  _publicListening=false;
   if(_usersUnsub){_usersUnsub();_usersUnsub=null;}
   component=null;
 }
@@ -69,7 +70,8 @@ function stopAll(){
 function startPublicSync(comp) {
   if (!window.EB_Firebase) { console.warn('[Sync] Firebase not ready'); return; }
   db = window.EB_Firebase.db; component = comp;
-  if (unsubscribers.length) return; // already listening — just update component ref
+  if (_publicListening || unsubscribers.length) return; // already listening — just update component ref
+  _publicListening = true; // set synchronously before async auth to prevent race on double-call
   window.EB_Firebase.auth.signInAnonymously()
     .then(() => {
       console.log('[Sync] Public sync: anon auth OK');
@@ -90,7 +92,7 @@ function startPublicSync(comp) {
       }, err => console.warn('[Sync] Public drugs error:', err.message));
       unsubscribers.push(u1, u2);
     })
-    .catch(err => console.warn('[Sync] Public anon auth failed:', err.message));
+    .catch(err => { _publicListening = false; console.warn('[Sync] Public anon auth failed:', err.message); });
 }
 
 async function seedIfEmpty(){

@@ -116,12 +116,12 @@ return:    sets receiver, retDate
 | Workflow | Trigger | Purpose |
 |---|---|---|
 | `firebase-deploy.yml` | push to `claude/eloquent-heisenberg-vqrypu` or `main` | Deploy to Firebase Hosting |
-| `daily-notify.yml` | 08:00 Thai time (01:00 UTC) | Check expiry + send LINE/email alerts |
+| `daily-notify.yml` | 09:00 Thai time (02:00 UTC) | Check expiry + send LINE/email alerts |
 | `reset-data.yml` | manual, requires "YES" | Clear ALL Firestore test data |
 | `auto-release.yml` | push to main | GitHub release |
 
-**Required secrets**: `FIREBASE_SERVICE_ACCOUNT`, `LINE_CHANNEL_TOKEN`, `LINE_USER_ID`, `EMAIL_FROM`, `EMAIL_PASS`, `EMAIL_TO`  
-**Required var**: `NOTIFY_DAYS_AHEAD` (default `30`)
+**Required secrets**: `FIREBASE_SERVICE_ACCOUNT`, `MOPH_NOTIFY_CLIENT_KEY`, `MOPH_NOTIFY_SECRET_KEY`, `EMAIL_FROM`, `EMAIL_PASS`, `EMAIL_TO`  
+**Required var**: `NOTIFY_DAYS_AHEAD` (default `60`)
 
 ---
 
