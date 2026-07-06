@@ -194,6 +194,13 @@
     if (expr[0] === "(" && expr[expr.length - 1] === ")" && parensWrapWhole(expr)) {
       return resolve(vals, expr.slice(1, -1));
     }
+    const ternary = findTopLevelTernary(expr);
+    if (ternary) {
+      const cond = resolve(vals, expr.slice(0, ternary.q));
+      return cond
+        ? resolve(vals, expr.slice(ternary.q + 1, ternary.colon))
+        : resolve(vals, expr.slice(ternary.colon + 1));
+    }
     const eq = findTopLevelEquality(expr);
     if (eq) {
       const lv = resolve(vals, expr.slice(0, eq.index));
@@ -243,6 +250,24 @@
         const op = expr[i + 2] === "=" ? c + "==" : c + "=";
         return { index: i, op };
       }
+    }
+    return null;
+  }
+  function findTopLevelTernary(expr) {
+    let depth = 0;
+    let quote = null;
+    let qIndex = -1;
+    for (let i = 0; i < expr.length; i++) {
+      const c = expr[i];
+      if (quote) {
+        if (c === quote && expr[i - 1] !== "\\") quote = null;
+        continue;
+      }
+      if (c === '"' || c === "'") { quote = c; continue; }
+      if (c === "[" || c === "(") depth++;
+      else if (c === "]" || c === ")") depth--;
+      else if (depth === 0 && c === "?" && qIndex === -1) qIndex = i;
+      else if (depth === 0 && c === ":" && qIndex !== -1) return { q: qIndex, colon: i };
     }
     return null;
   }

@@ -9,7 +9,7 @@ on:
 
 jobs:
   deploy:
-    name: Firebase Hosting Deploy
+    name: Firebase Hosting + Firestore Rules Deploy
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -25,3 +25,19 @@ jobs:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           projectId: emergencyboxnotyfykpnhos
           channelId: live
+
+      # Firestore security rules only — this NEVER touches/deletes any document
+      # data. Rules only control who is allowed to read/write/delete going
+      # forward; existing boxes/box_drugs/audit_log/users records are untouched.
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Deploy Firestore security rules
+        run: |
+          echo "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" > /tmp/firebase-sa.json
+          npx firebase-tools@13 deploy --only firestore:rules --project emergencyboxnotyfykpnhos --non-interactive
+          rm -f /tmp/firebase-sa.json
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: /tmp/firebase-sa.json

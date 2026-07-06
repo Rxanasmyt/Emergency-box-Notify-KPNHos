@@ -5,20 +5,30 @@ service cloud.firestore {
     // request.auth != null means the browser has signed in anonymously (= local login passed)
     function isAuth() { return request.auth != null; }
 
+    // boxes/box_drugs are never deleted by the app (only edited in place) —
+    // block delete so a future bug or bad anon write can't wipe a box record.
     match /boxes/{boxId} {
-      allow read, write: if isAuth();
+      allow read, create, update: if isAuth();
+      allow delete: if false;
     }
     match /box_drugs/{boxId} {
-      allow read, write: if isAuth();
+      allow read, create, update: if isAuth();
+      allow delete: if false;
     }
+    // audit_log is append-only — the app only ever calls .add(), never edits
+    // or removes a historical entry. Blocking update/delete keeps the audit
+    // trail tamper-proof even against a future client-side bug.
     match /audit_log/{entryId} {
-      allow read, write: if isAuth();
+      allow read, create: if isAuth();
+      allow update, delete: if false;
     }
+    // users legitimately supports delete (admin "remove account" feature).
     match /users/{userId} {
       allow read, write: if isAuth();
     }
     match /app_settings/{docId} {
-      allow read, write: if isAuth();
+      allow read, create, update: if isAuth();
+      allow delete: if false;
     }
   }
 }

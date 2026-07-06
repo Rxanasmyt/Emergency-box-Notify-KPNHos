@@ -1377,7 +1377,7 @@ input:focus, select:focus, textarea:focus {
                       {{ r.dateHeaderText }}
                     </div>
                   </sc-if>
-                  <div class="drug-row" onClick="{{ r.goDetail }}" style="display: grid; grid-template-columns: 44px 148px 108px 68px minmax(110px,1fr) minmax(140px,1fr) minmax(160px,1fr); gap: 0; min-width: 860px; align-items: center; padding: 11px 18px; border-bottom: 1px solid #F4F7F9; font-size: 12.5px; background: {{ r.rowBg }}; cursor: {{ r.hasDetail ? 'pointer' : 'default' }};" style-hover="{{ r.hasDetail ? 'background: #F0F7FF;' : '' }}">
+                  <div class="drug-row" onClick="{{ r.goDetail }}" style="display: grid; grid-template-columns: 44px 148px 108px 68px minmax(110px,1fr) minmax(140px,1fr) minmax(160px,1fr); gap: 0; min-width: 860px; align-items: center; padding: 11px 18px; border-bottom: 1px solid #F4F7F9; font-size: 12.5px; background: {{ r.rowBg }}; cursor: {{ r.hasDetail ? 'pointer' : 'default' }};">
                     <span style="font-size: 10px; color: #B0BCCA; font-family: 'IBM Plex Mono', monospace; text-align: center;">{{ r.seq }}</span>
                     <span style="color: #4A5C6A; font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; white-space: nowrap;">{{ r.dateTime }}</span>
                     <span><span style="display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700; color: {{ r.color }}; background: {{ r.soft }}; border-radius: 20px; padding: 3px 10px; white-space: nowrap;">{{ r.icon }} {{ r.action }}</span></span>
@@ -2108,17 +2108,21 @@ class Component extends DCLogic {
     this.logBoxHist(id, 'แก้ไขจำนวน/วันหมดอายุยา');
   }
   setDrugField(boxId, idx, field, value) {
-    if (boxId === this.state.regEB && this.state.formMode === 'register') this._regTouched = true;
+    // reprint required if drug data changes after the label was printed — a
+    // printed EB label must never diverge from the data actually saved
+    const _touchesReg = boxId === this.state.regEB && this.state.formMode === 'register';
+    if (_touchesReg) this._regTouched = true;
     this.setState(s => {
       const base = s.boxDrugs || this.BOX_DRUGS || {};
       const bd = { ...base };
       if (!bd[boxId]) return {};
       bd[boxId] = bd[boxId].map((d, i) => i === idx ? { ...d, [field]: value } : d);
-      return { boxDrugs: bd };
+      return _touchesReg ? { boxDrugs: bd, regPrinted: false } : { boxDrugs: bd };
     });
   }
   setLotField(boxId, drugIdx, lotIdx, field, value) {
-    if (boxId === this.state.regEB && this.state.formMode === 'register') this._regTouched = true;
+    const _touchesReg = boxId === this.state.regEB && this.state.formMode === 'register';
+    if (_touchesReg) this._regTouched = true;
     const safeValue = field === 'qty' ? Math.min(999, Math.max(0, isNaN(value) ? 0 : value)) : value;
     this.setState(s => {
       const base = s.boxDrugs || this.BOX_DRUGS || {};
@@ -2129,11 +2133,12 @@ class Component extends DCLogic {
         const lots = (d.lots || []).map((l, j) => j === lotIdx ? { ...l, [field]: safeValue } : l);
         return { ...d, lots };
       });
-      return { boxDrugs: bd };
+      return _touchesReg ? { boxDrugs: bd, regPrinted: false } : { boxDrugs: bd };
     });
   }
   addLot(boxId, drugIdx) {
-    if (boxId === this.state.regEB && this.state.formMode === 'register') this._regTouched = true;
+    const _touchesReg = boxId === this.state.regEB && this.state.formMode === 'register';
+    if (_touchesReg) this._regTouched = true;
     this.setState(s => {
       const base = s.boxDrugs || this.BOX_DRUGS || {};
       const bd = { ...base };
@@ -2142,11 +2147,12 @@ class Component extends DCLogic {
         if (i !== drugIdx) return d;
         return { ...d, lots: [...(d.lots || []), { lot: '', qty: 0, expiry: '' }] };
       });
-      return { boxDrugs: bd };
+      return _touchesReg ? { boxDrugs: bd, regPrinted: false } : { boxDrugs: bd };
     });
   }
   removeLot(boxId, drugIdx, lotIdx) {
-    if (boxId === this.state.regEB && this.state.formMode === 'register') this._regTouched = true;
+    const _touchesReg = boxId === this.state.regEB && this.state.formMode === 'register';
+    if (_touchesReg) this._regTouched = true;
     this.setState(s => {
       const base = s.boxDrugs || this.BOX_DRUGS || {};
       const bd = { ...base };
@@ -2156,7 +2162,7 @@ class Component extends DCLogic {
         if (i !== drugIdx || lots.length <= 1) return d;
         return { ...d, lots: lots.filter((_, j) => j !== lotIdx) };
       });
-      return { boxDrugs: bd };
+      return _touchesReg ? { boxDrugs: bd, regPrinted: false } : { boxDrugs: bd };
     });
   }
   setRetDrugUsage(drugIdx, lotIdx, qty) {
@@ -2483,9 +2489,10 @@ class Component extends DCLogic {
   closeResetBoxes() {
     this.setState({ showResetBoxes: false, resetBoxesConfirmText: '' });
   }
-  confirmResetBoxes() {
+  async confirmResetBoxes() {
     if (!this.state.currentUser || this.state.currentUser.role !== 'admin') return;
     if (this.state.resetBoxesConfirmText.trim() !== 'รีเซ็ต') { this.flash('กรุณาพิมพ์ "รีเซ็ต" ให้ตรงตัวเพื่อยืนยัน'); return; }
+    if (!window.EB_Sync) { this.flash('⚠️ ระบบซิงค์ยังไม่พร้อม — กรุณารีเฟรชหน้าแล้วลองใหม่'); return; }
     const resetBoxes = this.BOXES.map(b => ({
       id: b.id, dept: b.dept,
       mfg: '', expiry: '', nearDrug: '', preparer: '', checker: '', registeredAt: '',
@@ -2499,12 +2506,19 @@ class Component extends DCLogic {
     this.BOX_DRUGS = resetDrugs;
     this.setState({ showResetBoxes: false, resetBoxesConfirmText: '', boxDrugs: null, boxMeta: {} });
     this._syncChipStates();
-    if (window.EB_Sync) {
-      resetBoxes.forEach(box => window.EB_Sync.syncBoxes(box));
-      Object.entries(resetDrugs).forEach(([boxId, drugs]) => window.EB_Sync.syncBoxDrugs(boxId, drugs));
+    // wait for every write and report the true outcome — a partial failure must
+    // never be reported as a blanket "reset complete" for a hospital-wide action
+    const results = await Promise.allSettled([
+      ...resetBoxes.map(box => window.EB_Sync.syncBoxes(box)),
+      ...Object.entries(resetDrugs).map(([boxId, drugs]) => window.EB_Sync.syncBoxDrugs(boxId, drugs)),
+    ]);
+    const failed = results.filter(r => r.status === 'rejected').length;
+    if (failed > 0) {
+      this.flash(`⚠️ รีเซ็ตไม่สมบูรณ์ — ${failed} รายการบันทึกไม่สำเร็จ กรุณาตรวจสอบการเชื่อมต่อแล้วลองใหม่`);
+    } else {
+      this.flash(`รีเซ็ตกล่องทั้งหมด ${resetBoxes.length} กล่องกลับเป็นค่าเริ่มต้นเรียบร้อย`);
     }
-    this.flash(`รีเซ็ตกล่องทั้งหมด ${resetBoxes.length} กล่องกลับเป็นค่าเริ่มต้นเรียบร้อย`);
-    this.logAction({ cat: 'user', action: 'จัดการผู้ใช้', eb: '—', dept: '—', drug: `รีเซ็ต Emergency Box ทั้งหมด (${resetBoxes.length} กล่อง) กลับเป็นค่าเริ่มต้นก่อนลงทะเบียน` });
+    this.logAction({ cat: 'user', action: 'จัดการผู้ใช้', eb: '—', dept: '—', drug: `รีเซ็ต Emergency Box ทั้งหมด (${resetBoxes.length} กล่อง) กลับเป็นค่าเริ่มต้นก่อนลงทะเบียน${failed ? ` — ${failed} รายการล้มเหลว` : ''}` });
   }
 
   // ---------- entry form ----------
@@ -2639,12 +2653,21 @@ class Component extends DCLogic {
   _syncBox(updated) {
     const prevBox = this.BOXES.find(b => b.id === updated.id);
     this.BOXES = this.BOXES.map(b => b.id === updated.id ? updated : b);
-    if (window.EB_Sync) {
-      window.EB_Sync.syncBoxes(updated).then(null, () => {
-        if (prevBox) this.BOXES = this.BOXES.map(b => b.id === prevBox.id ? prevBox : b);
-        this.flash('⚠️ บันทึกไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
-      });
+    if (!window.EB_Sync) {
+      this.flash('⚠️ ระบบซิงค์ยังไม่พร้อม — ข้อมูลบันทึกเฉพาะในเครื่องนี้ กรุณารีเฟรชหน้าแล้วลองใหม่');
+      return;
     }
+    // write only the fields this action actually changed (diff vs the last-known box) —
+    // sending the full spread would re-assert stale field values and, even under
+    // {merge:true}, silently clobber a fresher concurrent write from another device
+    const diff = { id: updated.id };
+    Object.keys(updated).forEach(k => {
+      if (k !== 'id' && updated[k] !== (prevBox ? prevBox[k] : undefined)) diff[k] = updated[k];
+    });
+    window.EB_Sync.syncBoxes(diff).then(null, () => {
+      if (prevBox) this.BOXES = this.BOXES.map(b => b.id === prevBox.id ? prevBox : b);
+      this.flash('⚠️ บันทึกไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
+    });
   }
   submit() {
     if (this.state.submitting) return;
@@ -2768,6 +2791,7 @@ class Component extends DCLogic {
     if (missing.length) { this.flash(`กรอกข้อมูลให้ครบก่อนพิมพ์: ${missing.join(', ')}`); return; }
     const _esc = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     const mfg = st.regMfg;
+    const ebEsc = _esc(eb);
     const preparer = _esc(st.regPreparer);
     const checker = _esc(st.regChecker);
     const BD = st.boxDrugs || this.BOX_DRUGS || {};
@@ -2818,8 +2842,8 @@ class Component extends DCLogic {
       const { drug, strength } = parseDrug(d.name);
       rows += `<tr>
         <td class="c">${i + 1}</td>
-        <td class="l">${drug}</td>
-        <td class="c" style="font-size:9.5pt">${strength}</td>
+        <td class="l">${_esc(drug)}</td>
+        <td class="c" style="font-size:9.5pt">${_esc(strength)}</td>
         <td class="c">${d.had ? '(HAD)' : ''}</td>
         <td class="c">${totalQty}</td>
         <td class="c">${expStr}</td>
@@ -2827,12 +2851,12 @@ class Component extends DCLogic {
     });
 
     const nearText = nearDrug
-      ? parseDrug(nearDrug).drug + (nearDate ? '  ' + fmtCE(nearDate) : '')
+      ? _esc(parseDrug(nearDrug).drug) + (nearDate ? '  ' + fmtCE(nearDate) : '')
       : '—';
 
     // Form content — portrait A5 (148.5mm × 210mm) layout, matching physical EB form
     const formHTML = `
-<div class="hdr1"><span class="lb">รหัส</span><span class="ebid">&nbsp;${eb}</span><span class="uline" style="flex:1;margin-left:2mm"></span></div>
+<div class="hdr1"><span class="lb">รหัส</span><span class="ebid">&nbsp;${ebEsc}</span><span class="uline" style="flex:1;margin-left:2mm"></span></div>
 <div class="hdr2"><span class="lb">หน่วยเบิก</span><span class="uline" style="flex:1;margin:0 4mm"></span><span class="lb">วันที่ผลิต</span><span class="ebid">&nbsp;${fmtBE(mfg)}</span><span class="uline" style="flex:1;margin-left:2mm"></span></div>
 <div class="htitle">Emergency drugs list</div>
 <table>
@@ -2880,7 +2904,7 @@ class Component extends DCLogic {
       : `<div class="a4-inner"><div class="half">${formHTML}</div><div class="blank"></div></div>`;
 
     const html = `<!DOCTYPE html><html lang="th"><head><meta charset="utf-8">
-<title>Emergency Box - ${eb}</title>
+<title>Emergency Box - ${ebEsc}</title>
 <style>
 ${pageCSS}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -3362,7 +3386,7 @@ td.l{text-align:left;padding-left:4px}
       .map(({ b, status }) => ({
         id: b.id, dept: b.dept || '—', nearDrug: this.nearDrugOf(b.id, BDdash), expiryText: this.fmtISO(exp(b)),
         daysText: this.daysText(exp(b)), color: status.color, soft: status.soft, border: status.border,
-        statusKey: status.key,
+        statusKey: status.key, isOut: !!(b.dispense && !b.receiver),
       }));
     vals.criticalList = criticalList;
 
@@ -3374,7 +3398,11 @@ td.l{text-align:left;padding-left:4px}
       { label: 'WARD · หอผู้ป่วย',   sub: `${deptCount.WARD} กล่อง`, pct: `${deptCount.WARD/maxDept*100}%`, color: '#169C7F' },
       { label: 'LR · ห้องคลอด',      sub: `${deptCount.LR} กล่อง`,   pct: `${deptCount.LR/maxDept*100}%`,   color: '#7C5CD6' },
     ];
-    const urgentBoxes = criticalList.filter(x => x.statusKey === 'critical');
+    // "must return urgently" banner/CTA only makes sense for boxes actually
+    // dispensed out — a box still in the pharmacy with a near-expiry drug
+    // needs a lot swap in Detail, not a Return, and won't even appear in the
+    // Return form's dropdown (built from dispensed boxes only)
+    const urgentBoxes = criticalList.filter(x => x.statusKey === 'critical' && x.isOut);
     vals.kpiTotal      = this.BOXES.length;
     vals.kpiDispensed  = active.length;
     vals.kpiDeptText   = Object.entries(deptCount).filter(([,v])=>v>0).map(([k,v])=>`${k} ${v}`).join(' · ') || '—';
