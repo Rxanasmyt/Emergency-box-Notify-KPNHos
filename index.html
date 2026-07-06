@@ -2863,7 +2863,15 @@ td.l{text-align:left;padding-left:4px}
     // _syncBox has already updated this.BOXES before resetForm is called from submit()
     const inStockIds = this.BOXES.filter(b => !(b.dispense && !b.receiver)).map(b => b.id);
     const outIds     = this.BOXES.filter(b =>  b.dispense && !b.receiver).map(b => b.id);
-    if (m === 'register') this.setState({ submitting: false, regEB: inStockIds[0] || '', regMfg: '', regPreparer: '', regChecker: '', regHadConfirm: false, regPrinted: false, boxDrugs: null, dispenser: '', retReceiver: '' });
+    if (m === 'register') {
+      const newRegEB = inStockIds[0] || '';
+      const baseBD = this.BOX_DRUGS || {};
+      const clearedList = newRegEB && baseBD[newRegEB]
+        ? baseBD[newRegEB].map(d => ({ ...d, lots: (d.lots || []).map(l => ({ ...l, expiry: '' })) }))
+        : null;
+      const newBoxDrugs = clearedList ? { ...baseBD, [newRegEB]: clearedList } : null;
+      this.setState({ submitting: false, regEB: newRegEB, regMfg: '', regPreparer: '', regChecker: '', regHadConfirm: false, regPrinted: false, boxDrugs: newBoxDrugs, dispenser: '', retReceiver: '' });
+    }
     else if (m === 'dispense') this.setState({ submitting: false, dispEB: inStockIds[0] || '', formDept: 'ER', dispenser: uName, swapReturn: false, swapEB: '', swapReceiver: '', swapRetDrugUsage: {}, retDrugUsage: {}, dispDate: today, swapReturnDate: today, retReceiver: '' });
     else this.setState({ submitting: false, retEB: outIds[0] || '', retReceiver: uName, retDate: today, retDrugUsage: {}, swapRetDrugUsage: {}, dispenser: '' });
   }
