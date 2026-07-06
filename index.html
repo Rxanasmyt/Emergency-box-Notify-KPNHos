@@ -1301,6 +1301,28 @@ input:focus, select:focus, textarea:focus {
           <div class="perm-matrix">{{ permMatrixEl }}</div>
         </div>
 
+        <!-- Danger zone -->
+        <div style="margin-top: 18px; background: #FFF8F5; border: 1.5px solid #F3D0C2; border-radius: 16px; padding: 18px 20px;">
+          <div style="display: flex; align-items: center; gap: 11px; margin-bottom: 14px;">
+            <span style="width: 38px; height: 38px; border-radius: 11px; background: #FCEDED; color: #B42121; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 3.5l9 16H3l9-16z" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/><path d="M12 10v4.5M12 17.3v.2" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/></svg>
+            </span>
+            <div>
+              <div style="font-size: 14px; font-weight: 700; color: #B42121;">โซนอันตราย · Danger Zone</div>
+              <div style="font-size: 12px; color: #9AAAB8;">การกระทำในส่วนนี้ย้อนกลับไม่ได้ — ใช้ความระมัดระวังเป็นพิเศษ</div>
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; background: #fff; border: 1px solid #F3D0C2; border-radius: 12px; padding: 14px 16px;">
+            <div>
+              <div style="font-size: 13.5px; font-weight: 600; color: #15242E;">รีเซ็ตกล่องทั้งหมดกลับเป็นค่าเริ่มต้น</div>
+              <div style="font-size: 12px; color: #7B8D9C; margin-top: 2px;">ล้างวันผลิต/วันหมดอายุ/ผู้จ่าย/ผู้รับคืนของทุกกล่อง — ใช้ก่อนเริ่มลงทะเบียนจริงครั้งแรก (ไม่กระทบ Audit Log และบัญชีผู้ใช้)</div>
+            </div>
+            <button onClick="{{ openResetBoxes }}" style="height: 44px; padding: 0 18px; border: 1.5px solid #E03E3E; background: #fff; color: #E03E3E; border-radius: 11px; font-family: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: all .2s;" style-hover="background: #FCEDED;" style-active="transform: scale(.96);">
+              รีเซ็ตกล่องทั้งหมด
+            </button>
+          </div>
+        </div>
+
         <!-- Admin Full Audit Log -->
         <div style="margin-top: 28px;">
           <!-- Section header -->
@@ -1546,6 +1568,29 @@ input:focus, select:focus, textarea:focus {
     </div>
   </sc-if>
 
+  <!-- Reset-all-boxes modal (typed confirmation required) -->
+  <sc-if value="{{ showResetBoxes }}" hint-placeholder-val="{{ false }}">
+    <div style="position: fixed; inset: 0; background: rgba(14,42,60,.5); backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; z-index: 300; animation: overlayIn .2s ease both;" onClick="{{ closeResetBoxes }}">
+      <div onClick="{{ stop }}" style="width: 100%; max-width: 440px; background: #fff; border-radius: 20px; padding: 26px 26px 22px; box-shadow: 0 24px 60px rgba(14,42,60,.4); animation: modalPop .3s cubic-bezier(.2,.9,.2,1) both;">
+        <div style="display: flex; gap: 14px; margin-bottom: 16px;">
+          <span style="width: 48px; height: 48px; flex-shrink: 0; border-radius: 13px; background: #FCEDED; color: #E03E3E; display: flex; align-items: center; justify-content: center;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 3.5l9 16H3l9-16z" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/><path d="M12 10v4.5M12 17.3v.2" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/></svg>
+          </span>
+          <div>
+            <div style="font-size: 16.5px; font-weight: 700; color: #15242E;">รีเซ็ตกล่องทั้งหมด?</div>
+            <div style="font-size: 13px; color: #6B7C8A; margin-top: 5px; line-height: 1.55;">Emergency Box ทั้ง {{ resetBoxesCount }} กล่องจะถูกล้างกลับเป็นค่าเริ่มต้นก่อนลงทะเบียน (วันผลิต วันหมดอายุ ผู้จ่าย ผู้รับคืน) และตั้งจำนวนยาเต็ม โดยไม่มีวันหมดอายุ — การกระทำนี้ย้อนกลับไม่ได้</div>
+          </div>
+        </div>
+        <label style="display: block; font-size: 12px; font-weight: 600; color: #4A5C6A; margin-bottom: 6px;">พิมพ์ "รีเซ็ต" เพื่อยืนยัน</label>
+        <input type="text" value="{{ resetBoxesConfirmText }}" onInput="{{ setResetBoxesConfirmText }}" placeholder="รีเซ็ต" style="width: 100%; height: 46px; border: 1.5px solid #DBE4EB; border-radius: 11px; padding: 0 14px; font-size: 14px; color: #15242E; margin-bottom: 18px; box-sizing: border-box;">
+        <div style="display: flex; gap: 10px;">
+          <button onClick="{{ confirmResetBoxes }}" style="flex: 1; height: 47px; border: none; border-radius: 12px; background: #E03E3E; color: #fff; font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer;">รีเซ็ตทั้งหมด</button>
+          <button onClick="{{ closeResetBoxes }}" style="height: 47px; padding: 0 20px; border: 1.5px solid #DBE4EB; background: #fff; color: #4A5C6A; border-radius: 12px; font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer;">ยกเลิก</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
   <!-- Confirm dialog / idle warning -->
   <sc-if value="{{ showConfirm }}" hint-placeholder-val="{{ false }}">{{ confirmEl }}</sc-if>
   <sc-if value="{{ showIdle }}" hint-placeholder-val="{{ false }}">{{ idleEl }}</sc-if>
@@ -1577,6 +1622,7 @@ class Component extends DCLogic {
     showAddUser: false,
     nu_name: '', nu_username: '', nu_role: 'technician', nu_dept: 'ห้องยา', nu_pass: '',
     showChangePw: false, changePwUsername: null, changePwOld: '', changePwNew: '', changePwConfirm: '', changePwError: '',
+    showResetBoxes: false, resetBoxesConfirmText: '',
     actionMsg: '',
     screen: 'dashboard',
     // entry form
@@ -2308,6 +2354,7 @@ class Component extends DCLogic {
       selectedEB: 'EB-4', boxDrugs: null,
       boxMeta: {}, editDrugs: false, saveSuccess: null, showChangePw: false, showAddUser: false,
       changePwUsername: null, changePwOld: '', changePwNew: '', changePwConfirm: '', changePwError: '',
+      showResetBoxes: false, resetBoxesConfirmText: '',
       nu_name: '', nu_username: '', nu_role: 'technician', nu_dept: 'ห้องยา', nu_pass: '',
       showToast: false, toastTitle: '', toastSubtitle: '', shakeCount: 0, actionMsg: '',
       confirm: null, ghTrigger: 'idle', ghPAT: '', sidebarOpen: false, _fsLastSentDate: '',
@@ -2427,6 +2474,37 @@ class Component extends DCLogic {
     if (window.EB_Sync) window.EB_Sync.syncUsers(nu);
     this.flash(nu_pass.trim() ? 'เพิ่มผู้ใช้ใหม่เรียบร้อย' : 'เพิ่มผู้ใช้ใหม่เรียบร้อย · รหัสผ่านเริ่มต้น: 1234');
     this.logAction({ cat: 'user', action: 'จัดการผู้ใช้', eb: '—', dept: nu.dept, drug: `เพิ่มผู้ใช้ใหม่ ${nu.name} (${(this.ROLES[nu_role] || {label: nu_role}).label})` });
+  }
+  // ---------- reset all boxes (admin only) ----------
+  openResetBoxes() {
+    if (!this.state.currentUser || this.state.currentUser.role !== 'admin') return;
+    this.setState({ showResetBoxes: true, resetBoxesConfirmText: '' });
+  }
+  closeResetBoxes() {
+    this.setState({ showResetBoxes: false, resetBoxesConfirmText: '' });
+  }
+  confirmResetBoxes() {
+    if (!this.state.currentUser || this.state.currentUser.role !== 'admin') return;
+    if (this.state.resetBoxesConfirmText.trim() !== 'รีเซ็ต') { this.flash('กรุณาพิมพ์ "รีเซ็ต" ให้ตรงตัวเพื่อยืนยัน'); return; }
+    const resetBoxes = this.BOXES.map(b => ({
+      id: b.id, dept: b.dept,
+      mfg: '', expiry: '', nearDrug: '', preparer: '', checker: '', registeredAt: '',
+      dispense: '', dispenser: '', receiver: '', retDate: '',
+    }));
+    const resetDrugs = {};
+    resetBoxes.forEach(box => {
+      resetDrugs[box.id] = this.DRUGS.map(d => ({ name: d.name, had: d.had, par: d.par, lots: [{ qty: d.par, expiry: '' }] }));
+    });
+    this.BOXES = resetBoxes;
+    this.BOX_DRUGS = resetDrugs;
+    this.setState({ showResetBoxes: false, resetBoxesConfirmText: '', boxDrugs: null, boxMeta: {} });
+    this._syncChipStates();
+    if (window.EB_Sync) {
+      resetBoxes.forEach(box => window.EB_Sync.syncBoxes(box));
+      Object.entries(resetDrugs).forEach(([boxId, drugs]) => window.EB_Sync.syncBoxDrugs(boxId, drugs));
+    }
+    this.flash(`รีเซ็ตกล่องทั้งหมด ${resetBoxes.length} กล่องกลับเป็นค่าเริ่มต้นเรียบร้อย`);
+    this.logAction({ cat: 'user', action: 'จัดการผู้ใช้', eb: '—', dept: '—', drug: `รีเซ็ต Emergency Box ทั้งหมด (${resetBoxes.length} กล่อง) กลับเป็นค่าเริ่มต้นก่อนลงทะเบียน` });
   }
 
   // ---------- entry form ----------
@@ -4082,6 +4160,15 @@ td.l{text-align:left;padding-left:4px}
     vals.openAddUser = () => this.setState({ showAddUser: true });
     vals.closeAddUser = () => this.setState({ showAddUser: false });
     vals.stop = (e) => { e.stopPropagation(); };
+
+    // danger zone — reset all boxes
+    vals.showResetBoxes = st.showResetBoxes;
+    vals.resetBoxesConfirmText = st.resetBoxesConfirmText;
+    vals.setResetBoxesConfirmText = (e) => this.setState({ resetBoxesConfirmText: e.target.value });
+    vals.openResetBoxes = () => this.openResetBoxes();
+    vals.closeResetBoxes = () => this.closeResetBoxes();
+    vals.confirmResetBoxes = () => this.confirmResetBoxes();
+    vals.resetBoxesCount = this.BOXES.length;
 
     // role summary cards
     const roleOrder = ['admin', 'pharmacist', 'technician', 'nurse'];
