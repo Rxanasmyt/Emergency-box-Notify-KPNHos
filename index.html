@@ -1822,7 +1822,7 @@ class Component extends DCLogic {
       return false;
     }
     if (screen !== 'entry') {
-      const _formTouched = !!(this.state.regMfg || this.state.regPrinted || this.state.boxDrugs !== null);
+      const _formTouched = !!(this.state.regMfg || this.state.regPrinted || this._regTouched);
       const hasUnsaved = this.state.formMode === 'register' && _formTouched;
       if (hasUnsaved) {
         this.askConfirm({
@@ -1830,7 +1830,7 @@ class Component extends DCLogic {
           title: 'ออกจากหน้าลงทะเบียน?',
           body: 'ข้อมูลยาที่กรอกไว้จะหายไป ยืนยันออกโดยไม่บันทึก?',
           yesLabel: 'ออกโดยไม่บันทึก', noLabel: 'กลับไปแก้ไข',
-          onYes: () => { this.setState({ ...patch, boxDrugs: null }); },
+          onYes: () => { this._regTouched = false; this.setState({ ...patch, boxDrugs: null }); },
         });
         return false;
       }
@@ -1842,10 +1842,10 @@ class Component extends DCLogic {
   go2(formMode) {
     if (!this._go2Force && this.state.formMode === 'register' && formMode !== 'register') {
       const _st = this.state;
-      const _touched = !!(_st.regMfg || _st.regPrinted || _st.boxDrugs !== null);
+      const _touched = !!(_st.regMfg || _st.regPrinted || this._regTouched);
       if (_touched) {
         this.askConfirm({ tone: 'warn', icon: 'warn', title: 'เปลี่ยนโหมด?', body: 'ข้อมูลยาที่กรอกไว้จะหายไป ยืนยันเปลี่ยนโหมดโดยไม่บันทึก?', yesLabel: 'เปลี่ยนโหมด', noLabel: 'กลับไปแก้ไข',
-          onYes: () => { this._go2Force = true; this.go2(formMode); this._go2Force = false; } });
+          onYes: () => { this._go2Force = true; this._regTouched = false; this.go2(formMode); this._go2Force = false; } });
         return;
       }
     }
@@ -1871,6 +1871,7 @@ class Component extends DCLogic {
     if (formMode === 'return'   && !_out.includes(this.state.retEB))      patch.retEB  = _out[0]     || '';
     if (formMode === 'register' && !_inStock.includes(this.state.regEB))   patch.regEB  = _inStock[0] || '';
     patch.boxDrugs = null;
+    this._regTouched = false;
     this.setState(patch);
   }
 
@@ -2061,6 +2062,7 @@ class Component extends DCLogic {
     this.logBoxHist(id, 'แก้ไขจำนวน/วันหมดอายุยา');
   }
   setDrugField(boxId, idx, field, value) {
+    if (boxId === this.state.regEB && this.state.formMode === 'register') this._regTouched = true;
     this.setState(s => {
       const base = s.boxDrugs || this.BOX_DRUGS || {};
       const bd = { ...base };
@@ -2070,6 +2072,7 @@ class Component extends DCLogic {
     });
   }
   setLotField(boxId, drugIdx, lotIdx, field, value) {
+    if (boxId === this.state.regEB && this.state.formMode === 'register') this._regTouched = true;
     const safeValue = field === 'qty' ? Math.min(999, Math.max(0, isNaN(value) ? 0 : value)) : value;
     this.setState(s => {
       const base = s.boxDrugs || this.BOX_DRUGS || {};
@@ -2084,6 +2087,7 @@ class Component extends DCLogic {
     });
   }
   addLot(boxId, drugIdx) {
+    if (boxId === this.state.regEB && this.state.formMode === 'register') this._regTouched = true;
     this.setState(s => {
       const base = s.boxDrugs || this.BOX_DRUGS || {};
       const bd = { ...base };
@@ -2096,6 +2100,7 @@ class Component extends DCLogic {
     });
   }
   removeLot(boxId, drugIdx, lotIdx) {
+    if (boxId === this.state.regEB && this.state.formMode === 'register') this._regTouched = true;
     this.setState(s => {
       const base = s.boxDrugs || this.BOX_DRUGS || {};
       const bd = { ...base };
@@ -2290,6 +2295,7 @@ class Component extends DCLogic {
     this.BOXES = [];
     this.BOX_DRUGS = {};
     this.AUDIT = [];
+    this._regTouched = false;
     this.setState({
       authed: false, currentUser: null, loginUser: '', loginPass: '', showPass: false, screen: 'dashboard',
       loginError: '', attempts: 0, locked: false, lockCountdown: 0,
@@ -2870,6 +2876,7 @@ td.l{text-align:left;padding-left:4px}
         ? baseBD[newRegEB].map(d => ({ ...d, lots: (d.lots || []).map(l => ({ ...l, expiry: '' })) }))
         : null;
       const newBoxDrugs = clearedList ? { ...baseBD, [newRegEB]: clearedList } : null;
+      this._regTouched = false;
       this.setState({ submitting: false, regEB: newRegEB, regMfg: '', regPreparer: '', regChecker: '', regHadConfirm: false, regPrinted: false, boxDrugs: newBoxDrugs, dispenser: '', retReceiver: '' });
     }
     else if (m === 'dispense') this.setState({ submitting: false, dispEB: inStockIds[0] || '', formDept: 'ER', dispenser: uName, swapReturn: false, swapEB: '', swapReceiver: '', swapRetDrugUsage: {}, retDrugUsage: {}, dispDate: today, swapReturnDate: today, retReceiver: '' });
@@ -3478,9 +3485,9 @@ td.l{text-align:left;padding-left:4px}
     vals.regMfg = st.regMfg;
     vals.regPreparer = st.regPreparer;
     vals.regChecker = st.regChecker;
-    vals.setRegMfg = (e) => this.setState({ regMfg: e.target.value });
-    vals.setRegPreparer = (e) => this.setState({ regPreparer: e.target.value });
-    vals.setRegChecker = (e) => this.setState({ regChecker: e.target.value });
+    vals.setRegMfg = (e) => { this._regTouched = true; this.setState({ regMfg: e.target.value }); };
+    vals.setRegPreparer = (e) => { this._regTouched = true; this.setState({ regPreparer: e.target.value }); };
+    vals.setRegChecker = (e) => { this._regTouched = true; this.setState({ regChecker: e.target.value }); };
 
     // per-drug editable table for the selected EB (edits boxDrugs directly — single source of truth)
     const regBD = BDdash;
@@ -3757,7 +3764,7 @@ td.l{text-align:left;padding-left:4px}
       const _dirty = _m === 'register' ? (
         !!st.regMfg ||
         !!st.regPrinted ||
-        st.boxDrugs !== null ||
+        this._regTouched ||
         st.regPreparer !== (!_isPharm ? _uName : '') ||
         st.regChecker  !== (_isPharm  ? _uName : '')
       )
