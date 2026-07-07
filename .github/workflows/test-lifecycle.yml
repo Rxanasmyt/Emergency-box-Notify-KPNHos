@@ -1,0 +1,29 @@
+name: Test Lifecycle (safe, temp box)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Register/Dispense/Return smoke test against a throwaway TEST-1 box
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: .github/scripts/package.json
+
+      - name: Install dependencies
+        run: npm install
+        working-directory: .github/scripts
+
+      - name: Run lifecycle smoke test
+        run: node .github/scripts/test-lifecycle.js
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
