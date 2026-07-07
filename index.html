@@ -1685,6 +1685,7 @@ class Component extends DCLogic {
     // expiry notifications
     expiryAlerts: [],
     showExpiryBanner: false,
+    _dismissedAlertKeys: [],
     canInstall: false,
     // QR public view — read URL synchronously at construction so no login-screen flash on scan
     publicView: (() => { try { const p = new URLSearchParams(window.location.search); return p.get('view') === 'box' && !!p.get('id'); } catch (_) { return false; } })(),
@@ -1755,7 +1756,10 @@ class Component extends DCLogic {
     const all     = this.BOXES.map(b => b.id);
     if (!inStock.includes(this.state.dispEB)) patch.dispEB = inStock[0] || '';
     if (!out.includes(this.state.retEB))    { patch.retEB = out[0] || ''; patch.retDrugUsage = {}; }
-    if (!inStock.includes(this.state.regEB))   patch.regEB  = inStock[0] || '';
+    // regEB being reassigned out from under the user (e.g. another device just
+    // dispensed the box that was selected) must invalidate any printed label —
+    // it was printed for a box that is no longer the one about to be submitted
+    if (!inStock.includes(this.state.regEB))   { patch.regEB = inStock[0] || ''; patch.regPrinted = false; }
     if (Object.keys(patch).length) this.setState(patch);
   }
 
@@ -1834,6 +1838,22 @@ class Component extends DCLogic {
     if (days < 0) return `เกิน ${Math.abs(days)} วัน`;
     if (days === 0) return 'วันนี้';
     return `อีก ${days} วัน`;
+  }
+
+  // ---------- expiry alert banner dismissal ----------
+  // Per-alert (not a single session-wide flag) so dismissing today's alerts
+  // doesn't silently suppress the banner forever — a box that becomes newly
+  // critical LATER in the same session must still re-trigger it.
+  _urgentAlertKeys(alerts) {
+    const isUrgent = a => a.status === 'expired' || a.status === 'expired_today' || a.status === 'critical';
+    return new Set((alerts || []).filter(isUrgent).map(a => `${a.boxId}|${a.drugName}|${a.expiry}`));
+  }
+  _hasNewUrgentAlerts(alerts) {
+    const urgentKeys = this._urgentAlertKeys(alerts);
+    if (urgentKeys.size === 0) return false;
+    const dismissed = new Set(this.state._dismissedAlertKeys || []);
+    for (const k of urgentKeys) if (!dismissed.has(k)) return true;
+    return false;
   }
 
   // ---------- nav ----------
@@ -1958,10 +1978,8 @@ class Component extends DCLogic {
         const _p = { expiryAlerts: result.alerts };
         if (!result.alerts.length) {
           _p.showExpiryBanner = false;
-        } else {
-          const _isUrgent = a => a.status === 'expired' || a.status === 'expired_today' || a.status === 'critical';
-          const _newUrgent = result.alerts.filter(_isUrgent).length;
-          if (_newUrgent > 0 && !this.state._expiryBannerDismissed) _p.showExpiryBanner = true;
+        } else if (this._hasNewUrgentAlerts(result.alerts)) {
+          _p.showExpiryBanner = true;
         }
         this.setState(_p);
       }).catch(() => {});
@@ -2085,17 +2103,11 @@ class Component extends DCLogic {
       }
     }
     this._savingDrugs = true;
-    const prevDrugs = (this.BOX_DRUGS || {})[id];
     this._bdBackup = null;
-    this.BOX_DRUGS = { ...(this.BOX_DRUGS || {}), [id]: drugs };
     this.setState({ editDrugs: false, saveSuccess: Date.now(), boxDrugs: null });
     clearTimeout(this._saveSuccessT);
     this._saveSuccessT = setTimeout(() => this.setState({ saveSuccess: null }), 1600);
-    if (window.EB_Sync) window.EB_Sync.syncBoxDrugs(id, drugs).then(
-      () => { this._savingDrugs = false; },
-      () => { this._savingDrugs = false; this.BOX_DRUGS = { ...(this.BOX_DRUGS || {}), [id]: prevDrugs }; this.flash('⚠️ บันทึกข้อมูลยาไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต'); }
-    );
-    else this._savingDrugs = false;
+    this._syncBoxDrugs(id, drugs).then(() => { this._savingDrugs = false; });
     // also update boxes doc so expiry/nearDrug stay in sync as fallback
     const near = this.nearDrugOf(id);
     const nearISO = this.regNearISOof(id);
@@ -2291,10 +2303,8 @@ class Component extends DCLogic {
         const _p = { expiryAlerts: result.alerts };
         if (!result.alerts.length) {
           _p.showExpiryBanner = false;
-        } else {
-          const _isUrgent = a => a.status === 'expired' || a.status === 'expired_today' || a.status === 'critical';
-          const _newUrgent = result.alerts.filter(_isUrgent).length;
-          if (_newUrgent > 0 && !this.state._expiryBannerDismissed) _p.showExpiryBanner = true;
+        } else if (this._hasNewUrgentAlerts(result.alerts)) {
+          _p.showExpiryBanner = true;
         }
         this.setState(_p);
       }).catch(() => {});
@@ -2314,7 +2324,7 @@ class Component extends DCLogic {
         window.EB_Notify.checkAndNotify(this, false).then(result => {
           if (!this.state.authed) return;
           const patch = {};
-          if (result.alerts.length) { patch.expiryAlerts = result.alerts; if (!this.state._expiryBannerDismissed) patch.showExpiryBanner = true; }
+          if (result.alerts.length) { patch.expiryAlerts = result.alerts; if (this._hasNewUrgentAlerts(result.alerts)) patch.showExpiryBanner = true; }
           if (Object.keys(patch).length) this.setState(patch);
         }).catch(err => console.warn('[Notify] checkAndNotify failed:', err));
       }
@@ -2367,7 +2377,7 @@ class Component extends DCLogic {
       query: '', datePreset: 'all', fiscalYear: 0, dateFrom: '', dateTo: '',
       aFilter: 'all', aQuery: '', aDatePreset: 'all', aFiscalYear: 0, aDateFrom: '', aDateTo: '',
       boxHist: {},
-      expiryAlerts: [], showExpiryBanner: false, _expiryBannerDismissed: false,
+      expiryAlerts: [], showExpiryBanner: false, _dismissedAlertKeys: [],
       auditLog: null,
     });
     this._syncChipStates();
@@ -2595,12 +2605,13 @@ class Component extends DCLogic {
     if (this.state.formMode === 'register') {
       const _regBox = this.BOXES.find(b => b.id === this.state.regEB);
       if (_regBox && _regBox.registeredAt === this.isoOf(this.TODAY)) {
+        const _expectedReg = this.state.regEB;
         this.askConfirm({
           tone: 'warn', icon: 'warn',
           title: `${this.state.regEB} ลงทะเบียนไปแล้ววันนี้!`,
           body: `กล่องนี้เพิ่งถูกลงทะเบียนวันนี้ (${this.fmtISO(_regBox.registeredAt)}) ยืนยันการลงทะเบียนซ้ำ?`,
           yesLabel: 'ลงทะเบียนซ้ำ', noLabel: 'ยกเลิก',
-          onYes: () => this.submit(),
+          onYes: () => this.submit(_expectedReg),
         });
         return;
       }
@@ -2617,7 +2628,7 @@ class Component extends DCLogic {
           title: `${_effD} ยาในกล่องมีจำนวน 0 ทุกรายการ!`,
           body: 'กล่องนี้ไม่มียาอยู่เลย (qty = 0 ทุก lot) ยืนยันการจ่ายกล่องที่ว่างเปล่า?',
           yesLabel: 'จ่ายทั้งที่ว่าง', noLabel: 'ยกเลิก',
-          onYes: () => this.submit(),
+          onYes: () => this.submit(_effD),
         });
         return;
       }
@@ -2630,7 +2641,7 @@ class Component extends DCLogic {
           title: `${_effD} ยังไม่มีข้อมูลวันหมดอายุ!`,
           body: 'กล่องนี้ยังไม่ผ่านการลงทะเบียน (ไม่มีข้อมูลยา/วันหมดอายุ) ยืนยันการจ่ายโดยไม่มีข้อมูลกล่อง?',
           yesLabel: 'จ่ายต่อ (ไม่มีข้อมูล)', noLabel: 'ยกเลิก',
-          onYes: () => this.submit(),
+          onYes: () => this.submit(_effD),
         });
         return;
       }
@@ -2643,7 +2654,7 @@ class Component extends DCLogic {
           title: 'กล่องนี้ใกล้หมดอายุ — ยืนยันการจ่าย?',
           body: `${_effD} ถึง/เกินกำหนดส่งคืนแล้ว (หมดอายุ ${this.fmtISO(near)}) ไม่ควรจ่ายออกหน่วยงาน แนะนำให้เปลี่ยนกล่องใหม่ก่อน`,
           yesLabel: 'ยืนยันจ่ายทั้งที่ใกล้หมดอายุ', noLabel: 'ยกเลิก',
-          onYes: () => this.submit(),
+          onYes: () => this.submit(_effD),
         });
         return;
       }
@@ -2669,13 +2680,42 @@ class Component extends DCLogic {
       this.flash('⚠️ บันทึกไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
     });
   }
-  submit() {
+  // shared box_drugs write path — every call site used to fire-and-forget this
+  // write with no error handling at all, so a rejected write silently left the
+  // optimistic local quantities out of sync with Firestore's true (unchanged)
+  // state, with no rollback and no warning to the user. Mirrors _syncBox's
+  // rollback-on-failure pattern. Always resolves (never rejects) so callers can
+  // safely .then() to know the attempt settled either way.
+  _syncBoxDrugs(boxId, drugs) {
+    const prevDrugs = (this.BOX_DRUGS || {})[boxId];
+    this.BOX_DRUGS = { ...(this.BOX_DRUGS || {}), [boxId]: drugs };
+    if (!window.EB_Sync) {
+      this.flash('⚠️ ระบบซิงค์ยังไม่พร้อม — ข้อมูลยาบันทึกเฉพาะในเครื่องนี้ กรุณารีเฟรชหน้าแล้วลองใหม่');
+      return Promise.resolve();
+    }
+    return window.EB_Sync.syncBoxDrugs(boxId, drugs).then(null, () => {
+      this.BOX_DRUGS = { ...(this.BOX_DRUGS || {}), [boxId]: prevDrugs };
+      this.flash('⚠️ บันทึกข้อมูลยาไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
+    });
+  }
+  // expectedId: the box a confirm-dialog's safety checks were computed for (undefined
+  // when called directly with no dialog in between, e.g. the plain submit button).
+  // The box selection can change out from under an open dialog (another device
+  // dispenses it, _syncChipStates() reassigns the chip) — re-checking here stops a
+  // stale "yes" click from silently acting on a DIFFERENT box than the one the
+  // safety warnings were actually shown for.
+  async submit(expectedId) {
     if (this.state.submitting) return;
     this.setState({ submitting: true });
     const m = this.state.formMode;
     let msg;
     if (m === 'register') {
       const { regEB } = this.state;
+      if (expectedId !== undefined && expectedId !== regEB) {
+        this.setState({ submitting: false });
+        this.flash(`กล่องที่เลือกเปลี่ยนเป็น ${regEB} แล้ว — กรุณาตรวจสอบข้อมูลและกดบันทึกอีกครั้ง`);
+        return;
+      }
       const BD = this.state.boxDrugs || this.BOX_DRUGS || {};
       const near = this.nearDrugOf(regEB, BD);
       const nearISO = this.regNearISOof(regEB);
@@ -2684,7 +2724,7 @@ class Component extends DCLogic {
       this.setState({ boxMeta: meta, regHadConfirm: false });
       const box = this.BOXES.find(b => b.id === regEB) || { id: regEB };
       this._syncBox({ ...box, mfg: this.state.regMfg, expiry: nearISO || '', nearDrug: near || '', preparer: this.state.regPreparer, checker: this.state.regChecker, registeredAt: this.isoOf(this.TODAY), dispense: '', dispenser: '', receiver: '', retDate: '' });
-      if (window.EB_Sync) window.EB_Sync.syncBoxDrugs(regEB, BD[regEB] || []);
+      this._syncBoxDrugs(regEB, BD[regEB] || []);
       msg = `ลงทะเบียน ${regEB} สำเร็จ · ตรวจพบยาใกล้หมดอายุสุด: ${near || 'ไม่มีข้อมูล'}`;
       this.logAction({ cat: 'register', action: 'ลงทะเบียน', eb: regEB, dept: '—', drug: `จัดยาเข้าคลัง · ใกล้หมดอายุสุด: ${near}` });
       this.logBoxHist(regEB, `ลงทะเบียนเข้าคลัง (จัดโดย ${this.state.regPreparer || '-'}, ตรวจโดย ${this.state.regChecker || '-'})`);
@@ -2693,6 +2733,11 @@ class Component extends DCLogic {
       const { formDept, swapReturn, swapEB } = this.state;
       const dispEB = this._resolveDispEB() || this.state.dispEB;
       if (!dispEB) { this.setState({ submitting: false }); this.flash('ข้อผิดพลาด: ไม่พบกล่องยาที่เลือก'); return; }
+      if (expectedId !== undefined && expectedId !== dispEB) {
+        this.setState({ submitting: false });
+        this.flash(`กล่องที่จะจ่ายเปลี่ยนเป็น ${dispEB} แล้ว — กรุณาตรวจสอบข้อมูลและกดจ่ายอีกครั้ง`);
+        return;
+      }
       const box = this.BOXES.find(b => b.id === dispEB) || { id: dispEB };
       // resolve swap box BEFORE syncing dispense — prevents the just-dispensed box from entering the out-list fallback
       let resolvedSwapEB = '';
@@ -2710,26 +2755,50 @@ class Component extends DCLogic {
           return;
         }
       }
+      let _swPrevDrugsCheck = null, _swUsageCheck = null;
+      if (swapReturn) {
+        // re-validate recorded usage against the CURRENT box_drugs snapshot right
+        // before writing — if drug data was edited (e.g. via Detail) in the gap
+        // between recording usage and this submit finally running, usage that now
+        // exceeds the real quantity would otherwise clamp to 0 and the lot would be
+        // silently deleted, losing its expiry record entirely
+        _swPrevDrugsCheck = (this.BOX_DRUGS || {})[resolvedSwapEB] || [];
+        _swUsageCheck = this.state.swapRetDrugUsage || {};
+        const _swStale = _swPrevDrugsCheck.some((drug, di) => (drug.lots || []).some((lot, li) =>
+          ((_swUsageCheck[di] || {})[li] || 0) > (lot.qty || 0)));
+        if (_swStale) {
+          this.setState({ submitting: false });
+          this.flash(`⚠️ ข้อมูลยาของกล่อง ${resolvedSwapEB} เปลี่ยนไปตั้งแต่บันทึกจำนวนที่ใช้ — กรุณาตรวจสอบจำนวนที่ใช้อีกครั้ง`);
+          return;
+        }
+      }
+      if (!window.EB_Sync) {
+        this.setState({ submitting: false });
+        this.flash('⚠️ ระบบซิงค์ยังไม่พร้อม — กรุณารีเฟรชหน้าแล้วลองใหม่');
+        return;
+      }
       this._syncBox({ ...box, dept: formDept, dispense: this.state.dispDate, dispenser: this.state.dispenser, receiver: '', retDate: '' });
       if (swapReturn) {
         const swBox = this.BOXES.find(b => b.id === resolvedSwapEB) || { id: resolvedSwapEB };
-        this._syncBox({ ...swBox, receiver: this.state.swapReceiver, retDate: this.state.swapReturnDate });
-        const _swPrevDrugs = (this.BOX_DRUGS || {})[resolvedSwapEB] || [];
-        if (_swPrevDrugs.length > 0) {
-          const _swUsage = this.state.swapRetDrugUsage || {};
-          const _swUpdated = _swPrevDrugs.map((drug, di) => ({
-            ...drug, lots: (drug.lots || []).map((lot, li) => ({
-              ...lot, qty: Math.max(0, (lot.qty || 0) - ((_swUsage[di] || {})[li] || 0))
-            })).filter(l => l.qty > 0)
-          }));
-          if (window.EB_Sync) window.EB_Sync.syncBoxDrugs(resolvedSwapEB, _swUpdated);
-          this.BOX_DRUGS = { ...(this.BOX_DRUGS || {}), [resolvedSwapEB]: _swUpdated };
-          const _swSummary = _swPrevDrugs.map((drug, di) => {
-            const _used = Object.values((_swUsage[di] || {})).reduce((s, q) => s + q, 0);
-            return _used > 0 ? `${drug.name} ใช้ ${_used}` : null;
-          }).filter(Boolean);
-          if (_swSummary.length > 0) this.logBoxHist(resolvedSwapEB, `บันทึกยาที่ใช้: ${_swSummary.join(', ')}`);
+        // atomic: swap box marked returned + its drug quantities decremented
+        // together, both re-read fresh from the server — see returnBoxAndDrugsTx
+        let _swResult;
+        try {
+          _swResult = await window.EB_Sync.returnBoxAndDrugsTx(resolvedSwapEB, { receiver: this.state.swapReceiver, retDate: this.state.swapReturnDate }, _swUsageCheck);
+        } catch (err) {
+          this.setState({ submitting: false });
+          this.flash(err.code === 'NOT_OUT'
+            ? `⚠️ กล่อง ${resolvedSwapEB} ถูกรับคืนไปแล้ว (อาจโดยผู้อื่น) — กรุณารีเฟรชหน้าแล้วตรวจสอบอีกครั้ง`
+            : '⚠️ บันทึกไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
+          return;
         }
+        this.BOXES = this.BOXES.map(b => b.id === resolvedSwapEB ? { ...b, receiver: this.state.swapReceiver, retDate: this.state.swapReturnDate } : b);
+        if (_swResult.drugs) this.BOX_DRUGS = { ...(this.BOX_DRUGS || {}), [resolvedSwapEB]: _swResult.drugs };
+        const _swSummary = _swPrevDrugsCheck.map((drug, di) => {
+          const _used = Object.values((_swUsageCheck[di] || {})).reduce((s, q) => s + q, 0);
+          return _used > 0 ? `${drug.name} ใช้ ${_used}` : null;
+        }).filter(Boolean);
+        if (_swSummary.length > 0) this.logBoxHist(resolvedSwapEB, `บันทึกยาที่ใช้: ${_swSummary.join(', ')}`);
         this.logAction({ cat: 'return', action: 'รับคืน', eb: resolvedSwapEB, dept: swBox.dept || formDept, drug: `รับคืน วันที่ ${this.fmtISO(this.state.swapReturnDate)} · โดย ${this.state.swapReceiver || '-'}` });
         this.logBoxHist(resolvedSwapEB, `รับคืนจาก ${swBox.dept || formDept} วันที่ ${this.fmtISO(this.state.swapReturnDate)} (โดย ${this.state.swapReceiver || '-'})`);
       }
@@ -2748,27 +2817,44 @@ class Component extends DCLogic {
       const retEB = _effRetEB || this.state.retEB;
       if (!retEB) { this.setState({ submitting: false }); this.flash('ข้อผิดพลาด: ไม่พบกล่องยาที่เลือก'); return; }
       const retBox = this.BOXES.find(b => b.id === retEB) || { id: retEB };
-      this._syncBox({ ...retBox, receiver: retReceiver, retDate });
-      // update box_drugs quantities based on recorded drug usage
-      const _prevDrugs = (this.BOX_DRUGS || {})[retEB] || [];
-      if (_prevDrugs.length > 0) {
-        const _updatedDrugs = _prevDrugs.map((drug, di) => {
-          const _drugUsage = retDrugUsage[di] || {};
-          const _updatedLots = (drug.lots || []).map((lot, li) => ({
-            ...lot, qty: Math.max(0, (lot.qty || 0) - (_drugUsage[li] || 0))
-          })).filter(l => l.qty > 0);
-          return { ...drug, lots: _updatedLots };
-        });
-        if (window.EB_Sync) window.EB_Sync.syncBoxDrugs(retEB, _updatedDrugs);
-        this.BOX_DRUGS = { ...(this.BOX_DRUGS || {}), [retEB]: _updatedDrugs };
-        // log drug usage summary
-        const _usageSummary = _prevDrugs.map((drug, di) => {
-          const _totalUsed = Object.values(retDrugUsage[di] || {}).reduce((s, q) => s + q, 0);
-          return _totalUsed > 0 ? `${drug.name} ใช้ ${_totalUsed}` : null;
-        }).filter(Boolean);
-        if (_usageSummary.length > 0) {
-          this.logBoxHist(retEB, `บันทึกยาที่ใช้: ${_usageSummary.join(', ')}`);
-        }
+      // re-validate recorded usage against the CURRENT box_drugs snapshot right
+      // before writing — see the identical check in the swap-return branch above
+      const _prevDrugsCheck = (this.BOX_DRUGS || {})[retEB] || [];
+      const _retStale = _prevDrugsCheck.some((drug, di) => (drug.lots || []).some((lot, li) =>
+        ((retDrugUsage[di] || {})[li] || 0) > (lot.qty || 0)));
+      if (_retStale) {
+        this.setState({ submitting: false });
+        this.flash(`⚠️ ข้อมูลยาของกล่อง ${retEB} เปลี่ยนไปตั้งแต่บันทึกจำนวนที่ใช้ — กรุณาตรวจสอบจำนวนที่ใช้อีกครั้ง`);
+        return;
+      }
+      if (!window.EB_Sync) {
+        this.setState({ submitting: false });
+        this.flash('⚠️ ระบบซิงค์ยังไม่พร้อม — กรุณารีเฟรชหน้าแล้วลองใหม่');
+        return;
+      }
+      // atomic: box marked returned + drug quantities decremented together, both
+      // re-read fresh from the server at commit time — see returnBoxAndDrugsTx in
+      // firebase-sync.js. Rejects with code NOT_OUT if the box was already
+      // returned by someone else, instead of silently overwriting their write.
+      let _retResult;
+      try {
+        _retResult = await window.EB_Sync.returnBoxAndDrugsTx(retEB, { receiver: retReceiver, retDate }, retDrugUsage);
+      } catch (err) {
+        this.setState({ submitting: false });
+        this.flash(err.code === 'NOT_OUT'
+          ? `⚠️ กล่อง ${retEB} ถูกรับคืนไปแล้ว (อาจโดยผู้อื่น) — กรุณารีเฟรชหน้าแล้วตรวจสอบอีกครั้ง`
+          : '⚠️ บันทึกไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
+        return;
+      }
+      this.BOXES = this.BOXES.map(b => b.id === retEB ? { ...b, receiver: retReceiver, retDate } : b);
+      if (_retResult.drugs) this.BOX_DRUGS = { ...(this.BOX_DRUGS || {}), [retEB]: _retResult.drugs };
+      // log drug usage summary
+      const _usageSummary = _prevDrugsCheck.map((drug, di) => {
+        const _totalUsed = Object.values(retDrugUsage[di] || {}).reduce((s, q) => s + q, 0);
+        return _totalUsed > 0 ? `${drug.name} ใช้ ${_totalUsed}` : null;
+      }).filter(Boolean);
+      if (_usageSummary.length > 0) {
+        this.logBoxHist(retEB, `บันทึกยาที่ใช้: ${_usageSummary.join(', ')}`);
       }
       msg = `รับคืน ${retEB} เข้าห้องยาสำเร็จ`;
       this.logAction({ cat: 'return', action: 'รับคืน', eb: retEB, dept: retBox.dept || '—', drug: `รับคืน วันที่ ${this.fmtISO(retDate)} · โดย ${retReceiver || '-'}` });
@@ -3129,7 +3215,7 @@ td.l{text-align:left;padding-left:4px}
     vals.userAvatarColor = cu ? cuRole.color : '#1A6FA3';
     // ===== NOTIFY SETTINGS =====
     const nfSettings = window.EB_Notify ? window.EB_Notify.loadSettings() : {};
-    vals.dismissExpiryBanner = () => this.setState({ showExpiryBanner: false, _expiryBannerDismissed: true });
+    vals.dismissExpiryBanner = () => this.setState({ showExpiryBanner: false, _dismissedAlertKeys: Array.from(this._urgentAlertKeys(this.state.expiryAlerts || [])) });
     vals.showExpiryBanner = st.showExpiryBanner;
     const alerts = st.expiryAlerts || [];
     vals.hasExpiryAlerts = alerts.length > 0;
@@ -3572,7 +3658,7 @@ td.l{text-align:left;padding-left:4px}
         ['กำหนดส่งคืน', this.fmt(this.addDays(bexp, -15)), '#15242E'],
         ['สถานะ', status.label + ' · ' + this.daysText(bexp), status.color],
       ];
-      if (b.dispense) { rows.unshift(['จ่ายให้', `${b.dept || '—'} · ${this.fmtISO(b.dispense)}`, '#15242E']); }
+      if (b.dispense && !b.receiver) { rows.unshift(['จ่ายให้', `${b.dept || '—'} · ${this.fmtISO(b.dispense)}`, '#15242E']); }
       return h('div', { key: 'boxinfo_' + b.id, style: { display: 'grid', gridTemplateColumns: `repeat(${rows.length}, 1fr)`, gap: 1, background: '#EFF3F6', border: '1px solid #E7EEF3', borderRadius: 13, overflow: 'hidden' } },
         ...rows.map((r, i) => h('div', { key: i, style: { background: '#FAFCFD', padding: '12px 14px' } },
           h('div', { style: { fontSize: 11, color: '#9AAAB8', fontWeight: 500 } }, r[0]),
@@ -3583,17 +3669,23 @@ td.l{text-align:left;padding-left:4px}
 
     // ===== STEP 1: REGISTER =====
     vals.regEBSelectEl = mkEBChips(st.regEB, (id) => {
+      if (id === st.regEB) return;
       const _existBD = (st.boxDrugs || this.BOX_DRUGS || {})[id] || [];
-      const _upd = { regEB: id, regHadConfirm: false };
+      // switching box invalidates any label already printed for the PREVIOUS box —
+      // the print gate must be re-earned for whichever box actually gets submitted
+      const _upd = { regEB: id, regHadConfirm: false, regPrinted: false };
       _upd.boxDrugs = { ...(st.boxDrugs || this.BOX_DRUGS || {}), [id]: _existBD.map(d => ({ ...d, lots: (d.lots || []).map(l => ({ ...l })) })) };
+      this._regTouched = true;
       this.setState(_upd);
     }, allIds, '#2B7FE0', _ebStatusMap);
     vals.regMfg = st.regMfg;
     vals.regPreparer = st.regPreparer;
     vals.regChecker = st.regChecker;
-    vals.setRegMfg = (e) => { this._regTouched = true; this.setState({ regMfg: e.target.value }); };
-    vals.setRegPreparer = (e) => { this._regTouched = true; this.setState({ regPreparer: e.target.value }); };
-    vals.setRegChecker = (e) => { this._regTouched = true; this.setState({ regChecker: e.target.value }); };
+    // mfg/preparer/checker are baked into the printed label — any edit after
+    // printing must invalidate regPrinted so a stale label can't reach submit()
+    vals.setRegMfg = (e) => { this._regTouched = true; this.setState({ regMfg: e.target.value, regPrinted: false }); };
+    vals.setRegPreparer = (e) => { this._regTouched = true; this.setState({ regPreparer: e.target.value, regPrinted: false }); };
+    vals.setRegChecker = (e) => { this._regTouched = true; this.setState({ regChecker: e.target.value, regPrinted: false }); };
 
     // per-drug editable table for the selected EB (edits boxDrugs directly — single source of truth)
     const regBD = BDdash;

@@ -160,7 +160,7 @@ function listenBoxDrugs(){
         const _s=window.EB_Notify.loadSettings();
         const _a=window.EB_Notify.findExpiringDrugs(component,_s.thresholdDays);
         _patch.expiryAlerts=_a;
-        if(_a.length&&!_st.showExpiryBanner&&!_st._expiryBannerDismissed)_patch.showExpiryBanner=true;
+        if(_a.length&&!_st.showExpiryBanner&&component._hasNewUrgentAlerts(_a))_patch.showExpiryBanner=true;
       }
       component.setState(_patch);
     }
@@ -193,5 +193,38 @@ function deleteUser(user){
   if(!docId)return Promise.resolve();
   return db.collection(C.users).doc(docId).delete().catch(err=>console.error('[Sync] User delete failed:',err.message));
 }
-window.EB_Sync={initUsersOnly,initFirebaseSync,startPublicSync,stopSync,stopAll,logAudit,syncBoxes,syncUsers,deleteUser,syncBoxDrugs};
+// Atomically marks a box returned AND decrements its box_drugs quantities in one
+// Firestore transaction, reading both docs fresh at commit time (never the
+// client's local cache). This closes two races the plain set()/merge() writes
+// could not: (1) two staff returning the SAME box — the transaction re-reads
+// server state and rejects with NOT_OUT if it's already been returned, instead
+// of silently overwriting whoever returned it first; (2) concurrent quantity
+// decrements on the same box_drugs doc from two devices — each transaction
+// decrements from whatever the server currently holds, so both decrements
+// compose correctly instead of the slower write clobbering the faster one.
+// Also guarantees the box-status write and the drug-decrement write succeed or
+// fail together, so a partial failure can never leave one persisted without
+// the other.
+function returnBoxAndDrugsTx(boxId,boxFields,usageMap){
+  if(!db)return Promise.reject(new Error('no-db'));
+  const boxRef=db.collection(C.boxes).doc(boxId);
+  const drugsRef=db.collection(C.boxDrugs).doc(boxId);
+  return db.runTransaction(tx=>Promise.all([tx.get(boxRef),tx.get(drugsRef)]).then(([boxSnap,drugsSnap])=>{
+    const boxData=boxSnap.exists?boxSnap.data():{};
+    const isOut=!!(boxData.dispense&&!boxData.receiver);
+    if(!isOut){const err=new Error('กล่องนี้ไม่ได้อยู่ในสถานะจ่ายออกแล้ว (อาจถูกรับคืนไปแล้วโดยผู้อื่น)');err.code='NOT_OUT';throw err;}
+    tx.update(boxRef,boxFields);
+    const drugs=(drugsSnap.exists?drugsSnap.data().drugs:null)||[];
+    let updatedDrugs=null;
+    if(drugs.length>0){
+      updatedDrugs=drugs.map((d,di)=>({
+        ...d,
+        lots:(d.lots||[]).map((l,li)=>({...l,qty:Math.max(0,(l.qty||0)-((usageMap[di]||{})[li]||0))})).filter(l=>l.qty>0),
+      }));
+      tx.set(drugsRef,{boxId,drugs:updatedDrugs,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
+    }
+    return {drugs:updatedDrugs};
+  })).catch(err=>{if(err.code!=='NOT_OUT')console.error('[Sync] returnBoxAndDrugsTx failed:',err.message);throw err;});
+}
+window.EB_Sync={initUsersOnly,initFirebaseSync,startPublicSync,stopSync,stopAll,logAudit,syncBoxes,syncUsers,deleteUser,syncBoxDrugs,returnBoxAndDrugsTx};
 })();
