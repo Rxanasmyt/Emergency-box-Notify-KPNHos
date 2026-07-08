@@ -26,8 +26,8 @@ Single `index.html` using a custom React-like wrapper called **DC Runtime** (`su
 ### Data collections
 | Collection | Doc ID | Key fields |
 |---|---|---|
-| `boxes` | box ID (`eb1`, `eb2`, …) | `dispense`, `receiver`, `mfg`, `expiry`, `nearDrug`, `preparer`, `checker`, `openedAt` |
-| `box_drugs` | box ID | `boxId`, `drugs[]` (with `lots[]`) |
+| `boxes` | box ID (`eb1`, `eb2`, …) | `dispense`, `receiver`, `mfg`, `expiry`, `nearDrug`, `preparer`, `checker`, `openedAt`, `preparedAt`, `registeredAt` |
+| `box_drugs` | box ID | `boxId`, `drugs[]` (with `lots[]`, each drug has `verified: boolean`) |
 | `audit_log` | auto-ID | `date`, `time`, `action`, `person`, `eb`, `dept`, `drug` (append-only — rules block update/delete) |
 | `usage_log` | auto-ID | `boxId`, `dept`, `drugName`, `qty`, `hn`, `patientName`, `recordedAt`, `recordedTime` (append-only, paperless usage records — see below) |
 | `users` | **username** (string) | `name`, `username`, `password`, `role`, `dept`, `status`, `lastLogin`, `id` |
@@ -106,12 +106,26 @@ All 3 modes call `_syncBox(updated)` + `resetForm()` at the end.
 `_syncBox(box)`: updates `this.BOXES` in memory AND calls `EB_Sync.syncBoxes(box)` for Firestore.
 
 ```
-register: sets mfg, expiry, nearDrug, preparer, checker, registeredAt, openedAt=''; clears dispense/receiver
+register (Stage 1, จพ.): sets mfg, preparer, preparedAt; clears checker/registeredAt, dispense/receiver, openedAt=''
+register (Stage 2, เภสัชกร/admin): sets expiry, nearDrug, checker, registeredAt — box_drugs drugs[].verified=true for every drug
 dispense:  sets dispense dept, dispDate, dispenser; clears receiver; if swapReturn also syncs swap box
 return:    via returnBoxAndDrugsTx() atomic transaction — sets receiver, retDate, openedAt=''; NOT a plain _syncBox() call (see below)
 ```
 
 `_syncBox()` diffs `updated` against the last-known box and only writes CHANGED fields — never resend the full object from a stale local snapshot, or a concurrent write from another device can be silently clobbered even under `{merge:true}`.
+
+---
+
+## 2-Stage Registration (จพ. เตรียม → เภสัชกร ตรวจสอบ)
+
+Registration is split into two role-gated stages instead of one single-step save:
+
+- **Stage 1 — จัดเตรียม (Prepared)**: any user fills in mfg date, preparer name, and per-lot qty/expiry for every drug, then saves. This writes `preparedAt` (NOT `registeredAt`) and clears any prior `checker`/`registeredAt` — a box always re-enters Stage 1 when its drug data is re-prepared, even if it was previously verified. Printing the physical EB label (`printEBForm()`) happens here — the printed "ผู้ตรวจสอบ" line is left blank for the pharmacist to hand-sign after physically checking the box in Stage 2; the print gate no longer requires `regChecker`.
+- **Stage 2 — ตรวจสอบ/ยืนยัน (Verified)**: **pharmacist/admin only** (`_canVerifyReg()` — checks `role === 'pharmacist' || role === 'admin'`). Reviews the จพ.-entered data read-only against the physical box/printed label, ticks a per-drug `verified` checkbox (`box_drugs.drugs[].verified`, toggled via `toggleDrugVerified()`) for **every** drug, signs `checker`, then saves — this sets `registeredAt` (now means "verified", not "prepared") and computes `expiry`/`nearDrug`.
+- **`_regStage(box)`** (index.html): returns `'none'` (no `preparedAt`) / `'prepared'` (`preparedAt` set, no `registeredAt`) / `'verified'` (`registeredAt` set). This is the single source of truth for which view (`regIsEditable` / `regIsVerifyStep` / `regIsLocked`) the register screen shows.
+- **Hard-blocked from dispense**: `_resolveDispEB()` and the dispense box-chip list only include boxes with `registeredAt` set — a `'prepared'`-only box (จพ. done, not yet verified) cannot be dispensed under any circumstance, not just a warning.
+- **Locked view**: a technician (or any non-verifier) viewing a `'prepared'` box sees a read-only "รอเภสัชกร/แอดมินตรวจสอบ" banner instead of the form — they cannot re-edit Stage 1 data or attempt Stage 2 while verification is pending.
+- Do not add a `.par`-based or per-lot verification granularity — verification is intentionally **per-drug**, not per-lot.
 
 ---
 
@@ -157,3 +171,5 @@ The service account behind `FIREBASE_SERVICE_ACCOUNT` needs the **Firebase Rules
 - Do not add `.orderBy()` to the `usage_log` Firestore query — it needs a composite index that doesn't exist; sort client-side instead
 - Do not let `openedAt` survive past a box's dispense cycle — always reset it to `''` alongside `dispense`/`receiver` on register and return
 - Do not treat the department PIN as a real security boundary — it's a client-side UI gate only, consistent with this app's anonymous-auth trust model, not a Firestore rules restriction
+- Do not dispense a box whose `registeredAt` is unset, even if `preparedAt` is set — `'prepared'` (จพ. done) is not the same as `'verified'` (เภสัชกร/admin checked); dispense eligibility must check `registeredAt`, not `preparedAt` or `mfg`/`expiry` presence
+- Do not let Stage 1 (จพ.) submit set `registeredAt` or require `regChecker`/per-drug `verified` — those are Stage 2 (เภสัชกร/admin) only
