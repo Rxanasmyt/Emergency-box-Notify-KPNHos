@@ -874,7 +874,7 @@ input:focus, select:focus, textarea:focus {
           </div>
           <div style="display: flex; flex-wrap: wrap; gap: 10px;">
             <sc-for list="{{ pendingVerifyBoxes }}" as="pv" hint-placeholder-count="2">
-              <button onClick="{{ pv.goVerify }}" style="display: flex; align-items: center; gap: 10px; background: #fff; border: 1px solid #F0DDB8; border-radius: 12px; padding: 10px 14px; min-width: 220px; cursor: pointer; text-align: left; font-family: inherit;">
+              <button onClick="{{ pv.goVerify }}" style="display: flex; align-items: center; gap: 10px; background: #fff; border: 1px solid #F0DDB8; border-radius: 12px; padding: 10px 14px; min-width: 220px; cursor: pointer; text-align: left; font-family: inherit; transition: all .22s cubic-bezier(.34,1.56,.64,1);" style-hover="transform: translateY(-2px); box-shadow: 0 8px 20px rgba(238,138,43,.22); border-color: #EE8A2B;" style-active="transform: scale(.97);">
                 <div style="font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 14px; color: #B5740F; background: #FBF1E0; border: 1px solid #F0DDB8; border-radius: 8px; padding: 5px 10px;">{{ pv.id }}</div>
                 <div>
                   <div style="font-size: 13px; font-weight: 600; color: #1B2A34;">จัดเตรียมโดย {{ pv.preparer }}</div>
@@ -900,7 +900,7 @@ input:focus, select:focus, textarea:focus {
           </div>
           <div style="display: flex; flex-wrap: wrap; gap: 10px;">
             <sc-for list="{{ rejectedRegBoxes }}" as="rb" hint-placeholder-count="2">
-              <button onClick="{{ rb.goFix }}" style="display: flex; align-items: center; gap: 10px; background: #fff; border: 1px solid #F4C9C9; border-radius: 12px; padding: 10px 14px; min-width: 220px; cursor: pointer; text-align: left; font-family: inherit;">
+              <button onClick="{{ rb.goFix }}" style="display: flex; align-items: center; gap: 10px; background: #fff; border: 1px solid #F4C9C9; border-radius: 12px; padding: 10px 14px; min-width: 220px; cursor: pointer; text-align: left; font-family: inherit; transition: all .22s cubic-bezier(.34,1.56,.64,1);" style-hover="transform: translateY(-2px); box-shadow: 0 8px 20px rgba(224,62,62,.22); border-color: #E03E3E;" style-active="transform: scale(.97);">
                 <div style="font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 14px; color: #B42121; background: #FCEDED; border: 1px solid #F4C9C9; border-radius: 8px; padding: 5px 10px;">{{ rb.id }}</div>
                 <div>
                   <div style="font-size: 13px; font-weight: 600; color: #1B2A34;">{{ rb.reason }}</div>
@@ -1044,7 +1044,7 @@ input:focus, select:focus, textarea:focus {
             <sc-if value="{{ regIsEditable }}" hint-placeholder-val="{{ true }}">
               <!-- This box was sent back by a pharmacist/admin — show why before จพ. re-submits -->
               <sc-if value="{{ hasRegRejected }}" hint-placeholder-val="{{ false }}">
-                <div style="display: flex; align-items: flex-start; gap: 10px; padding: 14px 16px; border-radius: 13px; background: #FCEDED; border: 1px solid #F4C9C9; color: #B42121; margin-bottom: 18px;">
+                <div style="display: flex; align-items: flex-start; gap: 10px; padding: 14px 16px; border-radius: 13px; background: #FCEDED; border: 1px solid #F4C9C9; color: #B42121; margin-bottom: 18px; animation: fadeUp .35s cubic-bezier(.34,1.56,.64,1) both;">
                   <span style="font-size: 18px; flex-shrink: 0;">⚠</span>
                   <div>
                     <div style="font-size: 13px; font-weight: 700;">กล่องนี้ถูกตีกลับให้แก้ไข{{ regRejectedAtText }}</div>
@@ -1081,22 +1081,22 @@ input:focus, select:focus, textarea:focus {
               </div>
 
               <!-- Found a mistake? send the box back to จพ. instead of verifying it -->
-              <div style="margin-top: 16px; padding: 14px 16px; border: 1.5px dashed #F0B8B8; border-radius: 12px; background: #FFF8F8;">
+              <div style="margin-top: 16px; padding: 14px 16px; border: 1.5px dashed #F0B8B8; border-radius: 12px; background: #FFF8F8; animation: fadeUp .35s cubic-bezier(.34,1.56,.64,1) both;">
                 <label style="display: block; font-size: 12px; font-weight: 600; color: #B42121; margin-bottom: 7px;">พบข้อผิดพลาดในข้อมูลที่จพ.จัดเตรียม? ตีกลับให้แก้ไขใหม่ (ระบุเหตุผลได้ ไม่บังคับ)</label>
                 <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                  <input type="text" value="{{ regRejectReason }}" onInput="{{ setRegRejectReason }}" placeholder="เช่น จำนวนยาไม่ตรง / วันหมดอายุผิด" style="flex: 1; min-width: 220px; height: 42px; border: 1.5px solid #F0C2C2; border-radius: 10px; padding: 0 12px; font-size: 13px; color: #15242E;">
-                  <button onClick="{{ doRejectReg }}" style="height: 42px; padding: 0 18px; border: 1.5px solid #E03E3E; background: #fff; color: #E03E3E; border-radius: 10px; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap;">ตีกลับให้แก้ไข</button>
+                  <input type="text" value="{{ regRejectReason }}" onInput="{{ setRegRejectReason }}" placeholder="เช่น จำนวนยาไม่ตรง / วันหมดอายุผิด" style="flex: 1; min-width: 220px; height: 42px; border: 1.5px solid #F0C2C2; border-radius: 10px; padding: 0 12px; font-size: 13px; color: #15242E; transition: border-color .2s;">
+                  <button onClick="{{ doRejectReg }}" style="height: 42px; padding: 0 18px; border: 1.5px solid #E03E3E; background: #fff; color: #E03E3E; border-radius: 10px; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; transition: all .22s cubic-bezier(.34,1.56,.64,1);" style-hover="background: #E03E3E; color: #fff; transform: translateY(-1px); box-shadow: 0 6px 16px rgba(224,62,62,.35);" style-active="transform: scale(.96);">ตีกลับให้แก้ไข</button>
                 </div>
               </div>
             </sc-if>
 
             <!-- Locked: prepared box awaiting pharmacist/admin — technician view -->
             <sc-if value="{{ regIsLocked }}" hint-placeholder-val="{{ false }}">
-              <div style="display: flex; align-items: center; gap: 12px; padding: 16px 18px; border-radius: 13px; background: #FBF1E0; border: 1px solid #F0DDB8; color: #B5740F; font-size: 13px; font-weight: 600;">
+              <div style="display: flex; align-items: center; gap: 12px; padding: 16px 18px; border-radius: 13px; background: #FBF1E0; border: 1px solid #F0DDB8; color: #B5740F; font-size: 13px; font-weight: 600; animation: fadeUp .35s cubic-bezier(.34,1.56,.64,1) both;">
                 🔒 กล่องนี้จัดเตรียมเรียบร้อยแล้ว รอเภสัชกร/แอดมินตรวจสอบก่อนจึงจะบันทึกยืนยันได้
               </div>
               <div style="margin-top: 14px;">
-                <button onClick="{{ resetForm }}" style="height: 50px; padding: 0 22px; border: 1.5px solid #DBE4EB; background: #fff; color: #4A5C6A; border-radius: 13px; font-size: 14px; font-weight: 600; cursor: pointer;">ล้างฟอร์ม</button>
+                <button onClick="{{ resetForm }}" style="height: 50px; padding: 0 22px; border: 1.5px solid #DBE4EB; background: #fff; color: #4A5C6A; border-radius: 13px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all .22s cubic-bezier(.34,1.56,.64,1);" style-hover="background: #F4F8FB; border-color: #C3DDEC; transform: translateY(-1px);" style-active="transform: scale(.97);">ล้างฟอร์ม</button>
               </div>
             </sc-if>
           </sc-if>
@@ -3940,7 +3940,7 @@ td.l{text-align:left;padding-left:4px}
               // registration stage — real-time so ward staff scanning a box that's
               // only "prepared" (awaiting pharmacist verification) see that clearly,
               // instead of assuming any box with mfg/preparer data is ready to use
-              pubStageBadge ? h('span', { style: { background: pubStageBadge.bg, border: `1px solid ${pubStageBadge.border}`, borderRadius: 9, padding: '6px 14px', fontSize: 13, fontWeight: 600 } }, pubStageBadge.label) : null
+              pubStageBadge ? h('span', { key: 'pubstage_' + pubStage, style: { background: pubStageBadge.bg, border: `1px solid ${pubStageBadge.border}`, borderRadius: 9, padding: '6px 14px', fontSize: 13, fontWeight: 600, animation: 'chipPop .35s cubic-bezier(.34,1.56,.64,1) both' } }, pubStageBadge.label) : null
             )
           ),
           h('div', { style: { padding: '0 16px 40px', marginTop: -24 } },
@@ -4242,7 +4242,10 @@ td.l{text-align:left;padding-left:4px}
       prepared: { label: regCanVerify ? 'จัดเตรียมแล้ว — รอตรวจสอบและยืนยัน' : 'จัดเตรียมแล้ว รอเภสัชกร/แอดมินตรวจสอบ', bg: '#FBF1E0', color: '#B5740F', border: '#F0DDB8' },
       verified: { label: 'ยืนยันแล้ว — พร้อมจ่าย',                        bg: '#E4F4EF', color: '#169C7F', border: '#C4E7DB' },
     }[regStage];
-    vals.regStageBadgeEl = h('div', { style: { display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 8, padding: '5px 11px', borderRadius: 8, fontSize: 11.5, fontWeight: 700, background: _stageBadge.bg, color: _stageBadge.color, border: `1px solid ${_stageBadge.border}` } }, _stageBadge.label);
+    vals.regStageBadgeEl = h('div', {
+      key: 'regstage_' + regStage,
+      style: { display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 8, padding: '5px 11px', borderRadius: 8, fontSize: 11.5, fontWeight: 700, background: _stageBadge.bg, color: _stageBadge.color, border: `1px solid ${_stageBadge.border}`, transition: 'background .25s ease, color .25s ease, border-color .25s ease', animation: 'chipPop .3s cubic-bezier(.34,1.56,.64,1) both' },
+    }, _stageBadge.label);
     vals.regDrugTableLabel = vals.regIsVerifyStep
       ? 'ตรวจสอบยาในกล่อง · ติ๊กถูกทุกตัวยาหลังตรวจกับกล่องจริง/ใบกล่อง'
       : (vals.regIsLocked ? 'ข้อมูลยาที่จพ.จัดเตรียมไว้ (รอตรวจสอบ)' : 'ข้อมูลยาในกล่อง · กรอกจำนวนและวันหมดอายุรายตัว');
@@ -4318,9 +4321,10 @@ td.l{text-align:left;padding-left:4px}
         );
       });
       const verifyCheckbox = vals.regIsVerifyStep ? h('button', {
+        key: 'verifychk_' + i + '_' + d.verified,
         onClick: () => this.toggleDrugVerified(st.regEB, i),
         title: d.verified ? 'ตรวจสอบแล้ว' : 'ติ๊กเมื่อตรวจสอบยาตัวนี้แล้ว',
-        style: { width: 26, height: 26, flexShrink: 0, borderRadius: 7, border: d.verified ? '1.5px solid #169C7F' : '1.5px solid #C4D0DA', background: d.verified ? '#169C7F' : '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+        style: { width: 26, height: 26, flexShrink: 0, borderRadius: 7, border: d.verified ? '1.5px solid #169C7F' : '1.5px solid #C4D0DA', background: d.verified ? '#169C7F' : '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .18s cubic-bezier(.34,1.56,.64,1)', animation: d.verified ? 'chipPop .3s cubic-bezier(.34,1.56,.64,1) both' : 'none' },
       }, d.verified ? ic(checkSmallSVG, 14) : null) : null;
       return h('div', { key: d.name, className: 'drug-row' + (d.had ? ' drug-row-had' : ''), style: { padding: '12px 16px', borderBottom: i < regList.length - 1 ? '1px solid #F0F4F7' : 'none', background: isNear ? '#FFF7F1' : (d.had ? undefined : (vals.regIsVerifyStep && d.verified ? '#F2FBF7' : '#fff')), animation: `rowIn .3s cubic-bezier(.34,1.56,.64,1) ${i * 40}ms both` } },
         // drug header row
