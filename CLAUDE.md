@@ -126,6 +126,9 @@ Registration is split into two role-gated stages instead of one single-step save
 - **Hard-blocked from dispense**: `_resolveDispEB()` and the dispense box-chip list only include boxes with `registeredAt` set — a `'prepared'`-only box (จพ. done, not yet verified) cannot be dispensed under any circumstance, not just a warning.
 - **Locked view**: a technician (or any non-verifier) viewing a `'prepared'` box sees a read-only "รอเภสัชกร/แอดมินตรวจสอบ" banner instead of the form — they cannot re-edit Stage 1 data or attempt Stage 2 while verification is pending.
 - Do not add a `.par`-based or per-lot verification granularity — verification is intentionally **per-drug**, not per-lot.
+- **Reject-to-edit**: in Stage 2, the pharmacist/admin can call `rejectReg(boxId, reason)` instead of verifying — clears `preparedAt`/`registeredAt`/`checker` and every drug's `verified` flag (mfg/preparer/drug data is left as-is so จพ. can see and fix it), logging the optional reason to `audit_log`/box history. This is the only way back from `'prepared'` to `'none'` short of the box being dispensed.
+- **Dashboard "pending verification" banner**: the dashboard lists every `'prepared'`-stage box (จพ.จัดเตรียมเสร็จแล้ว รอตรวจสอบ) with a one-click jump into its register/verify view (`pendingVerifyBoxes` in `renderVals()`), so a pharmacist doesn't have to click through every EB chip to find pending work. Visible to all roles; only pharmacist/admin can actually act on what it links to.
+- Selecting a box in the register EB-chip picker prefills `regMfg`/`regPreparer` from the box's persisted values **only if that box already has them** (e.g. reopened after a Stage 2 reject) — a brand-new (`'none'`-stage) box keeps whatever the user already typed, so a จพ. preparing several boxes in a row doesn't lose their own name each time they switch boxes.
 
 ---
 
