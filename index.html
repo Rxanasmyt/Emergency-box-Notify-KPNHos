@@ -3818,6 +3818,12 @@ td.l{text-align:left;padding-left:4px}
         const pubRetDate = pubRetISO ? this.fmtISO(pubRetISO) : '—';
         const pubDaysText = this.daysText(pubExpiry);
         const isOut = !!pubBox.dispense && !pubBox.receiver;
+        const pubStage = this._regStage(pubBox);
+        const pubStageBadge = {
+          none: null, // no registration data yet — nothing meaningful to show
+          prepared: { label: '🟡 รอเภสัชกรตรวจสอบ — ยังไม่พร้อมจ่าย', bg: 'rgba(238,138,43,.22)', border: 'rgba(238,138,43,.4)' },
+          verified: { label: '🟢 ยืนยันแล้ว — พร้อมจ่าย', bg: 'rgba(22,156,127,.3)', border: 'rgba(22,156,127,.4)' },
+        }[pubStage];
 
         const drugRows = pubBD.map((d, i) => {
           const minExp = this.drugMinExp(d);
@@ -3930,7 +3936,11 @@ td.l{text-align:left;padding-left:4px}
                 : h('span', { style: { background: 'rgba(255,255,255,.12)', borderRadius: 9, padding: '6px 14px', fontSize: 13, fontWeight: 500, opacity: .85 } }, 'ยังไม่มีหน่วยงานเบิก'),
               isOut
                 ? h('span', { style: { background: 'rgba(224,62,62,.25)', border: '1px solid rgba(224,62,62,.4)', borderRadius: 9, padding: '6px 14px', fontSize: 13, fontWeight: 600 } }, '📤 จ่ายออกไปแล้ว')
-                : h('span', { style: { background: 'rgba(22,156,127,.3)', border: '1px solid rgba(22,156,127,.4)', borderRadius: 9, padding: '6px 14px', fontSize: 13, fontWeight: 600 } }, '✅ อยู่ในห้องยา')
+                : h('span', { style: { background: 'rgba(22,156,127,.3)', border: '1px solid rgba(22,156,127,.4)', borderRadius: 9, padding: '6px 14px', fontSize: 13, fontWeight: 600 } }, '✅ อยู่ในห้องยา'),
+              // registration stage — real-time so ward staff scanning a box that's
+              // only "prepared" (awaiting pharmacist verification) see that clearly,
+              // instead of assuming any box with mfg/preparer data is ready to use
+              pubStageBadge ? h('span', { style: { background: pubStageBadge.bg, border: `1px solid ${pubStageBadge.border}`, borderRadius: 9, padding: '6px 14px', fontSize: 13, fontWeight: 600 } }, pubStageBadge.label) : null
             )
           ),
           h('div', { style: { padding: '0 16px 40px', marginTop: -24 } },
@@ -3945,6 +3955,7 @@ td.l{text-align:left;padding-left:4px}
                 h('div', null, h('div', { style: { color: '#9AAAB8', fontSize: 11 } }, 'วันที่ผลิต'), h('div', { style: { fontWeight: 600, marginTop: 2 } }, this.fmtISO(pubBox.mfg))),
                 h('div', null, h('div', { style: { color: '#9AAAB8', fontSize: 11 } }, 'ผู้จัดเตรียม'), h('div', { style: { fontWeight: 600, marginTop: 2 } }, pubBox.preparer || '—')),
                 h('div', null, h('div', { style: { color: '#9AAAB8', fontSize: 11 } }, 'เภสัชกรผู้ตรวจสอบ'), h('div', { style: { fontWeight: 600, marginTop: 2 } }, pubBox.checker || '—')),
+                pubBox.registeredAt ? h('div', null, h('div', { style: { color: '#9AAAB8', fontSize: 11 } }, 'ยืนยันเมื่อ'), h('div', { style: { fontWeight: 600, marginTop: 2, color: '#169C7F' } }, this.fmtISO(pubBox.registeredAt))) : null,
                 pubBox.openedAt ? h('div', null, h('div', { style: { color: '#9AAAB8', fontSize: 11 } }, 'เปิดใช้งานครั้งแรก'), h('div', { style: { fontWeight: 600, marginTop: 2, color: '#B5740F' } }, this.fmtISO(pubBox.openedAt))) : null,
               )
             ) : null,
