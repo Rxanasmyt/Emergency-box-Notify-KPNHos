@@ -2163,6 +2163,22 @@ class Component extends DCLogic {
 
   // ---------- audit log ----------
   nowTime() { const d = new Date(); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
+  // Downloads text as an Excel-friendly file. UTF-8 + BOM is the "correct"
+  // web-standard encoding, but Excel — especially on Thai-locale Windows —
+  // unreliably honors the BOM and renders Thai text as mojibake anyway.
+  // UTF-16LE + BOM is the long-standing, dependable workaround: Excel has
+  // auto-detected it correctly since Excel 97, regardless of locale/version.
+  _downloadExcelText(text, filename) {
+    const buf = new ArrayBuffer(2 + text.length * 2);
+    const view = new DataView(buf);
+    view.setUint16(0, 0xFEFF, true); // UTF-16LE BOM
+    for (let i = 0; i < text.length; i++) view.setUint16(2 + i * 2, text.charCodeAt(i), true);
+    const blob = new Blob([buf], { type: 'text/csv;charset=utf-16le;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
   logAction(entry) {
     const person = entry.person || (this.state.currentUser ? this.state.currentUser.name : 'ระบบ');
     const row = { date: this.isoOf(this.TODAY), time: this.nowTime(), person, ...entry };
@@ -4505,19 +4521,17 @@ td.l{text-align:left;padding-left:4px}
         ),
       ),
     );
-    // CSV export
+    // CSV export — tab-delimited + UTF-16LE (see _downloadExcelText) so Thai
+    // text renders correctly in Excel instead of the mojibake UTF-8-BOM CSV
+    // produces on many Thai-locale Excel installs
     vals.exportCSV = () => {
       const hdr = ['ลำดับ', 'วันที่', 'เวลา', 'ประเภท', 'EB', 'หน่วยงาน', 'ผู้ทำรายการ', 'ยาที่ใกล้หมดอายุ'];
       const esc = (v) => { let s = String(v == null ? '' : v); if (s.length > 0 && '=+-@\t\r'.includes(s[0])) s = "'" + s; return '"' + s.replace(/"/g, '""') + '"'; };
-      const lines = [hdr.map(esc).join(',')];
+      const lines = [hdr.map(esc).join('\t')];
       filtered.forEach((r, i) => {
-        lines.push([filtered.length - i, r.date || '', r.time || '', r.action || '', r.eb || '', r.dept || '', r.person || '', r.drug || ''].map(esc).join(','));
+        lines.push([filtered.length - i, r.date || '', r.time || '', r.action || '', r.eb || '', r.dept || '', r.person || '', r.drug || ''].map(esc).join('\t'));
       });
-      const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href = url; a.download = `EB_register_${this.isoOf(this.TODAY)}.csv`;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      this._downloadExcelText(lines.join('\r\n'), `EB_register_${this.isoOf(this.TODAY)}.csv`);
     };
 
     // ===== USER MANAGEMENT (admin) =====
@@ -4778,13 +4792,9 @@ td.l{text-align:left;padding-left:4px}
     vals.adminExportCSV = () => {
       const hdr = ['ลำดับ','วันที่','เวลา','ประเภท','EB','หน่วยงาน','ผู้ทำรายการ','รายละเอียด'];
       const esc = (v) => { let s = String(v==null?'':v); if (s.length>0&&'=+-@\t\r'.includes(s[0])) s="'"+s; return '"'+s.replace(/"/g,'""')+'"'; };
-      const lines = [hdr.map(esc).join(',')];
-      _adminFiltered.forEach((r,i) => lines.push([_adminFiltered.length-i,r.date||'',r.time||'',r.action||'',r.eb||'',r.dept||'',r.person||'',r.drug||''].map(esc).join(',')));
-      const blob = new Blob(['﻿'+lines.join('\r\n')],{type:'text/csv;charset=utf-8;'});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href=url; a.download=`EB_audit_log_${this.isoOf(this.TODAY)}.csv`;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      const lines = [hdr.map(esc).join('\t')];
+      _adminFiltered.forEach((r,i) => lines.push([_adminFiltered.length-i,r.date||'',r.time||'',r.action||'',r.eb||'',r.dept||'',r.person||'',r.drug||''].map(esc).join('\t')));
+      this._downloadExcelText(lines.join('\r\n'), `EB_audit_log_${this.isoOf(this.TODAY)}.csv`);
     };
 
     // ===== box edit history (detail) =====
