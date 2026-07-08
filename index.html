@@ -1360,7 +1360,7 @@ input:focus, select:focus, textarea:focus {
           </div>
           <!-- Footer -->
           <div style="padding: 13px 20px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 12.5px; color: #7B8D9C; border-top: 1px solid #EFF3F6;">
-            <span>แสดง <b style="color: #15242E;">{{ auditCount }}</b> รายการ · บันทึกอัตโนมัติครบถ้วนเพื่อตรวจสอบย้อนหลัง</span>
+            <span>แสดง <b style="color: #15242E;">{{ auditCount }}</b> รายการล่าสุด (สูงสุด 500 รายการต่อการโหลด — ข้อมูลจริงเก็บถาวรใน Firestore ไม่มีวันลบ)</span>
             <span style="margin-left: auto; display: flex; align-items: center; gap: 6px; color: #169C7F; font-weight: 600;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #169C7F; flex-shrink: 0;"></span>ทะเบียนจ่ายและรับคืน Emergency Box · ฝ่ายเภสัชกรรม โรงพยาบาลกรงปินัง</span>
           </div>
         </div>
@@ -2016,6 +2016,15 @@ class Component extends DCLogic {
         pubUsageBusy: false, pubUsageQty: '', pubUsageHN: '', pubUsagePatient: '', pubUsageDrugIdx: null, pubUsageLotIdx: null,
         pubUsageMsg: `บันทึกการใช้ ${result.drugName} จำนวน ${qty} เรียบร้อย`, pubUsageMsgOk: true,
       }));
+      // A drug-administration event is exactly the kind of thing an admin needs to
+      // find in the main audit trail — this used to write ONLY to usage_log,
+      // leaving a blind spot in audit_log (and the admin Audit screen/export)
+      // for every paperless usage entry. No individual login exists on this
+      // public page (only a per-department PIN), so attribute to the department.
+      const pinPerson = `หน่วยงาน ${dept || '-'} (สแกน QR)`;
+      const usageDrugDesc = `${result.drugName} จำนวน ${qty} · HN ${pubUsageHN.trim()}${(pubUsagePatient || '').trim() ? ' · ผู้ป่วย ' + pubUsagePatient.trim() : ''}`;
+      this.logAction({ cat: 'usage', action: 'เปิดใช้งาน/บันทึกใช้ยา (QR)', eb: publicBoxId, dept: dept || '—', drug: usageDrugDesc, person: pinPerson });
+      this.logBoxHist(publicBoxId, `บันทึกใช้ยาผ่าน QR: ${usageDrugDesc}`, pinPerson);
     } catch (err) {
       this.setState({ pubUsageBusy: false, pubUsageMsg: err.message || 'บันทึกไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต', pubUsageMsgOk: false });
     }
@@ -2348,11 +2357,14 @@ class Component extends DCLogic {
     this.setState(s => ({ auditLog: [row, ...(s.auditLog || [])] }));
     if (window.EB_Sync) window.EB_Sync.logAudit(row);
   }
-  logBoxHist(boxId, text) {
-    const who = this.state.currentUser ? this.state.currentUser.name : 'ระบบ';
+  // whoOverride lets a caller with no logged-in currentUser (the public QR page,
+  // which only has a department PIN, not an individual account) attribute the
+  // entry to something more useful than the generic 'ระบบ' fallback.
+  logBoxHist(boxId, text, whoOverride) {
+    const who = whoOverride || (this.state.currentUser ? this.state.currentUser.name : 'ระบบ');
     const stamp = `${this.isoOf(this.TODAY)} · ${this.nowTime()}`;
     // update in-state for immediate UI feedback before Firestore snapshot returns
-    this.setState(s => { const bh = { ...(s.boxHist || {}) }; bh[boxId] = [{ text, who, stamp }, ...((bh[boxId]) || [])].slice(0, 8); return { boxHist: bh }; });
+    this.setState(s => { const bh = { ...(s.boxHist || {}) }; bh[boxId] = [{ text, who, stamp }, ...((bh[boxId]) || [])].slice(0, 50); return { boxHist: bh }; });
     // persist to Firestore so history survives refresh
     if (window.EB_Sync) window.EB_Sync.logAudit({ cat: 'boxhist', action: text, eb: boxId, dept: '—', drug: '—', person: who, date: this.isoOf(this.TODAY), time: this.nowTime() });
   }
@@ -2385,6 +2397,17 @@ class Component extends DCLogic {
         if (!lot.expiry) { this.flash('กรุณากรอกวันหมดอายุให้ครบทุก Lot'); return; }
         if (lot.expiry < this.isoOf(this.TODAY)) { this.flash('มียาที่หมดอายุแล้ว — แก้วันหมดอายุก่อนบันทึก'); return; }
       }
+    }
+    // Detect a concurrent change (e.g. a return or paperless usage-log entry
+    // decrementing quantities) made by someone else while this edit was open —
+    // this write is a plain overwrite of the whole drugs[] array, not a
+    // transaction, so saving now would silently discard that change. Compare
+    // against the snapshot taken when editing started (this._bdBackup).
+    const liveNow = (this.BOX_DRUGS || {})[id] || [];
+    const backupSnapshot = (this._bdBackup || {})[id] || [];
+    if (JSON.stringify(liveNow) !== JSON.stringify(backupSnapshot)) {
+      this.flash('⚠️ ข้อมูลยาของกล่องนี้เปลี่ยนไประหว่างที่คุณแก้ไข (อาจมีการรับคืน/บันทึกใช้ยาเข้ามาใหม่) — กด "ยกเลิก" แล้วแก้ไขใหม่อีกครั้ง เพื่อไม่ให้ข้อมูลล่าสุดหาย');
+      return;
     }
     this._savingDrugs = true;
     this._bdBackup = null;
@@ -2504,7 +2527,7 @@ class Component extends DCLogic {
   // back to Stage 1 instead of verifying it — keeps mfg/preparer/drug data
   // as-is (so จพ. can see and fix what they entered) but clears preparedAt/
   // registeredAt/checker and unticks every drug's verified flag.
-  rejectReg(boxId, reason) {
+  async rejectReg(boxId, reason) {
     if (!this._canVerifyReg()) return;
     const box = this.BOXES.find(b => b.id === boxId);
     if (!box || this._regStage(box) !== 'prepared') return;
@@ -2516,8 +2539,12 @@ class Component extends DCLogic {
     // rejectedReason/rejectedAt persist through the 'none' stage (unlike preparedAt/
     // registeredAt/checker which are wiped) so จพ. sees WHY the box came back —
     // Stage 1 submit clears these once จพ. re-submits with the fix.
-    this._syncBox({ ...box, preparedAt: '', registeredAt: '', checker: '', rejectedReason: reason || '', rejectedAt: this.isoOf(this.TODAY) });
-    this._syncBoxDrugs(boxId, freshDrugs.map(d => ({ ...d, verified: false })));
+    // Await before logging/toasting success — same reasoning as the dispense/
+    // register submit paths: a failed write must never produce a permanent
+    // "ตีกลับสำเร็จ" audit_log record.
+    const ok = await this._syncBox({ ...box, preparedAt: '', registeredAt: '', checker: '', rejectedReason: reason || '', rejectedAt: this.isoOf(this.TODAY) });
+    await this._syncBoxDrugs(boxId, freshDrugs.map(d => ({ ...d, verified: false })));
+    if (!ok) return;
     this.setState({ regRejectReason: '', regChecker: '' });
     this.flash(`ตีกลับกล่อง ${boxId} ให้จพ.แก้ไขใหม่แล้ว`);
     this.logAction({ cat: 'register', action: 'ตีกลับให้แก้ไข', eb: boxId, dept: '—', drug: reason ? `เหตุผล: ${reason}` : 'เภสัชกร/แอดมินตีกลับให้จพ.แก้ไขใหม่' });
@@ -3060,12 +3087,18 @@ class Component extends DCLogic {
     }
     this.submit();
   }
+  // Returns a promise resolving true/false (never rejects) so a caller that
+  // needs to know the write actually landed before logging/toasting a success
+  // can `await` it — e.g. dispense, where logging "จ่ายสำเร็จ" to the
+  // append-only audit_log before the write is confirmed would leave a
+  // permanent record of a dispense that never happened. Fire-and-forget
+  // callers are unaffected — they simply don't await the returned promise.
   _syncBox(updated) {
     const prevBox = this.BOXES.find(b => b.id === updated.id);
     this.BOXES = this.BOXES.map(b => b.id === updated.id ? updated : b);
     if (!window.EB_Sync) {
       this.flash('⚠️ ระบบซิงค์ยังไม่พร้อม — ข้อมูลบันทึกเฉพาะในเครื่องนี้ กรุณารีเฟรชหน้าแล้วลองใหม่');
-      return;
+      return Promise.resolve(false);
     }
     // write only the fields this action actually changed (diff vs the last-known box) —
     // sending the full spread would re-assert stale field values and, even under
@@ -3074,9 +3107,10 @@ class Component extends DCLogic {
     Object.keys(updated).forEach(k => {
       if (k !== 'id' && updated[k] !== (prevBox ? prevBox[k] : undefined)) diff[k] = updated[k];
     });
-    window.EB_Sync.syncBoxes(diff).then(null, () => {
+    return window.EB_Sync.syncBoxes(diff).then(() => true, () => {
       if (prevBox) this.BOXES = this.BOXES.map(b => b.id === prevBox.id ? prevBox : b);
       this.flash('⚠️ บันทึกไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
+      return false;
     });
   }
   // shared box_drugs write path — every call site used to fire-and-forget this
@@ -3131,8 +3165,14 @@ class Component extends DCLogic {
         const meta = { ...(this.state.boxMeta || {}) };
         meta[regEB] = { mfg: box.mfg, preparer: box.preparer, checker: this.state.regChecker, registeredAt: this.isoOf(this.TODAY) };
         this.setState({ boxMeta: meta, regHadConfirm: false });
-        this._syncBox({ ...box, expiry: nearISO || '', nearDrug: near || '', checker: this.state.regChecker, registeredAt: this.isoOf(this.TODAY) });
-        this._syncBoxDrugs(regEB, freshDrugs.map(d => ({ ...d, verified: true })));
+        // await both writes before logging — see the dispense path for why:
+        // logging "ยืนยันสำเร็จ" to the append-only audit_log before confirming
+        // the write actually landed would leave a permanent false record.
+        const [regBoxOk] = await Promise.all([
+          this._syncBox({ ...box, expiry: nearISO || '', nearDrug: near || '', checker: this.state.regChecker, registeredAt: this.isoOf(this.TODAY) }),
+          this._syncBoxDrugs(regEB, freshDrugs.map(d => ({ ...d, verified: true }))),
+        ]);
+        if (!regBoxOk) { this.setState({ submitting: false }); return; }
         msg = `ตรวจสอบและยืนยันลงทะเบียน ${regEB} สำเร็จ · ตรวจพบยาใกล้หมดอายุสุด: ${near || 'ไม่มีข้อมูล'}`;
         this.logAction({ cat: 'register', action: 'ตรวจสอบ/ยืนยันลงทะเบียน', eb: regEB, dept: '—', drug: `เภสัชกรตรวจสอบยาครบทุกรายการ · ใกล้หมดอายุสุด: ${near}` });
         this.logBoxHist(regEB, `ยืนยันลงทะเบียน — ผ่านการตรวจสอบ (ตรวจโดย ${this.state.regChecker || '-'})`);
@@ -3141,8 +3181,11 @@ class Component extends DCLogic {
         const meta = { ...(this.state.boxMeta || {}) };
         meta[regEB] = { mfg: this.state.regMfg, preparer: this.state.regPreparer, preparedAt: this.isoOf(this.TODAY) };
         this.setState({ boxMeta: meta });
-        this._syncBox({ ...box, mfg: this.state.regMfg, preparer: this.state.regPreparer, preparedAt: this.isoOf(this.TODAY), checker: '', registeredAt: '', rejectedReason: '', rejectedAt: '', dispense: '', dispenser: '', receiver: '', retDate: '', openedAt: '' });
-        this._syncBoxDrugs(regEB, (BD[regEB] || []).map(d => ({ ...d, verified: false })));
+        const [prepBoxOk] = await Promise.all([
+          this._syncBox({ ...box, mfg: this.state.regMfg, preparer: this.state.regPreparer, preparedAt: this.isoOf(this.TODAY), checker: '', registeredAt: '', rejectedReason: '', rejectedAt: '', dispense: '', dispenser: '', receiver: '', retDate: '', openedAt: '' }),
+          this._syncBoxDrugs(regEB, (BD[regEB] || []).map(d => ({ ...d, verified: false }))),
+        ]);
+        if (!prepBoxOk) { this.setState({ submitting: false }); return; }
         msg = `จัดเตรียมกล่อง ${regEB} เรียบร้อย · รอเภสัชกรตรวจสอบก่อนจึงจะพร้อมจ่าย`;
         this.logAction({ cat: 'register', action: 'จัดเตรียมกล่อง', eb: regEB, dept: '—', drug: `จพ.จัดยาเข้ากล่อง รอเภสัชกรตรวจสอบ` });
         this.logBoxHist(regEB, `จัดเตรียมกล่อง (จัดโดย ${this.state.regPreparer || '-'}) — รอเภสัชกรตรวจสอบ`);
@@ -3196,7 +3239,11 @@ class Component extends DCLogic {
         this.flash('⚠️ ระบบซิงค์ยังไม่พร้อม — กรุณารีเฟรชหน้าแล้วลองใหม่');
         return;
       }
-      this._syncBox({ ...box, dept: formDept, dispense: this.state.dispDate, dispenser: this.state.dispenser, receiver: '', retDate: '' });
+      // await this write before logging/toasting — logging a dispense to the
+      // append-only audit_log before confirming it actually landed would leave
+      // a permanent false record if the write failed (network drop, etc.)
+      const dispenseOk = await this._syncBox({ ...box, dept: formDept, dispense: this.state.dispDate, dispenser: this.state.dispenser, receiver: '', retDate: '' });
+      if (!dispenseOk) { this.setState({ submitting: false }); return; }
       if (swapReturn) {
         const swBox = this.BOXES.find(b => b.id === resolvedSwapEB) || { id: resolvedSwapEB };
         // atomic: swap box marked returned + its drug quantities decremented
@@ -4826,6 +4873,7 @@ td.l{text-align:left;padding-left:4px}
       if (r.cat === 'edit')     return { icon: '✎', color: '#D9810F', soft: '#FBF1E0' };
       if (r.cat === 'auth')     return { icon: '⎋', color: '#5A6B79', soft: '#EEF2F6' };
       if (r.cat === 'user')     return { icon: '◆', color: '#B42121', soft: '#FCEDED' };
+      if (r.cat === 'usage')    return { icon: '💊', color: '#0DB9A0', soft: '#E0F7F2' };
       return { icon: '•', color: '#5A6B79', soft: '#EEF2F6' };
     };
     // build rows — newest-first, with date-group dividers and descending seq numbers
@@ -5217,7 +5265,7 @@ td.l{text-align:left;padding-left:4px}
 
     // ===== box edit history (detail) =====
     // primary source: auditLog persisted in Firestore (cat='boxhist'); fallback: in-memory for immediate feedback
-    const _bhFromAudit = (st.auditLog || []).filter(r => r.cat === 'boxhist' && r.eb === st.selectedEB).slice(0, 8).map(r => ({ text: r.action || '', who: r.person || '—', stamp: `${r.date || ''} · ${r.time || ''}` }));
+    const _bhFromAudit = (st.auditLog || []).filter(r => r.cat === 'boxhist' && r.eb === st.selectedEB).slice(0, 50).map(r => ({ text: r.action || '', who: r.person || '—', stamp: `${r.date || ''} · ${r.time || ''}` }));
     const _bhInMem = ((st.boxHist || {})[st.selectedEB] || []);
     const bh = _bhFromAudit.length ? _bhFromAudit : _bhInMem;
     vals.boxHistEl = bh.length ? h(React.Fragment, null, ...bh.map((e, i) => h('div', { key: i, style: { display: 'flex', gap: 10, alignItems: 'flex-start', padding: '8px 0', borderBottom: i < bh.length - 1 ? '1px solid #F4F7F9' : 'none' } },
