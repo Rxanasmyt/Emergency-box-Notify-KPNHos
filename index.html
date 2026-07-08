@@ -1409,6 +1409,59 @@ input:focus, select:focus, textarea:focus {
             </div>
           </div>
         </div>
+
+        <!-- Usage Log Report (Paperless) -->
+        <div style="margin-top: 28px;">
+          <div style="display: flex; align-items: center; gap: 11px; margin-bottom: 16px;">
+            <span style="width: 38px; height: 38px; border-radius: 11px; background: linear-gradient(135deg,#1E4FD8,#2B7FE0); color: #fff; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><rect x="4" y="10" width="16" height="10" rx="2" stroke="currentColor" stroke-width="1.9"/><path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>
+            </span>
+            <div>
+              <div style="font-size: 14px; font-weight: 700;">ประวัติการใช้ยา (Paperless)</div>
+              <div style="font-size: 12px; color: #9AAAB8;">บันทึกผ่านการสแกน QR Code ทุกกล่อง — เฉพาะ Admin ดูและส่งออกได้</div>
+            </div>
+            <button onClick="{{ exportUsageLogCSV }}" style="margin-left: auto; height: 40px; padding: 0 16px; border: 1.5px solid #DBE4EB; background: #fff; color: #4A5C6A; border-radius: 11px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; white-space: nowrap; transition: all .2s;" style-hover="border-color: #C3DDEC; box-shadow: 0 4px 12px rgba(20,40,55,.07);" style-active="transform: scale(.96);">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 19h14" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              ส่งออก CSV
+            </button>
+          </div>
+          <!-- Filters -->
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 14px; flex-wrap: wrap;">
+            <div style="position: relative; flex: 1; min-width: 220px;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%);"><circle cx="11" cy="11" r="7" stroke="#9AAAB8" stroke-width="1.9"/><path d="M20 20l-4-4" stroke="#9AAAB8" stroke-width="1.9" stroke-linecap="round"/></svg>
+              <input type="text" value="{{ ulQuery }}" onInput="{{ setUlQuery }}" placeholder="ค้นหา ยา / กล่อง / HN / ชื่อผู้ป่วย…" style="width: 100%; height: 40px; border: 1.5px solid #DBE4EB; border-radius: 10px; padding: 0 12px 0 36px; font-size: 13px; background: #fff; box-sizing: border-box;">
+            </div>
+            <select onchange="{{ setUlFilterDept }}" style="height: 40px; border: 1.5px solid #DBE4EB; border-radius: 10px; padding: 0 12px; font-size: 13px; font-family: inherit; background: #fff; cursor: pointer;">{{ ulDeptOptionsEl }}</select>
+            <input type="date" value="{{ ulDateFrom }}" onchange="{{ setUlDateFrom }}" style="height: 40px; border: 1.5px solid #DBE4EB; border-radius: 10px; padding: 0 10px; font-size: 13px; font-family: inherit; background: #fff;">
+            <span style="font-size: 12px; color: #7B8D9C;">ถึง</span>
+            <input type="date" value="{{ ulDateTo }}" onchange="{{ setUlDateTo }}" style="height: 40px; border: 1.5px solid #DBE4EB; border-radius: 10px; padding: 0 10px; font-size: 13px; font-family: inherit; background: #fff;">
+          </div>
+          <!-- Table -->
+          <div style="background: #fff; border: 1px solid #E7EEF3; border-radius: 16px; overflow: hidden;">
+            <div style="overflow-x: auto;">
+              <div style="display: grid; grid-template-columns: 44px 140px 68px minmax(140px,1.2fr) 70px 100px minmax(120px,1fr); gap: 0; min-width: 900px; background: #F3F6F9; border-bottom: 2px solid #E0E8EF; padding: 11px 18px; font-size: 11px; font-weight: 700; color: #7B8D9C; letter-spacing: .5px; text-transform: uppercase;">
+                <span style="text-align:center;">#</span><span>วันที่ · เวลา</span><span>EB</span><span>ยา</span><span>จำนวน</span><span>หน่วยงาน</span><span>HN / ผู้ป่วย</span>
+              </div>
+              <div>
+                <sc-for list="{{ usageLogReportRows }}" as="r" hint-placeholder-count="6">
+                  <div style="display: grid; grid-template-columns: 44px 140px 68px minmax(140px,1.2fr) 70px 100px minmax(120px,1fr); gap: 0; min-width: 900px; align-items: center; padding: 11px 18px; border-bottom: 1px solid #F4F7F9; font-size: 12.5px;">
+                    <span style="font-size: 10px; color: #B0BCCA; font-family: 'IBM Plex Mono', monospace; text-align: center;">{{ r.seq }}</span>
+                    <span style="color: #4A5C6A; font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; white-space: nowrap;">{{ r.dateTime }}</span>
+                    <span style="font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 12px;">{{ r.boxId }}</span>
+                    <span style="font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 8px; font-size: 12px;">{{ r.drugName }}</span>
+                    <span style="font-weight: 600; font-family: 'IBM Plex Mono', monospace; font-size: 12px;">{{ r.qty }}</span>
+                    <span><span style="font-size: 11px; font-weight: 600; color: #4A5C6A; background: #F0F4F7; border-radius: 6px; padding: 2px 8px;">{{ r.dept }}</span></span>
+                    <span style="color: #4A5C6A; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px;">{{ r.patientLine }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+            <div style="padding: 11px 18px; font-size: 12px; color: #7B8D9C; border-top: 1px solid #EFF3F6; display: flex; align-items: center; gap: 10px;">
+              <span>แสดง <b style="color: #15242E;">{{ usageLogReportCount }}</b> รายการ</span>
+              <span style="margin-left: auto; display: flex; align-items: center; gap: 5px; color: #B42121; font-weight: 600; font-size: 11.5px;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #B42121; flex-shrink: 0;"></span>ข้อมูลลับ — เฉพาะ Admin</span>
+            </div>
+          </div>
+        </div>
       </div>
       </sc-if>
 
@@ -1736,6 +1789,8 @@ class Component extends DCLogic {
     pubUsageBusy: false, pubUsageMsg: '', pubUsageMsgOk: true, pubUsageLog: [],
     // paperless: pharmacist detail-screen usage log for the selected box
     detailUsageLog: [],
+    // paperless: admin-wide usage log report (users screen)
+    allUsageLog: [], ulFilterDept: 'all', ulQuery: '', ulDateFrom: '', ulDateTo: '',
     // session
     idleWarn: false,
     idleCountdown: 60,
@@ -2135,6 +2190,7 @@ class Component extends DCLogic {
     clearInterval(this._notifyInterval); clearInterval(this._idleCountI); clearInterval(this._lockCountI);
     if (this._usageLogUnsub) this._usageLogUnsub();
     if (this._detailUsageLogUnsub) this._detailUsageLogUnsub();
+    if (this._allUsageLogUnsub) this._allUsageLogUnsub();
     if (window.EB_Sync) window.EB_Sync.stopAll();
   }
 
@@ -4795,6 +4851,62 @@ td.l{text-align:left;padding-left:4px}
       const lines = [hdr.map(esc).join('\t')];
       _adminFiltered.forEach((r,i) => lines.push([_adminFiltered.length-i,r.date||'',r.time||'',r.action||'',r.eb||'',r.dept||'',r.person||'',r.drug||''].map(esc).join('\t')));
       this._downloadExcelText(lines.join('\r\n'), `EB_audit_log_${this.isoOf(this.TODAY)}.csv`);
+    };
+
+    // ===== usage log report (paperless, admin-wide) =====
+    // subscribe once while viewing the users screen as admin — this report
+    // spans every box, unlike the per-box listener on the detail screen
+    const _isAdminNow = !!(st.currentUser && st.currentUser.role === 'admin');
+    if (screen === 'users' && _isAdminNow) {
+      if (!this._allUsageLogUnsub && window.EB_Sync && window.EB_Sync.listenAllUsageLog) {
+        this._allUsageLogUnsub = window.EB_Sync.listenAllUsageLog(rows => this.setState({ allUsageLog: rows }));
+      }
+    } else if (this._allUsageLogUnsub) {
+      this._allUsageLogUnsub();
+      this._allUsageLogUnsub = null;
+    }
+    const ulFilterDept = st.ulFilterDept || 'all';
+    const ulQ = (st.ulQuery || '').trim().toLowerCase();
+    const _ulFiltered = (st.allUsageLog || []).filter(u => {
+      if (ulFilterDept !== 'all' && u.dept !== ulFilterDept) return false;
+      if (st.ulDateFrom && (u.recordedAt || '') < st.ulDateFrom) return false;
+      if (st.ulDateTo && (u.recordedAt || '') > st.ulDateTo) return false;
+      if (ulQ) {
+        const hay = `${u.drugName || ''} ${u.boxId || ''} ${u.hn || ''} ${u.patientName || ''}`.toLowerCase();
+        if (!hay.includes(ulQ)) return false;
+      }
+      return true;
+    });
+    vals.usageLogReportRows = _ulFiltered.map((u, i) => ({
+      key: u.id || i,
+      seq: _ulFiltered.length - i,
+      dateTime: `${this.fmtISO(u.recordedAt)} · ${u.recordedTime || '—'}`,
+      boxId: u.boxId || '—',
+      drugName: u.drugName || '—',
+      qty: u.qty || 0,
+      dept: u.dept || '—',
+      patientLine: [u.hn ? `HN ${u.hn}` : '', u.patientName || ''].filter(Boolean).join(' · ') || '—',
+    }));
+    vals.usageLogReportCount = _ulFiltered.length;
+    vals.ulQuery = st.ulQuery;
+    vals.setUlQuery = (e) => this.setState({ ulQuery: e.target.value });
+    vals.ulDateFrom = st.ulDateFrom;
+    vals.setUlDateFrom = (e) => this.setState({ ulDateFrom: e.target.value });
+    vals.ulDateTo = st.ulDateTo;
+    vals.setUlDateTo = (e) => this.setState({ ulDateTo: e.target.value });
+    vals.ulDeptOptionsEl = h(React.Fragment, null,
+      h('option', { key: 'all', value: 'all', selected: ulFilterDept === 'all' }, 'ทุกหน่วยงาน'),
+      h('option', { key: 'ER', value: 'ER', selected: ulFilterDept === 'ER' }, 'ER'),
+      h('option', { key: 'WARD', value: 'WARD', selected: ulFilterDept === 'WARD' }, 'WARD'),
+      h('option', { key: 'LR', value: 'LR', selected: ulFilterDept === 'LR' }, 'LR'),
+    );
+    vals.setUlFilterDept = (e) => this.setState({ ulFilterDept: e.target.value });
+    vals.exportUsageLogCSV = () => {
+      const hdr = ['ลำดับ', 'วันที่', 'เวลา', 'กล่อง EB', 'ยา', 'จำนวน', 'หน่วยงาน', 'HN', 'ชื่อผู้ป่วย'];
+      const esc = (v) => { let s = String(v == null ? '' : v); if (s.length > 0 && '=+-@\t\r'.includes(s[0])) s = "'" + s; return '"' + s.replace(/"/g, '""') + '"'; };
+      const lines = [hdr.map(esc).join('\t')];
+      _ulFiltered.forEach((u, i) => lines.push([_ulFiltered.length - i, u.recordedAt || '', u.recordedTime || '', u.boxId || '', u.drugName || '', u.qty || 0, u.dept || '', u.hn || '', u.patientName || ''].map(esc).join('\t')));
+      this._downloadExcelText(lines.join('\r\n'), `EB_usage_log_${this.isoOf(this.TODAY)}.csv`);
     };
 
     // ===== box edit history (detail) =====

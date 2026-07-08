@@ -274,6 +274,18 @@ function listenUsageLog(boxId,cb){
       cb(rows);
     },err=>console.warn('[Sync] UsageLog error:',err.message));
 }
+// Admin-wide usage log report — every entry across every box, not scoped to
+// one boxId like listenUsageLog. Same no-orderBy-avoid-composite-index
+// reasoning; capped and sorted client-side, newest first.
+function listenAllUsageLog(cb){
+  if(!db)return ()=>{};
+  return db.collection(C.usageLog).limit(1000)
+    .onSnapshot(snap=>{
+      const rows=[];snap.forEach(doc=>rows.push({id:doc.id,...doc.data()}));
+      rows.sort((a,b)=>{const ka=(a.recordedAt||'')+' '+(a.recordedTime||''),kb=(b.recordedAt||'')+' '+(b.recordedTime||'');return kb<ka?-1:kb>ka?1:0;});
+      cb(rows);
+    },err=>console.warn('[Sync] AllUsageLog error:',err.message));
+}
 function getDeptPins(){
   if(!db)return Promise.resolve({});
   return db.collection(C.appSettings).doc('dept_pins').get()
@@ -285,5 +297,5 @@ function syncDeptPins(pins){
   return db.collection(C.appSettings).doc('dept_pins').set(pins,{merge:true})
     .catch(err=>{console.error('[Sync] syncDeptPins failed:',err.message);throw err;});
 }
-window.EB_Sync={initUsersOnly,initFirebaseSync,startPublicSync,stopSync,stopAll,logAudit,syncBoxes,syncUsers,deleteUser,syncBoxDrugs,returnBoxAndDrugsTx,logDrugUsageTx,listenUsageLog,getDeptPins,syncDeptPins};
+window.EB_Sync={initUsersOnly,initFirebaseSync,startPublicSync,stopSync,stopAll,logAudit,syncBoxes,syncUsers,deleteUser,syncBoxDrugs,returnBoxAndDrugsTx,logDrugUsageTx,listenUsageLog,listenAllUsageLog,getDeptPins,syncDeptPins};
 })();
