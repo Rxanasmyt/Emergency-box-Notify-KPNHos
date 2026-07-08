@@ -2461,6 +2461,34 @@ class Component extends DCLogic {
       return _touchesReg ? { boxDrugs: bd, regPrinted: false } : { boxDrugs: bd };
     });
   }
+  // Single source of truth for switching the register screen's selected box —
+  // used by both the EB-chip click AND the dashboard "pending verify"/"rejected"
+  // jump links, so both paths load the SAME real data instead of the jump
+  // links bypassing the prefill/refresh the chip click already did.
+  // opts.force re-loads even if `id` already equals the current regEB — needed
+  // for a dashboard jump landing back on whatever box resetForm() defaulted to.
+  selectRegBox(id, opts) {
+    const st = this.state;
+    if (id === st.regEB && !(opts && opts.force)) return;
+    const _selBox = this.BOXES.find(b => b.id === id);
+    // Always (re)load from this.BOX_DRUGS — the synced, authoritative source —
+    // never from st.boxDrugs[id]. A stale local copy CAN exist under that key
+    // even though we're not currently viewing it (e.g. resetForm() blanks the
+    // next default box's lot expiry after every submit) and would otherwise
+    // silently shadow the real data the moment we (re)select this exact box.
+    const _existBD = (this.BOX_DRUGS || {})[id] || [];
+    // switching box invalidates any label already printed for the PREVIOUS box —
+    // the print gate must be re-earned for whichever box actually gets submitted
+    const _upd = { regEB: id, regHadConfirm: false, regPrinted: false, regRejectReason: '' };
+    // a box already has mfg/preparer persisted (e.g. re-opened after a Stage 2
+    // reject) — load it so จพ. sees and can fix what was actually entered,
+    // instead of an empty field. A brand-new box keeps whatever's typed so far.
+    if (_selBox && _selBox.mfg) _upd.regMfg = _selBox.mfg;
+    if (_selBox && _selBox.preparer) _upd.regPreparer = _selBox.preparer;
+    _upd.boxDrugs = { ...(st.boxDrugs || this.BOX_DRUGS || {}), [id]: _existBD.map(d => ({ ...d, lots: (d.lots || []).map(l => ({ ...l })) })) };
+    this._regTouched = true;
+    this.setState(_upd);
+  }
   // Stage 2 (pharmacist) per-drug verification checkbox — toggled locally in
   // boxDrugs, same pattern as setLotField; only persisted on the Stage 2 submit.
   toggleDrugVerified(boxId, drugIdx) {
@@ -2480,12 +2508,16 @@ class Component extends DCLogic {
     if (!this._canVerifyReg()) return;
     const box = this.BOXES.find(b => b.id === boxId);
     if (!box || this._regStage(box) !== 'prepared') return;
-    const BD = this.state.boxDrugs || this.BOX_DRUGS || {};
+    // Read from this.BOX_DRUGS (synced ground truth), NOT state.boxDrugs — Stage 2
+    // never edits lot/expiry data, only toggles `verified`, so a stale local buffer
+    // (e.g. left over from resetForm() blanking the next default box's expiry) must
+    // never be the thing that gets re-persisted here.
+    const freshDrugs = (this.BOX_DRUGS || {})[boxId] || [];
     // rejectedReason/rejectedAt persist through the 'none' stage (unlike preparedAt/
     // registeredAt/checker which are wiped) so จพ. sees WHY the box came back —
     // Stage 1 submit clears these once จพ. re-submits with the fix.
     this._syncBox({ ...box, preparedAt: '', registeredAt: '', checker: '', rejectedReason: reason || '', rejectedAt: this.isoOf(this.TODAY) });
-    this._syncBoxDrugs(boxId, (BD[boxId] || []).map(d => ({ ...d, verified: false })));
+    this._syncBoxDrugs(boxId, freshDrugs.map(d => ({ ...d, verified: false })));
     this.setState({ regRejectReason: '', regChecker: '' });
     this.flash(`ตีกลับกล่อง ${boxId} ให้จพ.แก้ไขใหม่แล้ว`);
     this.logAction({ cat: 'register', action: 'ตีกลับให้แก้ไข', eb: boxId, dept: '—', drug: reason ? `เหตุผล: ${reason}` : 'เภสัชกร/แอดมินตีกลับให้จพ.แก้ไขใหม่' });
@@ -2884,8 +2916,11 @@ class Component extends DCLogic {
 
   // ---------- entry form ----------
   // validation: returns array of missing/invalid messages for current mode
-  regNearISOof(id) {
-    const list = (this.state.boxDrugs || this.BOX_DRUGS || {})[id] || [];
+  // BDOverride lets a caller force reading a specific drugs map (e.g. this.BOX_DRUGS,
+  // the synced ground truth) instead of the default state.boxDrugs-first fallback —
+  // used by Stage 2 verify, which must never persist a stale local edit-buffer.
+  regNearISOof(id, BDOverride) {
+    const list = (BDOverride || this.state.boxDrugs || this.BOX_DRUGS || {})[id] || [];
     if (!list.length) return null;
     const exps = list.map(d => this.drugMinExp(d)).filter(e => e);
     return exps.length ? exps.sort()[0] : null;
@@ -3086,13 +3121,18 @@ class Component extends DCLogic {
       if (stage === 'prepared' && this._canVerifyReg()) {
         // Stage 2: pharmacist/admin verifies against the physical box/printed label,
         // ticks every drug, then finalizes registeredAt — box becomes dispensable.
-        const near = this.nearDrugOf(regEB, BD);
-        const nearISO = this.regNearISOof(regEB);
+        // Deliberately read from this.BOX_DRUGS (synced ground truth), NOT state.boxDrugs —
+        // Stage 2 is read-only over lot/expiry data (only `verified` is locally toggled),
+        // so persisting from a stale local buffer (e.g. resetForm() blanks the next
+        // default box's expiry after every submit) would silently wipe real expiry data.
+        const freshDrugs = (this.BOX_DRUGS || {})[regEB] || [];
+        const near = this.nearDrugOf(regEB, { [regEB]: freshDrugs });
+        const nearISO = this.regNearISOof(regEB, { [regEB]: freshDrugs });
         const meta = { ...(this.state.boxMeta || {}) };
         meta[regEB] = { mfg: box.mfg, preparer: box.preparer, checker: this.state.regChecker, registeredAt: this.isoOf(this.TODAY) };
         this.setState({ boxMeta: meta, regHadConfirm: false });
         this._syncBox({ ...box, expiry: nearISO || '', nearDrug: near || '', checker: this.state.regChecker, registeredAt: this.isoOf(this.TODAY) });
-        this._syncBoxDrugs(regEB, (BD[regEB] || []).map(d => ({ ...d, verified: true })));
+        this._syncBoxDrugs(regEB, freshDrugs.map(d => ({ ...d, verified: true })));
         msg = `ตรวจสอบและยืนยันลงทะเบียน ${regEB} สำเร็จ · ตรวจพบยาใกล้หมดอายุสุด: ${near || 'ไม่มีข้อมูล'}`;
         this.logAction({ cat: 'register', action: 'ตรวจสอบ/ยืนยันลงทะเบียน', eb: regEB, dept: '—', drug: `เภสัชกรตรวจสอบยาครบทุกรายการ · ใกล้หมดอายุสุด: ${near}` });
         this.logBoxHist(regEB, `ยืนยันลงทะเบียน — ผ่านการตรวจสอบ (ตรวจโดย ${this.state.regChecker || '-'})`);
@@ -3440,13 +3480,14 @@ td.l{text-align:left;padding-left:4px}
     const outIds     = this.BOXES.filter(b =>  b.dispense && !b.receiver).map(b => b.id);
     if (m === 'register') {
       const newRegEB = inStockIds[0] || '';
-      const baseBD = this.BOX_DRUGS || {};
-      const clearedList = newRegEB && baseBD[newRegEB]
-        ? baseBD[newRegEB].map(d => ({ ...d, lots: (d.lots || []).map(l => ({ ...l, expiry: '' })) }))
-        : null;
-      const newBoxDrugs = clearedList ? { ...baseBD, [newRegEB]: clearedList } : null;
+      // boxDrugs: null (not a pre-blanked copy) — resetForm() picks newRegEB by
+      // list position only, with no idea whether that's the box just submitted
+      // (very likely, since box order never changes) or a genuinely different
+      // one. Blanking its lot expiry here used to silently show an empty table
+      // for the box จพ. just correctly saved. Let it fall back to the real
+      // synced this.BOX_DRUGS instead — never guess, never shadow real data.
       this._regTouched = false;
-      this.setState({ submitting: false, regEB: newRegEB, regMfg: '', regPreparer: '', regChecker: '', regHadConfirm: false, regPrinted: false, regSkipPrint: false, boxDrugs: newBoxDrugs, dispenser: '', retReceiver: '' });
+      this.setState({ submitting: false, regEB: newRegEB, regMfg: '', regPreparer: '', regChecker: '', regHadConfirm: false, regPrinted: false, regSkipPrint: false, boxDrugs: null, dispenser: '', retReceiver: '' });
     }
     else if (m === 'dispense') this.setState({ submitting: false, dispEB: dispensableIds[0] || '', formDept: 'ER', dispenser: uName, swapReturn: false, swapEB: '', swapReceiver: '', swapRetDrugUsage: {}, retDrugUsage: {}, dispDate: today, swapReturnDate: today, retReceiver: '' });
     else this.setState({ submitting: false, retEB: outIds[0] || '', retReceiver: uName, retDate: today, retDrugUsage: {}, swapRetDrugUsage: {}, dispenser: '' });
@@ -4016,7 +4057,7 @@ td.l{text-align:left;padding-left:4px}
       .filter(b => this._regStage(b) === 'prepared')
       .map(b => ({
         id: b.id, preparer: b.preparer || '—', preparedAt: this.fmtISO(b.preparedAt) || '—',
-        goVerify: () => { this.go2('register'); this.setState({ screen: 'entry', regEB: b.id }); },
+        goVerify: () => { this.go2('register'); this.setState({ screen: 'entry' }); this.selectRegBox(b.id, { force: true }); },
       }));
     vals.pendingVerifyBoxes = pendingVerifyBoxes;
     vals.hasPendingVerifyBoxes = pendingVerifyBoxes.length > 0;
@@ -4028,7 +4069,7 @@ td.l{text-align:left;padding-left:4px}
       .filter(b => this._regStage(b) === 'none' && b.rejectedAt)
       .map(b => ({
         id: b.id, reason: b.rejectedReason || 'ไม่ได้ระบุเหตุผล', rejectedAt: this.fmtISO(b.rejectedAt) || '—',
-        goFix: () => { this.go2('register'); this.setState({ screen: 'entry', regEB: b.id }); },
+        goFix: () => { this.go2('register'); this.setState({ screen: 'entry' }); this.selectRegBox(b.id, { force: true }); },
       }));
     vals.rejectedRegBoxes = rejectedRegBoxes;
     vals.hasRejectedRegBoxes = rejectedRegBoxes.length > 0;
@@ -4170,22 +4211,7 @@ td.l{text-align:left;padding-left:4px}
     };
 
     // ===== STEP 1: REGISTER =====
-    vals.regEBSelectEl = mkEBChips(st.regEB, (id) => {
-      if (id === st.regEB) return;
-      const _existBD = (st.boxDrugs || this.BOX_DRUGS || {})[id] || [];
-      const _selBox = this.BOXES.find(b => b.id === id);
-      // switching box invalidates any label already printed for the PREVIOUS box —
-      // the print gate must be re-earned for whichever box actually gets submitted
-      const _upd = { regEB: id, regHadConfirm: false, regPrinted: false, regRejectReason: '' };
-      // a box already has mfg/preparer persisted (e.g. re-opened after a Stage 2
-      // reject) — load it so จพ. sees and can fix what was actually entered,
-      // instead of an empty field. A brand-new box keeps whatever's typed so far.
-      if (_selBox && _selBox.mfg) _upd.regMfg = _selBox.mfg;
-      if (_selBox && _selBox.preparer) _upd.regPreparer = _selBox.preparer;
-      _upd.boxDrugs = { ...(st.boxDrugs || this.BOX_DRUGS || {}), [id]: _existBD.map(d => ({ ...d, lots: (d.lots || []).map(l => ({ ...l })) })) };
-      this._regTouched = true;
-      this.setState(_upd);
-    }, allIds, '#2B7FE0', _ebStatusMap);
+    vals.regEBSelectEl = mkEBChips(st.regEB, (id) => this.selectRegBox(id), allIds, '#2B7FE0', _ebStatusMap);
     vals.regPreparer = st.regPreparer;
     vals.regChecker = st.regChecker;
     // preparer/checker are baked into the printed label — any edit after
