@@ -26,7 +26,7 @@ Single `index.html` using a custom React-like wrapper called **DC Runtime** (`su
 ### Data collections
 | Collection | Doc ID | Key fields |
 |---|---|---|
-| `boxes` | box ID (`eb1`, `eb2`, …) | `dispense`, `receiver`, `mfg`, `expiry`, `nearDrug`, `preparer`, `checker`, `openedAt`, `preparedAt`, `registeredAt` |
+| `boxes` | box ID (`eb1`, `eb2`, …) | `dispense`, `receiver`, `mfg`, `expiry`, `nearDrug`, `preparer`, `checker`, `openedAt`, `preparedAt`, `registeredAt`, `rejectedAt`, `rejectedReason` |
 | `box_drugs` | box ID | `boxId`, `drugs[]` (with `lots[]`, each drug has `verified: boolean`) |
 | `audit_log` | auto-ID | `date`, `time`, `action`, `person`, `eb`, `dept`, `drug` (append-only — rules block update/delete) |
 | `usage_log` | auto-ID | `boxId`, `dept`, `drugName`, `qty`, `hn`, `patientName`, `recordedAt`, `recordedTime` (append-only, paperless usage records — see below) |
@@ -127,6 +127,7 @@ Registration is split into two role-gated stages instead of one single-step save
 - **Locked view**: a technician (or any non-verifier) viewing a `'prepared'` box sees a read-only "รอเภสัชกร/แอดมินตรวจสอบ" banner instead of the form — they cannot re-edit Stage 1 data or attempt Stage 2 while verification is pending.
 - Do not add a `.par`-based or per-lot verification granularity — verification is intentionally **per-drug**, not per-lot.
 - **Reject-to-edit**: in Stage 2, the pharmacist/admin can call `rejectReg(boxId, reason)` instead of verifying — clears `preparedAt`/`registeredAt`/`checker` and every drug's `verified` flag (mfg/preparer/drug data is left as-is so จพ. can see and fix it), logging the optional reason to `audit_log`/box history. This is the only way back from `'prepared'` to `'none'` short of the box being dispensed.
+- **`rejectedReason`/`rejectedAt`** persist through the `'none'` stage (unlike `preparedAt`/`registeredAt`/`checker`, which `rejectReg()` clears) so จพ. sees why the box came back — shown as a red banner on the Stage 1 form and in a dashboard-wide "กล่องถูกตีกลับ" list. Stage 1 submit clears both once จพ. re-submits the fix — do not let them survive past the next `preparedAt`.
 - **Dashboard "pending verification" banner**: the dashboard lists every `'prepared'`-stage box (จพ.จัดเตรียมเสร็จแล้ว รอตรวจสอบ) with a one-click jump into its register/verify view (`pendingVerifyBoxes` in `renderVals()`), so a pharmacist doesn't have to click through every EB chip to find pending work. Visible to all roles; only pharmacist/admin can actually act on what it links to.
 - Selecting a box in the register EB-chip picker prefills `regMfg`/`regPreparer` from the box's persisted values **only if that box already has them** (e.g. reopened after a Stage 2 reject) — a brand-new (`'none'`-stage) box keeps whatever the user already typed, so a จพ. preparing several boxes in a row doesn't lose their own name each time they switch boxes.
 
@@ -176,3 +177,4 @@ The service account behind `FIREBASE_SERVICE_ACCOUNT` needs the **Firebase Rules
 - Do not treat the department PIN as a real security boundary — it's a client-side UI gate only, consistent with this app's anonymous-auth trust model, not a Firestore rules restriction
 - Do not dispense a box whose `registeredAt` is unset, even if `preparedAt` is set — `'prepared'` (จพ. done) is not the same as `'verified'` (เภสัชกร/admin checked); dispense eligibility must check `registeredAt`, not `preparedAt` or `mfg`/`expiry` presence
 - Do not let Stage 1 (จพ.) submit set `registeredAt` or require `regChecker`/per-drug `verified` — those are Stage 2 (เภสัชกร/admin) only
+- Do not let `rejectedReason`/`rejectedAt` survive past the box's next Stage 1 submit — always reset them to `''` alongside `preparedAt` there, or a stale rejection banner keeps showing on a box จพ. already fixed

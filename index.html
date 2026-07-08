@@ -886,6 +886,32 @@ input:focus, select:focus, textarea:focus {
         </div>
         </sc-if>
 
+        <!-- Boxes rejected back to จพ. for correction -->
+        <sc-if value="{{ hasRejectedRegBoxes }}" hint-placeholder-val="{{ false }}">
+        <div style="background: linear-gradient(135deg, #FCEDED, #FDF4F4); border: 1.5px solid #F4C9C9; border-radius: 16px; padding: 18px 22px; margin-bottom: 22px; animation: fadeUp .4s ease both;">
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+            <span style="width: 34px; height: 34px; border-radius: 10px; background: #F4C9C9; color: #B42121; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 3.5l9 16H3l9-16z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 10v4.5M12 17.3v.2" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/></svg>
+            </span>
+            <div>
+              <div style="font-size: 14px; font-weight: 700; color: #B42121;">กล่องถูกตีกลับให้แก้ไข · {{ rejectedRegCount }} กล่อง</div>
+              <div style="font-size: 12px; color: #9A3838; margin-top: 2px;">เภสัชกร/แอดมินพบข้อผิดพลาด — คลิกเพื่อไปแก้ไขและส่งตรวจสอบใหม่</div>
+            </div>
+          </div>
+          <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+            <sc-for list="{{ rejectedRegBoxes }}" as="rb" hint-placeholder-count="2">
+              <button onClick="{{ rb.goFix }}" style="display: flex; align-items: center; gap: 10px; background: #fff; border: 1px solid #F4C9C9; border-radius: 12px; padding: 10px 14px; min-width: 220px; cursor: pointer; text-align: left; font-family: inherit;">
+                <div style="font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 14px; color: #B42121; background: #FCEDED; border: 1px solid #F4C9C9; border-radius: 8px; padding: 5px 10px;">{{ rb.id }}</div>
+                <div>
+                  <div style="font-size: 13px; font-weight: 600; color: #1B2A34;">{{ rb.reason }}</div>
+                  <div style="font-size: 11.5px; color: #7B8D9C; margin-top: 2px;">ตีกลับเมื่อ {{ rb.rejectedAt }}</div>
+                </div>
+              </button>
+            </sc-for>
+          </div>
+        </div>
+        </sc-if>
+
         <!-- Mid row: critical list + status donut -->
         <div class="dash-mid-grid" style="margin-bottom: 22px;">
           <!-- Critical alerts list -->
@@ -1016,6 +1042,16 @@ input:focus, select:focus, textarea:focus {
 
             <!-- Stage 1 (จพ.): editable prep form — mfg/preparer/print, no checker/verify yet -->
             <sc-if value="{{ regIsEditable }}" hint-placeholder-val="{{ true }}">
+              <!-- This box was sent back by a pharmacist/admin — show why before จพ. re-submits -->
+              <sc-if value="{{ hasRegRejected }}" hint-placeholder-val="{{ false }}">
+                <div style="display: flex; align-items: flex-start; gap: 10px; padding: 14px 16px; border-radius: 13px; background: #FCEDED; border: 1px solid #F4C9C9; color: #B42121; margin-bottom: 18px;">
+                  <span style="font-size: 18px; flex-shrink: 0;">⚠</span>
+                  <div>
+                    <div style="font-size: 13px; font-weight: 700;">กล่องนี้ถูกตีกลับให้แก้ไข{{ regRejectedAtText }}</div>
+                    <div style="font-size: 12.5px; margin-top: 3px; color: #9A3838;">{{ regRejectedReasonText }}</div>
+                  </div>
+                </div>
+              </sc-if>
               <div class="form-grid-2" style="margin-bottom: 26px;">
                 <div>
                   <label style="display: block; font-size: 12.5px; font-weight: 600; color: #4A5C6A; margin-bottom: 7px;">ผู้จัดเตรียม · จพ.เภสัชกรรม <span style="color:#E03E3E;">*</span></label>
@@ -2445,7 +2481,10 @@ class Component extends DCLogic {
     const box = this.BOXES.find(b => b.id === boxId);
     if (!box || this._regStage(box) !== 'prepared') return;
     const BD = this.state.boxDrugs || this.BOX_DRUGS || {};
-    this._syncBox({ ...box, preparedAt: '', registeredAt: '', checker: '' });
+    // rejectedReason/rejectedAt persist through the 'none' stage (unlike preparedAt/
+    // registeredAt/checker which are wiped) so จพ. sees WHY the box came back —
+    // Stage 1 submit clears these once จพ. re-submits with the fix.
+    this._syncBox({ ...box, preparedAt: '', registeredAt: '', checker: '', rejectedReason: reason || '', rejectedAt: this.isoOf(this.TODAY) });
     this._syncBoxDrugs(boxId, (BD[boxId] || []).map(d => ({ ...d, verified: false })));
     this.setState({ regRejectReason: '', regChecker: '' });
     this.flash(`ตีกลับกล่อง ${boxId} ให้จพ.แก้ไขใหม่แล้ว`);
@@ -2817,7 +2856,7 @@ class Component extends DCLogic {
     if (!window.EB_Sync) { this.flash('⚠️ ระบบซิงค์ยังไม่พร้อม — กรุณารีเฟรชหน้าแล้วลองใหม่'); return; }
     const resetBoxes = this.BOXES.map(b => ({
       id: b.id, dept: b.dept,
-      mfg: '', expiry: '', nearDrug: '', preparer: '', checker: '', preparedAt: '', registeredAt: '',
+      mfg: '', expiry: '', nearDrug: '', preparer: '', checker: '', preparedAt: '', registeredAt: '', rejectedReason: '', rejectedAt: '',
       dispense: '', dispenser: '', receiver: '', retDate: '', openedAt: '',
     }));
     const resetDrugs = {};
@@ -3062,7 +3101,7 @@ class Component extends DCLogic {
         const meta = { ...(this.state.boxMeta || {}) };
         meta[regEB] = { mfg: this.state.regMfg, preparer: this.state.regPreparer, preparedAt: this.isoOf(this.TODAY) };
         this.setState({ boxMeta: meta });
-        this._syncBox({ ...box, mfg: this.state.regMfg, preparer: this.state.regPreparer, preparedAt: this.isoOf(this.TODAY), checker: '', registeredAt: '', dispense: '', dispenser: '', receiver: '', retDate: '', openedAt: '' });
+        this._syncBox({ ...box, mfg: this.state.regMfg, preparer: this.state.regPreparer, preparedAt: this.isoOf(this.TODAY), checker: '', registeredAt: '', rejectedReason: '', rejectedAt: '', dispense: '', dispenser: '', receiver: '', retDate: '', openedAt: '' });
         this._syncBoxDrugs(regEB, (BD[regEB] || []).map(d => ({ ...d, verified: false })));
         msg = `จัดเตรียมกล่อง ${regEB} เรียบร้อย · รอเภสัชกรตรวจสอบก่อนจึงจะพร้อมจ่าย`;
         this.logAction({ cat: 'register', action: 'จัดเตรียมกล่อง', eb: regEB, dept: '—', drug: `จพ.จัดยาเข้ากล่อง รอเภสัชกรตรวจสอบ` });
@@ -3983,6 +4022,18 @@ td.l{text-align:left;padding-left:4px}
     vals.hasPendingVerifyBoxes = pendingVerifyBoxes.length > 0;
     vals.pendingVerifyCount = pendingVerifyBoxes.length;
 
+    // boxes a pharmacist/admin rejected back to จพ. — dashboard summary so จพ.
+    // doesn't have to stumble onto the in-form banner by chance
+    const rejectedRegBoxes = this.BOXES
+      .filter(b => this._regStage(b) === 'none' && b.rejectedAt)
+      .map(b => ({
+        id: b.id, reason: b.rejectedReason || 'ไม่ได้ระบุเหตุผล', rejectedAt: this.fmtISO(b.rejectedAt) || '—',
+        goFix: () => { this.go2('register'); this.setState({ screen: 'entry', regEB: b.id }); },
+      }));
+    vals.rejectedRegBoxes = rejectedRegBoxes;
+    vals.hasRejectedRegBoxes = rejectedRegBoxes.length > 0;
+    vals.rejectedRegCount = rejectedRegBoxes.length;
+
     // ----- ENTRY (3-step workflow: register → dispense/swap → return) -----
     const mode = st.formMode;
     const isRegister = mode === 'register';
@@ -4158,6 +4209,11 @@ td.l{text-align:left;padding-left:4px}
     vals.regDrugTableLabel = vals.regIsVerifyStep
       ? 'ตรวจสอบยาในกล่อง · ติ๊กถูกทุกตัวยาหลังตรวจกับกล่องจริง/ใบกล่อง'
       : (vals.regIsLocked ? 'ข้อมูลยาที่จพ.จัดเตรียมไว้ (รอตรวจสอบ)' : 'ข้อมูลยาในกล่อง · กรอกจำนวนและวันหมดอายุรายตัว');
+    // "sent back for correction" notice — persists through the 'none' stage
+    // until จพ. re-submits Stage 1 (see rejectReg()/Stage 1 submit clearing it)
+    vals.hasRegRejected = !!(regBoxObj && regBoxObj.rejectedAt);
+    vals.regRejectedAtText = (regBoxObj && regBoxObj.rejectedAt) ? ` (${this.fmtISO(regBoxObj.rejectedAt)})` : '';
+    vals.regRejectedReasonText = (regBoxObj && regBoxObj.rejectedReason) ? `เหตุผล: ${regBoxObj.rejectedReason}` : 'ไม่ได้ระบุเหตุผล — ตรวจสอบกับเภสัชกรผู้ตรวจ หรือดูประวัติกล่อง';
     vals.regMfgFieldEl = vals.regIsEditable
       ? h(React.Fragment, null,
           h('label', { style: { display: 'block', fontSize: 12.5, fontWeight: 600, color: '#4A5C6A', marginBottom: 7 } }, 'วันที่ผลิต (Lot)'),
