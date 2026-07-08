@@ -1154,6 +1154,20 @@ input:focus, select:focus, textarea:focus {
                 <span style="width: 30px; height: 30px; flex-shrink: 0; border-radius: 8px; background: {{ box.returnSoft }}; color: {{ box.returnColor }}; display: flex; align-items: center; justify-content: center;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M20 12H7m0 0l5-5m-5 5l5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
                 <div><div style="font-size: 13px; font-weight: 600;">{{ box.returnStateText }}</div><div style="font-size: 12px; color: #7B8D9C; margin-top: 2px;">{{ box.receiver }}</div></div>
               </div>
+              <sc-if value="{{ box.openedAtText }}" hint-placeholder-val="{{ '' }}">
+              <div style="display: flex; gap: 12px; align-items: flex-start; margin-top: 14px; padding-top: 14px; border-top: 1px solid #F0F4F7;">
+                <span style="width: 30px; height: 30px; flex-shrink: 0; border-radius: 8px; background: #FBF1E0; color: #B5740F; display: flex; align-items: center; justify-content: center;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><rect x="4" y="10" width="16" height="10" rx="2" stroke="currentColor" stroke-width="1.9"/><path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg></span>
+                <div><div style="font-size: 13px; font-weight: 600;">เปิดใช้งานครั้งแรก (Paperless)</div><div style="font-size: 12px; color: #7B8D9C; margin-top: 2px;">{{ box.openedAtText }}</div></div>
+              </div>
+              </sc-if>
+            </div>
+            <!-- Usage log (paperless) -->
+            <div style="background: #fff; border: 1px solid #E7EEF3; border-radius: 18px; padding: 22px;">
+              <h4 style="margin: 0 0 12px; font-size: 13.5px; font-weight: 700; color: #4A5C6A; display: flex; align-items: center; gap: 8px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="4" y="10" width="16" height="10" rx="2" stroke="#7B8D9C" stroke-width="1.9"/><path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="#7B8D9C" stroke-width="1.9" stroke-linecap="round"/></svg>
+                ประวัติการใช้ยา (บันทึกผ่าน QR Code)
+              </h4>
+              {{ usageLogEl }}
             </div>
             <!-- Box edit history -->
             <div style="background: #fff; border: 1px solid #E7EEF3; border-radius: 18px; padding: 22px;">
@@ -1497,6 +1511,26 @@ input:focus, select:focus, textarea:focus {
           </div>
         </div>
 
+        <!-- Department PIN Management (paperless usage logging) -->
+        <div style="background: #fff; border: 1.5px solid #E0E8EF; border-radius: 16px; padding: 24px 28px; margin-bottom: 16px;">
+          <div style="display: flex; align-items: flex-start; gap: 12px; margin-bottom: 20px;">
+            <span style="width: 40px; height: 40px; border-radius: 12px; background: linear-gradient(135deg, #7C5CD6, #5B3FC4); color: #fff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="4" y="10" width="16" height="10" rx="2" stroke="#fff" stroke-width="1.9"/><path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="#fff" stroke-width="1.9" stroke-linecap="round"/></svg>
+            </span>
+            <div>
+              <div style="font-size: 15px; font-weight: 700; color: #15242E;">รหัสหน่วยงาน (Dept PIN)</div>
+              <div style="font-size: 12.5px; color: #5A6B79; margin-top: 3px; line-height: 1.6;">ใช้ยืนยันตัวตนเมื่อหน่วยงานสแกน QR Code เพื่อบันทึกการใช้ยาแบบไม่ต้อง login (paperless) — เว้นว่างไว้ = ยังไม่ตั้งรหัส</div>
+            </div>
+          </div>
+          <div class="form-grid-3">
+            {{ deptPinInputsEl }}
+          </div>
+          <div style="margin-top: 16px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
+            <button onclick="{{ saveDeptPins }}" style="height: 44px; padding: 0 24px; background: linear-gradient(135deg, #7C5CD6, #5B3FC4); color: #fff; border: none; border-radius: 12px; font-size: 13.5px; font-weight: 700; cursor: pointer; font-family: inherit; transition: all .22s cubic-bezier(.34,1.56,.64,1); box-shadow: 0 4px 16px rgba(124,92,214,.25);" style-hover="transform: translateY(-2px); box-shadow: 0 10px 28px rgba(124,92,214,.35);" style-active="transform: scale(.96);">บันทึกรหัส PIN</button>
+            <span style="font-size: 13px; font-weight: 600; color: {{ deptPinMsgColor }};">{{ deptPinMsg }}</span>
+          </div>
+        </div>
+
       </div>
       </sc-if>
 
@@ -1634,6 +1668,7 @@ class Component extends DCLogic {
     regChecker: '',
     regHadConfirm: false,
     regPrinted: false,
+    regSkipPrint: false,
     // step 2: dispense / swap
     dispEB: '',
     formDept: 'ER',
@@ -1691,6 +1726,16 @@ class Component extends DCLogic {
     publicView: (() => { try { const p = new URLSearchParams(window.location.search); return p.get('view') === 'box' && !!p.get('id'); } catch (_) { return false; } })(),
     publicBoxId: (() => { try { const p = new URLSearchParams(window.location.search); return (p.get('view') === 'box' && p.get('id')) || ''; } catch (_) { return ''; } })(),
     _publicSynced: false,
+    // paperless: admin dept PIN management
+    deptPinInputs: { ER: '', WARD: '', LR: '' },
+    deptPinsSet: { ER: false, WARD: false, LR: false },
+    deptPinMsg: '', deptPinMsgOk: true,
+    // paperless: public QR "open box / log usage" flow
+    pubOpenFlow: false, pubPinInput: '', pubPinVerified: false, pubPinError: '',
+    pubUsageDrugIdx: null, pubUsageLotIdx: null, pubUsageQty: '', pubUsageHN: '', pubUsagePatient: '',
+    pubUsageBusy: false, pubUsageMsg: '', pubUsageMsgOk: true, pubUsageLog: [],
+    // paperless: pharmacist detail-screen usage log for the selected box
+    detailUsageLog: [],
     // session
     idleWarn: false,
     idleCountdown: 60,
@@ -1767,6 +1812,63 @@ class Component extends DCLogic {
   async hashPw(pw) {
     const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(String(pw)));
     return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  // ---------- paperless: public QR "open box / log usage" flow ----------
+  // No login required (public view) — identity is a per-department PIN,
+  // checked client-side against the hash stored in app_settings/dept_pins.
+  openPubUsageFlow() {
+    this.setState({ pubOpenFlow: true, pubPinInput: '', pubPinError: '', pubUsageMsg: '' });
+    if (!this._usageLogUnsub && window.EB_Sync && window.EB_Sync.listenUsageLog) {
+      this._usageLogUnsub = window.EB_Sync.listenUsageLog(this.state.publicBoxId, rows => this.setState({ pubUsageLog: rows }));
+    }
+  }
+  closePubUsageFlow() {
+    this.setState({ pubOpenFlow: false });
+  }
+  setPubPinInput(v) { this.setState({ pubPinInput: String(v).replace(/\D/g, ''), pubPinError: '' }); }
+  async verifyPubPin() {
+    const box = this.BOXES.find(b => b.id === this.state.publicBoxId);
+    const dept = box ? box.dept : '';
+    if (!dept) { this.setState({ pubPinError: 'ไม่พบหน่วยงานของกล่องนี้' }); return; }
+    if (!window.EB_Sync) { this.setState({ pubPinError: 'ระบบยังไม่พร้อม กรุณาลองใหม่' }); return; }
+    const pins = await window.EB_Sync.getDeptPins();
+    const deptPin = pins[dept];
+    if (!deptPin || !deptPin.hash) { this.setState({ pubPinError: `หน่วยงาน ${dept} ยังไม่ได้ตั้งรหัส PIN — ติดต่อฝ่ายเภสัชกรรม` }); return; }
+    const inputHash = await this.hashPw(this.state.pubPinInput.trim());
+    if (inputHash !== deptPin.hash) { this.setState({ pubPinError: 'รหัส PIN ไม่ถูกต้อง' }); return; }
+    this.setState({ pubPinVerified: true, pubPinError: '' });
+  }
+  setPubUsageDrug(drugIdx, lotIdx) { this.setState({ pubUsageDrugIdx: drugIdx, pubUsageLotIdx: lotIdx }); }
+  setPubUsageQty(v) { this.setState({ pubUsageQty: String(v).replace(/\D/g, '') }); }
+  setPubUsageHN(v) { this.setState({ pubUsageHN: v }); }
+  setPubUsagePatient(v) { this.setState({ pubUsagePatient: v }); }
+  async submitPubUsage() {
+    if (this.state.pubUsageBusy) return;
+    const { publicBoxId, pubUsageDrugIdx, pubUsageLotIdx, pubUsageQty, pubUsageHN, pubUsagePatient } = this.state;
+    if (pubUsageDrugIdx === null || pubUsageLotIdx === null) { this.setState({ pubUsageMsg: 'กรุณาเลือกยาที่ใช้', pubUsageMsgOk: false }); return; }
+    const qty = parseInt(pubUsageQty, 10);
+    if (!qty || qty <= 0) { this.setState({ pubUsageMsg: 'กรุณากรอกจำนวนที่ใช้', pubUsageMsgOk: false }); return; }
+    if (!(pubUsageHN || '').trim()) { this.setState({ pubUsageMsg: 'กรุณากรอก HN ผู้ป่วย', pubUsageMsgOk: false }); return; }
+    if (!window.EB_Sync) { this.setState({ pubUsageMsg: '⚠️ ระบบซิงค์ยังไม่พร้อม', pubUsageMsgOk: false }); return; }
+    this.setState({ pubUsageBusy: true });
+    const box = this.BOXES.find(b => b.id === publicBoxId);
+    const dept = box ? box.dept : '';
+    const today = this.isoOf(this.TODAY);
+    const nowT = this.nowTime();
+    try {
+      const result = await window.EB_Sync.logDrugUsageTx(publicBoxId, dept, pubUsageDrugIdx, pubUsageLotIdx, qty, pubUsageHN.trim(), (pubUsagePatient || '').trim(), today, nowT);
+      this.BOX_DRUGS = { ...(this.BOX_DRUGS || {}), [publicBoxId]: result.drugs };
+      this.setState(s => ({
+        boxDrugs: { ...(s.boxDrugs || {}), [publicBoxId]: result.drugs },
+        pubUsageBusy: false, pubUsageQty: '', pubUsageHN: '', pubUsagePatient: '', pubUsageDrugIdx: null, pubUsageLotIdx: null,
+        pubUsageMsg: `บันทึกการใช้ ${result.drugName} จำนวน ${qty} เรียบร้อย`, pubUsageMsgOk: true,
+      }));
+    } catch (err) {
+      this.setState({ pubUsageBusy: false, pubUsageMsg: err.message || 'บันทึกไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต', pubUsageMsgOk: false });
+    }
+    clearTimeout(this._pubUsageMsgT);
+    this._pubUsageMsgT = setTimeout(() => this.setState({ pubUsageMsg: '' }), 4000);
   }
 
   // par quantities now live in DRUGS[].par
@@ -1888,7 +1990,7 @@ class Component extends DCLogic {
       return false;
     }
     if (screen !== 'entry') {
-      const _formTouched = !!(this.state.regMfg || this.state.regPrinted || this._regTouched);
+      const _formTouched = !!(this.state.regMfg || this.state.regPrinted || this.state.regSkipPrint || this._regTouched);
       const hasUnsaved = this.state.formMode === 'register' && _formTouched;
       if (hasUnsaved) {
         this.askConfirm({
@@ -1908,7 +2010,7 @@ class Component extends DCLogic {
   go2(formMode) {
     if (!this._go2Force && this.state.formMode === 'register' && formMode !== 'register') {
       const _st = this.state;
-      const _touched = !!(_st.regMfg || _st.regPrinted || this._regTouched);
+      const _touched = !!(_st.regMfg || _st.regPrinted || _st.regSkipPrint || this._regTouched);
       if (_touched) {
         this.askConfirm({ tone: 'warn', icon: 'warn', title: 'เปลี่ยนโหมด?', body: 'ข้อมูลยาที่กรอกไว้จะหายไป ยืนยันเปลี่ยนโหมดโดยไม่บันทึก?', yesLabel: 'เปลี่ยนโหมด', noLabel: 'กลับไปแก้ไข',
           onYes: () => { this._go2Force = true; this._regTouched = false; this.go2(formMode); this._go2Force = false; } });
@@ -1919,7 +2021,7 @@ class Component extends DCLogic {
     const user = this.state.currentUser;
     const uName = user ? user.name : '';
     const isPharm = user && (user.role === 'pharmacist' || user.role === 'admin');
-    const patch = { formMode, regPrinted: false, regHadConfirm: false, swapReturn: false,
+    const patch = { formMode, regPrinted: false, regSkipPrint: false, regHadConfirm: false, swapReturn: false,
       swapRetDrugUsage: {}, retDrugUsage: {},
       dispDate: (this.state.dispDate && this.state.dispDate >= today) ? this.state.dispDate : today,
       retDate: (this.state.retDate && this.state.retDate >= today) ? this.state.retDate : today,
@@ -2029,7 +2131,10 @@ class Component extends DCLogic {
     clearTimeout(this._syncT); clearTimeout(this._lockT);
     clearTimeout(this._t); clearTimeout(this._a);
     clearTimeout(this._saveSuccessT); clearTimeout(this._ghT);
+    clearTimeout(this._deptPinMsgT); clearTimeout(this._pubUsageMsgT);
     clearInterval(this._notifyInterval); clearInterval(this._idleCountI); clearInterval(this._lockCountI);
+    if (this._usageLogUnsub) this._usageLogUnsub();
+    if (this._detailUsageLogUnsub) this._detailUsageLogUnsub();
     if (window.EB_Sync) window.EB_Sync.stopAll();
   }
 
@@ -2316,6 +2421,7 @@ class Component extends DCLogic {
         if (pat && this.state.authed && !this.state.ghPAT) this.setState({ ghPAT: pat });
       }).catch(() => {});
     }
+    if (updatedU.role === 'admin') this.loadDeptPinStatus();
     setTimeout(() => {
       if (!this.state.authed) return;
       this.logAction({ cat: 'auth', action: 'เข้าระบบ', eb: '—', dept: u.dept, drug: 'เข้าสู่ระบบสำเร็จ' });
@@ -2363,7 +2469,7 @@ class Component extends DCLogic {
       loginError: '', attempts: 0, locked: false, lockCountdown: 0,
       idleWarn: false,
       formMode: 'register',
-      regEB: '', regMfg: '', regPreparer: '', regChecker: '', regHadConfirm: false, regPrinted: false,
+      regEB: '', regMfg: '', regPreparer: '', regChecker: '', regHadConfirm: false, regPrinted: false, regSkipPrint: false,
       dispEB: '', formDept: 'ER', dispenser: '', swapReturn: false, swapEB: '', swapReceiver: '', dispDate: '', swapReturnDate: '',
       retEB: '', retReceiver: '', retDate: '', retDrugUsage: {},
       swapRetDrugUsage: {}, submitting: false, capsOn: false,
@@ -2371,6 +2477,7 @@ class Component extends DCLogic {
       boxMeta: {}, editDrugs: false, saveSuccess: null, showChangePw: false, showAddUser: false,
       changePwUsername: null, changePwOld: '', changePwNew: '', changePwConfirm: '', changePwError: '',
       showResetBoxes: false, resetBoxesConfirmText: '',
+      deptPinInputs: { ER: '', WARD: '', LR: '' }, deptPinMsg: '',
       nu_name: '', nu_username: '', nu_role: 'technician', nu_dept: 'ห้องยา', nu_pass: '',
       showToast: false, toastTitle: '', toastSubtitle: '', shakeCount: 0, actionMsg: '',
       confirm: null, ghTrigger: 'idle', ghPAT: '', sidebarOpen: false, _fsLastSentDate: '',
@@ -2491,6 +2598,41 @@ class Component extends DCLogic {
     this.flash(nu_pass.trim() ? 'เพิ่มผู้ใช้ใหม่เรียบร้อย' : 'เพิ่มผู้ใช้ใหม่เรียบร้อย · รหัสผ่านเริ่มต้น: 1234');
     this.logAction({ cat: 'user', action: 'จัดการผู้ใช้', eb: '—', dept: nu.dept, drug: `เพิ่มผู้ใช้ใหม่ ${nu.name} (${(this.ROLES[nu_role] || {label: nu_role}).label})` });
   }
+  // ---------- department PIN management (admin only, paperless usage logging) ----------
+  // Only loads whether each dept HAS a PIN set (never the hash itself) — the
+  // admin can overwrite a PIN but never view the existing one.
+  loadDeptPinStatus() {
+    if (!window.EB_Sync) return;
+    window.EB_Sync.getDeptPins().then(pins => {
+      this.setState({ deptPinsSet: { ER: !!(pins.ER && pins.ER.hash), WARD: !!(pins.WARD && pins.WARD.hash), LR: !!(pins.LR && pins.LR.hash) } });
+    });
+  }
+  setDeptPinInput(dept, value) {
+    this.setState(s => ({ deptPinInputs: { ...s.deptPinInputs, [dept]: value } }));
+  }
+  async saveDeptPins() {
+    if (!this.state.currentUser || this.state.currentUser.role !== 'admin') return;
+    const { deptPinInputs } = this.state;
+    const toSave = {};
+    for (const dept of ['ER', 'WARD', 'LR']) {
+      const pin = (deptPinInputs[dept] || '').trim();
+      if (!pin) continue;
+      if (!/^\d{4,8}$/.test(pin)) { this.setState({ deptPinMsg: `รหัส ${dept} ต้องเป็นตัวเลข 4-8 หลัก`, deptPinMsgOk: false }); return; }
+      toSave[dept] = { hash: await this.hashPw(pin) };
+    }
+    if (!Object.keys(toSave).length) { this.setState({ deptPinMsg: 'กรุณากรอกรหัส PIN อย่างน้อย 1 หน่วยงาน', deptPinMsgOk: false }); return; }
+    if (!window.EB_Sync) { this.setState({ deptPinMsg: '⚠️ ระบบซิงค์ยังไม่พร้อม', deptPinMsgOk: false }); return; }
+    await window.EB_Sync.syncDeptPins(toSave);
+    const savedDepts = Object.keys(toSave);
+    this.setState(s => ({
+      deptPinInputs: { ...s.deptPinInputs, ...Object.fromEntries(savedDepts.map(d => [d, ''])) },
+      deptPinsSet: { ...s.deptPinsSet, ...Object.fromEntries(savedDepts.map(d => [d, true])) },
+      deptPinMsg: 'บันทึกรหัส PIN เรียบร้อย', deptPinMsgOk: true,
+    }));
+    this.logAction({ cat: 'user', action: 'จัดการผู้ใช้', eb: '—', dept: '—', drug: `ตั้งรหัสหน่วยงาน (Dept PIN): ${savedDepts.join(', ')}` });
+    clearTimeout(this._deptPinMsgT);
+    this._deptPinMsgT = setTimeout(() => this.setState({ deptPinMsg: '' }), 3000);
+  }
   // ---------- reset all boxes (admin only) ----------
   openResetBoxes() {
     if (!this.state.currentUser || this.state.currentUser.role !== 'admin') return;
@@ -2506,7 +2648,7 @@ class Component extends DCLogic {
     const resetBoxes = this.BOXES.map(b => ({
       id: b.id, dept: b.dept,
       mfg: '', expiry: '', nearDrug: '', preparer: '', checker: '', registeredAt: '',
-      dispense: '', dispenser: '', receiver: '', retDate: '',
+      dispense: '', dispenser: '', receiver: '', retDate: '', openedAt: '',
     }));
     const resetDrugs = {};
     resetBoxes.forEach(box => {
@@ -2547,7 +2689,7 @@ class Component extends DCLogic {
         const _regBoxCheck = this.BOXES.find(b => b.id === st.regEB);
         if (_regBoxCheck && _regBoxCheck.dispense && !_regBoxCheck.receiver) errs.push('กล่องนี้กำลังจ่ายออกอยู่ — รับคืนก่อนจึงจะลงทะเบียนได้');
       }
-      if (!st.regPrinted) errs.push('พิมพ์ใบกล่องก่อนบันทึก (กดปุ่ม พิมพ์ใบกล่อง)');
+      if (!st.regPrinted && !st.regSkipPrint) errs.push('พิมพ์ใบกล่องก่อนบันทึก (กดปุ่ม พิมพ์ใบกล่อง) หรือเลือก "ไม่ใช้กระดาษ (Paperless)"');
       if (!st.regMfg) errs.push('กรอกวันที่ผลิต');
       if (st.regMfg && !this.parse(st.regMfg)) errs.push('วันที่ผลิตไม่ถูกต้อง (ใช้รูปแบบ YYYY-MM-DD)');
       if (!(st.regPreparer || '').trim()) errs.push('ลงชื่อผู้จัดเตรียม (จพ.)');
@@ -2723,7 +2865,7 @@ class Component extends DCLogic {
       meta[regEB] = { mfg: this.state.regMfg, preparer: this.state.regPreparer, checker: this.state.regChecker, registeredAt: this.isoOf(this.TODAY) };
       this.setState({ boxMeta: meta, regHadConfirm: false });
       const box = this.BOXES.find(b => b.id === regEB) || { id: regEB };
-      this._syncBox({ ...box, mfg: this.state.regMfg, expiry: nearISO || '', nearDrug: near || '', preparer: this.state.regPreparer, checker: this.state.regChecker, registeredAt: this.isoOf(this.TODAY), dispense: '', dispenser: '', receiver: '', retDate: '' });
+      this._syncBox({ ...box, mfg: this.state.regMfg, expiry: nearISO || '', nearDrug: near || '', preparer: this.state.regPreparer, checker: this.state.regChecker, registeredAt: this.isoOf(this.TODAY), dispense: '', dispenser: '', receiver: '', retDate: '', openedAt: '' });
       this._syncBoxDrugs(regEB, BD[regEB] || []);
       msg = `ลงทะเบียน ${regEB} สำเร็จ · ตรวจพบยาใกล้หมดอายุสุด: ${near || 'ไม่มีข้อมูล'}`;
       this.logAction({ cat: 'register', action: 'ลงทะเบียน', eb: regEB, dept: '—', drug: `จัดยาเข้าคลัง · ใกล้หมดอายุสุด: ${near}` });
@@ -2784,7 +2926,7 @@ class Component extends DCLogic {
         // together, both re-read fresh from the server — see returnBoxAndDrugsTx
         let _swResult;
         try {
-          _swResult = await window.EB_Sync.returnBoxAndDrugsTx(resolvedSwapEB, { receiver: this.state.swapReceiver, retDate: this.state.swapReturnDate }, _swUsageCheck);
+          _swResult = await window.EB_Sync.returnBoxAndDrugsTx(resolvedSwapEB, { receiver: this.state.swapReceiver, retDate: this.state.swapReturnDate, openedAt: '' }, _swUsageCheck);
         } catch (err) {
           this.setState({ submitting: false });
           this.flash(err.code === 'NOT_OUT'
@@ -2792,7 +2934,7 @@ class Component extends DCLogic {
             : '⚠️ บันทึกไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
           return;
         }
-        this.BOXES = this.BOXES.map(b => b.id === resolvedSwapEB ? { ...b, receiver: this.state.swapReceiver, retDate: this.state.swapReturnDate } : b);
+        this.BOXES = this.BOXES.map(b => b.id === resolvedSwapEB ? { ...b, receiver: this.state.swapReceiver, retDate: this.state.swapReturnDate, openedAt: '' } : b);
         if (_swResult.drugs) this.BOX_DRUGS = { ...(this.BOX_DRUGS || {}), [resolvedSwapEB]: _swResult.drugs };
         const _swSummary = _swPrevDrugsCheck.map((drug, di) => {
           const _used = Object.values((_swUsageCheck[di] || {})).reduce((s, q) => s + q, 0);
@@ -2838,7 +2980,7 @@ class Component extends DCLogic {
       // returned by someone else, instead of silently overwriting their write.
       let _retResult;
       try {
-        _retResult = await window.EB_Sync.returnBoxAndDrugsTx(retEB, { receiver: retReceiver, retDate }, retDrugUsage);
+        _retResult = await window.EB_Sync.returnBoxAndDrugsTx(retEB, { receiver: retReceiver, retDate, openedAt: '' }, retDrugUsage);
       } catch (err) {
         this.setState({ submitting: false });
         this.flash(err.code === 'NOT_OUT'
@@ -2846,7 +2988,7 @@ class Component extends DCLogic {
           : '⚠️ บันทึกไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
         return;
       }
-      this.BOXES = this.BOXES.map(b => b.id === retEB ? { ...b, receiver: retReceiver, retDate } : b);
+      this.BOXES = this.BOXES.map(b => b.id === retEB ? { ...b, receiver: retReceiver, retDate, openedAt: '' } : b);
       if (_retResult.drugs) this.BOX_DRUGS = { ...(this.BOX_DRUGS || {}), [retEB]: _retResult.drugs };
       // log drug usage summary
       const _usageSummary = _prevDrugsCheck.map((drug, di) => {
@@ -3065,7 +3207,7 @@ td.l{text-align:left;padding-left:4px}
         : null;
       const newBoxDrugs = clearedList ? { ...baseBD, [newRegEB]: clearedList } : null;
       this._regTouched = false;
-      this.setState({ submitting: false, regEB: newRegEB, regMfg: '', regPreparer: '', regChecker: '', regHadConfirm: false, regPrinted: false, boxDrugs: newBoxDrugs, dispenser: '', retReceiver: '' });
+      this.setState({ submitting: false, regEB: newRegEB, regMfg: '', regPreparer: '', regChecker: '', regHadConfirm: false, regPrinted: false, regSkipPrint: false, boxDrugs: newBoxDrugs, dispenser: '', retReceiver: '' });
     }
     else if (m === 'dispense') this.setState({ submitting: false, dispEB: inStockIds[0] || '', formDept: 'ER', dispenser: uName, swapReturn: false, swapEB: '', swapReceiver: '', swapRetDrugUsage: {}, retDrugUsage: {}, dispDate: today, swapReturnDate: today, retReceiver: '' });
     else this.setState({ submitting: false, retEB: outIds[0] || '', retReceiver: uName, retDate: today, retDrugUsage: {}, swapRetDrugUsage: {}, dispenser: '' });
@@ -3286,6 +3428,24 @@ td.l{text-align:left;padding-left:4px}
 
     vals.doLogout = () => this.askConfirm({ tone: 'plain', icon: 'logout', title: 'ออกจากระบบ?', body: 'คุณจะถูกนำกลับไปหน้าเข้าสู่ระบบ', yesLabel: 'ออกจากระบบ', noLabel: 'อยู่ต่อ', onYes: () => { this.logAction({ cat: 'auth', action: 'ออกระบบ', eb: '—', dept: '—', drug: 'ออกจากระบบโดยผู้ใช้' }); this.logout(); } });
 
+    // ===== Department PIN management (paperless usage logging) =====
+    const DEPT_LABELS = { ER: 'ER · ห้องฉุกเฉิน', WARD: 'WARD · หอผู้ป่วย', LR: 'LR · ห้องคลอด' };
+    vals.deptPinInputsEl = h(React.Fragment, null, ...['ER', 'WARD', 'LR'].map(dept => h('div', { key: dept },
+      h('label', { style: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: '#4A5C6A', marginBottom: 6 } },
+        DEPT_LABELS[dept],
+        h('span', { style: { fontSize: 10.5, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: st.deptPinsSet[dept] ? '#E4F4EF' : '#FBF1E0', color: st.deptPinsSet[dept] ? '#169C7F' : '#B5740F' } }, st.deptPinsSet[dept] ? 'ตั้งไว้แล้ว' : 'ยังไม่ตั้ง')
+      ),
+      h('input', {
+        type: 'text', inputMode: 'numeric', maxLength: 8, value: st.deptPinInputs[dept],
+        placeholder: st.deptPinsSet[dept] ? '•••• (กรอกใหม่เพื่อเปลี่ยน)' : 'ตั้งรหัส 4-8 หลัก',
+        onChange: (e) => this.setDeptPinInput(dept, e.target.value.replace(/\D/g, '')),
+        style: { width: '100%', height: 44, border: '1.5px solid #DBE4EB', borderRadius: 10, padding: '0 12px', fontSize: 13.5, fontFamily: "'IBM Plex Mono', monospace", boxSizing: 'border-box' },
+      })
+    )));
+    vals.saveDeptPins = () => this.saveDeptPins();
+    vals.deptPinMsg = st.deptPinMsg;
+    vals.deptPinMsgColor = st.deptPinMsgOk ? '#169C7F' : '#B42121';
+
     // ===== Mobile sidebar / hamburger / bottom nav =====
     vals.sidebarClass = 'sidebar' + (st.sidebarOpen ? ' sidebar-open' : '');
     vals.sidebarOverlayEl = h('div', {
@@ -3418,7 +3578,69 @@ td.l{text-align:left;padding-left:4px}
           return rowEl;
         });
 
-        vals.publicViewEl = h('div', { style: { minHeight: '100vh', background: '#EDF2F7', fontFamily: "'IBM Plex Sans Thai', sans-serif", WebkitFontSmoothing: 'antialiased' } },
+        const pubUsageModalEl = !st.pubOpenFlow ? null : h('div', {
+          onClick: () => this.closePubUsageFlow(),
+          style: { position: 'fixed', inset: 0, background: 'rgba(14,42,60,.55)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 300, animation: 'overlayIn .2s ease both' },
+        },
+          h('div', {
+            onClick: (e) => e.stopPropagation(),
+            style: { width: '100%', maxWidth: 480, background: '#fff', borderRadius: '20px 20px 0 0', padding: '22px 22px 28px', maxHeight: '88vh', overflowY: 'auto', boxShadow: '0 -8px 40px rgba(14,42,60,.3)', animation: 'modalPop .3s cubic-bezier(.2,.9,.2,1) both', boxSizing: 'border-box' },
+          },
+            h('div', { style: { display: 'flex', alignItems: 'center', marginBottom: 16 } },
+              h('div', { style: { fontSize: 16, fontWeight: 700 } }, `เปิดใช้งานกล่อง ${pubBox.id}`),
+              h('button', { onClick: () => this.closePubUsageFlow(), style: { marginLeft: 'auto', width: 32, height: 32, border: 'none', background: '#F1F5F8', borderRadius: 9, fontSize: 18, cursor: 'pointer', color: '#7B8D9C' } }, '×')
+            ),
+            !st.pubPinVerified ? h('div', null,
+              h('div', { style: { fontSize: 13, color: '#5A6B79', marginBottom: 12 } }, `กรุณากรอกรหัส PIN ของหน่วยงาน ${pubBox.dept || ''} เพื่อยืนยันตัวตน`),
+              h('input', {
+                type: 'password', inputMode: 'numeric', maxLength: 8, value: st.pubPinInput,
+                onChange: (e) => this.setPubPinInput(e.target.value),
+                placeholder: 'รหัส PIN',
+                style: { width: '100%', height: 50, border: '1.5px solid #DBE4EB', borderRadius: 12, padding: '0 16px', fontSize: 18, letterSpacing: 4, textAlign: 'center', fontFamily: "'IBM Plex Mono', monospace", boxSizing: 'border-box', marginBottom: 10 },
+              }),
+              st.pubPinError ? h('div', { style: { fontSize: 12.5, color: '#E03E3E', marginBottom: 10, fontWeight: 600 } }, st.pubPinError) : null,
+              h('button', { onClick: () => this.verifyPubPin(), style: { width: '100%', height: 48, border: 'none', borderRadius: 12, background: 'linear-gradient(135deg,#1E4FD8,#2B7FE0)', color: '#fff', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, cursor: 'pointer' } }, 'ยืนยัน')
+            ) : h('div', null,
+              h('div', { style: { fontSize: 12.5, fontWeight: 600, color: '#4A5C6A', marginBottom: 8 } }, 'เลือกยาที่ใช้'),
+              h('div', { style: { display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14, maxHeight: 160, overflowY: 'auto' } },
+                ...pubBD.flatMap((d, di) => (d.lots || []).map((lot, li) => (lot.qty > 0) ? h('button', {
+                  key: di + '_' + li,
+                  onClick: () => this.setPubUsageDrug(di, li),
+                  style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', textAlign: 'left', padding: '10px 14px', borderRadius: 10, border: (st.pubUsageDrugIdx === di && st.pubUsageLotIdx === li) ? '1.5px solid #2B7FE0' : '1.5px solid #E7EEF3', background: (st.pubUsageDrugIdx === di && st.pubUsageLotIdx === li) ? '#EEF5FA' : '#fff', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12.5 },
+                },
+                  h('span', null, d.name, d.lots.length > 1 ? ` (Lot ${li + 1})` : ''),
+                  h('span', { style: { color: '#7B8D9C', fontWeight: 600 } }, `${lot.qty} หน่วย`)
+                ) : null).filter(Boolean))
+              ),
+              pubBD.every(d => (d.lots || []).every(l => !(l.qty > 0))) ? h('div', { style: { fontSize: 12.5, color: '#9AAAB8', marginBottom: 14 } }, 'ไม่มียาคงเหลือในกล่องนี้') : null,
+              h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 } },
+                h('div', null,
+                  h('label', { style: { fontSize: 11.5, fontWeight: 600, color: '#4A5C6A', display: 'block', marginBottom: 4 } }, 'จำนวนที่ใช้'),
+                  h('input', { type: 'text', inputMode: 'numeric', value: st.pubUsageQty, onChange: (e) => this.setPubUsageQty(e.target.value), placeholder: '0', style: { width: '100%', height: 42, border: '1.5px solid #DBE4EB', borderRadius: 9, padding: '0 12px', fontSize: 13.5, boxSizing: 'border-box' } })),
+                h('div', null,
+                  h('label', { style: { fontSize: 11.5, fontWeight: 600, color: '#4A5C6A', display: 'block', marginBottom: 4 } }, 'HN ผู้ป่วย'),
+                  h('input', { type: 'text', value: st.pubUsageHN, onChange: (e) => this.setPubUsageHN(e.target.value), placeholder: 'HN', style: { width: '100%', height: 42, border: '1.5px solid #DBE4EB', borderRadius: 9, padding: '0 12px', fontSize: 13.5, boxSizing: 'border-box' } }))
+              ),
+              h('div', { style: { marginBottom: 14 } },
+                h('label', { style: { fontSize: 11.5, fontWeight: 600, color: '#4A5C6A', display: 'block', marginBottom: 4 } }, 'ชื่อผู้ป่วย (ถ้ามี)'),
+                h('input', { type: 'text', value: st.pubUsagePatient, onChange: (e) => this.setPubUsagePatient(e.target.value), placeholder: 'ชื่อ-สกุล', style: { width: '100%', height: 42, border: '1.5px solid #DBE4EB', borderRadius: 9, padding: '0 12px', fontSize: 13.5, boxSizing: 'border-box' } })),
+              st.pubUsageMsg ? h('div', { style: { fontSize: 12.5, fontWeight: 600, color: st.pubUsageMsgOk ? '#169C7F' : '#E03E3E', marginBottom: 10 } }, st.pubUsageMsg) : null,
+              h('button', {
+                onClick: () => this.submitPubUsage(), disabled: st.pubUsageBusy,
+                style: { width: '100%', height: 48, border: 'none', borderRadius: 12, background: st.pubUsageBusy ? '#B0BEC5' : 'linear-gradient(135deg,#059669,#0DB9A0)', color: '#fff', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, cursor: st.pubUsageBusy ? 'default' : 'pointer', marginBottom: 16 },
+              }, st.pubUsageBusy ? 'กำลังบันทึก...' : 'บันทึกการใช้ยา'),
+              (st.pubUsageLog || []).length ? h('div', null,
+                h('div', { style: { fontSize: 12, fontWeight: 700, color: '#7B8D9C', marginBottom: 8, borderTop: '1px solid #F0F4F7', paddingTop: 12 } }, 'ประวัติการใช้ล่าสุด'),
+                ...st.pubUsageLog.slice(0, 10).map(u => h('div', { key: u.id, style: { display: 'flex', justifyContent: 'space-between', fontSize: 12, padding: '6px 0', borderBottom: '1px solid #F5F7F9' } },
+                  h('span', null, `${u.drugName} × ${u.qty}`),
+                  h('span', { style: { color: '#9AAAB8' } }, `${u.recordedTime || ''} · HN ${u.hn || '-'}`)
+                ))
+              ) : null
+            )
+          )
+        );
+
+        vals.publicViewEl = h(React.Fragment, null, h('div', { style: { minHeight: '100vh', background: '#EDF2F7', fontFamily: "'IBM Plex Sans Thai', sans-serif", WebkitFontSmoothing: 'antialiased' } },
           h('div', { style: { background: 'linear-gradient(135deg, #1A6FA3 0%, #169C7F 100%)', padding: '32px 20px 52px', color: '#fff' } },
             h('div', { style: { fontSize: 11.5, opacity: .75, marginBottom: 8, fontWeight: 500, letterSpacing: .3 } }, '🏥 Emergency Box · ฝ่ายเภสัชกรรม รพ.กรงปินัง'),
             h('div', { style: { fontSize: 38, fontWeight: 700, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: -1, lineHeight: 1 } }, pubBox.id),
@@ -3437,10 +3659,23 @@ td.l{text-align:left;padding-left:4px}
               h('div', { style: { fontSize: 24, fontWeight: 700, color: pubStatus.color } }, pubRetDate),
               h('span', { style: { display: 'inline-block', marginTop: 8, fontSize: 12, fontWeight: 700, color: pubStatus.color, background: pubStatus.soft, border: `1px solid ${pubStatus.border}`, borderRadius: 20, padding: '4px 14px' } }, pubDaysText || '—')
             ),
+            pubBox.mfg ? h('div', { style: { background: '#fff', borderRadius: 16, padding: '14px 20px', marginBottom: 14, border: '1px solid #E7EEF3', boxShadow: '0 4px 20px rgba(20,40,55,.08)' } },
+              h('div', { style: { fontSize: 12, fontWeight: 600, color: '#7B8D9C', marginBottom: 8 } }, '📋 ข้อมูลลงทะเบียนกล่อง'),
+              h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, fontSize: 12.5 } },
+                h('div', null, h('div', { style: { color: '#9AAAB8', fontSize: 11 } }, 'วันที่ผลิต'), h('div', { style: { fontWeight: 600, marginTop: 2 } }, this.fmtISO(pubBox.mfg))),
+                h('div', null, h('div', { style: { color: '#9AAAB8', fontSize: 11 } }, 'ผู้จัดเตรียม'), h('div', { style: { fontWeight: 600, marginTop: 2 } }, pubBox.preparer || '—')),
+                h('div', null, h('div', { style: { color: '#9AAAB8', fontSize: 11 } }, 'เภสัชกรผู้ตรวจสอบ'), h('div', { style: { fontWeight: 600, marginTop: 2 } }, pubBox.checker || '—')),
+                pubBox.openedAt ? h('div', null, h('div', { style: { color: '#9AAAB8', fontSize: 11 } }, 'เปิดใช้งานครั้งแรก'), h('div', { style: { fontWeight: 600, marginTop: 2, color: '#B5740F' } }, this.fmtISO(pubBox.openedAt))) : null,
+              )
+            ) : null,
             isOut ? h('div', { style: { background: '#fff', borderRadius: 16, padding: '14px 20px', marginBottom: 14, border: '1px solid #E7EEF3', boxShadow: '0 4px 20px rgba(20,40,55,.08)' } },
               h('div', { style: { fontSize: 12, fontWeight: 600, color: '#7B8D9C', marginBottom: 4 } }, '📤 บันทึกการเบิก'),
               h('div', { style: { fontSize: 14, fontWeight: 600 } }, `จ่ายเมื่อ ${this.fmtISO(pubBox.dispense)}`),
-              pubBox.dispenser ? h('div', { style: { fontSize: 12, color: '#7B8D9C', marginTop: 3 } }, `โดย ${pubBox.dispenser}`) : null
+              pubBox.dispenser ? h('div', { style: { fontSize: 12, color: '#7B8D9C', marginTop: 3 } }, `โดย ${pubBox.dispenser}`) : null,
+              h('button', {
+                type: 'button', onClick: () => this.openPubUsageFlow(),
+                style: { marginTop: 12, width: '100%', height: 46, border: 'none', borderRadius: 12, background: 'linear-gradient(135deg,#1E4FD8,#2B7FE0)', color: '#fff', fontFamily: 'inherit', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 4px 14px rgba(43,127,224,.35)' },
+              }, '📱 เปิดใช้งานกล่อง / บันทึกการใช้ยา')
             ) : null,
             h('div', { style: { background: '#fff', borderRadius: 16, overflow: 'hidden', border: '1px solid #E7EEF3', boxShadow: '0 4px 20px rgba(20,40,55,.08)', marginBottom: 14 } },
               h('div', { style: { padding: '14px 20px 12px', borderBottom: '1px solid #F0F4F7', display: 'flex', alignItems: 'center' } },
@@ -3455,7 +3690,7 @@ td.l{text-align:left;padding-left:4px}
               h('a', { href: window.location.href.split('?')[0], style: { display: 'inline-block', marginTop: 8, fontSize: 13, color: '#1A6FA3', fontWeight: 600, textDecoration: 'none', background: '#E8F0F6', borderRadius: 8, padding: '6px 18px' } }, '→ เปิดระบบเต็ม (ต้อง Login)')
             )
           )
-        );
+        ), pubUsageModalEl);
       }
     } else {
       vals.publicViewEl = null;
@@ -3962,6 +4197,7 @@ td.l{text-align:left;padding-left:4px}
       const _dirty = _m === 'register' ? (
         !!st.regMfg ||
         !!st.regPrinted ||
+        !!st.regSkipPrint ||
         this._regTouched ||
         st.regPreparer !== (!_isPharm ? _uName : '') ||
         st.regChecker  !== (_isPharm  ? _uName : '')
@@ -3975,14 +4211,24 @@ td.l{text-align:left;padding-left:4px}
     const printerSVG = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none"><rect x="5" y="2" width="14" height="6" rx="1" stroke="currentColor" stroke-width="1.8"/><path d="M5 18H3a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1h18a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1h-2" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><rect x="5" y="14" width="14" height="8" rx="1" stroke="currentColor" stroke-width="1.8"/><circle cx="18" cy="11.5" r="1" fill="currentColor"/></svg>';
     const checkSVG = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
     const printed = st.regPrinted;
+    const skipPrint = st.regSkipPrint;
     const printBtnStyle = printed
       ? { display: 'inline-flex', alignItems: 'center', gap: 7, height: 50, padding: '0 18px', border: '1.5px solid #A7DFC2', background: 'linear-gradient(135deg,#E8F7EE,#D4F0E2)', color: '#169C7F', borderRadius: 13, fontFamily: 'inherit', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', transition: 'all .22s', boxShadow: '0 2px 8px rgba(22,156,127,.15)' }
-      : { display: 'inline-flex', alignItems: 'center', gap: 7, height: 50, padding: '0 18px', border: '1.5px solid #C3DDEC', background: 'linear-gradient(135deg,#EEF5FA,#E4F0F8)', color: '#1A6FA3', borderRadius: 13, fontFamily: 'inherit', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', transition: 'all .22s', boxShadow: '0 2px 8px rgba(26,111,163,.1)' };
+      : { display: 'inline-flex', alignItems: 'center', gap: 7, height: 50, padding: '0 18px', border: '1.5px solid #C3DDEC', background: 'linear-gradient(135deg,#EEF5FA,#E4F0F8)', color: '#1A6FA3', borderRadius: 13, fontFamily: 'inherit', fontSize: 13.5, fontWeight: 600, cursor: skipPrint ? 'default' : 'pointer', transition: 'all .22s', boxShadow: '0 2px 8px rgba(26,111,163,.1)', opacity: skipPrint ? .55 : 1 };
     vals.printEBFormBtn = h(React.Fragment, null,
-      h('button', { type: 'button', onClick: () => this.printEBForm('landscape1'), style: printBtnStyle },
+      h('button', { type: 'button', onClick: () => { if (!skipPrint) this.printEBForm('landscape1'); }, style: printBtnStyle },
         ic(printed ? checkSVG : printerSVG, 17),
         h('span', null, printed ? 'พิมพ์แล้ว ✓' : 'พิมพ์ใบกล่อง', printed ? null : h('span', { style: { fontSize: 11, opacity: .72, fontWeight: 500 } }, ' (A4 นอน — A5 ✂)'))),
-      !printed ? h('span', { style: { fontSize: 12, color: '#B5740F', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 } }, '⚠ พิมพ์ก่อนบันทึก') : null
+      (!printed && !skipPrint) ? h('span', { style: { fontSize: 12, color: '#B5740F', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 } }, '⚠ พิมพ์ก่อนบันทึก') : null,
+      skipPrint ? h('span', { style: { fontSize: 12, color: '#1A6FA3', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 } }, '📱 โหมดไม่ใช้กระดาษ — ข้อมูลอยู่ใน QR Code แทน') : null,
+      h('label', { style: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, cursor: 'pointer', fontSize: 12.5, fontWeight: 600, color: '#4A5C6A' } },
+        h('input', {
+          type: 'checkbox', checked: skipPrint,
+          onChange: (e) => { this._regTouched = true; this.setState({ regSkipPrint: e.target.checked }); },
+          style: { width: 16, height: 16, cursor: 'pointer' },
+        }),
+        'ไม่ใช้กระดาษ (Paperless) — ใช้ QR Code แทนใบพิมพ์'
+      )
     );
 
     // ----- DETAIL -----
@@ -4009,7 +4255,7 @@ td.l{text-align:left;padding-left:4px}
       vals.box = null;
       vals.expiryRingEl = null; vals.detailQuickActionsEl = null;
       vals.editToggleEl = null; vals.drugTableEl = null; vals.drugFooterEl = null;
-      vals.boxHistEl = null;
+      vals.boxHistEl = null; vals.usageLogEl = null;
       return vals;
     }
     if (!_foundBox) Promise.resolve().then(() => this.setState({ selectedEB: box.id }));
@@ -4029,6 +4275,7 @@ td.l{text-align:left;padding-left:4px}
       receiver: returned ? `โดย ${box.receiver}` : (dispensed ? `กำหนดส่งคืน ${this.fmt(this.addDays(boxExp, -15))}` : 'พร้อมจ่าย'),
       returnColor: returned ? '#169C7F' : bStatus.color,
       returnSoft: returned ? '#E4F4EF' : bStatus.soft,
+      openedAtText: box.openedAt ? this.fmtISO(box.openedAt) : '',
     };
 
     // expiry countdown ring SVG
@@ -4551,6 +4798,33 @@ td.l{text-align:left;padding-left:4px}
         h('div', { style: { width: 48, height: 48, borderRadius: 14, background: 'linear-gradient(135deg,#EDF5FB,#E0EFF8)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 10px', animation: 'floatY 4s ease-in-out infinite' }, dangerouslySetInnerHTML: { __html: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1M3.5 4.5V9H8" stroke="#9AAAB8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 8v4.2l3 1.8" stroke="#9AAAB8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>' } }),
         h('div', { style: { fontSize: 13, fontWeight: 600, color: '#4A5C6A' } }, 'ยังไม่มีประวัติ'),
         h('div', { style: { fontSize: 11.5, color: '#9AAAB8', marginTop: 4 } }, 'ประวัติการแก้ไขจะแสดงที่นี่'));
+
+    // ===== usage log (paperless, detail screen) =====
+    // (re)subscribe only when the viewed box actually changes, and only while
+    // Detail is the active screen — avoids an idle Firestore listener running
+    // for whatever box happens to be selected on unrelated screens
+    if (screen === 'detail' && st.selectedEB) {
+      if (this._detailUsageLogBoxId !== st.selectedEB) {
+        this._detailUsageLogBoxId = st.selectedEB;
+        if (this._detailUsageLogUnsub) this._detailUsageLogUnsub();
+        this._detailUsageLogUnsub = (window.EB_Sync && window.EB_Sync.listenUsageLog)
+          ? window.EB_Sync.listenUsageLog(st.selectedEB, rows => this.setState({ detailUsageLog: rows }))
+          : null;
+      }
+    } else if (this._detailUsageLogUnsub) {
+      this._detailUsageLogUnsub();
+      this._detailUsageLogUnsub = null;
+      this._detailUsageLogBoxId = null;
+    }
+    const ul = st.detailUsageLog || [];
+    vals.usageLogEl = ul.length ? h(React.Fragment, null, ...ul.slice(0, 15).map((u, i) => h('div', { key: u.id || i, style: { display: 'flex', gap: 10, alignItems: 'flex-start', padding: '8px 0', borderBottom: i < Math.min(ul.length, 15) - 1 ? '1px solid #F4F7F9' : 'none' } },
+      h('span', { style: { width: 7, height: 7, flexShrink: 0, borderRadius: '50%', background: '#B5740F', marginTop: 6 } }),
+      h('div', { style: { minWidth: 0, flex: 1 } },
+        h('div', { style: { fontSize: 12.5, color: '#15242E', fontWeight: 500 } }, `${u.drugName || '—'} × ${u.qty || 0}${u.hn ? ` · HN ${u.hn}` : ''}${u.patientName ? ` (${u.patientName})` : ''}`),
+        h('div', { style: { fontSize: 11, color: '#9AAAB8', marginTop: 1 } }, `${u.dept || '—'} · ${u.recordedAt || ''} ${u.recordedTime || ''}`))
+    ))) : h('div', { style: { textAlign: 'center', padding: '20px 10px' } },
+      h('div', { style: { fontSize: 13, fontWeight: 600, color: '#4A5C6A' } }, 'ยังไม่มีประวัติการใช้ยา'),
+      h('div', { style: { fontSize: 11.5, color: '#9AAAB8', marginTop: 4 } }, 'บันทึกผ่านการสแกน QR Code จะแสดงที่นี่'));
 
     return vals;
   }

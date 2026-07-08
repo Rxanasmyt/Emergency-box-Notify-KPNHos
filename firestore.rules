@@ -22,6 +22,13 @@ service cloud.firestore {
       allow read, create: if isAuth();
       allow update, delete: if false;
     }
+    // usage_log: the paperless per-use drug log written from the public QR
+    // page (dept PIN gated at the UI layer). Append-only for the same reason
+    // as audit_log — a real usage record must never be editable or erasable.
+    match /usage_log/{entryId} {
+      allow read, create: if isAuth();
+      allow update, delete: if false;
+    }
     // users legitimately supports delete (admin "remove account" feature).
     match /users/{userId} {
       allow read, write: if isAuth();
