@@ -1020,6 +1020,15 @@ input:focus, select:focus, textarea:focus {
           {{ personDatalistEl }}
           <!-- ===== STEP 1: REGISTER / PREPARE (2-stage: จพ. เตรียม -> เภสัชกร ตรวจสอบ) ===== -->
           <sc-if value="{{ isRegister }}" hint-placeholder-val="{{ true }}">
+
+            <!-- Landing: overview grid of every EB box + its current stage — pick one to open it -->
+            <sc-if value="{{ regShowLanding }}" hint-placeholder-val="{{ true }}">
+              <div style="margin-bottom: 10px; font-size: 12.5px; color: #7B8D9C;">เลือกกล่อง EB ที่ต้องการจัดเตรียมหรือตรวจสอบ</div>
+              <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px;">{{ regLandingCardsEl }}</div>
+            </sc-if>
+
+            <sc-if value="{{ regShowForm }}" hint-placeholder-val="{{ false }}">
+            <button onClick="{{ regBackToLanding }}" style="display: flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; margin-bottom: 16px; border: 1.5px solid #DBE4EB; background: #fff; color: #4A5C6A; border-radius: 10px; font-family: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; transition: all .22s cubic-bezier(.34,1.56,.64,1);" style-hover="background: #F4F8FB; border-color: #C3DDEC;">← กลับไปเลือกกล่อง</button>
             <div class="form-grid-2" style="margin-bottom: 18px;">
               <div>
                 <label style="display: block; font-size: 12.5px; font-weight: 600; color: #4A5C6A; margin-bottom: 7px;">รหัส EB <span style="color:#E03E3E;">*</span></label>
@@ -1098,6 +1107,7 @@ input:focus, select:focus, textarea:focus {
               <div style="margin-top: 14px;">
                 <button onClick="{{ resetForm }}" style="height: 50px; padding: 0 22px; border: 1.5px solid #DBE4EB; background: #fff; color: #4A5C6A; border-radius: 13px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all .22s cubic-bezier(.34,1.56,.64,1);" style-hover="background: #F4F8FB; border-color: #C3DDEC; transform: translateY(-1px);" style-active="transform: scale(.97);">ล้างฟอร์ม</button>
               </div>
+            </sc-if>
             </sc-if>
           </sc-if>
 
@@ -1820,6 +1830,7 @@ class Component extends DCLogic {
     regPrinted: false,
     regSkipPrint: false,
     regRejectReason: '',
+    regLanding: true, // show the box-picker overview grid before the Stage 1/2 form
     // step 2: dispense / swap
     dispEB: '',
     formDept: 'ER',
@@ -2212,6 +2223,9 @@ class Component extends DCLogic {
     if (formMode === 'return'   && !this.state.retReceiver && uName) patch.retReceiver = uName;
     if (formMode === 'register' && !this.state.regChecker  && isPharm) patch.regChecker  = uName;
     if (formMode === 'register' && !this.state.regPreparer && !isPharm && uName) patch.regPreparer = uName;
+    // switching INTO register mode always starts at the box-picker overview,
+    // not whatever box happened to be selected last time
+    if (formMode === 'register') patch.regLanding = true;
     // ensure chip state matches the visually-selected box for this mode
     const _inStock = this.BOXES.filter(b => !(b.dispense && !b.receiver)).map(b => b.id);
     const _out     = this.BOXES.filter(b =>  b.dispense && !b.receiver).map(b => b.id);
@@ -2497,7 +2511,7 @@ class Component extends DCLogic {
     const _existBD = (this.BOX_DRUGS || {})[id] || [];
     // switching box invalidates any label already printed for the PREVIOUS box —
     // the print gate must be re-earned for whichever box actually gets submitted
-    const _upd = { regEB: id, regHadConfirm: false, regPrinted: false, regRejectReason: '' };
+    const _upd = { regEB: id, regHadConfirm: false, regPrinted: false, regRejectReason: '', regLanding: false };
     // a box already has mfg/preparer persisted (e.g. re-opened after a Stage 2
     // reject) — load it so จพ. sees and can fix what was actually entered,
     // instead of an empty field. A brand-new box keeps whatever's typed so far.
@@ -3635,7 +3649,8 @@ td.l{text-align:left;padding-left:4px}
       // for the box จพ. just correctly saved. Let it fall back to the real
       // synced this.BOX_DRUGS instead — never guess, never shadow real data.
       this._regTouched = false;
-      this.setState({ submitting: false, regEB: newRegEB, regMfg: '', regPreparer: '', regChecker: '', regHadConfirm: false, regPrinted: false, regSkipPrint: false, boxDrugs: null, dispenser: '', retReceiver: '' });
+      // back to the box-picker overview after finishing one — see regLanding
+      this.setState({ submitting: false, regEB: newRegEB, regMfg: '', regPreparer: '', regChecker: '', regHadConfirm: false, regPrinted: false, regSkipPrint: false, boxDrugs: null, dispenser: '', retReceiver: '', regLanding: true });
     }
     else if (m === 'dispense') this.setState({ submitting: false, dispEB: dispensableIds[0] || '', formDept: 'ER', dispenser: uName, swapReturn: false, swapEB: '', swapReceiver: '', swapRetDrugUsage: {}, retDrugUsage: {}, dispDate: today, swapReturnDate: today, retReceiver: '' });
     else this.setState({ submitting: false, retEB: outIds[0] || '', retReceiver: uName, retDate: today, retDrugUsage: {}, swapRetDrugUsage: {}, dispenser: '' });
@@ -4401,6 +4416,59 @@ td.l{text-align:left;padding-left:4px}
       key: 'regstage_' + regStage,
       style: { display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 8, padding: '5px 11px', borderRadius: 8, fontSize: 11.5, fontWeight: 700, background: _stageBadge.bg, color: _stageBadge.color, border: `1px solid ${_stageBadge.border}`, transition: 'background .25s ease, color .25s ease, border-color .25s ease', animation: 'chipPop .3s cubic-bezier(.34,1.56,.64,1) both' },
     }, _stageBadge.label);
+
+    // Landing: overview grid of every EB box + its current stage, so จพ./
+    // เภสัชกร can see at a glance which boxes need prep/verify without
+    // clicking through each one — click a card to open its Stage 1/2 form.
+    vals.regShowLanding = !!st.regLanding;
+    vals.regShowForm = !st.regLanding;
+    vals.regBackToLanding = () => {
+      if (this._regTouched) {
+        this.askConfirm({
+          tone: 'warn', icon: 'warn', title: 'กลับไปเลือกกล่องอื่น?', body: 'ข้อมูลที่กรอกไว้จะหายไป ยืนยันออกโดยไม่บันทึก?',
+          yesLabel: 'ออกโดยไม่บันทึก', noLabel: 'กลับไปแก้ไข',
+          onYes: () => { this._regTouched = false; this.setState({ regLanding: true, boxDrugs: null }); },
+        });
+        return;
+      }
+      this.setState({ regLanding: true, boxDrugs: null });
+    };
+    const _landingBadgeFor = (stage, rejected) => {
+      if (rejected) return { label: '🔴 ถูกตีกลับ', bg: '#FCEDED', color: '#B42121', border: '#F4C9C9' };
+      return {
+        none:     { label: '⚪ ยังไม่จัดเตรียม', bg: '#F1F4F7', color: '#7B8D9C', border: '#DCE3E9' },
+        prepared: { label: '🟡 รอตรวจสอบ', bg: '#FBF1E0', color: '#B5740F', border: '#F0DDB8' },
+        verified: { label: '🟢 ยืนยันแล้ว', bg: '#E4F4EF', color: '#169C7F', border: '#C4E7DB' },
+      }[stage];
+    };
+    vals.regLandingCardsEl = h(React.Fragment, null, ...allIds.map((id, _li) => {
+      const b = this.BOXES.find(x => x.id === id);
+      const stage = this._regStage(b);
+      const isOut = !!(b && b.dispense && !b.receiver);
+      const rejected = !!(b && b.rejectedAt && stage === 'none');
+      const badge = _landingBadgeFor(stage, rejected);
+      const subtitle = isOut ? `จ่ายออกอยู่ที่ ${(b && b.dept) || '—'}`
+        : rejected ? `${(b && b.rejectedReason) || 'ไม่ได้ระบุเหตุผล'}`
+        : stage === 'none' ? 'พร้อมเริ่มจัดเตรียม'
+        : `จัดเตรียมโดย ${(b && b.preparer) || '—'}`;
+      return h('button', {
+        key: id, type: 'button', disabled: isOut,
+        onClick: () => { if (isOut) return; this.selectRegBox(id, { force: true }); },
+        onMouseEnter: isOut ? undefined : (e) => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 10px 26px rgba(20,40,55,.12)'; },
+        onMouseLeave: isOut ? undefined : (e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 1px 3px rgba(20,40,55,.05)'; },
+        style: {
+          display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 9, padding: '16px', borderRadius: 14,
+          border: `1.5px solid ${isOut ? '#E7EEF3' : badge.border}`, background: isOut ? '#F7F9FA' : '#fff',
+          cursor: isOut ? 'not-allowed' : 'pointer', textAlign: 'left', fontFamily: 'inherit',
+          opacity: isOut ? .6 : 1, transition: 'all .22s cubic-bezier(.34,1.56,.64,1)', boxShadow: '0 1px 3px rgba(20,40,55,.05)',
+          animation: `rowIn .3s cubic-bezier(.34,1.56,.64,1) ${_li * 35}ms both`,
+        },
+      },
+        h('div', { style: { fontFamily: "'IBM Plex Mono', monospace", fontSize: 18, fontWeight: 700, color: '#15242E' } }, id),
+        h('span', { style: { display: 'inline-flex', alignItems: 'center', padding: '4px 10px', borderRadius: 7, fontSize: 11, fontWeight: 700, background: badge.bg, color: badge.color, border: `1px solid ${badge.border}` } }, badge.label),
+        h('div', { style: { fontSize: 11.5, color: '#7B8D9C', lineHeight: 1.4 } }, subtitle),
+      );
+    }));
     vals.regDrugTableLabel = vals.regIsVerifyStep
       ? 'ตรวจสอบยาในกล่อง · ติ๊กถูกทุกตัวยาหลังตรวจกับกล่องจริง/ใบกล่อง'
       : (vals.regIsLocked ? 'ข้อมูลยาที่จพ.จัดเตรียมไว้ (รอตรวจสอบ)' : 'ข้อมูลยาในกล่อง · กรอกจำนวนและวันหมดอายุรายตัว');
