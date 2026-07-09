@@ -95,6 +95,8 @@ All 5 user management functions (`setUserRole`, `toggleUserStatus`, `openChangeP
 
 `addUser()` assigns a numeric `id` for legacy compatibility. After Firestore sync, `usedIds` is built from `users.map(u => u.id).filter(x => typeof x === 'number')` — this correctly handles mixed Firestore/local users.
 
+`addUser()` guards against concurrent double-invocation with `this._addingUser` (checked synchronously before the first `await`) — without it, a double-click/double-submit could fire it twice before the first call's `hashPw`/write settled, and both calls would pass the "username doesn't exist yet" check and each locally append their own copy of the new user, showing duplicate rows until the next Firestore snapshot reconciled them.
+
 Role hierarchy: `admin` > `pharmacist` > `technician`
 
 `setUserRole`/`toggleUserStatus`/`deleteUser`/`addUser`/`saveChangePw` all `await` their `EB_Sync.syncUsers`/`deleteUser` call and only update local `state.users`/flash success/`logAction` if it resolves — `syncUsers`/`deleteUser` in firebase-sync.js `throw` on failure (not swallow), matching the box-operation pattern above. `setUserRole`/`toggleUserStatus`/`deleteUser` also refuse (via `_activeAdminCount()`) to demote/suspend/delete the last remaining active admin — without it, two admins racing to demote each other simultaneously could leave zero admins with no in-app recovery path.

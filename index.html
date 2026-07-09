@@ -2909,29 +2909,42 @@ class Component extends DCLogic {
   }
   async addUser() {
     if (!this.state.currentUser || this.state.currentUser.role !== 'admin') return;
-    const { nu_name, nu_username, nu_role, nu_dept, nu_pass, users } = this.state;
-    if (!nu_name.trim() || !nu_username.trim()) { this.flash('กรุณากรอกชื่อและ username'); return; }
-    if (/\s/.test(nu_username.trim())) { this.flash('username ต้องไม่มีช่องว่าง'); return; }
-    if (nu_pass && !nu_pass.trim()) { this.flash('รหัสผ่านต้องไม่เป็นช่องว่าง'); return; }
-    if (nu_pass && nu_pass.trim().length < 4) { this.flash('รหัสผ่านต้องมีอย่างน้อย 4 ตัวอักษร'); return; }
-    if (users.some(u => u.username.toLowerCase() === nu_username.trim().toLowerCase())) { this.flash('username นี้มีอยู่แล้ว'); return; }
-    const hashed = await this.hashPw(nu_pass.trim() || '1234');
-    // re-check after async gap in case another admin added the same username concurrently
-    const currentUsers = this.state.users;
-    if (currentUsers.some(u => u.username.toLowerCase() === nu_username.trim().toLowerCase())) { this.flash('username นี้มีอยู่แล้ว'); return; }
-    const usedIds = currentUsers.map(u => u.id).filter(x => typeof x === 'number' && !isNaN(x));
-    const id = usedIds.length ? Math.max(...usedIds) + 1 : 2;
-    const nu = { id, name: nu_name.trim(), username: nu_username.trim(), password: hashed, role: nu_role, dept: nu_dept.trim() || '-', status: 'active', lastLogin: 'ยังไม่เคยเข้าระบบ' };
-    if (!window.EB_Sync) { this.flash('⚠️ ระบบซิงค์ยังไม่พร้อม — กรุณารีเฟรชหน้าแล้วลองใหม่'); return; }
+    // guard against a double-click/double-submit firing this twice before the
+    // first call's async hashPw/write settles — without this, both calls can
+    // pass the "username doesn't exist yet" check (neither has written yet)
+    // and each locally appends its own copy of the same new user to
+    // state.users, showing two rows until the next Firestore snapshot
+    // reconciles them (or, if they end up with different usernames typed
+    // between clicks, two real duplicate accounts).
+    if (this._addingUser) return;
+    this._addingUser = true;
     try {
-      await window.EB_Sync.syncUsers(nu);
-    } catch (err) {
-      this.flash('⚠️ เพิ่มผู้ใช้ไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
-      return;
+      const { nu_name, nu_username, nu_role, nu_dept, nu_pass, users } = this.state;
+      if (!nu_name.trim() || !nu_username.trim()) { this.flash('กรุณากรอกชื่อและ username'); return; }
+      if (/\s/.test(nu_username.trim())) { this.flash('username ต้องไม่มีช่องว่าง'); return; }
+      if (nu_pass && !nu_pass.trim()) { this.flash('รหัสผ่านต้องไม่เป็นช่องว่าง'); return; }
+      if (nu_pass && nu_pass.trim().length < 4) { this.flash('รหัสผ่านต้องมีอย่างน้อย 4 ตัวอักษร'); return; }
+      if (users.some(u => u.username.toLowerCase() === nu_username.trim().toLowerCase())) { this.flash('username นี้มีอยู่แล้ว'); return; }
+      const hashed = await this.hashPw(nu_pass.trim() || '1234');
+      // re-check after async gap in case another admin added the same username concurrently
+      const currentUsers = this.state.users;
+      if (currentUsers.some(u => u.username.toLowerCase() === nu_username.trim().toLowerCase())) { this.flash('username นี้มีอยู่แล้ว'); return; }
+      const usedIds = currentUsers.map(u => u.id).filter(x => typeof x === 'number' && !isNaN(x));
+      const id = usedIds.length ? Math.max(...usedIds) + 1 : 2;
+      const nu = { id, name: nu_name.trim(), username: nu_username.trim(), password: hashed, role: nu_role, dept: nu_dept.trim() || '-', status: 'active', lastLogin: 'ยังไม่เคยเข้าระบบ' };
+      if (!window.EB_Sync) { this.flash('⚠️ ระบบซิงค์ยังไม่พร้อม — กรุณารีเฟรชหน้าแล้วลองใหม่'); return; }
+      try {
+        await window.EB_Sync.syncUsers(nu);
+      } catch (err) {
+        this.flash('⚠️ เพิ่มผู้ใช้ไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
+        return;
+      }
+      this.setState(s => ({ users: [...s.users, nu], showAddUser: false, nu_name: '', nu_username: '', nu_role: 'technician', nu_dept: 'ห้องยา', nu_pass: '' }));
+      this.flash(nu_pass.trim() ? 'เพิ่มผู้ใช้ใหม่เรียบร้อย' : 'เพิ่มผู้ใช้ใหม่เรียบร้อย · รหัสผ่านเริ่มต้น: 1234');
+      this.logAction({ cat: 'user', action: 'จัดการผู้ใช้', eb: '—', dept: nu.dept, drug: `เพิ่มผู้ใช้ใหม่ ${nu.name} (${(this.ROLES[nu_role] || {label: nu_role}).label})` });
+    } finally {
+      this._addingUser = false;
     }
-    this.setState(s => ({ users: [...s.users, nu], showAddUser: false, nu_name: '', nu_username: '', nu_role: 'technician', nu_dept: 'ห้องยา', nu_pass: '' }));
-    this.flash(nu_pass.trim() ? 'เพิ่มผู้ใช้ใหม่เรียบร้อย' : 'เพิ่มผู้ใช้ใหม่เรียบร้อย · รหัสผ่านเริ่มต้น: 1234');
-    this.logAction({ cat: 'user', action: 'จัดการผู้ใช้', eb: '—', dept: nu.dept, drug: `เพิ่มผู้ใช้ใหม่ ${nu.name} (${(this.ROLES[nu_role] || {label: nu_role}).label})` });
   }
   // ---------- department PIN management (admin only, paperless usage logging) ----------
   // Only loads whether each dept HAS a PIN set (never the hash itself) — the
