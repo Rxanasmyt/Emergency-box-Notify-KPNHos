@@ -3448,7 +3448,7 @@ class Component extends DCLogic {
     this._t = setTimeout(() => this.setState({ showToast: false }), 3600);
     this.resetForm();
   }
-  printEBForm(layout = 'a5l') {
+  printEBForm(layout = 'landscape1') {
     const st = this.state;
     const eb = st.regEB;
     if (!eb || !eb.trim()) { this.flash('กรุณาเลือกกล่องยาก่อนพิมพ์'); return; }
@@ -4903,9 +4903,9 @@ td.l{text-align:left;padding-left:4px}
       ? { display: 'inline-flex', alignItems: 'center', gap: 7, height: 50, padding: '0 18px', border: '1.5px solid #A7DFC2', background: 'linear-gradient(135deg,#E8F7EE,#D4F0E2)', color: '#169C7F', borderRadius: 13, fontFamily: 'inherit', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', transition: 'all .22s', boxShadow: '0 2px 8px rgba(22,156,127,.15)' }
       : { display: 'inline-flex', alignItems: 'center', gap: 7, height: 50, padding: '0 18px', border: '1.5px solid #C3DDEC', background: 'linear-gradient(135deg,#EEF5FA,#E4F0F8)', color: '#1A6FA3', borderRadius: 13, fontFamily: 'inherit', fontSize: 13.5, fontWeight: 600, cursor: skipPrint ? 'default' : 'pointer', transition: 'all .22s', boxShadow: '0 2px 8px rgba(26,111,163,.1)', opacity: skipPrint ? .55 : 1 };
     vals.printEBFormBtn = h(React.Fragment, null,
-      h('button', { type: 'button', onClick: () => { if (!skipPrint) this.printEBForm('a5l'); }, style: printBtnStyle },
+      h('button', { type: 'button', onClick: () => { if (!skipPrint) this.printEBForm('landscape1'); }, style: printBtnStyle },
         ic(printed ? checkSVG : printerSVG, 17),
-        h('span', null, printed ? 'พิมพ์แล้ว ✓' : 'พิมพ์ใบกล่อง', printed ? null : h('span', { style: { fontSize: 11, opacity: .72, fontWeight: 500 } }, ' (A5 แนวนอน)'))),
+        h('span', null, printed ? 'พิมพ์แล้ว ✓' : 'พิมพ์ใบกล่อง', printed ? null : h('span', { style: { fontSize: 11, opacity: .72, fontWeight: 500 } }, ' (A4 นอน — A5 ✂)'))),
       (!printed && !skipPrint) ? h('span', { style: { fontSize: 12, color: '#B5740F', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 } }, '⚠ พิมพ์ก่อนบันทึก') : null,
       skipPrint ? h('span', { style: { fontSize: 12, color: '#1A6FA3', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 } }, '📱 โหมดไม่ใช้กระดาษ — ข้อมูลอยู่ใน QR Code แทน') : null,
       h('label', { style: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, cursor: 'pointer', fontSize: 12.5, fontWeight: 600, color: '#4A5C6A' } },
