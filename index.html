@@ -1024,6 +1024,7 @@ input:focus, select:focus, textarea:focus {
             <!-- Landing: overview grid of every EB box + its current stage — pick one to open it -->
             <sc-if value="{{ regShowLanding }}" hint-placeholder-val="{{ true }}">
               <div style="margin-bottom: 10px; font-size: 12.5px; color: #7B8D9C;">เลือกกล่อง EB ที่ต้องการจัดเตรียมหรือตรวจสอบ</div>
+              {{ regLandingSummaryEl }}
               <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px;">{{ regLandingCardsEl }}</div>
             </sc-if>
 
@@ -4441,11 +4442,35 @@ td.l{text-align:left;padding-left:4px}
         verified: { label: '🟢 ยืนยันแล้ว', bg: '#E4F4EF', color: '#169C7F', border: '#C4E7DB' },
       }[stage];
     };
-    vals.regLandingCardsEl = h(React.Fragment, null, ...allIds.map((id, _li) => {
+    // urgency order: rejected (needs จพ. action now) > prepared (needs เภสัชกร
+    // action now) > none > verified — a dispensed-out box can't be acted on
+    // right now regardless of its underlying stage, so it always sorts last
+    const _landingPriority = (b, stage, isOut, rejected) => {
+      if (isOut) return 4;
+      if (rejected) return 0;
+      return { prepared: 1, none: 2, verified: 3 }[stage];
+    };
+    const _landingItems = allIds.map(id => {
       const b = this.BOXES.find(x => x.id === id);
       const stage = this._regStage(b);
       const isOut = !!(b && b.dispense && !b.receiver);
       const rejected = !!(b && b.rejectedAt && stage === 'none');
+      return { id, b, stage, isOut, rejected, priority: _landingPriority(b, stage, isOut, rejected) };
+    }).sort((a, z) => a.priority - z.priority);
+    vals.regLandingSummaryEl = (() => {
+      const counts = { rejected: 0, prepared: 0, none: 0, verified: 0 };
+      _landingItems.forEach(it => { if (it.rejected) counts.rejected++; else counts[it.stage]++; });
+      const chips = [
+        counts.rejected  ? { label: `🔴 ถูกตีกลับ ${counts.rejected}`,   bg: '#FCEDED', color: '#B42121' } : null,
+        counts.prepared  ? { label: `🟡 รอตรวจสอบ ${counts.prepared}`,  bg: '#FBF1E0', color: '#B5740F' } : null,
+        counts.none      ? { label: `⚪ ยังไม่จัดเตรียม ${counts.none}`, bg: '#F1F4F7', color: '#7B8D9C' } : null,
+        counts.verified  ? { label: `🟢 ยืนยันแล้ว ${counts.verified}`,  bg: '#E4F4EF', color: '#169C7F' } : null,
+      ].filter(Boolean);
+      return chips.length ? h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14 } },
+        ...chips.map((c, i) => h('span', { key: i, style: { display: 'inline-flex', alignItems: 'center', padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: c.bg, color: c.color } }, c.label))
+      ) : null;
+    })();
+    vals.regLandingCardsEl = h(React.Fragment, null, ..._landingItems.map(({ id, b, stage, isOut, rejected }, _li) => {
       const badge = _landingBadgeFor(stage, rejected);
       const subtitle = isOut ? `จ่ายออกอยู่ที่ ${(b && b.dept) || '—'}`
         : rejected ? `${(b && b.rejectedReason) || 'ไม่ได้ระบุเหตุผล'}`
@@ -4455,13 +4480,16 @@ td.l{text-align:left;padding-left:4px}
         key: id, type: 'button', disabled: isOut,
         onClick: () => { if (isOut) return; this.selectRegBox(id, { force: true }); },
         onMouseEnter: isOut ? undefined : (e) => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 10px 26px rgba(20,40,55,.12)'; },
-        onMouseLeave: isOut ? undefined : (e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 1px 3px rgba(20,40,55,.05)'; },
+        onMouseLeave: isOut ? undefined : (e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = rejected ? '0 0 0 0 rgba(224,62,62,.35)' : '0 1px 3px rgba(20,40,55,.05)'; },
         style: {
           display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 9, padding: '16px', borderRadius: 14,
           border: `1.5px solid ${isOut ? '#E7EEF3' : badge.border}`, background: isOut ? '#F7F9FA' : '#fff',
           cursor: isOut ? 'not-allowed' : 'pointer', textAlign: 'left', fontFamily: 'inherit',
-          opacity: isOut ? .6 : 1, transition: 'all .22s cubic-bezier(.34,1.56,.64,1)', boxShadow: '0 1px 3px rgba(20,40,55,.05)',
-          animation: `rowIn .3s cubic-bezier(.34,1.56,.64,1) ${_li * 35}ms both`,
+          opacity: isOut ? .6 : 1, transition: 'all .22s cubic-bezier(.34,1.56,.64,1)',
+          boxShadow: '0 1px 3px rgba(20,40,55,.05)',
+          animation: rejected
+            ? `rowIn .3s cubic-bezier(.34,1.56,.64,1) ${_li * 35}ms both, pulseRed 2s ease infinite`
+            : `rowIn .3s cubic-bezier(.34,1.56,.64,1) ${_li * 35}ms both`,
         },
       },
         h('div', { style: { fontFamily: "'IBM Plex Mono', monospace", fontSize: 18, fontWeight: 700, color: '#15242E' } }, id),
