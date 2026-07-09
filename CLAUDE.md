@@ -99,6 +99,8 @@ All 5 user management functions (`setUserRole`, `toggleUserStatus`, `openChangeP
 
 Role hierarchy: `admin` > `pharmacist` > `technician`. `nurse` (พยาบาล/หน่วยงาน) is view-only per the RBAC chart — dashboard + box status only, never register/dispense/return. Enforced in 3 places: `go()` refuses to navigate to `'entry'` for `role==='nurse'`, the sidebar/mobile nav omit the entry item for nurses, the Detail screen's quick-action dispense/return buttons are hidden for nurses, and `submit()` itself refuses to record a transaction for a nurse as defense in depth (in case any of the above is bypassed).
 
+History/audit log **viewing** (`screen === 'history'`) is open to every role — only **exporting** (`exportCSV`) is admin-only (`canExportCSV`), gated both by hiding the button and inside `exportCSV()` itself as defense in depth.
+
 `setUserRole`/`toggleUserStatus`/`deleteUser`/`addUser`/`saveChangePw` all `await` their `EB_Sync.syncUsers`/`deleteUser` call and only update local `state.users`/flash success/`logAction` if it resolves — `syncUsers`/`deleteUser` in firebase-sync.js `throw` on failure (not swallow), matching the box-operation pattern above. `setUserRole`/`toggleUserStatus`/`deleteUser` also refuse (via `_activeAdminCount()`) to demote/suspend/delete the last remaining active admin — without it, two admins racing to demote each other simultaneously could leave zero admins with no in-app recovery path.
 
 Login lockout (`_failLogin`/`_loadLockStateFor`) is scoped **per username** (sessionStorage key includes the username), not one shared counter for the whole browser — a shared ward workstation must not let one person's mistyped password lock every other username out of that device.

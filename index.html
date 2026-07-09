@@ -1300,10 +1300,12 @@ input:focus, select:focus, textarea:focus {
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%);"><circle cx="11" cy="11" r="7" stroke="#9AAAB8" stroke-width="1.9"/><path d="M20 20l-4-4" stroke="#9AAAB8" stroke-width="1.9" stroke-linecap="round"/></svg>
             <input type="text" value="{{ query }}" onInput="{{ setQuery }}" placeholder="ค้นหา EB, หน่วยงาน, ผู้ทำรายการ, ชื่อยา…" style="width: 100%; height: 46px; border: 1.5px solid #DBE4EB; border-radius: 12px; padding: 0 14px 0 42px; font-size: 13.5px; background: #fff; box-sizing: border-box;">
           </div>
+          <sc-if value="{{ canExportCSV }}" hint-placeholder-val="{{ false }}">
           <button onClick="{{ exportCSV }}" style="height: 46px; padding: 0 16px; border: 1.5px solid #1A6FA3; background: #E8F0F6; color: #1A6FA3; border-radius: 12px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all .22s cubic-bezier(.34,1.56,.64,1); white-space: nowrap;" style-hover="transform: translateY(-2px); box-shadow: 0 6px 18px rgba(20,40,55,.08);" style-active="transform: scale(.96);">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 19h14" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
             ส่งออก CSV
           </button>
+          </sc-if>
         </div>
 
         <!-- Date range filter -->
@@ -5036,7 +5038,10 @@ td.l{text-align:left;padding-left:4px}
     // CSV export — tab-delimited + UTF-16LE (see _downloadExcelText) so Thai
     // text renders correctly in Excel instead of the mojibake UTF-8-BOM CSV
     // produces on many Thai-locale Excel installs
+    // history/audit viewing is open to every role; exporting is admin-only
+    vals.canExportCSV = !!(st.currentUser && st.currentUser.role === 'admin');
     vals.exportCSV = () => {
+      if (!vals.canExportCSV) return; // defense in depth — button is already hidden for non-admin
       const hdr = ['ลำดับ', 'วันที่', 'เวลา', 'ประเภท', 'EB', 'หน่วยงาน', 'ผู้ทำรายการ', 'ยาที่ใกล้หมดอายุ'];
       const esc = (v) => { let s = String(v == null ? '' : v); if (s.length > 0 && '=+-@\t\r'.includes(s[0])) s = "'" + s; return '"' + s.replace(/"/g, '""') + '"'; };
       const lines = [hdr.map(esc).join('\t')];
