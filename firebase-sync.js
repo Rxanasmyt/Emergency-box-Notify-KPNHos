@@ -13,7 +13,13 @@ function initUsersOnly(comp){
       console.log('[Sync] Anon auth OK — starting users listener');
       _startUsersListener();
     })
-    .catch(err=>console.warn('[Sync] Anon auth failed:',err.message));
+    .catch(err=>{
+      console.warn('[Sync] Anon auth failed:',err.message);
+      // without this, state.users stays permanently empty with no signal —
+      // doLogin() would show "loading, please wait" forever, indistinguishable
+      // from a slow network, with no way for the user to know it actually failed
+      if(component&&component.setState)component.setState({authInitError:true});
+    });
 }
 
 function _startUsersListener(){
@@ -177,21 +183,23 @@ function syncBoxes(box){
   return db.collection(C.boxes).doc(id).set(data,{merge:true}).catch(err=>{console.error('[Sync] Box write failed:',err.message);throw err;});
 }
 function syncUsers(user){
-  if(!db)return Promise.resolve();
+  if(!db)return Promise.reject(new Error('no-db'));
   const{uid,...data}=user;
   const docId=uid||user.username;
-  if(!docId){console.error('[Sync] syncUsers: missing uid and username — write skipped');return Promise.resolve();}
-  return db.collection(C.users).doc(docId).set(data,{merge:true}).catch(err=>console.error('[Sync] User write failed:',err.message));
+  if(!docId){const err=new Error('syncUsers: missing uid and username');console.error('[Sync]',err.message);return Promise.reject(err);}
+  // rethrow (not swallow) — callers must know a role/status/password change
+  // actually landed before logging it to audit_log or flashing success
+  return db.collection(C.users).doc(docId).set(data,{merge:true}).catch(err=>{console.error('[Sync] User write failed:',err.message);throw err;});
 }
 function syncBoxDrugs(boxId,drugs){
   if(!db)return Promise.resolve();
   return db.collection(C.boxDrugs).doc(boxId).set({boxId,drugs,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true}).catch(err=>{console.error('[Sync] BoxDrugs write failed:',err.message);throw err;});
 }
 function deleteUser(user){
-  if(!db)return Promise.resolve();
+  if(!db)return Promise.reject(new Error('no-db'));
   const docId=user.uid||user.username;
-  if(!docId)return Promise.resolve();
-  return db.collection(C.users).doc(docId).delete().catch(err=>console.error('[Sync] User delete failed:',err.message));
+  if(!docId)return Promise.reject(new Error('deleteUser: missing uid and username'));
+  return db.collection(C.users).doc(docId).delete().catch(err=>{console.error('[Sync] User delete failed:',err.message);throw err;});
 }
 // Atomically marks a box returned AND decrements its box_drugs quantities in one
 // Firestore transaction, reading both docs fresh at commit time (never the
@@ -217,8 +225,14 @@ function returnBoxAndDrugsTx(boxId,boxFields,usageMap){
     const drugs=(drugsSnap.exists?drugsSnap.data().drugs:null)||[];
     let updatedDrugs=null;
     if(drugs.length>0){
+      // every returned box needs จพ. to restock/re-check and a pharmacist to
+      // re-verify before it can go out again — a box that was just out and used
+      // is no longer guaranteed full/verified, so unverify every drug here in
+      // the same transaction as the quantity decrement (caller resets
+      // preparedAt/registeredAt on the box doc via boxFields for the same reason)
       updatedDrugs=drugs.map((d,di)=>({
         ...d,
+        verified:false,
         lots:(d.lots||[]).map((l,li)=>({...l,qty:Math.max(0,(l.qty||0)-((usageMap[di]||{})[li]||0))})).filter(l=>l.qty>0),
       }));
       tx.set(drugsRef,{boxId,drugs:updatedDrugs,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});

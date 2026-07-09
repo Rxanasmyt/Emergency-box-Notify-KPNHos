@@ -1,8 +1,18 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // App uses local auth + Firebase Anonymous Auth
-    // request.auth != null means the browser has signed in anonymously (= local login passed)
+    // App uses local (client-side) username/password auth + Firebase Anonymous
+    // Auth purely to satisfy these rules. isAuth() does NOT mean "passed the
+    // in-app login screen" — signInAnonymously() runs unconditionally as soon
+    // as the page loads (componentDidMount), before any login form is shown or
+    // submitted. Every visitor becomes isAuth()==true within about a second of
+    // opening the URL. All role/permission checks (admin-only actions, PIN
+    // gates, etc.) are enforced ONLY in client JS, not by these rules — a
+    // visitor with browser devtools can read/write any collection below
+    // (including users' password hashes and role fields) without ever logging
+    // in. This is a deliberate, accepted trade-off for this app's size and
+    // deployment model, not an oversight — but do not write rules or app code
+    // that assumes isAuth() implies a real authenticated identity or role.
     function isAuth() { return request.auth != null; }
 
     // boxes/box_drugs are never deleted by the app (only edited in place) —

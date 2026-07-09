@@ -1789,6 +1789,7 @@ class Component extends DCLogic {
   state = {
     // auth
     authed: false,
+    authInitError: false,
     currentUser: null,
     loginUser: '',
     loginPass: '',
@@ -2218,25 +2219,10 @@ class Component extends DCLogic {
     const patch = {};
     if (!this.state.auditLog || !this.state.auditLog.length) patch.auditLog = this.AUDIT.map(a => ({ ...a, cat: a.action === 'จ่าย' ? 'dispense' : (a.action === 'รับคืน' ? 'return' : 'other') }));
     try { const saved = localStorage.getItem('eb_remember_user'); if (saved) patch.loginUser = saved; } catch (_) {}
-    // restore brute-force lockout across page refresh
-    try {
-      const unlockAt = parseInt(sessionStorage.getItem('eb_lockout') || '0', 10);
-      if (unlockAt && Date.now() < unlockAt) {
-        const remaining = unlockAt - Date.now();
-        patch.locked = true; patch.attempts = 5; patch.lockCountdown = Math.ceil(remaining / 1000);
-        patch.loginError = `บัญชีถูกล็อกชั่วคราว — เหลือ ${Math.ceil(remaining / 60000)} นาที`;
-        this._lockT = setTimeout(() => {
-          try { sessionStorage.removeItem('eb_lockout'); } catch (_) {}
-          clearInterval(this._lockCountI);
-          this.setState({ locked: false, attempts: 0, loginError: '', lockCountdown: 0 });
-        }, remaining);
-        clearInterval(this._lockCountI);
-        this._lockCountI = setInterval(() => { this.setState(s => ({ lockCountdown: Math.max(0, s.lockCountdown - 1) })); }, 1000);
-      } else {
-        const savedAttempts = parseInt(sessionStorage.getItem('eb_attempts') || '0', 10);
-        if (savedAttempts > 0) patch.attempts = savedAttempts;
-      }
-    } catch (_) {}
+    // restore brute-force lockout across page refresh — scoped to the username
+    // in question (not a single shared-device-wide counter, see _loadLockStateFor)
+    const _mountUser = (patch.loginUser !== undefined ? patch.loginUser : this.state.loginUser || '').trim().toLowerCase();
+    if (_mountUser) Object.assign(patch, this._loadLockStateFor(_mountUser));
     const today = this.isoOf(this.TODAY);
     if (!this.state.dispDate) patch.dispDate = today;
     if (!this.state.retDate) patch.retDate = today;
@@ -2582,7 +2568,35 @@ class Component extends DCLogic {
   }
 
   // ---------- auth ----------
+  // Lockout/attempts are scoped PER USERNAME (sessionStorage key includes it),
+  // not one shared counter for the whole browser/device — on a shared ward
+  // workstation, one person mistyping a password 5 times must not lock every
+  // other username out of that computer for 15 minutes.
+  _lockKey(username) { return 'eb_lockout_' + (username || '').trim().toLowerCase(); }
+  _attemptsKey(username) { return 'eb_attempts_' + (username || '').trim().toLowerCase(); }
+  _loadLockStateFor(username) {
+    clearTimeout(this._lockT); clearInterval(this._lockCountI);
+    if (!username) return { locked: false, attempts: 0, lockCountdown: 0 };
+    try {
+      const unlockAt = parseInt(sessionStorage.getItem(this._lockKey(username)) || '0', 10);
+      if (unlockAt && Date.now() < unlockAt) {
+        const remaining = unlockAt - Date.now();
+        this._lockT = setTimeout(() => {
+          try { sessionStorage.removeItem(this._lockKey(username)); sessionStorage.removeItem(this._attemptsKey(username)); } catch (_) {}
+          clearInterval(this._lockCountI);
+          this.setState(s => (s.loginUser || '').trim().toLowerCase() === username ? { locked: false, attempts: 0, loginError: '', lockCountdown: 0 } : {});
+        }, remaining);
+        this._lockCountI = setInterval(() => { this.setState(s => ({ lockCountdown: Math.max(0, s.lockCountdown - 1) })); }, 1000);
+        return { locked: true, attempts: 5, lockCountdown: Math.ceil(remaining / 1000), loginError: `บัญชีถูกล็อกชั่วคราว — เหลือ ${Math.ceil(remaining / 60000)} นาที` };
+      }
+      const savedAttempts = parseInt(sessionStorage.getItem(this._attemptsKey(username)) || '0', 10);
+      return { locked: false, attempts: savedAttempts, lockCountdown: 0 };
+    } catch (_) {
+      return { locked: false, attempts: 0, lockCountdown: 0 };
+    }
+  }
   _failLogin() {
+    const username = (this.state.loginUser || '').trim().toLowerCase();
     let _willLock = false;
     this.setState(s => {
       const attempts = s.attempts + 1;
@@ -2590,15 +2604,15 @@ class Component extends DCLogic {
         _willLock = true;
         clearTimeout(this._lockT);
         const unlockAt = Date.now() + 15 * 60 * 1000;
-        try { sessionStorage.setItem('eb_lockout', String(unlockAt)); } catch (_) {}
+        try { sessionStorage.setItem(this._lockKey(username), String(unlockAt)); } catch (_) {}
         this._lockT = setTimeout(() => {
-          try { sessionStorage.removeItem('eb_lockout'); } catch (_) {}
+          try { sessionStorage.removeItem(this._lockKey(username)); sessionStorage.removeItem(this._attemptsKey(username)); } catch (_) {}
           clearInterval(this._lockCountI);
-          this.setState({ locked: false, attempts: 0, loginError: '', lockCountdown: 0 });
+          this.setState(s2 => (s2.loginUser || '').trim().toLowerCase() === username ? { locked: false, attempts: 0, loginError: '', lockCountdown: 0 } : {});
         }, 15 * 60 * 1000);
         return { attempts, locked: true, lockCountdown: 15 * 60, loginPass: '', loginError: 'บัญชีถูกล็อกชั่วคราว 15 นาที เนื่องจากกรอกผิดเกิน 5 ครั้ง' };
       }
-      try { sessionStorage.setItem('eb_attempts', String(attempts)); } catch (_) {}
+      try { sessionStorage.setItem(this._attemptsKey(username), String(attempts)); } catch (_) {}
       return { attempts, loginPass: '', loginError: `รหัสพนักงานหรือรหัสผ่านไม่ถูกต้อง · เหลืออีก ${5 - attempts} ครั้ง` };
     });
     if (_willLock) {
@@ -2611,7 +2625,9 @@ class Component extends DCLogic {
     let u = this.state.users.find(x => x.username.toLowerCase() === this.state.loginUser.trim().toLowerCase());
     if (!u) {
       if (this.state.users.length === 0) {
-        this.setState({ loginError: 'กำลังโหลดข้อมูลผู้ใช้ — กรุณารอสักครู่แล้วลองใหม่' });
+        this.setState({ loginError: this.state.authInitError
+          ? '⚠️ เชื่อมต่อระบบไม่สำเร็จ — ตรวจสอบอินเทอร์เน็ตแล้วรีเฟรชหน้าใหม่'
+          : 'กำลังโหลดข้อมูลผู้ใช้ — กรุณารอสักครู่แล้วลองใหม่' });
         return;
       }
       this._failLogin();
@@ -2773,35 +2789,62 @@ class Component extends DCLogic {
     const dur = Math.min(5500, Math.max(2200, msg.length * 70));
     this._a = setTimeout(() => this.setState({ actionMsg: '' }), dur);
   }
-  setUserRole(username, role) {
+  // at least one active admin must always remain, or nobody could manage
+  // users/PINs/reset-boxes again without a direct Firestore console edit
+  _activeAdminCount(excludingUsername) {
+    return this.state.users.filter(u => u.role === 'admin' && (u.status || 'active') === 'active' && u.username !== excludingUsername).length;
+  }
+  async setUserRole(username, role) {
     if (!this.state.currentUser || this.state.currentUser.role !== 'admin') return;
     if (username === this.state.currentUser.username && role !== 'admin') { this.flash('ไม่สามารถเปลี่ยนบทบาทของตัวเองลงได้'); return; }
     const u = this.state.users.find(x => x.username === username);
     if (!u || u.role === role) return;
+    if (u.role === 'admin' && role !== 'admin' && this._activeAdminCount(username) === 0) {
+      this.flash('⚠️ ไม่สามารถลดบทบาทได้ — ต้องมีแอดมินที่ใช้งานได้อย่างน้อย 1 คนเสมอ');
+      return;
+    }
     this.askConfirm({
       tone: 'warn', icon: 'reset',
       title: 'เปลี่ยนบทบาทผู้ใช้?',
       body: `เปลี่ยนบทบาทของ ${u.name} จาก "${(this.ROLES[u.role]||{label:u.role}).label}" → "${(this.ROLES[role]||{label:role}).label}"`,
       yesLabel: 'เปลี่ยนบทบาท', noLabel: 'ยกเลิก',
-      onYes: () => {
+      onYes: async () => {
+        if (!window.EB_Sync) { this.flash('⚠️ ระบบซิงค์ยังไม่พร้อม — กรุณารีเฟรชหน้าแล้วลองใหม่'); return; }
+        // await + check before updating local state/logging — a failed write
+        // must never claim success in the UI or the append-only audit_log
+        try {
+          await window.EB_Sync.syncUsers({ ...u, role });
+        } catch (err) {
+          this.flash('⚠️ เปลี่ยนบทบาทไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
+          return;
+        }
         this.setState(s => ({ users: s.users.map(x => x.username === username ? { ...x, role } : x) }));
         this.flash('อัปเดตบทบาทผู้ใช้แล้ว');
-        if (window.EB_Sync) window.EB_Sync.syncUsers({ ...u, role });
         this.logAction({ cat: 'user', action: 'แก้สิทธิ์', eb: '—', dept: u.dept, drug: `เปลี่ยนบทบาท ${u.name} → ${(this.ROLES[role]||{label:role}).label}` });
       },
     });
   }
-  toggleUserStatus(username) {
+  async toggleUserStatus(username) {
     if (!this.state.currentUser || this.state.currentUser.role !== 'admin') return;
     if (username === this.state.currentUser.username) { this.flash('ไม่สามารถระงับบัญชีของตัวเองได้'); return; }
     const targetUser = this.state.users.find(u => u.username === username);
     if (!targetUser) return;
     const newStatus = (targetUser.status || 'active') === 'active' ? 'suspended' : 'active';
+    if (targetUser.role === 'admin' && newStatus === 'suspended' && this._activeAdminCount(username) === 0) {
+      this.flash('⚠️ ไม่สามารถระงับบัญชีนี้ได้ — ต้องมีแอดมินที่ใช้งานได้อย่างน้อย 1 คนเสมอ');
+      return;
+    }
+    if (!window.EB_Sync) { this.flash('⚠️ ระบบซิงค์ยังไม่พร้อม — กรุณารีเฟรชหน้าแล้วลองใหม่'); return; }
     const changed = { ...targetUser, status: newStatus };
     const label = newStatus === 'active' ? 'เปิดใช้งานบัญชีแล้ว' : 'ระงับบัญชีแล้ว';
+    try {
+      await window.EB_Sync.syncUsers(changed);
+    } catch (err) {
+      this.flash('⚠️ บันทึกไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
+      return;
+    }
     this.setState(s => ({ users: s.users.map(u => u.username === username ? changed : u) }));
     this.flash(label);
-    if (window.EB_Sync) window.EB_Sync.syncUsers(changed);
     this.logAction({ cat: 'user', action: 'จัดการผู้ใช้', eb: '—', dept: changed.dept, drug: `${newStatus === 'active' ? 'เปิดใช้งาน' : 'ระงับ'}บัญชี ${changed.name}` });
   }
   openChangePw(username) {
@@ -2825,26 +2868,39 @@ class Component extends DCLogic {
       u = this.state.users.find(x => x.username === changePwUsername) || u; // re-fetch after async gap
       if (u.password !== changePwOld.trim() && u.password !== oldHash) { this.setState({ changePwError: 'รหัสผ่านเดิมไม่ถูกต้อง' }); return; }
     }
+    if (!window.EB_Sync) { this.setState({ changePwError: '⚠️ ระบบซิงค์ยังไม่พร้อม — กรุณารีเฟรชหน้าแล้วลองใหม่' }); return; }
     const hashed = await this.hashPw(changePwNew.trim());
     const uFresh = this.state.users.find(x => x.username === changePwUsername) || u; // re-fetch after async gap
     const updated = { ...uFresh, password: hashed };
+    try {
+      await window.EB_Sync.syncUsers(updated);
+    } catch (err) {
+      this.setState({ changePwError: '⚠️ บันทึกไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต' });
+      return;
+    }
     this.setState(s => ({ users: s.users.map(x => x.username === changePwUsername ? updated : x), currentUser: isSelf ? updated : s.currentUser, showChangePw: false, changePwUsername: null, changePwOld: '', changePwNew: '', changePwConfirm: '', changePwError: '' }));
-    if (window.EB_Sync) window.EB_Sync.syncUsers(updated);
     this.flash(`เปลี่ยนรหัสผ่านของ ${uFresh.name} เรียบร้อย`);
     this.logAction({ cat: 'user', action: 'เปลี่ยนรหัสผ่าน', eb: '—', dept: uFresh.dept, drug: `เปลี่ยนรหัสผ่าน ${uFresh.name} (${uFresh.username})` });
   }
-  deleteUser(username) {
+  async deleteUser(username) {
     if (!this.state.currentUser || this.state.currentUser.role !== 'admin') return;
     if (username === this.state.currentUser.username) { this.flash('ไม่สามารถลบบัญชีของตัวเองได้'); return; }
     const u = this.state.users.find(x => x.username === username);
-    if (u) {
-      this.setState(s => ({ users: s.users.filter(x => x.username !== username) }));
-      this.flash('ลบบัญชีผู้ใช้แล้ว');
-      if (window.EB_Sync) window.EB_Sync.deleteUser(u);
-      this.logAction({ cat: 'user', action: 'ลบผู้ใช้', eb: '—', dept: u.dept, drug: `ลบบัญชี ${u.name} (${u.username})` });
-    } else {
-      this.flash('ไม่พบบัญชีผู้ใช้');
+    if (!u) { this.flash('ไม่พบบัญชีผู้ใช้'); return; }
+    if (u.role === 'admin' && this._activeAdminCount(username) === 0) {
+      this.flash('⚠️ ไม่สามารถลบบัญชีนี้ได้ — ต้องมีแอดมินที่ใช้งานได้อย่างน้อย 1 คนเสมอ');
+      return;
     }
+    if (!window.EB_Sync) { this.flash('⚠️ ระบบซิงค์ยังไม่พร้อม — กรุณารีเฟรชหน้าแล้วลองใหม่'); return; }
+    try {
+      await window.EB_Sync.deleteUser(u);
+    } catch (err) {
+      this.flash('⚠️ ลบบัญชีไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
+      return;
+    }
+    this.setState(s => ({ users: s.users.filter(x => x.username !== username) }));
+    this.flash('ลบบัญชีผู้ใช้แล้ว');
+    this.logAction({ cat: 'user', action: 'ลบผู้ใช้', eb: '—', dept: u.dept, drug: `ลบบัญชี ${u.name} (${u.username})` });
   }
   async addUser() {
     if (!this.state.currentUser || this.state.currentUser.role !== 'admin') return;
@@ -2861,8 +2917,14 @@ class Component extends DCLogic {
     const usedIds = currentUsers.map(u => u.id).filter(x => typeof x === 'number' && !isNaN(x));
     const id = usedIds.length ? Math.max(...usedIds) + 1 : 2;
     const nu = { id, name: nu_name.trim(), username: nu_username.trim(), password: hashed, role: nu_role, dept: nu_dept.trim() || '-', status: 'active', lastLogin: 'ยังไม่เคยเข้าระบบ' };
+    if (!window.EB_Sync) { this.flash('⚠️ ระบบซิงค์ยังไม่พร้อม — กรุณารีเฟรชหน้าแล้วลองใหม่'); return; }
+    try {
+      await window.EB_Sync.syncUsers(nu);
+    } catch (err) {
+      this.flash('⚠️ เพิ่มผู้ใช้ไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
+      return;
+    }
     this.setState(s => ({ users: [...s.users, nu], showAddUser: false, nu_name: '', nu_username: '', nu_role: 'technician', nu_dept: 'ห้องยา', nu_pass: '' }));
-    if (window.EB_Sync) window.EB_Sync.syncUsers(nu);
     this.flash(nu_pass.trim() ? 'เพิ่มผู้ใช้ใหม่เรียบร้อย' : 'เพิ่มผู้ใช้ใหม่เรียบร้อย · รหัสผ่านเริ่มต้น: 1234');
     this.logAction({ cat: 'user', action: 'จัดการผู้ใช้', eb: '—', dept: nu.dept, drug: `เพิ่มผู้ใช้ใหม่ ${nu.name} (${(this.ROLES[nu_role] || {label: nu_role}).label})` });
   }
@@ -3250,7 +3312,11 @@ class Component extends DCLogic {
         // together, both re-read fresh from the server — see returnBoxAndDrugsTx
         let _swResult;
         try {
-          _swResult = await window.EB_Sync.returnBoxAndDrugsTx(resolvedSwapEB, { receiver: this.state.swapReceiver, retDate: this.state.swapReturnDate, openedAt: '' }, _swUsageCheck);
+          // returning ALSO resets preparedAt/registeredAt/checker — a box that was
+          // just out and used is no longer guaranteed full/verified, so it must go
+          // through จพ. restock (Stage 1) + pharmacist re-verify (Stage 2) again
+          // before _resolveDispEB()/the dispense list will allow it out a second time
+          _swResult = await window.EB_Sync.returnBoxAndDrugsTx(resolvedSwapEB, { receiver: this.state.swapReceiver, retDate: this.state.swapReturnDate, openedAt: '', preparedAt: '', registeredAt: '', checker: '' }, _swUsageCheck);
         } catch (err) {
           this.setState({ submitting: false });
           this.flash(err.code === 'NOT_OUT'
@@ -3258,7 +3324,7 @@ class Component extends DCLogic {
             : '⚠️ บันทึกไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
           return;
         }
-        this.BOXES = this.BOXES.map(b => b.id === resolvedSwapEB ? { ...b, receiver: this.state.swapReceiver, retDate: this.state.swapReturnDate, openedAt: '' } : b);
+        this.BOXES = this.BOXES.map(b => b.id === resolvedSwapEB ? { ...b, receiver: this.state.swapReceiver, retDate: this.state.swapReturnDate, openedAt: '', preparedAt: '', registeredAt: '', checker: '' } : b);
         if (_swResult.drugs) this.BOX_DRUGS = { ...(this.BOX_DRUGS || {}), [resolvedSwapEB]: _swResult.drugs };
         const _swSummary = _swPrevDrugsCheck.map((drug, di) => {
           const _used = Object.values((_swUsageCheck[di] || {})).reduce((s, q) => s + q, 0);
@@ -3302,9 +3368,13 @@ class Component extends DCLogic {
       // re-read fresh from the server at commit time — see returnBoxAndDrugsTx in
       // firebase-sync.js. Rejects with code NOT_OUT if the box was already
       // returned by someone else, instead of silently overwriting their write.
+      // Also resets preparedAt/registeredAt/checker — a box that was just out and
+      // used is no longer guaranteed full/verified, so it must go through จพ.
+      // restock (Stage 1) + pharmacist re-verify (Stage 2) again before it can be
+      // dispensed a second time (see _resolveDispEB()'s registeredAt requirement).
       let _retResult;
       try {
-        _retResult = await window.EB_Sync.returnBoxAndDrugsTx(retEB, { receiver: retReceiver, retDate, openedAt: '' }, retDrugUsage);
+        _retResult = await window.EB_Sync.returnBoxAndDrugsTx(retEB, { receiver: retReceiver, retDate, openedAt: '', preparedAt: '', registeredAt: '', checker: '' }, retDrugUsage);
       } catch (err) {
         this.setState({ submitting: false });
         this.flash(err.code === 'NOT_OUT'
@@ -3312,7 +3382,7 @@ class Component extends DCLogic {
           : '⚠️ บันทึกไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
         return;
       }
-      this.BOXES = this.BOXES.map(b => b.id === retEB ? { ...b, receiver: retReceiver, retDate, openedAt: '' } : b);
+      this.BOXES = this.BOXES.map(b => b.id === retEB ? { ...b, receiver: retReceiver, retDate, openedAt: '', preparedAt: '', registeredAt: '', checker: '' } : b);
       if (_retResult.drugs) this.BOX_DRUGS = { ...(this.BOX_DRUGS || {}), [retEB]: _retResult.drugs };
       // log drug usage summary
       const _usageSummary = _prevDrugsCheck.map((drug, di) => {
@@ -3607,7 +3677,11 @@ td.l{text-align:left;padding-left:4px}
 
     // ===== LOGIN SCREEN =====
     vals.loginUser = st.loginUser;
-    vals.setLoginUser = (e) => this.setState({ loginUser: e.target.value, loginError: '' });
+    vals.setLoginUser = (e) => {
+      const v = e.target.value;
+      const lockState = this._loadLockStateFor(v.trim().toLowerCase());
+      this.setState({ loginUser: v, loginError: '', ...lockState });
+    };
     vals.toggleRemember = () => this.setState(s => ({ remember: !s.remember }));
 
     // password field (type switches → render as element keyed by showPass)
