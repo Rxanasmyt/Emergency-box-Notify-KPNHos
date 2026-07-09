@@ -3448,7 +3448,7 @@ class Component extends DCLogic {
     this._t = setTimeout(() => this.setState({ showToast: false }), 3600);
     this.resetForm();
   }
-  printEBForm(layout = 'a5') {
+  printEBForm(layout = 'a5l') {
     const st = this.state;
     const eb = st.regEB;
     if (!eb || !eb.trim()) { this.flash('กรุณาเลือกกล่องยาก่อนพิมพ์'); return; }
@@ -3555,31 +3555,82 @@ class Component extends DCLogic {
 <div class="wr"><span class="wl">ยาที่ใช้</span><span class="uline flex1"></span><span class="wl ml">จำนวน</span><span class="uline" style="min-width:14mm"></span></div>
 <div class="wr"><span class="wl">ยาที่ใช้</span><span class="uline flex1"></span><span class="wl ml">จำนวน</span><span class="uline" style="min-width:14mm"></span></div>`;
 
-    // 'a5' (default): prints directly onto a single A5 sheet — no A4 sheet,
-    // no cutting, no wasted blank half. Requires the printer fed with A5 paper
-    // (a manual/second tray, or paper pre-cut to A5 ahead of time in bulk —
-    // not cut per-print like the old A4-landscape-half mode below).
-    // 'landscape1'/'portrait1' are kept only in case A5 paper isn't available.
+    // Form content — A5 LANDSCAPE (210mm × 148.5mm): same data, laid out as two
+    // columns side by side instead of one tall column, since the physical page
+    // is now wide/short rather than narrow/tall. Left = drug table + near-exp/
+    // return-date, right = signatures + patient-use rows.
+    const formHTMLLandscape = `
+<div class="lcol">
+  <div class="hdr1"><span class="lb">รหัส</span><span class="ebid">&nbsp;${ebEsc}</span><span class="uline" style="flex:1;margin-left:2mm"></span></div>
+  <div class="hdr2"><span class="lb">หน่วยเบิก</span><span class="uline" style="flex:1;margin:0 4mm"></span><span class="lb">วันที่ผลิต</span><span class="ebid">&nbsp;${fmtBE(mfg)}</span><span class="uline" style="flex:1;margin-left:2mm"></span></div>
+  <div class="htitle">Emergency drugs list</div>
+  <table>
+    <thead><tr>
+      <th style="width:8%">ลำดับ</th>
+      <th style="width:28%">ยา</th>
+      <th style="width:20%">ความแรง</th>
+      <th style="width:9%">ประเภท</th>
+      <th style="width:8%">จำนวน</th>
+      <th style="width:27%">EXP.date</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <div class="nexp-row"><span class="lb">ยาที่ Exp เร็วที่สุด</span><span class="uline flex1">&nbsp;${nearText}</span></div>
+  <div class="warn-row">
+    <span class="flex1"></span>
+    <div style="text-align:right">
+      <div class="warn">ส่งคืนห้องยาก่อน exp 15 วัน</div>
+      <div class="retdate">กำหนดส่งคืนภายใน <span class="retval">${retDateText}</span></div>
+    </div>
+  </div>
+</div>
+<div class="lcol right">
+  <div class="sig-row"><span class="lb">ผู้จัด</span><span class="uline flex1">&nbsp;${preparer || ''}</span></div>
+  <div class="sig-row"><span class="lb">ผู้ตรวจสอบ</span><span class="uline flex1">&nbsp;${checker || ''}</span></div>
+  <div class="divider"></div>
+  <div class="wr"><span class="wl">ชื่อผู้ป่วย</span><span class="uline flex1"></span><span class="wl ml">HN</span><span class="uline" style="min-width:22mm"></span></div>
+  <div class="wr"><span class="wl">ยาที่ใช้</span><span class="uline flex1"></span><span class="wl ml">จำนวน</span><span class="uline" style="min-width:14mm"></span></div>
+  <div class="wr"><span class="wl">ยาที่ใช้</span><span class="uline flex1"></span><span class="wl ml">จำนวน</span><span class="uline" style="min-width:14mm"></span></div>
+  <div class="wr"><span class="wl">ยาที่ใช้</span><span class="uline flex1"></span><span class="wl ml">จำนวน</span><span class="uline" style="min-width:14mm"></span></div>
+</div>`;
+
+    // 'a5l' (default): prints directly onto a single A5 sheet, LANDSCAPE
+    // orientation (210×148.5mm) — no A4 sheet, no cutting, no wasted blank
+    // half. Uses the named "A5 landscape" preset (not raw custom mm values) —
+    // custom page sizes are unreliably honored by real printer drivers and can
+    // print rotated/onto the wrong physical paper; named size + orientation is
+    // handled correctly far more consistently. 'a5' (portrait), 'landscape1'
+    // (A4 landscape, cut in half) and 'portrait1' (full A4) are kept for sites
+    // without A5 paper on hand.
     const isPortrait = layout === 'portrait1';
     const isA5 = layout === 'a5';
-    const pageCSS = isA5
-      ? `@page { size: 148.5mm 210mm; margin: 0; } @media print { html,body { width:148.5mm; height:210mm; } body { -webkit-print-color-adjust:exact; print-color-adjust:exact; } }`
+    const isA5L = layout === 'a5l';
+    const pageCSS = isA5L
+      ? `@page { size: A5 landscape; margin: 0; } @media print { html,body { width:210mm; height:148.5mm; } body { -webkit-print-color-adjust:exact; print-color-adjust:exact; } }`
+      : isA5
+      ? `@page { size: A5 portrait; margin: 0; } @media print { html,body { width:148.5mm; height:210mm; } body { -webkit-print-color-adjust:exact; print-color-adjust:exact; } }`
       : isPortrait
       ? `@page { size: A4 portrait; margin: 0; } @media print { html,body { width:210mm; height:297mm; } body { -webkit-print-color-adjust:exact; print-color-adjust:exact; } }`
       : `@page { size: A4 landscape; margin: 0; } @media print { html,body { width:297mm; height:210mm; } body { -webkit-print-color-adjust:exact; print-color-adjust:exact; } }`;
-    const a4W = isA5 ? '148.5mm' : isPortrait ? '210mm' : '297mm';
-    const uiLabel = isA5 ? '🖨️ พิมพ์ (A5 เต็มแผ่น — ไม่ต้องตัด)' : isPortrait ? '🖨️ พิมพ์ (A4 ตั้ง — 1 ใบ)' : '🖨️ พิมพ์ (A4 นอน — 1 ใบ A5 ✂)';
-    const tipText = isA5
-      ? `ตั้งค่าพิมพ์: กระดาษ <b>A5</b> (หรือขนาดกำหนดเอง 148.5×210มม.) · แนว <b>Portrait</b> · Margins = <b>None</b> · ปิด <b>Headers &amp; footers</b><br>ต้องป้อนกระดาษ A5 เข้าเครื่องพิมพ์ (ถาดกระดาษ A5 หรือตัดเตรียมไว้ล่วงหน้าเป็นชุด) — พิมพ์เต็มแผ่นพอดี ไม่ต้องตัดอีก`
+    const a4W = isA5L ? '210mm' : isA5 ? '148.5mm' : isPortrait ? '210mm' : '297mm';
+    const uiLabel = isA5L ? '🖨️ พิมพ์ (A5 แนวนอน — ไม่ต้องตัด)' : isA5 ? '🖨️ พิมพ์ (A5 ตั้ง — ไม่ต้องตัด)' : isPortrait ? '🖨️ พิมพ์ (A4 ตั้ง — 1 ใบ)' : '🖨️ พิมพ์ (A4 นอน — 1 ใบ A5 ✂)';
+    const tipText = isA5L
+      ? `ตั้งค่าพิมพ์: กระดาษ <b>A5</b> · แนว <b>Landscape</b> · Margins = <b>None</b> · ปิด <b>Headers &amp; footers</b><br>ต้องป้อนกระดาษ A5 เข้าเครื่องพิมพ์ (ถาดกระดาษ A5 หรือตัดเตรียมไว้ล่วงหน้าเป็นชุด) — พิมพ์เต็มแผ่นพอดี ไม่ต้องตัดอีก`
+      : isA5
+      ? `ตั้งค่าพิมพ์: กระดาษ <b>A5</b> · แนว <b>Portrait</b> · Margins = <b>None</b> · ปิด <b>Headers &amp; footers</b>`
       : isPortrait
       ? `ตั้งค่าพิมพ์: กระดาษ <b>A4</b> · แนว <b>Portrait</b> · Margins = <b>None</b> · ปิด <b>Headers &amp; footers</b>`
       : `ตั้งค่าพิมพ์: กระดาษ <b>A4</b> · แนว <b>Landscape</b> · Margins = <b>None</b> · ปิด <b>Headers &amp; footers</b><br>ฟอร์มอยู่ครึ่งซ้าย → ตัดกึ่งกลางกระดาษเพื่อให้ได้ใบ A5`;
-    const layoutCSS = isA5
+    const layoutCSS = isA5L
+      ? `.a4-inner{width:210mm;height:148.5mm;padding:4mm 5mm;overflow:hidden;display:flex;flex-direction:row;gap:5mm} .lcol{flex:1;min-width:0;display:flex;flex-direction:column} .lcol.right{padding-left:5mm;border-left:1px solid #ccc}`
+      : isA5
       ? `.a4-inner{width:148.5mm;height:210mm;padding:5mm 4mm 4mm 5mm;overflow:hidden;display:flex;flex-direction:column}`
       : isPortrait
       ? `.a4-inner{width:210mm;height:297mm;padding:10mm 12mm 8mm 12mm;overflow:hidden;display:flex;flex-direction:column}`
       : `.a4-inner{width:297mm;height:210mm;display:flex;flex-direction:row} .half{width:148.5mm;height:210mm;padding:5mm 4mm 4mm 5mm;overflow:hidden;display:flex;flex-direction:column} .blank{flex:1;height:210mm}`;
-    const bodyContent = (isA5 || isPortrait)
+    const bodyContent = isA5L
+      ? `<div class="a4-inner">${formHTMLLandscape}</div>`
+      : (isA5 || isPortrait)
       ? `<div class="a4-inner">${formHTML}</div>`
       : `<div class="a4-inner"><div class="half">${formHTML}</div><div class="blank"></div></div>`;
 
@@ -4852,9 +4903,9 @@ td.l{text-align:left;padding-left:4px}
       ? { display: 'inline-flex', alignItems: 'center', gap: 7, height: 50, padding: '0 18px', border: '1.5px solid #A7DFC2', background: 'linear-gradient(135deg,#E8F7EE,#D4F0E2)', color: '#169C7F', borderRadius: 13, fontFamily: 'inherit', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', transition: 'all .22s', boxShadow: '0 2px 8px rgba(22,156,127,.15)' }
       : { display: 'inline-flex', alignItems: 'center', gap: 7, height: 50, padding: '0 18px', border: '1.5px solid #C3DDEC', background: 'linear-gradient(135deg,#EEF5FA,#E4F0F8)', color: '#1A6FA3', borderRadius: 13, fontFamily: 'inherit', fontSize: 13.5, fontWeight: 600, cursor: skipPrint ? 'default' : 'pointer', transition: 'all .22s', boxShadow: '0 2px 8px rgba(26,111,163,.1)', opacity: skipPrint ? .55 : 1 };
     vals.printEBFormBtn = h(React.Fragment, null,
-      h('button', { type: 'button', onClick: () => { if (!skipPrint) this.printEBForm('a5'); }, style: printBtnStyle },
+      h('button', { type: 'button', onClick: () => { if (!skipPrint) this.printEBForm('a5l'); }, style: printBtnStyle },
         ic(printed ? checkSVG : printerSVG, 17),
-        h('span', null, printed ? 'พิมพ์แล้ว ✓' : 'พิมพ์ใบกล่อง', printed ? null : h('span', { style: { fontSize: 11, opacity: .72, fontWeight: 500 } }, ' (A5 เต็มแผ่น)'))),
+        h('span', null, printed ? 'พิมพ์แล้ว ✓' : 'พิมพ์ใบกล่อง', printed ? null : h('span', { style: { fontSize: 11, opacity: .72, fontWeight: 500 } }, ' (A5 แนวนอน)'))),
       (!printed && !skipPrint) ? h('span', { style: { fontSize: 12, color: '#B5740F', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 } }, '⚠ พิมพ์ก่อนบันทึก') : null,
       skipPrint ? h('span', { style: { fontSize: 12, color: '#1A6FA3', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 } }, '📱 โหมดไม่ใช้กระดาษ — ข้อมูลอยู่ใน QR Code แทน') : null,
       h('label', { style: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, cursor: 'pointer', fontSize: 12.5, fontWeight: 600, color: '#4A5C6A' } },
