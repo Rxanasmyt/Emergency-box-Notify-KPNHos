@@ -97,7 +97,7 @@ All 5 user management functions (`setUserRole`, `toggleUserStatus`, `openChangeP
 
 `addUser()` guards against concurrent double-invocation with `this._addingUser` (checked synchronously before the first `await`) — without it, a double-click/double-submit could fire it twice before the first call's `hashPw`/write settled, and both calls would pass the "username doesn't exist yet" check and each locally append their own copy of the new user, showing duplicate rows until the next Firestore snapshot reconciled them.
 
-Role hierarchy: `admin` > `pharmacist` > `technician`
+Role hierarchy: `admin` > `pharmacist` > `technician`. `nurse` (พยาบาล/หน่วยงาน) is view-only per the RBAC chart — dashboard + box status only, never register/dispense/return. Enforced in 3 places: `go()` refuses to navigate to `'entry'` for `role==='nurse'`, the sidebar/mobile nav omit the entry item for nurses, the Detail screen's quick-action dispense/return buttons are hidden for nurses, and `submit()` itself refuses to record a transaction for a nurse as defense in depth (in case any of the above is bypassed).
 
 `setUserRole`/`toggleUserStatus`/`deleteUser`/`addUser`/`saveChangePw` all `await` their `EB_Sync.syncUsers`/`deleteUser` call and only update local `state.users`/flash success/`logAction` if it resolves — `syncUsers`/`deleteUser` in firebase-sync.js `throw` on failure (not swallow), matching the box-operation pattern above. `setUserRole`/`toggleUserStatus`/`deleteUser` also refuse (via `_activeAdminCount()`) to demote/suspend/delete the last remaining active admin — without it, two admins racing to demote each other simultaneously could leave zero admins with no in-app recovery path.
 

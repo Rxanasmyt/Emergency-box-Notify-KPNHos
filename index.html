@@ -2149,6 +2149,13 @@ class Component extends DCLogic {
       const u = this.state.currentUser;
       if (!u || u.role !== 'admin') return;
     }
+    // nurse/หน่วยงาน is view-only per the RBAC chart (dashboard + box status only,
+    // no recording transactions) — block navigating to the register/dispense/
+    // return screen even if reached via a stale link or direct state change
+    if (screen === 'entry') {
+      const u = this.state.currentUser;
+      if (u && u.role === 'nurse') return;
+    }
     const patch = { screen };
     if (this.state.screen === 'notify' && screen !== 'notify') patch.ghTrigger = 'idle';
     if (this.state.editDrugs) {
@@ -3219,6 +3226,10 @@ class Component extends DCLogic {
   // safety warnings were actually shown for.
   async submit(expectedId) {
     if (this.state.submitting) return;
+    // defense in depth — nurse/หน่วยงาน is view-only per the RBAC chart; the nav
+    // and quick-action buttons already prevent reaching this screen, but a
+    // stale render or direct call must not be able to record a transaction
+    if (this.state.currentUser && this.state.currentUser.role === 'nurse') { this.flash('บัญชีนี้ไม่มีสิทธิ์บันทึกรายการ'); return; }
     this.setState({ submitting: true });
     const m = this.state.formMode;
     let msg;
@@ -3880,9 +3891,12 @@ td.l{text-align:left;padding-left:4px}
     });
 
     // nav rendered as React elements (style must refresh each render)
+    // nurse/หน่วยงาน is view-only per the RBAC chart — dashboard + box status
+    // only, no register/dispense/return access
+    const isNurse = st.currentUser && st.currentUser.role === 'nurse';
     const navDefs = [
       { key: 'dashboard', label: 'ภาพรวม Dashboard', svg: ICONS.dashboard },
-      { key: 'entry', label: 'บันทึกจ่าย / รับคืน', svg: ICONS.entry },
+      ...(isNurse ? [] : [{ key: 'entry', label: 'บันทึกจ่าย / รับคืน', svg: ICONS.entry }]),
       { key: 'detail', label: 'รายละเอียดกล่อง EB', svg: ICONS.detail },
       { key: 'history', label: 'ทะเบียนจ่าย-รับคืน EB', svg: ICONS.history },
     ];
@@ -3904,7 +3918,7 @@ td.l{text-align:left;padding-left:4px}
     // Mobile bottom nav bar (max 5 items)
     const mobileNavDefs = [
       { key: 'dashboard', label: 'ภาพรวม', svg: ICONS.dashboard },
-      { key: 'entry',     label: 'บันทึก',   svg: ICONS.entry },
+      ...(isNurse ? [] : [{ key: 'entry', label: 'บันทึก', svg: ICONS.entry }]),
       { key: 'detail',    label: 'กล่อง EB', svg: ICONS.detail },
       { key: 'history',   label: 'ทะเบียน',  svg: ICONS.history },
       ...(isAdmin ? [{ key: 'users', label: 'ผู้ใช้', svg: ICONS.users }] : []),
@@ -4691,10 +4705,12 @@ td.l{text-align:left;padding-left:4px}
     // Enter key → submit (when form is valid)
     vals.submitOnEnter = (e) => { if (e.key === 'Enter') this.trySubmit(); };
 
-    // Quick-action from detail page
+    // Quick-action from detail page — nurse/หน่วยงาน is view-only (RBAC:
+    // dashboard + box status only), so these must not bypass the entry-screen
+    // navigation guard above
     const selBox = this.BOXES.find(b => b.id === st.selectedEB);
     const selBoxOut = selBox && !!selBox.dispense && !selBox.receiver;
-    vals.detailQuickActionsEl = h('div', { style: { display: 'flex', gap: 8, marginTop: 14, paddingTop: 14, borderTop: '1px solid #EFF3F6' } },
+    vals.detailQuickActionsEl = (st.currentUser && st.currentUser.role === 'nurse') ? null : h('div', { style: { display: 'flex', gap: 8, marginTop: 14, paddingTop: 14, borderTop: '1px solid #EFF3F6' } },
       !selBoxOut ? h('button', {
         className: 'btn-primary quick-act-btn',
         onClick: () => { this.go2('dispense'); this.setState({ screen: 'entry', dispEB: st.selectedEB }); },
