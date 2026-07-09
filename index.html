@@ -3448,7 +3448,7 @@ class Component extends DCLogic {
     this._t = setTimeout(() => this.setState({ showToast: false }), 3600);
     this.resetForm();
   }
-  printEBForm(layout = 'landscape1') {
+  printEBForm(layout = 'a5') {
     const st = this.state;
     const eb = st.regEB;
     if (!eb || !eb.trim()) { this.flash('กรุณาเลือกกล่องยาก่อนพิมพ์'); return; }
@@ -3555,20 +3555,31 @@ class Component extends DCLogic {
 <div class="wr"><span class="wl">ยาที่ใช้</span><span class="uline flex1"></span><span class="wl ml">จำนวน</span><span class="uline" style="min-width:14mm"></span></div>
 <div class="wr"><span class="wl">ยาที่ใช้</span><span class="uline flex1"></span><span class="wl ml">จำนวน</span><span class="uline" style="min-width:14mm"></span></div>`;
 
+    // 'a5' (default): prints directly onto a single A5 sheet — no A4 sheet,
+    // no cutting, no wasted blank half. Requires the printer fed with A5 paper
+    // (a manual/second tray, or paper pre-cut to A5 ahead of time in bulk —
+    // not cut per-print like the old A4-landscape-half mode below).
+    // 'landscape1'/'portrait1' are kept only in case A5 paper isn't available.
     const isPortrait = layout === 'portrait1';
-    // landscape1: A4 landscape → 2 A5 portrait forms side by side, cut vertically → 2 pieces matching physical form
-    const pageCSS = isPortrait
+    const isA5 = layout === 'a5';
+    const pageCSS = isA5
+      ? `@page { size: 148.5mm 210mm; margin: 0; } @media print { html,body { width:148.5mm; height:210mm; } body { -webkit-print-color-adjust:exact; print-color-adjust:exact; } }`
+      : isPortrait
       ? `@page { size: A4 portrait; margin: 0; } @media print { html,body { width:210mm; height:297mm; } body { -webkit-print-color-adjust:exact; print-color-adjust:exact; } }`
       : `@page { size: A4 landscape; margin: 0; } @media print { html,body { width:297mm; height:210mm; } body { -webkit-print-color-adjust:exact; print-color-adjust:exact; } }`;
-    const a4W = isPortrait ? '210mm' : '297mm';
-    const uiLabel = isPortrait ? '🖨️ พิมพ์ (A4 ตั้ง — 1 ใบ)' : '🖨️ พิมพ์ (A4 นอน — 1 ใบ A5 ✂)';
-    const tipText = isPortrait
+    const a4W = isA5 ? '148.5mm' : isPortrait ? '210mm' : '297mm';
+    const uiLabel = isA5 ? '🖨️ พิมพ์ (A5 เต็มแผ่น — ไม่ต้องตัด)' : isPortrait ? '🖨️ พิมพ์ (A4 ตั้ง — 1 ใบ)' : '🖨️ พิมพ์ (A4 นอน — 1 ใบ A5 ✂)';
+    const tipText = isA5
+      ? `ตั้งค่าพิมพ์: กระดาษ <b>A5</b> (หรือขนาดกำหนดเอง 148.5×210มม.) · แนว <b>Portrait</b> · Margins = <b>None</b> · ปิด <b>Headers &amp; footers</b><br>ต้องป้อนกระดาษ A5 เข้าเครื่องพิมพ์ (ถาดกระดาษ A5 หรือตัดเตรียมไว้ล่วงหน้าเป็นชุด) — พิมพ์เต็มแผ่นพอดี ไม่ต้องตัดอีก`
+      : isPortrait
       ? `ตั้งค่าพิมพ์: กระดาษ <b>A4</b> · แนว <b>Portrait</b> · Margins = <b>None</b> · ปิด <b>Headers &amp; footers</b>`
       : `ตั้งค่าพิมพ์: กระดาษ <b>A4</b> · แนว <b>Landscape</b> · Margins = <b>None</b> · ปิด <b>Headers &amp; footers</b><br>ฟอร์มอยู่ครึ่งซ้าย → ตัดกึ่งกลางกระดาษเพื่อให้ได้ใบ A5`;
-    const layoutCSS = isPortrait
+    const layoutCSS = isA5
+      ? `.a4-inner{width:148.5mm;height:210mm;padding:5mm 4mm 4mm 5mm;overflow:hidden;display:flex;flex-direction:column}`
+      : isPortrait
       ? `.a4-inner{width:210mm;height:297mm;padding:10mm 12mm 8mm 12mm;overflow:hidden;display:flex;flex-direction:column}`
       : `.a4-inner{width:297mm;height:210mm;display:flex;flex-direction:row} .half{width:148.5mm;height:210mm;padding:5mm 4mm 4mm 5mm;overflow:hidden;display:flex;flex-direction:column} .blank{flex:1;height:210mm}`;
-    const bodyContent = isPortrait
+    const bodyContent = (isA5 || isPortrait)
       ? `<div class="a4-inner">${formHTML}</div>`
       : `<div class="a4-inner"><div class="half">${formHTML}</div><div class="blank"></div></div>`;
 
@@ -4841,9 +4852,9 @@ td.l{text-align:left;padding-left:4px}
       ? { display: 'inline-flex', alignItems: 'center', gap: 7, height: 50, padding: '0 18px', border: '1.5px solid #A7DFC2', background: 'linear-gradient(135deg,#E8F7EE,#D4F0E2)', color: '#169C7F', borderRadius: 13, fontFamily: 'inherit', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', transition: 'all .22s', boxShadow: '0 2px 8px rgba(22,156,127,.15)' }
       : { display: 'inline-flex', alignItems: 'center', gap: 7, height: 50, padding: '0 18px', border: '1.5px solid #C3DDEC', background: 'linear-gradient(135deg,#EEF5FA,#E4F0F8)', color: '#1A6FA3', borderRadius: 13, fontFamily: 'inherit', fontSize: 13.5, fontWeight: 600, cursor: skipPrint ? 'default' : 'pointer', transition: 'all .22s', boxShadow: '0 2px 8px rgba(26,111,163,.1)', opacity: skipPrint ? .55 : 1 };
     vals.printEBFormBtn = h(React.Fragment, null,
-      h('button', { type: 'button', onClick: () => { if (!skipPrint) this.printEBForm('landscape1'); }, style: printBtnStyle },
+      h('button', { type: 'button', onClick: () => { if (!skipPrint) this.printEBForm('a5'); }, style: printBtnStyle },
         ic(printed ? checkSVG : printerSVG, 17),
-        h('span', null, printed ? 'พิมพ์แล้ว ✓' : 'พิมพ์ใบกล่อง', printed ? null : h('span', { style: { fontSize: 11, opacity: .72, fontWeight: 500 } }, ' (A4 นอน — A5 ✂)'))),
+        h('span', null, printed ? 'พิมพ์แล้ว ✓' : 'พิมพ์ใบกล่อง', printed ? null : h('span', { style: { fontSize: 11, opacity: .72, fontWeight: 500 } }, ' (A5 เต็มแผ่น)'))),
       (!printed && !skipPrint) ? h('span', { style: { fontSize: 12, color: '#B5740F', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 } }, '⚠ พิมพ์ก่อนบันทึก') : null,
       skipPrint ? h('span', { style: { fontSize: 12, color: '#1A6FA3', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 } }, '📱 โหมดไม่ใช้กระดาษ — ข้อมูลอยู่ใน QR Code แทน') : null,
       h('label', { style: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, cursor: 'pointer', fontSize: 12.5, fontWeight: 600, color: '#4A5C6A' } },
