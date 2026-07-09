@@ -2162,8 +2162,10 @@ class Component extends DCLogic {
       return false;
     }
     if (screen !== 'entry') {
-      const _formTouched = !!(this.state.regMfg || this.state.regPrinted || this.state.regSkipPrint || this._regTouched);
-      const hasUnsaved = this.state.formMode === 'register' && _formTouched;
+      // _regTouched (only) — a box's prefilled mfg/preparer/etc. from its own
+      // already-persisted data is not "unsaved," so it must not itself count
+      // as dirty here; only a genuine edit (typing/ticking/printing) does.
+      const hasUnsaved = this.state.formMode === 'register' && !!this._regTouched;
       if (hasUnsaved) {
         this.askConfirm({
           tone: 'warn', icon: 'warn',
@@ -2181,9 +2183,7 @@ class Component extends DCLogic {
   }
   go2(formMode) {
     if (!this._go2Force && this.state.formMode === 'register' && formMode !== 'register') {
-      const _st = this.state;
-      const _touched = !!(_st.regMfg || _st.regPrinted || _st.regSkipPrint || this._regTouched);
-      if (_touched) {
+      if (this._regTouched) {
         this.askConfirm({ tone: 'warn', icon: 'warn', title: 'เปลี่ยนโหมด?', body: 'ข้อมูลยาที่กรอกไว้จะหายไป ยืนยันเปลี่ยนโหมดโดยไม่บันทึก?', yesLabel: 'เปลี่ยนโหมด', noLabel: 'กลับไปแก้ไข',
           onYes: () => { this._go2Force = true; this._regTouched = false; this.go2(formMode); this._go2Force = false; } });
         return;
@@ -2495,12 +2495,17 @@ class Component extends DCLogic {
     if (_selBox && _selBox.mfg) _upd.regMfg = _selBox.mfg;
     if (_selBox && _selBox.preparer) _upd.regPreparer = _selBox.preparer;
     _upd.boxDrugs = { ...(st.boxDrugs || this.BOX_DRUGS || {}), [id]: _existBD.map(d => ({ ...d, lots: (d.lots || []).map(l => ({ ...l })) })) };
-    this._regTouched = true;
+    // do NOT set _regTouched here — merely viewing a box's already-persisted
+    // data (including a prefilled regMfg/regPreparer above) is not an unsaved
+    // edit. Setting it unconditionally made every "leave without saving?"
+    // dirty-check below fire on every navigation after a single box selection,
+    // since regMfg/regPreparer are now genuinely non-empty for any real box.
     this.setState(_upd);
   }
   // Stage 2 (pharmacist) per-drug verification checkbox — toggled locally in
   // boxDrugs, same pattern as setLotField; only persisted on the Stage 2 submit.
   toggleDrugVerified(boxId, drugIdx) {
+    this._regTouched = true;
     this.setState(s => {
       const base = s.boxDrugs || this.BOX_DRUGS || {};
       const bd = { ...base };
@@ -4691,16 +4696,10 @@ td.l{text-align:left;padding-left:4px}
 
     vals.resetForm = () => {
       const _m = st.formMode;
-      const _uName = st.currentUser ? st.currentUser.name : '';
-      const _isPharm = st.currentUser && (st.currentUser.role === 'pharmacist' || st.currentUser.role === 'admin');
-      const _dirty = _m === 'register' ? (
-        !!st.regMfg ||
-        !!st.regPrinted ||
-        !!st.regSkipPrint ||
-        this._regTouched ||
-        st.regPreparer !== (!_isPharm ? _uName : '') ||
-        st.regChecker  !== (_isPharm  ? _uName : '')
-      )
+      // _regTouched (only) — regMfg/regPreparer/regChecker can now be legitimately
+      // prefilled from a box's own already-persisted data (see selectRegBox), so
+      // their mere presence must not itself count as an unsaved edit here.
+      const _dirty = _m === 'register' ? !!this._regTouched
                    : _m === 'dispense' ? (st.formDept !== 'ER' || st.dispDate !== this.isoOf(this.TODAY) || (st.dispenser && st.dispenser !== (st.currentUser ? st.currentUser.name : '')) || st.swapReturn)
                    : ((st.retReceiver && st.retReceiver !== (st.currentUser ? st.currentUser.name : '')) || st.retDate !== this.isoOf(this.TODAY) || Object.values(st.retDrugUsage || {}).some(d => Object.values(d).some(q => q > 0)));
       if (_dirty) { this.askConfirm({ tone: 'warn', icon: 'warn', title: 'ล้างฟอร์ม?', body: 'ข้อมูลที่กรอกไว้จะหายทั้งหมด', yesLabel: 'ล้าง', noLabel: 'ยกเลิก', onYes: () => this.resetForm() }); } else { this.resetForm(); }
