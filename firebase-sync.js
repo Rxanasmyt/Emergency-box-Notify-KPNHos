@@ -155,13 +155,25 @@ function listenBoxDrugs(){
     const bd={};snap.forEach(doc=>{const d=doc.data();const boxId=d.boxId||doc.id;if(boxId&&d.drugs)bd[boxId]=d.drugs;});
     // always update BOX_DRUGS — authoritative source for current Firestore data
     component.BOX_DRUGS=bd;
-    // block state update only while user is actively editing drug lots (editDrugs=true)
+    // block state update entirely only while user is actively editing drug lots on the
+    // Detail screen (editDrugs=true) — that editor has its own conflict check at save time.
     // this prevents listener from clobbering in-progress drug edits
     // all other screens (dashboard, detail, register, dispense, return) receive live updates
     const _st=component.state||{};
     const _editing=_st.editDrugs;
     if(!_editing){
       const _patch={boxDrugs:Object.keys(bd).length?bd:{}};
+      // The register Stage 1/2 form uses this SAME boxDrugs key as its own live edit
+      // buffer (setLotField/addLot/removeLot/toggleDrugVerified) but has no editDrugs
+      // flag of its own — without this, any unrelated box_drugs write anywhere (a
+      // dispense, return, or paperless usage-log entry on a DIFFERENT box) would
+      // silently overwrite the whole boxDrugs map here, discarding a จพ.'s unsaved
+      // in-progress lot/expiry typing for the box they're actively preparing.
+      // Preserve just that one box's local buffer; every other box still gets the
+      // fresh server data live.
+      if(component._regTouched&&_st.formMode==='register'&&_st.regEB&&_st.boxDrugs&&_st.boxDrugs[_st.regEB]){
+        _patch.boxDrugs[_st.regEB]=_st.boxDrugs[_st.regEB];
+      }
       if(_st.authed&&window.EB_Notify){
         const _s=window.EB_Notify.loadSettings();
         const _a=window.EB_Notify.findExpiringDrugs(component,_s.thresholdDays);

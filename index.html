@@ -1968,10 +1968,20 @@ class Component extends DCLogic {
     const all     = this.BOXES.map(b => b.id);
     if (!inStock.includes(this.state.dispEB)) patch.dispEB = inStock[0] || '';
     if (!out.includes(this.state.retEB))    { patch.retEB = out[0] || ''; patch.retDrugUsage = {}; }
-    // regEB being reassigned out from under the user (e.g. another device just
-    // dispensed the box that was selected) must invalidate any printed label —
-    // it was printed for a box that is no longer the one about to be submitted
-    if (!inStock.includes(this.state.regEB))   { patch.regEB = inStock[0] || ''; patch.regPrinted = false; }
+    // regEB no longer being in-stock (e.g. another device just dispensed the box
+    // that was selected) must invalidate any printed label — it was printed for a
+    // box that is no longer the one about to be submitted. But if the user has an
+    // unsaved edit in progress (_regTouched), do NOT silently reassign regEB to a
+    // DIFFERENT box here — that used to swap the box out from under them mid-typing
+    // with no warning, so their in-progress preparer/checker/lot data could end up
+    // submitted against the wrong box. validateForm() already blocks submitting a
+    // dispensed-out box ("กำลังจ่ายออกอยู่"), so leaving regEB pointing at it and
+    // surfacing that error is safer than a silent switch. Only auto-pick a default
+    // when there's nothing unsaved to lose.
+    if (!inStock.includes(this.state.regEB)) {
+      patch.regPrinted = false;
+      if (!this._regTouched) patch.regEB = inStock[0] || '';
+    }
     if (Object.keys(patch).length) this.setState(patch);
   }
 
@@ -2168,7 +2178,7 @@ class Component extends DCLogic {
     // return screen even if reached via a stale link or direct state change
     if (screen === 'entry') {
       const u = this.state.currentUser;
-      if (u && u.role === 'nurse') return;
+      if (u && u.role === 'nurse') return false;
     }
     const patch = { screen };
     if (this.state.screen === 'notify' && screen !== 'notify') patch.ghTrigger = 'idle';
@@ -2396,7 +2406,7 @@ class Component extends DCLogic {
     // null forces UI to read from BOX_DRUGS (Firestore source) — avoids showing dirty edited state
     this.setState({ editDrugs: false, boxDrugs: backup || null });
   }
-  saveEditDrugs() {
+  async saveEditDrugs() {
     if (this._savingDrugs) return; // prevent double-save race
     const id = this.state.selectedEB;
     const drugs = (this.state.boxDrugs || this.BOX_DRUGS || {})[id] || [];
@@ -2420,18 +2430,27 @@ class Component extends DCLogic {
       return;
     }
     this._savingDrugs = true;
+    // await + check both writes before exiting edit mode/flashing success/logging —
+    // same reasoning as dispense/register/reject: a failed write must never claim
+    // success in the UI or leave a false "แก้ไขยา" record in the append-only audit_log.
+    // Stay in edit mode on failure so the user's typed changes aren't lost.
+    const near = this.nearDrugOf(id);
+    const nearISO = this.regNearISOof(id);
+    const boxToSync = this.BOXES.find(b => b.id === id);
+    let boxOk = true;
+    const drugsOk = await this._syncBoxDrugs(id, drugs);
+    if (boxToSync && window.EB_Sync) {
+      boxOk = await this._syncBox({ ...boxToSync, expiry: nearISO || '', nearDrug: near || '' });
+    }
+    this._savingDrugs = false;
+    if (!drugsOk || !boxOk) {
+      this.flash('⚠️ บันทึกไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่');
+      return;
+    }
     this._bdBackup = null;
     this.setState({ editDrugs: false, saveSuccess: Date.now(), boxDrugs: null });
     clearTimeout(this._saveSuccessT);
     this._saveSuccessT = setTimeout(() => this.setState({ saveSuccess: null }), 1600);
-    this._syncBoxDrugs(id, drugs).then(() => { this._savingDrugs = false; });
-    // also update boxes doc so expiry/nearDrug stay in sync as fallback
-    const near = this.nearDrugOf(id);
-    const nearISO = this.regNearISOof(id);
-    const boxToSync = this.BOXES.find(b => b.id === id);
-    if (boxToSync && window.EB_Sync) {
-      this._syncBox({ ...boxToSync, expiry: nearISO || '', nearDrug: near || '' });
-    }
     this.flash('บันทึกข้อมูลยาในกล่องแล้ว · คำนวณวันหมดอายุและวันส่งคืนใหม่อัตโนมัติ');
     this.logAction({ cat: 'edit', action: 'แก้ไขยา', eb: id, dept: '—', drug: `ปรับจำนวน/วันหมดอายุ · ใกล้หมดอายุสุด: ${near}` });
     this.logBoxHist(id, 'แก้ไขจำนวน/วันหมดอายุยา');
@@ -3223,16 +3242,20 @@ class Component extends DCLogic {
   // state, with no rollback and no warning to the user. Mirrors _syncBox's
   // rollback-on-failure pattern. Always resolves (never rejects) so callers can
   // safely .then() to know the attempt settled either way.
+  // Returns a promise resolving true/false (never rejects), mirroring _syncBox —
+  // so a caller that must not exit edit mode/log success on a failed write can
+  // actually detect the failure instead of always getting a resolved promise.
   _syncBoxDrugs(boxId, drugs) {
     const prevDrugs = (this.BOX_DRUGS || {})[boxId];
     this.BOX_DRUGS = { ...(this.BOX_DRUGS || {}), [boxId]: drugs };
     if (!window.EB_Sync) {
       this.flash('⚠️ ระบบซิงค์ยังไม่พร้อม — ข้อมูลยาบันทึกเฉพาะในเครื่องนี้ กรุณารีเฟรชหน้าแล้วลองใหม่');
-      return Promise.resolve();
+      return Promise.resolve(false);
     }
-    return window.EB_Sync.syncBoxDrugs(boxId, drugs).then(null, () => {
+    return window.EB_Sync.syncBoxDrugs(boxId, drugs).then(() => true, () => {
       this.BOX_DRUGS = { ...(this.BOX_DRUGS || {}), [boxId]: prevDrugs };
       this.flash('⚠️ บันทึกข้อมูลยาไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
+      return false;
     });
   }
   // expectedId: the box a confirm-dialog's safety checks were computed for (undefined
@@ -4296,12 +4319,17 @@ td.l{text-align:left;padding-left:4px}
     vals.overdueCount = overdueBoxes.length;
 
     // boxes จพ. จัดเตรียมเสร็จแล้ว รอเภสัชกร/แอดมินตรวจสอบ (Stage 2) — dashboard summary
-    // so a pharmacist doesn't have to click through every EB chip to find pending work
-    const pendingVerifyBoxes = this.BOXES
+    // so a pharmacist doesn't have to click through every EB chip to find pending work.
+    // nurse/หน่วยงาน is view-only (RBAC: dashboard + box status only) — these cards
+    // used to jump straight into the register screen via a bare setState({screen:
+    // 'entry'}), bypassing go()'s nurse block entirely since it never called go().
+    // Simplest correct fix: don't show action prompts a nurse can't act on at all.
+    const _isNurseNow = st.currentUser && st.currentUser.role === 'nurse';
+    const pendingVerifyBoxes = _isNurseNow ? [] : this.BOXES
       .filter(b => this._regStage(b) === 'prepared')
       .map(b => ({
         id: b.id, preparer: b.preparer || '—', preparedAt: this.fmtISO(b.preparedAt) || '—',
-        goVerify: () => { this.go2('register'); this.setState({ screen: 'entry' }); this.selectRegBox(b.id, { force: true }); },
+        goVerify: () => { if (this.go('entry') === false) return; this.go2('register'); this.setState({ screen: 'entry' }); this.selectRegBox(b.id, { force: true }); },
       }));
     vals.pendingVerifyBoxes = pendingVerifyBoxes;
     vals.hasPendingVerifyBoxes = pendingVerifyBoxes.length > 0;
@@ -4309,11 +4337,11 @@ td.l{text-align:left;padding-left:4px}
 
     // boxes a pharmacist/admin rejected back to จพ. — dashboard summary so จพ.
     // doesn't have to stumble onto the in-form banner by chance
-    const rejectedRegBoxes = this.BOXES
+    const rejectedRegBoxes = _isNurseNow ? [] : this.BOXES
       .filter(b => this._regStage(b) === 'none' && b.rejectedAt)
       .map(b => ({
         id: b.id, reason: b.rejectedReason || 'ไม่ได้ระบุเหตุผล', rejectedAt: this.fmtISO(b.rejectedAt) || '—',
-        goFix: () => { this.go2('register'); this.setState({ screen: 'entry' }); this.selectRegBox(b.id, { force: true }); },
+        goFix: () => { if (this.go('entry') === false) return; this.go2('register'); this.setState({ screen: 'entry' }); this.selectRegBox(b.id, { force: true }); },
       }));
     vals.rejectedRegBoxes = rejectedRegBoxes;
     vals.hasRejectedRegBoxes = rejectedRegBoxes.length > 0;
