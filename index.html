@@ -1130,7 +1130,7 @@ input:focus, select:focus, textarea:focus {
               <div style="margin-top: 14px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
                 <button onClick="{{ resetForm }}" style="height: 50px; padding: 0 22px; border: 1.5px solid #DBE4EB; background: #fff; color: #4A5C6A; border-radius: 13px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all .22s cubic-bezier(.34,1.56,.64,1);" style-hover="background: #F4F8FB; border-color: #C3DDEC; transform: translateY(-1px);" style-active="transform: scale(.97);">ล้างฟอร์ม</button>
                 <sc-if value="{{ canAdminReopenReg }}" hint-placeholder-val="{{ false }}">
-                  <button onClick="{{ adminReopenRegBtn }}" style="height: 50px; padding: 0 22px; border: 1.5px solid #E03E3E; background: #fff; color: #E03E3E; border-radius: 13px; font-size: 13.5px; font-weight: 700; cursor: pointer; transition: all .22s cubic-bezier(.34,1.56,.64,1);" style-hover="background: #E03E3E; color: #fff; transform: translateY(-1px); box-shadow: 0 6px 16px rgba(224,62,62,.3);" style-active="transform: scale(.96);">🔓 แก้ไขใหม่ (Admin)</button>
+                  <button onClick="{{ adminReopenRegBtn }}" style="height: 50px; padding: 0 22px; border: 1.5px solid #E03E3E; background: #fff; color: #E03E3E; border-radius: 13px; font-size: 13.5px; font-weight: 700; cursor: pointer; transition: all .22s cubic-bezier(.34,1.56,.64,1);" style-hover="background: #E03E3E; color: #fff; transform: translateY(-1px); box-shadow: 0 6px 16px rgba(224,62,62,.3);" style-active="transform: scale(.96);">🔓 แก้ไขใหม่</button>
                 </sc-if>
               </div>
             </sc-if>
@@ -2658,14 +2658,16 @@ class Component extends DCLogic {
   // it from the landing/chip picker must show a locked read-only summary
   // (regIsVerifiedLocked), never the Stage 1 edit form, or a จพ./เภสัชกร could
   // silently re-submit Stage 1 against it and wipe its verified/checker data
-  // with no warning. Admin-only, explicit, confirm-gated escape hatch: acts
+  // with no warning. Pharmacist/admin-only (same gate as verifying in the
+  // first place, _canVerifyReg()), explicit, confirm-gated escape hatch: acts
   // exactly like rejectReg() (clears preparedAt/registeredAt/checker, unticks
   // every drug's verified flag) so the box must go through Stage 1 restock +
   // Stage 2 re-verify again before it can be dispensed — never a silent edit.
   adminReopenReg(boxId) {
-    if (!this.state.currentUser || this.state.currentUser.role !== 'admin') return;
+    if (!this._canVerifyReg()) return;
     const box = this.BOXES.find(b => b.id === boxId);
     if (!box || this._regStage(box) !== 'verified') return;
+    const actorName = this.state.currentUser.name || this.state.currentUser.username;
     this.askConfirm({
       tone: 'warn', icon: 'warn',
       title: 'แก้ไขกล่องที่ยืนยันแล้วใหม่?',
@@ -2677,8 +2679,8 @@ class Component extends DCLogic {
         const drugsOk = await this._syncBoxDrugs(boxId, freshDrugs.map(d => ({ ...d, verified: false })));
         if (!ok || !drugsOk) { this.flash('⚠️ บันทึกไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่'); return; }
         this.flash(`เปิดกล่อง ${boxId} กลับไปแก้ไขใหม่แล้ว — รอจพ.จัดเตรียม + เภสัชกรตรวจสอบอีกครั้ง`);
-        this.logAction({ cat: 'register', action: 'แอดมินแก้ไขลงทะเบียนใหม่', eb: boxId, dept: '—', drug: `เปิดกล่องที่ยืนยันแล้วกลับไป Stage 1 (โดย ${this.state.currentUser.name || this.state.currentUser.username})` });
-        this.logBoxHist(boxId, `แอดมิน (${this.state.currentUser.name || this.state.currentUser.username}) เปิดกล่องที่ยืนยันแล้วกลับไปแก้ไขใหม่`);
+        this.logAction({ cat: 'register', action: 'แก้ไขลงทะเบียนใหม่', eb: boxId, dept: '—', drug: `เปิดกล่องที่ยืนยันแล้วกลับไป Stage 1 (โดย ${actorName})` });
+        this.logBoxHist(boxId, `${actorName} เปิดกล่องที่ยืนยันแล้วกลับไปแก้ไขใหม่`);
       },
     });
   }
@@ -4608,10 +4610,12 @@ td.l{text-align:left;padding-left:4px}
     // selecting it must show a read-only summary, never fall through to the
     // Stage 1 edit form (which would let anyone silently re-submit against it
     // and wipe registeredAt/checker/verified with no warning). The only way
-    // back to Stage 1 is the admin-only adminReopenReg() confirm-gated action.
+    // back to Stage 1 is the pharmacist/admin-only adminReopenReg() confirm-
+    // gated action (same _canVerifyReg() gate as verifying it in the first
+    // place — whoever can verify a box can also reopen it).
     vals.regIsVerifiedLocked = regStage === 'verified';
     vals.regIsEditable = !vals.regIsVerifyStep && !vals.regIsLocked && !vals.regIsVerifiedLocked;
-    vals.canAdminReopenReg = vals.regIsVerifiedLocked && !!(st.currentUser && st.currentUser.role === 'admin');
+    vals.canAdminReopenReg = vals.regIsVerifiedLocked && regCanVerify;
     vals.adminReopenRegBtn = () => this.adminReopenReg(st.regEB);
     const _stageBadge = {
       none:     { label: 'ยังไม่จัดเตรียม',                              bg: '#F1F4F7', color: '#7B8D9C', border: '#DCE3E9' },
