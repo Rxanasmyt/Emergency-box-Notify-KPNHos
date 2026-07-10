@@ -12,18 +12,29 @@
 <meta name="apple-mobile-web-app-title" content="EB Notify">
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="./icons/icon-192.svg">
+<!-- preconnect to CDN/API origins so the TLS handshake overlaps HTML parsing
+     instead of starting only once each <script> tag is reached -->
+<link rel="preconnect" href="https://unpkg.com" crossorigin>
+<link rel="preconnect" href="https://www.gstatic.com">
+<link rel="preconnect" href="https://firestore.googleapis.com">
+<link rel="preconnect" href="https://identitytoolkit.googleapis.com">
+<!-- defer: download all of these in parallel while the browser keeps parsing
+     the HTML/CSS below, instead of blocking on each one in turn — deferred
+     scripts still execute in this exact document order right before
+     DOMContentLoaded, so support.js's own DOMContentLoaded-gated boot
+     (see support.js) is unaffected and load order guarantees are unchanged -->
 <!-- React -->
-<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script defer crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script defer crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <!-- Firebase v10 compat -->
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script defer src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script defer src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script defer src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <!-- App runtime -->
-<script src="./support.js"></script>
-<script src="./firebase-init.js"></script>
-<script src="./firebase-sync.js"></script>
-<script src="./notify.js"></script>
+<script defer src="./support.js"></script>
+<script defer src="./firebase-init.js"></script>
+<script defer src="./firebase-sync.js"></script>
+<script defer src="./notify.js"></script>
 <!-- PWA Service Worker -->
 <script>
   if ('serviceWorker' in navigator) {
@@ -4238,7 +4249,8 @@ td.l{text-align:left;padding-left:4px}
             ),
             h('div', { style: { textAlign: 'center', fontSize: 11.5, color: '#9AAAB8', lineHeight: 1.7 } },
               h('div', null, `ข้อมูล Real-time จาก Firebase · ${this.fmt(this.TODAY)}`),
-              h('a', { href: window.location.href.split('?')[0], style: { display: 'inline-block', marginTop: 8, fontSize: 13, color: '#1A6FA3', fontWeight: 600, textDecoration: 'none', background: '#E8F0F6', borderRadius: 8, padding: '6px 18px' } }, '→ เปิดระบบเต็ม (ต้อง Login)')
+              h('a', { href: window.location.href.split('?')[0], style: { display: 'inline-block', marginTop: 8, fontSize: 13, color: '#1A6FA3', fontWeight: 600, textDecoration: 'none', background: '#E8F0F6', borderRadius: 8, padding: '6px 18px' } }, '→ เปิดระบบเต็ม (ต้อง Login)'),
+              h('div', { style: { marginTop: 18, paddingTop: 14, borderTop: '1px solid #DDE7EE', fontSize: 11, color: '#B7C3CC' } }, 'จัดทำโดย ภก.อนัส มะยีแต เภสัชกร รพ.กรงปินัง')
             )
           )
         ), pubUsageModalEl);
