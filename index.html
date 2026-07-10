@@ -4656,10 +4656,18 @@ td.l{text-align:left;padding-left:4px}
     // bigger monospace EB code, a chevron affordance on selectable cards so
     // "this one is clickable" reads at a glance, disabled cards visibly muted.
     const chevronSVG = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-    const mkPickerCard = ({ id, li, disabled, pulse, badge, subtitle, subtitle2, onClick }) => h('button', {
+    const hexToRgba = (hex, a) => {
+      const n = parseInt((hex || '#7B8D9C').replace('#', ''), 16);
+      return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
+    };
+    const mkPickerCard = ({ id, li, disabled, pulse, badge, subtitle, subtitleIcon, subtitleAccent, subtitle2, subtitle2Icon, subtitle2Accent, subtitle2Color, onClick }) => h('button', {
       key: id, type: 'button', disabled,
       onClick: disabled ? undefined : onClick,
-      onMouseEnter: disabled ? undefined : (e) => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 12px 28px rgba(20,40,55,.14)'; },
+      // hover elevation tinted with the card's own status color — a subtle
+      // touch so a green "พร้อมจ่าย" card glows green on hover, a red
+      // "ถูกตีกลับ" card glows red, etc., instead of one flat gray shadow
+      // for every status.
+      onMouseEnter: disabled ? undefined : (e) => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = `0 14px 30px ${hexToRgba(badge.color, .22)}, 0 3px 8px rgba(20,40,55,.08)`; },
       onMouseLeave: disabled ? undefined : (e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = pulse ? '0 0 0 0 rgba(224,62,62,.35)' : '0 2px 6px rgba(20,40,55,.06)'; },
       style: {
         position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 8,
@@ -4680,8 +4688,10 @@ td.l{text-align:left;padding-left:4px}
         !disabled ? h('span', { style: { color: badge.color, opacity: .5, display: 'flex' }, dangerouslySetInnerHTML: { __html: chevronSVG } }) : null,
       ),
       h('span', { style: { display: 'inline-flex', alignItems: 'center', padding: '4px 10px', borderRadius: 7, fontSize: 11, fontWeight: 700, background: badge.bg, color: badge.color, border: `1px solid ${badge.border}` } }, badge.label),
-      h('div', { style: { fontSize: 11.5, color: '#7B8D9C', lineHeight: 1.4 } }, subtitle),
-      subtitle2 ? h('div', { style: { fontSize: 10.5, color: badge.color, fontWeight: 700, marginTop: -2 } }, subtitle2) : null,
+      h('div', { style: { fontSize: subtitleAccent ? 12 : 11.5, fontWeight: subtitleAccent ? 700 : 400, color: subtitleAccent ? badge.color : '#7B8D9C', lineHeight: 1.4, display: 'flex', alignItems: 'center', gap: 5 } },
+        subtitleIcon ? h('span', { style: { fontSize: 11 } }, subtitleIcon) : null, subtitle),
+      subtitle2 ? h('div', { style: { fontSize: subtitle2Accent ? 11 : 10.5, fontWeight: subtitle2Accent ? 700 : 500, color: subtitle2Accent ? (subtitle2Color || badge.color) : '#9AAAB8', marginTop: -2, display: 'flex', alignItems: 'center', gap: 5 } },
+        subtitle2Icon ? h('span', { style: { fontSize: 10 } }, subtitle2Icon) : null, subtitle2) : null,
     );
     // urgency order: rejected (needs จพ. action now) > prepared (needs เภสัชกร
     // action now) > none > verified — a dispensed-out box can't be acted on
@@ -4716,14 +4726,22 @@ td.l{text-align:left;padding-left:4px}
       // verified boxes must show WHO verified them (checker), not just who
       // prepared them (preparer) — previously the verified branch fell
       // through to the same "จัดเตรียมโดย" text as 'prepared', so a
-      // pharmacist's sign-off was invisible on the card.
+      // pharmacist's sign-off was invisible on the card. The checker line is
+      // the more important of the two (it's the final approval), so it gets
+      // the colored/bold "accent" treatment and a ✅ icon; the preparer line
+      // sits below it, muted, as supporting context.
+      const isVerifiedInStock = stage === 'verified' && !isOut;
       const subtitle = isOut ? `จ่ายออกอยู่ที่ ${(b && b.dept) || '—'}`
         : rejected ? `${(b && b.rejectedReason) || 'ไม่ได้ระบุเหตุผล'}`
         : stage === 'none' ? 'พร้อมเริ่มจัดเตรียม'
-        : stage === 'verified' ? `ตรวจสอบโดย ${(b && b.checker) || '—'}`
+        : isVerifiedInStock ? `ตรวจสอบโดย ${(b && b.checker) || '—'}`
         : `จัดเตรียมโดย ${(b && b.preparer) || '—'}`;
-      const subtitle2 = stage === 'verified' && !isOut ? `จัดเตรียมโดย ${(b && b.preparer) || '—'}` : null;
-      return mkPickerCard({ id, li: _li, disabled: isOut, pulse: rejected, badge, subtitle, subtitle2, onClick: () => this.selectRegBox(id, { force: true }) });
+      const subtitle2 = isVerifiedInStock ? `จัดเตรียมโดย ${(b && b.preparer) || '—'}` : null;
+      return mkPickerCard({
+        id, li: _li, disabled: isOut, pulse: rejected, badge, subtitle, subtitle2,
+        subtitleAccent: isVerifiedInStock, subtitleIcon: isVerifiedInStock ? '✅' : null, subtitle2Icon: isVerifiedInStock ? '📝' : null,
+        onClick: () => this.selectRegBox(id, { force: true }),
+      });
     }));
     vals.regDrugTableLabel = vals.regIsVerifyStep
       ? 'ตรวจสอบยาในกล่อง · ติ๊กถูกทุกตัวยาหลังตรวจกับกล่องจริง/ใบกล่อง'
@@ -4900,11 +4918,19 @@ td.l{text-align:left;padding-left:4px}
         : dispensable ? 'พร้อมจ่ายออกได้ทันที'
         : stage === 'prepared' ? 'รอเภสัชกร/แอดมินตรวจสอบก่อน'
         : 'ยังไม่ได้ลงทะเบียนกล่องนี้';
+      // near-expiry warning gets its own warning color (amber/red), never the
+      // card's badge.color — a "พร้อมจ่าย" box's badge is green, and a
+      // warning line rendered in that same green would read as reassuring
+      // instead of cautionary, defeating the point of flagging it at all.
       const _st = _ebStatusMap[id];
-      const subtitle2 = dispensable && _st && _st.key !== 'ok'
-        ? (_st.key === 'critical' ? '⚠ ใกล้/เกินกำหนดส่งคืนแล้ว' : '⏳ ใกล้กำหนดส่งคืน')
-        : null;
-      return mkPickerCard({ id, li: _li, disabled: !dispensable, pulse: false, badge, subtitle, subtitle2, onClick: () => this.selectDispBox(id) });
+      const _warnCritical = dispensable && _st && _st.key === 'critical';
+      const _warnSoft = dispensable && _st && _st.key === 'warning';
+      const subtitle2 = _warnCritical ? '⚠ ใกล้/เกินกำหนดส่งคืนแล้ว' : _warnSoft ? 'ใกล้กำหนดส่งคืน' : null;
+      return mkPickerCard({
+        id, li: _li, disabled: !dispensable, pulse: _warnCritical, badge, subtitle, subtitle2,
+        subtitle2Accent: !!subtitle2, subtitle2Color: _warnCritical ? '#E03E3E' : '#D97706', subtitle2Icon: _warnSoft ? '⏳' : null,
+        onClick: () => this.selectDispBox(id),
+      });
     }));
     vals.dispEBSelectEl = mkEBChips(st.dispEB, (id) => this.setState({ dispEB: id }), inStockIds, '#1A6FA3', _ebStatusMap);
     vals.dispHintEl = hint(`พร้อมจ่าย ${inStockIds.length} กล่อง · กล่องที่จ่ายไปแล้วต้องรับคืนก่อน จึงจะจ่ายรหัสเดิมซ้ำได้`, '#1A6FA3', '#EEF5FA', '#D3E6F1', '#169C7F');
