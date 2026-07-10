@@ -1120,6 +1120,20 @@ input:focus, select:focus, textarea:focus {
                 <button onClick="{{ resetForm }}" style="height: 50px; padding: 0 22px; border: 1.5px solid #DBE4EB; background: #fff; color: #4A5C6A; border-radius: 13px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all .22s cubic-bezier(.34,1.56,.64,1);" style-hover="background: #F4F8FB; border-color: #C3DDEC; transform: translateY(-1px);" style-active="transform: scale(.97);">ล้างฟอร์ม</button>
               </div>
             </sc-if>
+
+            <!-- Verified/locked: already checked + signed off — read-only, no
+                 Stage 1 edit form. Only admin gets a confirm-gated way back. -->
+            <sc-if value="{{ regIsVerifiedLocked }}" hint-placeholder-val="{{ false }}">
+              <div style="display: flex; align-items: center; gap: 12px; padding: 16px 18px; border-radius: 13px; background: #E4F4EF; border: 1px solid #C4E7DB; color: #169C7F; font-size: 13px; font-weight: 600; animation: fadeUp .35s cubic-bezier(.34,1.56,.64,1) both;">
+                ✅ กล่องนี้ผ่านการตรวจสอบและยืนยันแล้ว — พร้อมจ่าย (อ่านอย่างเดียว)
+              </div>
+              <div style="margin-top: 14px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                <button onClick="{{ resetForm }}" style="height: 50px; padding: 0 22px; border: 1.5px solid #DBE4EB; background: #fff; color: #4A5C6A; border-radius: 13px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all .22s cubic-bezier(.34,1.56,.64,1);" style-hover="background: #F4F8FB; border-color: #C3DDEC; transform: translateY(-1px);" style-active="transform: scale(.97);">ล้างฟอร์ม</button>
+                <sc-if value="{{ canAdminReopenReg }}" hint-placeholder-val="{{ false }}">
+                  <button onClick="{{ adminReopenRegBtn }}" style="height: 50px; padding: 0 22px; border: 1.5px solid #E03E3E; background: #fff; color: #E03E3E; border-radius: 13px; font-size: 13.5px; font-weight: 700; cursor: pointer; transition: all .22s cubic-bezier(.34,1.56,.64,1);" style-hover="background: #E03E3E; color: #fff; transform: translateY(-1px); box-shadow: 0 6px 16px rgba(224,62,62,.3);" style-active="transform: scale(.96);">🔓 แก้ไขใหม่ (Admin)</button>
+                </sc-if>
+              </div>
+            </sc-if>
             </sc-if>
           </sc-if>
 
@@ -2598,6 +2612,34 @@ class Component extends DCLogic {
     this.flash(`ตีกลับกล่อง ${boxId} ให้จพ.แก้ไขใหม่แล้ว`);
     this.logAction({ cat: 'register', action: 'ตีกลับให้แก้ไข', eb: boxId, dept: '—', drug: reason ? `เหตุผล: ${reason}` : 'เภสัชกร/แอดมินตีกลับให้จพ.แก้ไขใหม่' });
     this.logBoxHist(boxId, `เภสัชกร/แอดมินตีกลับให้จพ.แก้ไข${reason ? ' — ' + reason : ''}`);
+  }
+  // A 'verified' (พร้อมจ่าย) box has no other path back to Stage 1 — selecting
+  // it from the landing/chip picker must show a locked read-only summary
+  // (regIsVerifiedLocked), never the Stage 1 edit form, or a จพ./เภสัชกร could
+  // silently re-submit Stage 1 against it and wipe its verified/checker data
+  // with no warning. Admin-only, explicit, confirm-gated escape hatch: acts
+  // exactly like rejectReg() (clears preparedAt/registeredAt/checker, unticks
+  // every drug's verified flag) so the box must go through Stage 1 restock +
+  // Stage 2 re-verify again before it can be dispensed — never a silent edit.
+  adminReopenReg(boxId) {
+    if (!this.state.currentUser || this.state.currentUser.role !== 'admin') return;
+    const box = this.BOXES.find(b => b.id === boxId);
+    if (!box || this._regStage(box) !== 'verified') return;
+    this.askConfirm({
+      tone: 'warn', icon: 'warn',
+      title: 'แก้ไขกล่องที่ยืนยันแล้วใหม่?',
+      body: `กล่อง ${boxId} จะถูกยกเลิกสถานะ "ยืนยันแล้ว — พร้อมจ่าย" ทันที และต้องให้จพ.จัดเตรียม + เภสัชกรตรวจสอบใหม่ทั้งหมดก่อนจึงจะจ่ายได้อีกครั้ง ยืนยันหรือไม่?`,
+      yesLabel: 'ยืนยัน แก้ไขใหม่', noLabel: 'ยกเลิก',
+      onYes: async () => {
+        const freshDrugs = (this.BOX_DRUGS || {})[boxId] || [];
+        const ok = await this._syncBox({ ...box, preparedAt: '', registeredAt: '', checker: '' });
+        const drugsOk = await this._syncBoxDrugs(boxId, freshDrugs.map(d => ({ ...d, verified: false })));
+        if (!ok || !drugsOk) { this.flash('⚠️ บันทึกไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่'); return; }
+        this.flash(`เปิดกล่อง ${boxId} กลับไปแก้ไขใหม่แล้ว — รอจพ.จัดเตรียม + เภสัชกรตรวจสอบอีกครั้ง`);
+        this.logAction({ cat: 'register', action: 'แอดมินแก้ไขลงทะเบียนใหม่', eb: boxId, dept: '—', drug: `เปิดกล่องที่ยืนยันแล้วกลับไป Stage 1 (โดย ${this.state.currentUser.name || this.state.currentUser.username})` });
+        this.logBoxHist(boxId, `แอดมิน (${this.state.currentUser.name || this.state.currentUser.username}) เปิดกล่องที่ยืนยันแล้วกลับไปแก้ไขใหม่`);
+      },
+    });
   }
   setRetDrugUsage(drugIdx, lotIdx, qty) {
     const safeQty = isNaN(qty) || qty === '' ? 0 : Math.max(0, parseInt(qty, 10) || 0);
@@ -4521,7 +4563,15 @@ td.l{text-align:left;padding-left:4px}
     const regCanVerify = this._canVerifyReg();
     vals.regIsVerifyStep = regStage === 'prepared' && regCanVerify;
     vals.regIsLocked = regStage === 'prepared' && !regCanVerify;
-    vals.regIsEditable = !vals.regIsVerifyStep && !vals.regIsLocked;
+    // A 'verified' box (พร้อมจ่าย) has already been checked and signed off —
+    // selecting it must show a read-only summary, never fall through to the
+    // Stage 1 edit form (which would let anyone silently re-submit against it
+    // and wipe registeredAt/checker/verified with no warning). The only way
+    // back to Stage 1 is the admin-only adminReopenReg() confirm-gated action.
+    vals.regIsVerifiedLocked = regStage === 'verified';
+    vals.regIsEditable = !vals.regIsVerifyStep && !vals.regIsLocked && !vals.regIsVerifiedLocked;
+    vals.canAdminReopenReg = vals.regIsVerifiedLocked && !!(st.currentUser && st.currentUser.role === 'admin');
+    vals.adminReopenRegBtn = () => this.adminReopenReg(st.regEB);
     const _stageBadge = {
       none:     { label: 'ยังไม่จัดเตรียม',                              bg: '#F1F4F7', color: '#7B8D9C', border: '#DCE3E9' },
       prepared: { label: regCanVerify ? 'จัดเตรียมแล้ว — รอตรวจสอบและยืนยัน' : 'จัดเตรียมแล้ว รอเภสัชกร/แอดมินตรวจสอบ', bg: '#FBF1E0', color: '#B5740F', border: '#F0DDB8' },
@@ -4613,7 +4663,8 @@ td.l{text-align:left;padding-left:4px}
     }));
     vals.regDrugTableLabel = vals.regIsVerifyStep
       ? 'ตรวจสอบยาในกล่อง · ติ๊กถูกทุกตัวยาหลังตรวจกับกล่องจริง/ใบกล่อง'
-      : (vals.regIsLocked ? 'ข้อมูลยาที่จพ.จัดเตรียมไว้ (รอตรวจสอบ)' : 'ข้อมูลยาในกล่อง · กรอกจำนวนและวันหมดอายุรายตัว');
+      : (vals.regIsLocked ? 'ข้อมูลยาที่จพ.จัดเตรียมไว้ (รอตรวจสอบ)'
+        : (vals.regIsVerifiedLocked ? 'ข้อมูลยาที่ผ่านการตรวจสอบและยืนยันแล้ว' : 'ข้อมูลยาในกล่อง · กรอกจำนวนและวันหมดอายุรายตัว'));
     // "sent back for correction" notice — persists through the 'none' stage
     // until จพ. re-submits Stage 1 (see rejectReg()/Stage 1 submit clearing it)
     vals.hasRegRejected = !!(regBoxObj && regBoxObj.rejectedAt);
