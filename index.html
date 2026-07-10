@@ -1139,6 +1139,16 @@ input:focus, select:focus, textarea:focus {
 
           <!-- ===== STEP 2: DISPENSE / SWAP ===== -->
           <sc-if value="{{ isDispense }}" hint-placeholder-val="{{ false }}">
+
+            <!-- Landing: overview grid of every EB box — pick one to open the dispense form -->
+            <sc-if value="{{ dispShowLanding }}" hint-placeholder-val="{{ true }}">
+              <div style="margin-bottom: 10px; font-size: 12.5px; color: #7B8D9C;">เลือกกล่อง EB ที่ต้องการจ่ายออก</div>
+              {{ dispLandingSummaryEl }}
+              <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px;">{{ dispLandingCardsEl }}</div>
+            </sc-if>
+
+            <sc-if value="{{ dispShowForm }}" hint-placeholder-val="{{ false }}">
+            <button onClick="{{ dispBackToLanding }}" style="display: flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; margin-bottom: 16px; border: 1.5px solid #DBE4EB; background: #fff; color: #4A5C6A; border-radius: 10px; font-family: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; transition: all .22s cubic-bezier(.34,1.56,.64,1);" style-hover="background: #F4F8FB; border-color: #C3DDEC;">← กลับไปเลือกกล่อง</button>
             <div class="form-grid-2" style="margin-bottom: 18px;">
               <div>
                 <label style="display: block; font-size: 12.5px; font-weight: 600; color: #4A5C6A; margin-bottom: 7px;">กล่องที่จ่าย (จากคลัง) <span style="color:#E03E3E;">*</span></label>
@@ -1197,10 +1207,21 @@ input:focus, select:focus, textarea:focus {
               <button onClick="{{ resetForm }}" style="height: 50px; padding: 0 22px; border: 1.5px solid #DBE4EB; background: #fff; color: #4A5C6A; border-radius: 13px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all .22s cubic-bezier(.34,1.56,.64,1);" style-hover="background: #F4F8FB; border-color: #C3DDEC; transform: translateY(-1px);">ล้างฟอร์ม</button>
               <div style="margin-left: auto; font-size: 12.5px; color: #9AAAB8;">บันทึกลง Audit Log อัตโนมัติทุกครั้ง</div>
             </div>
+            </sc-if>
           </sc-if>
 
           <!-- ===== STEP 3: RETURN ===== -->
           <sc-if value="{{ isReturn }}" hint-placeholder-val="{{ false }}">
+
+            <!-- Landing: overview grid of every EB box — pick one to open the return form -->
+            <sc-if value="{{ retShowLanding }}" hint-placeholder-val="{{ true }}">
+              <div style="margin-bottom: 10px; font-size: 12.5px; color: #7B8D9C;">เลือกกล่อง EB ที่ต้องการรับคืน</div>
+              {{ retLandingSummaryEl }}
+              <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px;">{{ retLandingCardsEl }}</div>
+            </sc-if>
+
+            <sc-if value="{{ retShowForm }}" hint-placeholder-val="{{ false }}">
+            <button onClick="{{ retBackToLanding }}" style="display: flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; margin-bottom: 16px; border: 1.5px solid #DBE4EB; background: #fff; color: #4A5C6A; border-radius: 10px; font-family: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; transition: all .22s cubic-bezier(.34,1.56,.64,1);" style-hover="background: #F4F8FB; border-color: #C3DDEC;">← กลับไปเลือกกล่อง</button>
             <div style="margin-bottom: 18px;">
               <label style="display: block; font-size: 12.5px; font-weight: 600; color: #4A5C6A; margin-bottom: 7px;">กล่องที่รับคืน (ค้างที่หน่วยงาน) <span style="color:#E03E3E;">*</span></label>
               {{ retEBSelectEl }}
@@ -1235,6 +1256,7 @@ input:focus, select:focus, textarea:focus {
               <button onClick="{{ resetForm }}" style="height: 50px; padding: 0 22px; border: 1.5px solid #DBE4EB; background: #fff; color: #4A5C6A; border-radius: 13px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all .22s cubic-bezier(.34,1.56,.64,1);" style-hover="background: #F4F8FB; border-color: #C3DDEC; transform: translateY(-1px);">ล้างฟอร์ม</button>
               <div style="margin-left: auto; font-size: 12.5px; color: #9AAAB8;">รับคืนแล้ว นำกล่องเข้าตรวจสอบ/จัดเตรียมใหม่</div>
             </div>
+            </sc-if>
           </sc-if>
         </div>
       </div>
@@ -1871,11 +1893,13 @@ class Component extends DCLogic {
     swapReturnDate: '',
     swapReceiver: '',
     swapRetDrugUsage: {},
+    dispLanding: true, // show the box-picker overview grid before the dispense form
     // step 3: return
     retEB: '',
     retDate: '',
     retReceiver: '',
     retDrugUsage: {},
+    retLanding: true, // show the box-picker overview grid before the return form
     showToast: false,
     toastTitle: '',
     toastSubtitle: '',
@@ -2263,9 +2287,11 @@ class Component extends DCLogic {
     if (formMode === 'return'   && !this.state.retReceiver && uName) patch.retReceiver = uName;
     if (formMode === 'register' && !this.state.regChecker  && isPharm) patch.regChecker  = uName;
     if (formMode === 'register' && !this.state.regPreparer && !isPharm && uName) patch.regPreparer = uName;
-    // switching INTO register mode always starts at the box-picker overview,
-    // not whatever box happened to be selected last time
+    // switching into any of the 3 modes always starts at that mode's
+    // box-picker overview, not whatever box happened to be selected last time
     if (formMode === 'register') patch.regLanding = true;
+    if (formMode === 'dispense') patch.dispLanding = true;
+    if (formMode === 'return') patch.retLanding = true;
     // ensure chip state matches the visually-selected box for this mode
     const _inStock = this.BOXES.filter(b => !(b.dispense && !b.receiver)).map(b => b.id);
     const _out     = this.BOXES.filter(b =>  b.dispense && !b.receiver).map(b => b.id);
@@ -2573,6 +2599,21 @@ class Component extends DCLogic {
     // dirty-check below fire on every navigation after a single box selection,
     // since regMfg/regPreparer are now genuinely non-empty for any real box.
     this.setState(_upd);
+  }
+  // Dispense/return box-picker landing cards — mirror selectRegBox's role
+  // (pick a box from the overview grid, then drop into that mode's form) but
+  // simpler since dispense/return don't carry a per-box edit buffer like
+  // boxDrugs. Re-validate eligibility here too (not just in the disabled
+  // card's onClick guard) as defense in depth against a stale card render.
+  selectDispBox(id) {
+    const eligible = this.BOXES.some(b => b.id === id && !(b.dispense && !b.receiver) && b.registeredAt);
+    if (!eligible) return;
+    this.setState({ dispEB: id, dispLanding: false });
+  }
+  selectRetBox(id) {
+    const eligible = this.BOXES.some(b => b.id === id && b.dispense && !b.receiver);
+    if (!eligible) return;
+    this.setState({ retEB: id, retDrugUsage: {}, retLanding: false });
   }
   // Stage 2 (pharmacist) per-drug verification checkbox — toggled locally in
   // boxDrugs, same pattern as setLotField; only persisted on the Stage 2 submit.
@@ -3795,8 +3836,8 @@ td.l{text-align:left;padding-left:4px}
       // back to the box-picker overview after finishing one — see regLanding
       this.setState({ submitting: false, regEB: newRegEB, regMfg: '', regPreparer: '', regChecker: '', regHadConfirm: false, regPrinted: false, regSkipPrint: false, boxDrugs: null, dispenser: '', retReceiver: '', regLanding: true });
     }
-    else if (m === 'dispense') this.setState({ submitting: false, dispEB: dispensableIds[0] || '', formDept: 'ER', dispenser: uName, swapReturn: false, swapEB: '', swapReceiver: '', swapRetDrugUsage: {}, retDrugUsage: {}, dispDate: today, swapReturnDate: today, retReceiver: '' });
-    else this.setState({ submitting: false, retEB: outIds[0] || '', retReceiver: uName, retDate: today, retDrugUsage: {}, swapRetDrugUsage: {}, dispenser: '' });
+    else if (m === 'dispense') this.setState({ submitting: false, dispEB: dispensableIds[0] || '', formDept: 'ER', dispenser: uName, swapReturn: false, swapEB: '', swapReceiver: '', swapRetDrugUsage: {}, retDrugUsage: {}, dispDate: today, swapReturnDate: today, retReceiver: '', dispLanding: true });
+    else this.setState({ submitting: false, retEB: outIds[0] || '', retReceiver: uName, retDate: today, retDrugUsage: {}, swapRetDrugUsage: {}, dispenser: '', retLanding: true });
   }
 
   renderVals() {
@@ -4606,6 +4647,38 @@ td.l{text-align:left;padding-left:4px}
         verified: { label: '🟢 ยืนยันแล้ว', bg: '#E4F4EF', color: '#169C7F', border: '#C4E7DB' },
       }[stage];
     };
+    // Shared card shell for all 3 mode-picker landing grids (register/dispense/
+    // return) — one consistent look: colored left accent bar keyed to status,
+    // bigger monospace EB code, a chevron affordance on selectable cards so
+    // "this one is clickable" reads at a glance, disabled cards visibly muted.
+    const chevronSVG = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    const mkPickerCard = ({ id, li, disabled, pulse, badge, subtitle, subtitle2, onClick }) => h('button', {
+      key: id, type: 'button', disabled,
+      onClick: disabled ? undefined : onClick,
+      onMouseEnter: disabled ? undefined : (e) => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 12px 28px rgba(20,40,55,.14)'; },
+      onMouseLeave: disabled ? undefined : (e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = pulse ? '0 0 0 0 rgba(224,62,62,.35)' : '0 2px 6px rgba(20,40,55,.06)'; },
+      style: {
+        position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 8,
+        padding: '18px 16px 16px 17px', borderRadius: 16,
+        border: `1.5px solid ${disabled ? '#E7EEF3' : badge.border}`,
+        borderLeft: `4px solid ${disabled ? '#DCE3E9' : badge.color}`,
+        background: disabled ? '#F7F9FA' : '#fff',
+        cursor: disabled ? 'not-allowed' : 'pointer', textAlign: 'left', fontFamily: 'inherit', width: '100%',
+        opacity: disabled ? .62 : 1, transition: 'all .25s cubic-bezier(.34,1.56,.64,1)',
+        boxShadow: '0 2px 6px rgba(20,40,55,.06)',
+        animation: pulse
+          ? `rowIn .3s cubic-bezier(.34,1.56,.64,1) ${li * 35}ms both, pulseRed 2s ease infinite`
+          : `rowIn .3s cubic-bezier(.34,1.56,.64,1) ${li * 35}ms both`,
+      },
+    },
+      h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' } },
+        h('div', { style: { fontFamily: "'IBM Plex Mono', monospace", fontSize: 19, fontWeight: 800, color: '#15242E', letterSpacing: -.3 } }, id),
+        !disabled ? h('span', { style: { color: badge.color, opacity: .5, display: 'flex' }, dangerouslySetInnerHTML: { __html: chevronSVG } }) : null,
+      ),
+      h('span', { style: { display: 'inline-flex', alignItems: 'center', padding: '4px 10px', borderRadius: 7, fontSize: 11, fontWeight: 700, background: badge.bg, color: badge.color, border: `1px solid ${badge.border}` } }, badge.label),
+      h('div', { style: { fontSize: 11.5, color: '#7B8D9C', lineHeight: 1.4 } }, subtitle),
+      subtitle2 ? h('div', { style: { fontSize: 10.5, color: badge.color, fontWeight: 700, marginTop: -2 } }, subtitle2) : null,
+    );
     // urgency order: rejected (needs จพ. action now) > prepared (needs เภสัชกร
     // action now) > none > verified — a dispensed-out box can't be acted on
     // right now regardless of its underlying stage, so it always sorts last
@@ -4636,30 +4709,17 @@ td.l{text-align:left;padding-left:4px}
     })();
     vals.regLandingCardsEl = h(React.Fragment, null, ..._landingItems.map(({ id, b, stage, isOut, rejected }, _li) => {
       const badge = _landingBadgeFor(stage, rejected);
+      // verified boxes must show WHO verified them (checker), not just who
+      // prepared them (preparer) — previously the verified branch fell
+      // through to the same "จัดเตรียมโดย" text as 'prepared', so a
+      // pharmacist's sign-off was invisible on the card.
       const subtitle = isOut ? `จ่ายออกอยู่ที่ ${(b && b.dept) || '—'}`
         : rejected ? `${(b && b.rejectedReason) || 'ไม่ได้ระบุเหตุผล'}`
         : stage === 'none' ? 'พร้อมเริ่มจัดเตรียม'
+        : stage === 'verified' ? `ตรวจสอบโดย ${(b && b.checker) || '—'}`
         : `จัดเตรียมโดย ${(b && b.preparer) || '—'}`;
-      return h('button', {
-        key: id, type: 'button', disabled: isOut,
-        onClick: () => { if (isOut) return; this.selectRegBox(id, { force: true }); },
-        onMouseEnter: isOut ? undefined : (e) => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 10px 26px rgba(20,40,55,.12)'; },
-        onMouseLeave: isOut ? undefined : (e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = rejected ? '0 0 0 0 rgba(224,62,62,.35)' : '0 1px 3px rgba(20,40,55,.05)'; },
-        style: {
-          display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 9, padding: '16px', borderRadius: 14,
-          border: `1.5px solid ${isOut ? '#E7EEF3' : badge.border}`, background: isOut ? '#F7F9FA' : '#fff',
-          cursor: isOut ? 'not-allowed' : 'pointer', textAlign: 'left', fontFamily: 'inherit',
-          opacity: isOut ? .6 : 1, transition: 'all .22s cubic-bezier(.34,1.56,.64,1)',
-          boxShadow: '0 1px 3px rgba(20,40,55,.05)',
-          animation: rejected
-            ? `rowIn .3s cubic-bezier(.34,1.56,.64,1) ${_li * 35}ms both, pulseRed 2s ease infinite`
-            : `rowIn .3s cubic-bezier(.34,1.56,.64,1) ${_li * 35}ms both`,
-        },
-      },
-        h('div', { style: { fontFamily: "'IBM Plex Mono', monospace", fontSize: 18, fontWeight: 700, color: '#15242E' } }, id),
-        h('span', { style: { display: 'inline-flex', alignItems: 'center', padding: '4px 10px', borderRadius: 7, fontSize: 11, fontWeight: 700, background: badge.bg, color: badge.color, border: `1px solid ${badge.border}` } }, badge.label),
-        h('div', { style: { fontSize: 11.5, color: '#7B8D9C', lineHeight: 1.4 } }, subtitle),
-      );
+      const subtitle2 = stage === 'verified' && !isOut ? `จัดเตรียมโดย ${(b && b.preparer) || '—'}` : null;
+      return mkPickerCard({ id, li: _li, disabled: isOut, pulse: rejected, badge, subtitle, subtitle2, onClick: () => this.selectRegBox(id, { force: true }) });
     }));
     vals.regDrugTableLabel = vals.regIsVerifyStep
       ? 'ตรวจสอบยาในกล่อง · ติ๊กถูกทุกตัวยาหลังตรวจกับกล่องจริง/ใบกล่อง'
@@ -4800,6 +4860,48 @@ td.l{text-align:left;padding-left:4px}
     vals.regAutoDetectEl = h(React.Fragment, null, detectBanner, hadRow);
 
     // ===== STEP 2: DISPENSE / SWAP =====
+    // Landing: overview grid of every EB box for the dispense action — only a
+    // verified + in-stock box (inStockIds, computed above) is selectable;
+    // everything else is shown disabled with a reason instead of being hidden,
+    // so a จพ./เภสัชกร can see at a glance why a box isn't dispensable yet.
+    vals.dispShowLanding = !!st.dispLanding;
+    vals.dispShowForm = !st.dispLanding;
+    vals.dispBackToLanding = () => this.setState({ dispLanding: true });
+    const _dispLandingItems = allIds.map(id => {
+      const b = this.BOXES.find(x => x.id === id);
+      const out = outOf(b);
+      const dispensable = inStockIds.includes(id);
+      const stage = this._regStage(b);
+      const priority = dispensable ? 0 : (out ? 2 : 1);
+      return { id, b, out, dispensable, stage, priority };
+    }).sort((a, z) => a.priority - z.priority);
+    vals.dispLandingSummaryEl = (() => {
+      const counts = { dispensable: 0, notReady: 0, out: 0 };
+      _dispLandingItems.forEach(it => { if (it.dispensable) counts.dispensable++; else if (it.out) counts.out++; else counts.notReady++; });
+      const chips = [
+        counts.dispensable ? { label: `🟢 พร้อมจ่าย ${counts.dispensable}`, bg: '#E4F4EF', color: '#169C7F' } : null,
+        counts.notReady     ? { label: `⚪ ยังไม่พร้อม ${counts.notReady}`, bg: '#F1F4F7', color: '#7B8D9C' } : null,
+        counts.out           ? { label: `📤 จ่ายออกอยู่แล้ว ${counts.out}`, bg: '#E8F0F6', color: '#1A6FA3' } : null,
+      ].filter(Boolean);
+      return chips.length ? h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14 } },
+        ...chips.map((c, i) => h('span', { key: i, style: { display: 'inline-flex', alignItems: 'center', padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: c.bg, color: c.color } }, c.label))
+      ) : null;
+    })();
+    vals.dispLandingCardsEl = h(React.Fragment, null, ..._dispLandingItems.map(({ id, b, out, dispensable, stage }, _li) => {
+      const badge = out ? { label: '📤 จ่ายออกอยู่แล้ว', bg: '#E8F0F6', color: '#1A6FA3', border: '#C9DEEC' }
+        : dispensable ? { label: '🟢 พร้อมจ่าย', bg: '#E4F4EF', color: '#169C7F', border: '#C4E7DB' }
+        : stage === 'prepared' ? { label: '🟡 รอตรวจสอบ', bg: '#FBF1E0', color: '#B5740F', border: '#F0DDB8' }
+        : { label: '⚪ ยังไม่ลงทะเบียน', bg: '#F1F4F7', color: '#7B8D9C', border: '#DCE3E9' };
+      const subtitle = out ? `จ่ายออกอยู่ที่ ${(b && b.dept) || '—'}`
+        : dispensable ? 'พร้อมจ่ายออกได้ทันที'
+        : stage === 'prepared' ? 'รอเภสัชกร/แอดมินตรวจสอบก่อน'
+        : 'ยังไม่ได้ลงทะเบียนกล่องนี้';
+      const _st = _ebStatusMap[id];
+      const subtitle2 = dispensable && _st && _st.key !== 'ok'
+        ? (_st.key === 'critical' ? '⚠ ใกล้/เกินกำหนดส่งคืนแล้ว' : '⏳ ใกล้กำหนดส่งคืน')
+        : null;
+      return mkPickerCard({ id, li: _li, disabled: !dispensable, pulse: false, badge, subtitle, subtitle2, onClick: () => this.selectDispBox(id) });
+    }));
     vals.dispEBSelectEl = mkEBChips(st.dispEB, (id) => this.setState({ dispEB: id }), inStockIds, '#1A6FA3', _ebStatusMap);
     vals.dispHintEl = hint(`พร้อมจ่าย ${inStockIds.length} กล่อง · กล่องที่จ่ายไปแล้วต้องรับคืนก่อน จึงจะจ่ายรหัสเดิมซ้ำได้`, '#1A6FA3', '#EEF5FA', '#D3E6F1', '#169C7F');
     vals.dispDate = st.dispDate;
@@ -4899,6 +5001,40 @@ td.l{text-align:left;padding-left:4px}
     vals.setSwapReceiver = (e) => this.setState({ swapReceiver: e.target.value });
 
     // ===== STEP 3: RETURN =====
+    // Landing: overview grid of every EB box for the return action — only a
+    // currently dispensed-out box (outIds, computed above) is selectable;
+    // an in-stock box is shown disabled since there's nothing to return.
+    // Days-out coloring mirrors retDaysOut* below (>30d amber, >15d soft
+    // amber, else green) so the most overdue boxes visually stand out.
+    vals.retShowLanding = !!st.retLanding;
+    vals.retShowForm = !st.retLanding;
+    vals.retBackToLanding = () => this.setState({ retLanding: true });
+    const _retLandingItems = allIds.map(id => {
+      const b = this.BOXES.find(x => x.id === id);
+      const out = outOf(b);
+      const daysOut = out && b.dispense ? Math.round((this.TODAY - this.parse(b.dispense)) / 86400000) : 0;
+      return { id, b, out, daysOut, priority: out ? 0 : 1 };
+    }).sort((a, z) => a.priority - z.priority || z.daysOut - a.daysOut);
+    vals.retLandingSummaryEl = (() => {
+      const counts = { out: 0, inStock: 0 };
+      _retLandingItems.forEach(it => { if (it.out) counts.out++; else counts.inStock++; });
+      const chips = [
+        counts.out     ? { label: `📤 ค้างรับคืน ${counts.out}`, bg: '#FBF1E0', color: '#B5740F' } : null,
+        counts.inStock ? { label: `✅ อยู่ในห้องยาแล้ว ${counts.inStock}`, bg: '#E4F4EF', color: '#169C7F' } : null,
+      ].filter(Boolean);
+      return chips.length ? h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14 } },
+        ...chips.map((c, i) => h('span', { key: i, style: { display: 'inline-flex', alignItems: 'center', padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: c.bg, color: c.color } }, c.label))
+      ) : null;
+    })();
+    vals.retLandingCardsEl = h(React.Fragment, null, ..._retLandingItems.map(({ id, b, out, daysOut }, _li) => {
+      const badge = !out ? { label: '✅ อยู่ในห้องยา', bg: '#E4F4EF', color: '#169C7F', border: '#C4E7DB' }
+        : daysOut > 30 ? { label: `📤 ค้างรับคืน ${daysOut} วัน`, bg: '#FEF3C7', color: '#D97706', border: '#FCD34D' }
+        : daysOut > 15 ? { label: `📤 ค้างรับคืน ${daysOut} วัน`, bg: '#FBF1E0', color: '#B5740F', border: '#F4DEC2' }
+        : { label: `📤 ค้างรับคืน ${daysOut} วัน`, bg: '#E4F4EF', color: '#169C7F', border: '#C4E7DB' };
+      const subtitle = !out ? 'ยังไม่ได้จ่ายออก — ไม่มีอะไรต้องรับคืน'
+        : `จ่ายให้ ${(b && b.dept) || '—'} เมื่อ ${b && b.dispense ? this.fmtISO(b.dispense) : '—'}`;
+      return mkPickerCard({ id, li: _li, disabled: !out, pulse: out && daysOut > 30, badge, subtitle, onClick: () => this.selectRetBox(id) });
+    }));
     vals.retEBSelectEl = mkEBChips(st.retEB, (id) => this.setState({ retEB: id, retDrugUsage: {} }), outIds, '#169C7F', _ebStatusMap);
     vals.retHintEl = hint(`ค้างรับคืน ${outIds.length} กล่อง · เลือกได้เฉพาะกล่องที่ถูกจ่ายออกไปและยังไม่ได้คืน`, '#B5740F', '#FBF1E0', '#F0DDB8', '#EE8A2B');
     vals.retDate = st.retDate;
