@@ -25,6 +25,7 @@ async function main() {
   await clearCollection('audit_log');
   await clearCollection('boxes');
   await clearCollection('box_drugs');
+  await clearCollection('usage_log');
 
   // users — ลบเฉพาะที่ไม่ใช่ admin
   const usersSnap = await db.collection('users').get();
