@@ -195,19 +195,127 @@ function stageIconLabel(stage) {
   return { icon: '⚪', label: 'ยังไม่จัดเตรียม' };
 }
 
-// ── Build the all-clear LINE message with a per-box status breakdown ──────
-function buildAllClearLineText(summaries) {
-  const dateStr = TODAY.toLocaleDateString('th-TH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-  let msg = `✅ EB Notify — ไม่พบยาใกล้หมดอายุภายใน ${THRESHOLD_DAYS} วัน\n📅 ${dateStr}\n📦 กล่อง EB ทั้งหมด ${summaries.length} กล่อง\n`;
-  msg += `${'─'.repeat(24)}\n`;
-  summaries.forEach(s => {
-    const { icon, label } = stageIconLabel(s.stage);
-    const loc = s.isOut ? `จ่ายออก → ${s.dept || 'หน่วยงาน'}` : 'อยู่ห้องยา';
-    const expText = s.nearestExpiry ? `เหลือ ${s.daysLeft} วัน (${thaiDate(s.nearestExpiry)})` : 'ไม่มีข้อมูลวันหมดอายุ';
-    msg += `${icon} ${s.boxId} · ${loc} · ${label}\n   💊 ${s.drugCount} รายการ · ใกล้หมดอายุสุด: ${expText}\n`;
+// ── Build the all-clear LINE message as a Flex carousel — mirrors
+// buildFlexMessages' premium card style (stat tiles + colored box cards)
+// instead of a wall of plain text, so the per-box breakdown is scannable
+// at a glance rather than requiring the reader to parse line-by-line.
+function buildAllClearFlexMessages(summaries) {
+  const dateStr = TODAY.toLocaleDateString('th-TH', {
+    year: 'numeric', month: 'long', day: 'numeric', weekday: 'long', timeZone: 'Asia/Bangkok',
   });
-  msg += `\n🔗 ตรวจสอบที่: https://emergencyboxnotyfykpnhos.web.app`;
-  return msg;
+  const verifiedCount = summaries.filter(s => s.stage === 'verified').length;
+  const outCount = summaries.filter(s => s.isOut).length;
+  const needsAttnCount = summaries.filter(s => s.stage !== 'verified').length;
+
+  function statBox(emoji, count, label, bg) {
+    return {
+      type: 'box', layout: 'vertical', flex: 1, margin: 'sm',
+      backgroundColor: bg, cornerRadius: '14px', paddingAll: '14px',
+      contents: [
+        { type: 'text', text: String(count), size: '3xl', weight: 'bold', color: '#FFFFFF', align: 'center' },
+        { type: 'text', text: emoji, size: 'lg', align: 'center', margin: 'xs' },
+        { type: 'text', text: label, size: 'xs', color: '#FFFFFF', align: 'center', wrap: true, margin: 'xs' },
+      ],
+    };
+  }
+
+  function pill(text, bg, fg = '#FFFFFF') {
+    return {
+      type: 'box', layout: 'vertical', flex: 0,
+      backgroundColor: bg, cornerRadius: '20px',
+      paddingTop: '4px', paddingBottom: '4px', paddingStart: '10px', paddingEnd: '10px',
+      contents: [{ type: 'text', text, color: fg, size: 'xs', weight: 'bold' }],
+    };
+  }
+
+  function boxCard(s, borderColor, itemBg) {
+    const { label: stageLabel } = stageIconLabel(s.stage);
+    const locText = s.isOut ? `🏥  จ่ายออก → ${s.dept || 'หน่วยงาน'}` : '💊  อยู่ห้องยา';
+    const expText = s.nearestExpiry ? `เหลือ ${s.daysLeft} วัน (${thaiDate(s.nearestExpiry)})` : 'ไม่มีข้อมูล';
+    return {
+      type: 'box', layout: 'vertical', margin: 'md',
+      backgroundColor: borderColor, cornerRadius: '14px', paddingAll: '2px',
+      contents: [{
+        type: 'box', layout: 'vertical',
+        backgroundColor: itemBg, cornerRadius: '12px', paddingAll: '14px',
+        contents: [
+          { type: 'box', layout: 'horizontal', alignItems: 'center', contents: [
+            pill(s.boxId.toUpperCase(), borderColor),
+            { type: 'text', text: stageLabel, size: 'sm', weight: 'bold', color: '#1A1A2E', flex: 1, margin: 'sm' },
+          ] },
+          { type: 'box', layout: 'horizontal', margin: 'sm', alignItems: 'center',
+            backgroundColor: '#EEF2F7', cornerRadius: '20px',
+            paddingTop: '6px', paddingBottom: '6px', paddingStart: '12px', paddingEnd: '12px',
+            contents: [{ type: 'text', text: locText, size: 'xs', color: '#455A64' }] },
+          { type: 'box', layout: 'horizontal', margin: 'sm', alignItems: 'center', contents: [
+            { type: 'text', text: `💊 ${s.drugCount} รายการ`, size: 'xs', color: '#78909C', flex: 1 },
+            { type: 'text', text: `หมดอายุสุด: ${expText}`, size: 'xs', color: '#78909C', wrap: true },
+          ] },
+        ],
+      }],
+    };
+  }
+
+  const bubbles = [];
+
+  // ── Summary bubble (green, mirrors the alert carousel's dark-navy one) ──
+  bubbles.push({
+    type: 'bubble', size: 'mega',
+    body: {
+      type: 'box', layout: 'vertical', backgroundColor: '#0F6E4F', paddingAll: '20px', spacing: 'none',
+      contents: [
+        { type: 'text', text: '✅  EB Notify', weight: 'bold', size: 'xl', color: '#FFFFFF' },
+        { type: 'text', text: 'โรงพยาบาลกรงปินัง · ห้องยา', size: 'xs', color: '#B9E4D0', margin: 'xs' },
+        { type: 'text', text: `📅  ${dateStr}`, size: 'xs', color: '#CFEFDF', margin: 'sm', wrap: true },
+        { type: 'separator', margin: 'lg', color: '#1E8F68' },
+        { type: 'text', text: `ไม่พบยาใกล้หมดอายุภายใน ${THRESHOLD_DAYS} วัน`, size: 'sm', color: '#FFFFFF', weight: 'bold', margin: 'lg', wrap: true },
+        { type: 'box', layout: 'horizontal', margin: 'lg', contents: [
+          statBox('📦', summaries.length, 'กล่องทั้งหมด', '#169C7F'),
+          statBox('🟢', verifiedCount, 'พร้อมจ่าย', '#169C7F'),
+        ] },
+        { type: 'box', layout: 'horizontal', margin: 'sm', contents: [
+          statBox('📤', outCount, 'จ่ายออกอยู่', '#1A6FA3'),
+          statBox('⏳', needsAttnCount, 'รอดำเนินการ', needsAttnCount > 0 ? '#D97706' : '#2C3E50'),
+        ] },
+      ],
+    },
+    footer: {
+      type: 'box', layout: 'vertical', backgroundColor: '#0A4A36', paddingAll: '14px',
+      contents: [{
+        type: 'button', style: 'primary', color: '#169C7F', height: 'sm',
+        action: { type: 'uri', label: '🔗  เปิดแอป EB Notify', uri: 'https://emergencyboxnotyfykpnhos.web.app' },
+      }],
+    },
+  });
+
+  // ── Per-box detail bubbles, chunked 6/bubble — carousel limit 12 total ──
+  for (let i = 0; i < summaries.length && bubbles.length < 12; i += 6) {
+    const chunk = summaries.slice(i, i + 6);
+    const titleSuffix = summaries.length > 6 ? ` (${Math.floor(i / 6) + 1}/${Math.ceil(summaries.length / 6)})` : '';
+    bubbles.push({
+      type: 'bubble', size: 'mega',
+      header: {
+        type: 'box', layout: 'horizontal', backgroundColor: '#169C7F', paddingAll: '16px', alignItems: 'center',
+        contents: [
+          { type: 'text', text: '📦', size: 'xxl', flex: 0 },
+          { type: 'box', layout: 'vertical', margin: 'md', flex: 1, contents: [
+            { type: 'text', text: `สถานะกล่อง${titleSuffix}`, color: '#FFFFFF', weight: 'bold', size: 'lg' },
+            { type: 'text', text: `${chunk.length} กล่อง`, color: '#D2F0E4', size: 'xs', margin: 'xs' },
+          ] },
+        ],
+      },
+      body: {
+        type: 'box', layout: 'vertical', backgroundColor: '#F5FBF8', paddingAll: '12px', spacing: 'none',
+        contents: chunk.map(s => boxCard(s, s.stage === 'verified' ? '#169C7F' : s.stage === 'prepared' ? '#D97706' : '#90A4AE', '#FFFFFF')),
+      },
+    });
+  }
+
+  return [{
+    type: 'flex',
+    altText: `✅ EB Notify — ไม่พบยาใกล้หมดอายุ · ${summaries.length} กล่องพร้อมใช้งาน`,
+    contents: { type: 'carousel', contents: bubbles },
+  }];
 }
 
 // ── Build Flex Messages (premium carousel) ─────────────────────
@@ -787,11 +895,11 @@ async function main() {
       const emailSent = await sendAllClearEmail(boxCount);
       let lineSentAC = false;
       if (process.env.MOPH_NOTIFY_CLIENT_KEY && process.env.MOPH_NOTIFY_SECRET_KEY) {
-        // per-box breakdown (location/registration stage/nearest expiry) instead
-        // of just a bare count — so the reader knows each box's real status,
-        // not just "nothing urgent found"
-        const allClearLine = buildAllClearLineText(summaries);
-        lineSentAC = await sendMOPHNotify(process.env.MOPH_NOTIFY_CLIENT_KEY, process.env.MOPH_NOTIFY_SECRET_KEY, [{ type: 'text', text: allClearLine }]).catch(err => { console.error('❌ MOPH Notify all-clear error:', err.message); return false; });
+        // Flex carousel with a per-box breakdown (location/registration stage/
+        // nearest expiry) instead of a bare count or a wall of plain text — so
+        // the reader can scan each box's real status at a glance, matching the
+        // same premium card style as the near-expiry alert carousel.
+        lineSentAC = await sendMOPHNotify(process.env.MOPH_NOTIFY_CLIENT_KEY, process.env.MOPH_NOTIFY_SECRET_KEY, buildAllClearFlexMessages(summaries)).catch(err => { console.error('❌ MOPH Notify all-clear error:', err.message); return false; });
       }
       if (emailSent || lineSentAC) await markSentToday();
     } else {
