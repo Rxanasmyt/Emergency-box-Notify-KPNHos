@@ -149,6 +149,67 @@ async function fetchExpiringDrugs() {
   return alerts;
 }
 
+// ── Per-box status summary (used for the "all clear" report — no near-expiry
+// drugs found, but the admin/pharmacist still wants to see each box's
+// current state at a glance rather than just a bare count) ────────────────
+async function fetchBoxSummaries() {
+  const boxSnap = await db.collection('boxes').get();
+  const bdSnap = await db.collection('box_drugs').get();
+  const bd = {};
+  bdSnap.forEach(doc => { bd[doc.id] = (doc.data() && doc.data().drugs) || []; });
+
+  const summaries = [];
+  boxSnap.forEach(doc => {
+    const box = doc.data() || {};
+    const drugs = bd[doc.id] || [];
+    let nearestExpiry = null;
+    drugs.forEach(d => (d.lots || []).forEach(lot => {
+      if (lot.expiry && typeof lot.expiry === 'string' && isValidISODate(lot.expiry)) {
+        if (!nearestExpiry || lot.expiry < nearestExpiry) nearestExpiry = lot.expiry;
+      }
+    }));
+    const isOut = !!(box.dispense && !box.receiver);
+    const stage = box.registeredAt ? 'verified' : box.preparedAt ? 'prepared' : 'none';
+    summaries.push({
+      boxId: doc.id,
+      isOut,
+      dept: box.dept || '',
+      drugCount: drugs.length,
+      nearestExpiry,
+      daysLeft: nearestExpiry ? daysUntil(nearestExpiry) : null,
+      stage,
+    });
+  });
+
+  summaries.sort((a, b) => {
+    const na = parseInt(a.boxId.replace(/\D/g, ''), 10) || 0;
+    const nb = parseInt(b.boxId.replace(/\D/g, ''), 10) || 0;
+    return na - nb;
+  });
+  return summaries;
+}
+
+function stageIconLabel(stage) {
+  if (stage === 'verified') return { icon: '🟢', label: 'ยืนยันแล้ว' };
+  if (stage === 'prepared') return { icon: '🟡', label: 'รอตรวจสอบ' };
+  return { icon: '⚪', label: 'ยังไม่จัดเตรียม' };
+}
+
+// ── Build the all-clear LINE message with a per-box status breakdown ──────
+function buildAllClearLineText(summaries) {
+  const dateStr = TODAY.toLocaleDateString('th-TH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  let msg = `✅ EB Notify — ไม่พบยาใกล้หมดอายุภายใน ${THRESHOLD_DAYS} วัน\n📅 ${dateStr}\n📦 กล่อง EB ทั้งหมด ${summaries.length} กล่อง\n`;
+  msg += `${'─'.repeat(24)}\n`;
+  summaries.forEach(s => {
+    const { icon, label } = stageIconLabel(s.stage);
+    const loc = s.isOut ? `จ่ายออก → ${s.dept || 'หน่วยงาน'}` : 'อยู่ห้องยา';
+    const expText = s.nearestExpiry ? `เหลือ ${s.daysLeft} วัน (${thaiDate(s.nearestExpiry)})` : 'ไม่มีข้อมูลวันหมดอายุ';
+    msg += `${icon} ${s.boxId} · ${loc} · ${label}\n   💊 ${s.drugCount} รายการ · ใกล้หมดอายุสุด: ${expText}\n`;
+  });
+  msg += `\n🔗 ตรวจสอบที่: https://emergencyboxnotyfykpnhos.web.app`;
+  return msg;
+}
+
 // ── Build Flex Messages (premium carousel) ─────────────────────
 function buildFlexMessages(alerts) {
   const expired  = alerts.filter(a => a.status === 'expired');
@@ -720,12 +781,16 @@ async function main() {
     console.log('💡 หมายเหตุ: ถ้าในแอปมียาแต่ที่นี่บอกว่าไม่พบ → ข้อมูลใน Firestore อาจยังไม่ถูก sync');
     if (isMonday || IS_MANUAL) {
       console.log('\n📬 ส่งรายงานสรุป (All Clear)');
-      const boxCount = await db.collection('boxes').get().then(s => s.size).catch(() => 0);
+      const summaries = await fetchBoxSummaries().catch(err => { console.error('❌ fetchBoxSummaries error:', err.message); return []; });
+      const boxCount = summaries.length;
       if (!boxCount) { console.warn('⚠ boxes collection empty — skipping all-clear to avoid false report'); return; }
       const emailSent = await sendAllClearEmail(boxCount);
       let lineSentAC = false;
       if (process.env.MOPH_NOTIFY_CLIENT_KEY && process.env.MOPH_NOTIFY_SECRET_KEY) {
-        const allClearLine = `✅ EB Notify — ไม่พบยาใกล้หมดอายุ\n📦 กล่อง EB ทั้งหมด ${boxCount} กล่อง พร้อมใช้งาน\n📅 ${TODAY.toLocaleDateString('th-TH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`;
+        // per-box breakdown (location/registration stage/nearest expiry) instead
+        // of just a bare count — so the reader knows each box's real status,
+        // not just "nothing urgent found"
+        const allClearLine = buildAllClearLineText(summaries);
         lineSentAC = await sendMOPHNotify(process.env.MOPH_NOTIFY_CLIENT_KEY, process.env.MOPH_NOTIFY_SECRET_KEY, [{ type: 'text', text: allClearLine }]).catch(err => { console.error('❌ MOPH Notify all-clear error:', err.message); return false; });
       }
       if (emailSent || lineSentAC) await markSentToday();

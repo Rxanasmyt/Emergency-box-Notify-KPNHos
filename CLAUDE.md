@@ -188,6 +188,8 @@ The service account behind `FIREBASE_SERVICE_ACCOUNT` needs the **Firebase Rules
 **Required secrets**: `FIREBASE_SERVICE_ACCOUNT`, `MOPH_NOTIFY_CLIENT_KEY`, `MOPH_NOTIFY_SECRET_KEY`, `EMAIL_FROM`, `EMAIL_PASS`, `EMAIL_TO`  
 **Required var**: `NOTIFY_DAYS_AHEAD` (default `60`)
 
+- **`check-expiry.js`'s "all clear" LINE message includes a per-box breakdown**, not just a bare box count — sent on Monday/manual-trigger when `fetchExpiringDrugs()` finds zero alerts. `fetchBoxSummaries()` (independent of the near-expiry threshold) pulls every box's location (`อยู่ห้องยา`/`จ่ายออก → {dept}`), registration stage (`_regStage`-equivalent: none/prepared/verified), drug count, and nearest lot expiry (even if far beyond `THRESHOLD_DAYS`, so "all clear" doesn't mean "no information"). `buildAllClearLineText()` renders one line per box. Do not collapse this back to a single count line — that was the reported gap (admin/pharmacist couldn't tell each box's real status from the all-clear message alone).
+
 ---
 
 ## Common Pitfalls
