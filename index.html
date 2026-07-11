@@ -786,6 +786,19 @@ input:focus, select:focus, textarea:focus {
       </div>
     </header>
 
+    <!-- Real-time sync lost — a terminal Firestore listener error means BOXES/
+         AUDIT/BOX_DRUGS/users are frozen at their last known value while every
+         screen still looks fully live. Shown on every screen, not gated per-tab. -->
+    <sc-if value="{{ hasSyncError }}" hint-placeholder-val="{{ false }}">
+    <div style="background: linear-gradient(100deg, #FCEDED, #FDF4EC); border-bottom: 1px solid #F4C9C9; padding: 12px 28px; display: flex; align-items: center; gap: 12px; flex-shrink: 0;">
+      <span style="width: 28px; height: 28px; flex-shrink: 0; border-radius: 50%; background: #E03E3E; display: flex; align-items: center; justify-content: center;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 3.5l9 16H3l9-16z" stroke="#fff" stroke-width="2" stroke-linejoin="round"/><path d="M12 10v4.5M12 17.3v.2" stroke="#fff" stroke-width="2.1" stroke-linecap="round"/></svg>
+      </span>
+      <div style="font-size: 13px; font-weight: 600; color: #B42121;">การเชื่อมต่อแบบ Real-time ขาดหาย — ข้อมูลที่เห็นอาจไม่ใช่ล่าสุด กรุณารีเฟรชหน้าเพื่อเชื่อมต่อใหม่</div>
+      <button onclick="{{ reloadPage }}" style="margin-left: auto; height: 34px; padding: 0 16px; border: 1.5px solid #E03E3E; background: #fff; color: #E03E3E; border-radius: 9px; font-family: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; flex-shrink: 0;">รีเฟรชหน้า</button>
+    </div>
+    </sc-if>
+
     <!-- Scroll content -->
     <div class="page-content app-scroll-area">
 
@@ -1420,7 +1433,7 @@ input:focus, select:focus, textarea:focus {
           </div>
           <!-- Footer -->
           <div style="padding: 13px 20px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 12.5px; color: #7B8D9C; border-top: 1px solid #EFF3F6;">
-            <span>แสดง <b style="color: #15242E;">{{ auditCount }}</b> รายการล่าสุด (สูงสุด 500 รายการต่อการโหลด — ข้อมูลจริงเก็บถาวรใน Firestore ไม่มีวันลบ)</span>
+            <span>แสดง <b style="color: #15242E;">{{ auditCount }}</b> รายการล่าสุด (สูงสุด 500 รายการต่อการโหลด — ข้อมูลจริงเก็บถาวรใน Firestore ไม่มีวันลบ, การส่งออก CSV จะดึงข้อมูลย้อนหลังครบถ้วนเสมอไม่ว่าจะเกิน 500 รายการหรือไม่)</span>
             <span style="margin-left: auto; display: flex; align-items: center; gap: 6px; color: #169C7F; font-weight: 600;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #169C7F; flex-shrink: 0;"></span>ทะเบียนจ่ายและรับคืน Emergency Box · ฝ่ายเภสัชกรรม โรงพยาบาลกรงปินัง</span>
           </div>
         </div>
@@ -1558,7 +1571,7 @@ input:focus, select:focus, textarea:focus {
               </div>
             </div>
             <div style="padding: 11px 18px; font-size: 12px; color: #7B8D9C; border-top: 1px solid #EFF3F6; display: flex; align-items: center; gap: 10px;">
-              <span>แสดง <b style="color: #15242E;">{{ adminAuditCount }}</b> รายการ</span>
+              <span>แสดง <b style="color: #15242E;">{{ adminAuditCount }}</b> รายการ (สูงสุด 500 รายการต่อการโหลด — CSV จะดึงข้อมูลย้อนหลังครบถ้วนเสมอ)</span>
               <span style="margin-left: auto; display: flex; align-items: center; gap: 5px; color: #B42121; font-weight: 600; font-size: 11.5px;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #B42121; flex-shrink: 0;"></span>ข้อมูลลับ — เฉพาะ Admin</span>
             </div>
           </div>
@@ -1854,6 +1867,12 @@ class Component extends DCLogic {
     // auth
     authed: false,
     authInitError: false,
+    // set by firebase-sync.js's _onListenerError when boxes/audit_log/
+    // box_drugs/users onSnapshot hits a TERMINAL error (Firestore's SDK
+    // already retries transient blips internally, so this only fires when a
+    // listener is truly dead) — without this flag the app would silently
+    // freeze on stale data while still looking fully real-time.
+    _syncError: false,
     currentUser: null,
     loginUser: '',
     loginPass: '',
@@ -1970,7 +1989,18 @@ class Component extends DCLogic {
   };
 
   TH_MONTHS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
-  get TODAY() { const d = new Date(); d.setHours(0,0,0,0); return d; }
+  // Anchored to Asia/Bangkok's calendar day, NOT the device's local timezone —
+  // notify.js's todayBangkok() (used for the near-expiry threshold and the
+  // LINE "already sent today" dedup) already forces Bangkok time via this
+  // same toLocaleString trick. Before this fix, this.TODAY used the raw
+  // device clock/timezone instead, so a workstation not set to Bangkok time
+  // (common in mixed hospital IT — UTC-configured machines, a laptop brought
+  // from abroad) would disagree with notify.js by exactly one day right
+  // around Bangkok midnight: a lot could be accepted/rejected as "already
+  // expired" a day off from what the dashboard's own near-expiry count says,
+  // and daysLeft shown in the alert banner could differ by ±1 from what
+  // register/detail screens compute for the very same lot.
+  get TODAY() { const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Bangkok' })); d.setHours(0,0,0,0); return d; }
 
   DRUGS = [
     { name: 'Adrenaline inj. 1mg/ml', had: true, par: 10 },
@@ -2457,6 +2487,26 @@ class Component extends DCLogic {
     const a = document.createElement('a'); a.href = url; a.download = filename;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  }
+  // listenAudit()'s live listener is deliberately capped at the 500 most-
+  // recent docs to keep the real-time History/dashboard view light — but a
+  // fiscal-year or custom date-range filter reaching further back than that
+  // window would otherwise silently export (or display) INCOMPLETE data
+  // with no indication anything was cut off. 'today'/'7days'/'month' can
+  // never plausibly exceed 500 docs for this box count, so only 'fiscal'/
+  // 'custom'/an-already-at-the-cap 'all' trigger the extra one-time fetch —
+  // CSV export must always be guaranteed complete since it's the compliance-
+  // critical path, unlike the live on-screen view (which still honors the
+  // cap and says so, see hasAuditCapWarning below).
+  async _fetchCompleteAuditRows(preset, dateRange) {
+    const needsFetch = preset === 'fiscal' || preset === 'custom' || (preset === 'all' && this.AUDIT.length >= 500);
+    if (!needsFetch || !window.EB_Sync || !window.EB_Sync.fetchAuditRange) return this.AUDIT;
+    try {
+      return await window.EB_Sync.fetchAuditRange(dateRange.from, dateRange.to);
+    } catch (_) {
+      this.flash('⚠️ ดึงข้อมูลย้อนหลังครบถ้วนไม่สำเร็จ — ส่งออกเฉพาะข้อมูลที่โหลดไว้ในเครื่องนี้ (อาจไม่ครบ)');
+      return this.AUDIT;
+    }
   }
   logAction(entry) {
     const person = entry.person || (this.state.currentUser ? this.state.currentUser.name : 'ระบบ');
@@ -4354,6 +4404,8 @@ td.l{text-align:left;padding-left:4px}
     };
 
     vals.doLogout = () => this.askConfirm({ tone: 'plain', icon: 'logout', title: 'ออกจากระบบ?', body: 'คุณจะถูกนำกลับไปหน้าเข้าสู่ระบบ', yesLabel: 'ออกจากระบบ', noLabel: 'อยู่ต่อ', onYes: () => { this.logAction({ cat: 'auth', action: 'ออกระบบ', eb: '—', dept: '—', drug: 'ออกจากระบบโดยผู้ใช้' }); this.logout(); } });
+    vals.hasSyncError = !!st._syncError;
+    vals.reloadPage = () => window.location.reload();
 
     // ===== Department PIN management (paperless usage logging) =====
     const DEPT_LABELS = { ER: 'ER · ห้องฉุกเฉิน', WARD: 'WARD · หอผู้ป่วย', LR: 'LR · ห้องคลอด' };
@@ -5766,13 +5818,21 @@ td.l{text-align:left;padding-left:4px}
     // produces on many Thai-locale Excel installs
     // history/audit viewing is open to every role; exporting is admin-only
     vals.canExportCSV = !!(st.currentUser && st.currentUser.role === 'admin');
-    vals.exportCSV = () => {
+    vals.exportCSV = async () => {
       if (!vals.canExportCSV) return; // defense in depth — button is already hidden for non-admin
+      const _rows = await this._fetchCompleteAuditRows(st.datePreset, _dateRange);
+      const _filteredComplete = _rows.filter(r => {
+        if (r.cat !== 'dispense' && r.cat !== 'return') return false;
+        if (_dateRange.from && (r.date||'') < _dateRange.from) return false;
+        if (_dateRange.to   && (r.date||'') > _dateRange.to)   return false;
+        if (!q) return true;
+        return [r.eb, r.dept, r.person, r.drug, r.action].some(x => (x || '').toLowerCase().includes(q));
+      });
       const hdr = ['ลำดับ', 'วันที่', 'เวลา', 'ประเภท', 'EB', 'หน่วยงาน', 'ผู้ทำรายการ', 'ยาที่ใกล้หมดอายุ'];
       const esc = (v) => { let s = String(v == null ? '' : v); if (s.length > 0 && '=+-@\t\r'.includes(s[0])) s = "'" + s; return '"' + s.replace(/"/g, '""') + '"'; };
       const lines = [hdr.map(esc).join('\t')];
-      filtered.forEach((r, i) => {
-        lines.push([filtered.length - i, r.date || '', r.time || '', r.action || '', r.eb || '', r.dept || '', r.person || '', r.drug || ''].map(esc).join('\t'));
+      _filteredComplete.forEach((r, i) => {
+        lines.push([_filteredComplete.length - i, r.date || '', r.time || '', r.action || '', r.eb || '', r.dept || '', r.person || '', r.drug || ''].map(esc).join('\t'));
       });
       this._downloadExcelText(lines.join('\r\n'), `EB_register_${this.isoOf(this.TODAY)}.csv`);
     };
@@ -6032,11 +6092,21 @@ td.l{text-align:left;padding-left:4px}
         hasDetail: !!_ebId };
     });
     vals.adminAuditCount = _adminFiltered.length;
-    vals.adminExportCSV = () => {
+    vals.adminExportCSV = async () => {
+      const _rows = await this._fetchCompleteAuditRows(st.aDatePreset, _adr);
+      const _adminFilteredComplete = _rows.filter(r => {
+        const af = st.aFilter || 'all';
+        if (af === 'user') { if (!_adminUserCats.includes(r.cat)) return false; }
+        else if (af !== 'all' && r.cat !== af) return false;
+        if (_adr.from && (r.date||'') < _adr.from) return false;
+        if (_adr.to   && (r.date||'') > _adr.to)   return false;
+        if (!_aq) return true;
+        return [r.eb, r.dept, r.person, r.drug, r.action].some(x => (x || '').toLowerCase().includes(_aq));
+      });
       const hdr = ['ลำดับ','วันที่','เวลา','ประเภท','EB','หน่วยงาน','ผู้ทำรายการ','รายละเอียด'];
       const esc = (v) => { let s = String(v==null?'':v); if (s.length>0&&'=+-@\t\r'.includes(s[0])) s="'"+s; return '"'+s.replace(/"/g,'""')+'"'; };
       const lines = [hdr.map(esc).join('\t')];
-      _adminFiltered.forEach((r,i) => lines.push([_adminFiltered.length-i,r.date||'',r.time||'',r.action||'',r.eb||'',r.dept||'',r.person||'',r.drug||''].map(esc).join('\t')));
+      _adminFilteredComplete.forEach((r,i) => lines.push([_adminFilteredComplete.length-i,r.date||'',r.time||'',r.action||'',r.eb||'',r.dept||'',r.person||'',r.drug||''].map(esc).join('\t')));
       this._downloadExcelText(lines.join('\r\n'), `EB_audit_log_${this.isoOf(this.TODAY)}.csv`);
     };
 

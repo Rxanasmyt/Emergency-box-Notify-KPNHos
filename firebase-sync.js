@@ -42,7 +42,7 @@ function _startUsersListener(){
       if(u.username&&!seen.has(u.username)){seen.add(u.username);users.push(u);}
     });
     component.setState({users});
-  },err=>console.warn('[Sync] Users error:',err.message));
+  },err=>_onListenerError('Users',err));
 }
 
 // Called after login — starts boxes/audit/boxDrugs listeners (users already active)
@@ -126,6 +126,18 @@ async function seedIfEmpty(){
     }
   }catch(err){console.warn('[Sync] Seed failed (offline?):', err.message);}
 }
+// onSnapshot's error callback only fires for TERMINAL errors (Firestore's own
+// SDK already retries transient network blips internally without surfacing
+// them here) — so once it fires, that listener is dead for good with no
+// automatic resubscribe. Every one of these must set _syncError so the app
+// shell can show a persistent "real-time sync lost, refresh" banner instead
+// of silently freezing BOXES/AUDIT/BOX_DRUGS at their last known value while
+// still looking fully live. Mirrors the _publicLoadError flag startPublicSync
+// already sets for the same class of failure on the public QR page.
+function _onListenerError(label,err){
+  console.warn(`[Sync] ${label} error:`,err.message);
+  if(component)component.setState({_syncError:true});
+}
 function listenBoxes(){
   const unsub=db.collection(C.boxes).onSnapshot(snap=>{
     if(!component)return;
@@ -134,7 +146,20 @@ function listenBoxes(){
     // always update BOXES even when empty — prevents stale data after deletion
     component.BOXES=boxes;component.setState({});
     if(typeof component._syncChipStates==='function')component._syncChipStates();
-  },err=>console.warn('[Sync] Boxes error:',err.message));
+    // expiry alerts depend on box fields too (dept/dispense/receiver), not just
+    // box_drugs — without this, a plain dispense/return/register write (which
+    // never touches box_drugs) left the dashboard's alert list showing stale
+    // department/location context until some UNRELATED box_drugs write
+    // anywhere in the system happened to trigger the listenBoxDrugs recompute.
+    const _st=component.state||{};
+    if(_st.authed&&window.EB_Notify){
+      const _s=window.EB_Notify.loadSettings();
+      const _a=window.EB_Notify.findExpiringDrugs(component,_s.thresholdDays);
+      const _patch={expiryAlerts:_a};
+      if(_a.length&&!_st.showExpiryBanner&&component._hasNewUrgentAlerts(_a))_patch.showExpiryBanner=true;
+      component.setState(_patch);
+    }
+  },err=>_onListenerError('Boxes',err));
   unsubscribers.push(unsub);
 }
 function listenAudit(){
@@ -146,7 +171,7 @@ function listenAudit(){
     logs.sort((a,b)=>{const ka=(a.date||'')+' '+(a.time||''),kb=(b.date||'')+' '+(b.time||'');return kb<ka?-1:kb>ka?1:0;});
     // always update audit even when empty
     component.AUDIT=logs;component.setState({auditLog:logs});
-  },err=>console.warn('[Sync] Audit error:',err.message));
+  },err=>_onListenerError('Audit',err));
   unsubscribers.push(unsub);
 }
 function listenBoxDrugs(){
@@ -182,7 +207,7 @@ function listenBoxDrugs(){
       }
       component.setState(_patch);
     }
-  },err=>console.warn('[Sync] BoxDrugs error:',err.message));
+  },err=>_onListenerError('BoxDrugs',err));
   unsubscribers.push(unsub);
 }
 function logAudit(entry){
@@ -312,6 +337,25 @@ function listenAllUsageLog(cb){
       cb(rows);
     },err=>console.warn('[Sync] AllUsageLog error:',err.message));
 }
+// One-time (non-realtime) range query — the live listenAudit() listener is
+// deliberately capped at the 500 most-recent docs to keep the real-time
+// dashboard/history view light, but that means a fiscal-year or custom
+// date-range filter reaching further back than that window would otherwise
+// silently show (and CSV-export) INCOMPLETE results with no indication
+// anything was cut off. Used specifically by exportCSV() so the compliance-
+// critical export path is always guaranteed complete regardless of the live
+// window's size, even though the on-screen live view still honors the cap.
+function fetchAuditRange(fromISO,toISO){
+  if(!db)return Promise.resolve([]);
+  let q=db.collection(C.audit);
+  if(fromISO)q=q.where('date','>=',fromISO);
+  if(toISO)q=q.where('date','<=',toISO);
+  return q.get().then(snap=>{
+    const logs=[];
+    snap.forEach(doc=>{const d=doc.data();const cat=d.cat||(d.action==='จ่าย'?'dispense':d.action==='รับคืน'?'return':'other');logs.push({...d,cat});});
+    return logs;
+  }).catch(err=>{console.warn('[Sync] fetchAuditRange failed:',err.message);throw err;});
+}
 function getDeptPins(){
   if(!db)return Promise.resolve({});
   return db.collection(C.appSettings).doc('dept_pins').get()
@@ -323,5 +367,5 @@ function syncDeptPins(pins){
   return db.collection(C.appSettings).doc('dept_pins').set(pins,{merge:true})
     .catch(err=>{console.error('[Sync] syncDeptPins failed:',err.message);throw err;});
 }
-window.EB_Sync={initUsersOnly,initFirebaseSync,startPublicSync,stopSync,stopAll,logAudit,syncBoxes,syncUsers,deleteUser,syncBoxDrugs,returnBoxAndDrugsTx,logDrugUsageTx,listenUsageLog,listenAllUsageLog,getDeptPins,syncDeptPins};
+window.EB_Sync={initUsersOnly,initFirebaseSync,startPublicSync,stopSync,stopAll,logAudit,syncBoxes,syncUsers,deleteUser,syncBoxDrugs,returnBoxAndDrugsTx,logDrugUsageTx,listenUsageLog,listenAllUsageLog,getDeptPins,syncDeptPins,fetchAuditRange};
 })();
