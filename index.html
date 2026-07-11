@@ -3818,6 +3818,254 @@ td.l{text-align:left;padding-left:4px}
     setTimeout(() => { try { win.print(); } catch(_) {} }, 600);
   }
 
+  // Lazy-loads a <script> exactly once (subsequent calls reuse the same
+  // promise) — used for jsPDF/autotable so they never block initial page
+  // load, only the moment someone actually clicks "พิมพ์ใบกล่อง".
+  _loadScriptOnce(src) {
+    this._scriptPromises = this._scriptPromises || {};
+    if (this._scriptPromises[src]) return this._scriptPromises[src];
+    this._scriptPromises[src] = new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = src;
+      s.onload = () => resolve();
+      s.onerror = () => reject(new Error(`โหลด ${src} ไม่สำเร็จ`));
+      document.head.appendChild(s);
+    });
+    return this._scriptPromises[src];
+  }
+  // jsPDF must load before the autotable plugin (the plugin patches
+  // window.jspdf's prototype on load) — chain, don't parallelize.
+  async _ensurePdfLibs() {
+    if (!window.jspdf) await this._loadScriptOnce('./vendor/jspdf.umd.min.js');
+    if (!window.jspdf.jsPDF.API.autoTable) await this._loadScriptOnce('./vendor/jspdf.plugin.autotable.min.js');
+  }
+  // Fetches + base64-encodes the Thai font files once per session (not once
+  // per print) — a PDF must have its font embedded directly in the file
+  // (unlike a webpage, which can rely on a font already installed/loaded in
+  // the browser), so this is required every time regardless of caching.
+  async _getPdfFonts() {
+    if (this._pdfFontsCache) return this._pdfFontsCache;
+    const toBase64 = (buf) => {
+      let binary = '';
+      const bytes = new Uint8Array(buf);
+      for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+      return btoa(binary);
+    };
+    const [regularBuf, boldBuf] = await Promise.all([
+      fetch('./fonts/Sarabun-Regular.ttf').then(r => r.arrayBuffer()),
+      fetch('./fonts/Sarabun-Bold.ttf').then(r => r.arrayBuffer()),
+    ]);
+    this._pdfFontsCache = { regular: toBase64(regularBuf), bold: toBase64(boldBuf) };
+    return this._pdfFontsCache;
+  }
+  // PDF version of printEBForm('landscape1') — same physical layout (A4
+  // landscape, form content in the right half sized as A5, left half blank,
+  // cut down the middle: the only layout ever proven to print correctly on
+  // the deployed hardware, see CLAUDE.md) but as a real PDF file instead of
+  // an HTML page handed to window.print(). A PDF's page size is baked into
+  // the file itself, so the print dialog's "Actual size" default is far more
+  // consistently honored across different computers/browsers/printer
+  // drivers than an HTML page's @page CSS hint — this is what actually fixes
+  // the "prints a different size from a different computer" complaint.
+  async printEBFormPDF() {
+    const st = this.state;
+    const eb = st.regEB;
+    if (!eb || !eb.trim()) { this.flash('กรุณาเลือกกล่องยาก่อนพิมพ์'); return; }
+    const missing = [];
+    if (!st.regMfg) missing.push('วันที่ผลิต');
+    if (!(st.regPreparer || '').trim()) missing.push('ผู้จัดเตรียม');
+    if (missing.length) { this.flash(`กรอกข้อมูลให้ครบก่อนพิมพ์: ${missing.join(', ')}`); return; }
+
+    this.flash('⏳ กำลังสร้าง PDF...');
+    try {
+      await this._ensurePdfLibs();
+      const doc = await this._buildEBFormPDF(eb);
+      doc.autoPrint();
+      const url = doc.output('bloburl');
+      const win = window.open(url, '_blank');
+      if (!win) { alert('กรุณาอนุญาต Pop-up เพื่อใช้งานการพิมพ์'); return; }
+      this.setState({ regPrinted: true });
+      this.logBoxHist(this.state.regEB, 'พิมพ์ใบกล่อง EB (PDF)');
+    } catch (err) {
+      console.error('[PDF] print error:', err);
+      this.flash('⚠️ สร้าง PDF ไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่');
+    }
+  }
+  async _buildEBFormPDF(eb) {
+    const st = this.state;
+    const mfg = st.regMfg;
+    const preparer = st.regPreparer || '';
+    // checker line is printed blank — see printEBForm()'s identical comment
+    const checker = '';
+    const BD = st.boxDrugs || this.BOX_DRUGS || {};
+    const drugs = BD[eb] || [];
+
+    const fmtBE = (iso) => {
+      if (!iso) return '—';
+      const parts = iso.split('-');
+      if (parts.length !== 3) return '—';
+      const y = parseInt(parts[0]), mo = parseInt(parts[1]), d = parseInt(parts[2]);
+      if (isNaN(y) || isNaN(mo) || isNaN(d)) return '—';
+      return `${d}/${mo}/${String(y + 543).slice(-2)}`;
+    };
+    const fmtCE = (iso) => {
+      if (!iso) return '—';
+      const parts = iso.split('-');
+      if (parts.length !== 3) return '—';
+      const y = parseInt(parts[0]), mo = parseInt(parts[1]), d = parseInt(parts[2]);
+      if (isNaN(y) || isNaN(mo) || isNaN(d)) return '—';
+      return `${d}/${mo}/${String(parts[0]).slice(-2)}`;
+    };
+    const parseDrug = (name) => {
+      const m = name.match(/^(.*?)\s+(\d[\d.]*\S+(?:\/\S+)?)\s*$/);
+      if (m) return { drug: m[1].trim(), strength: m[2].trim() };
+      return { drug: name, strength: '' };
+    };
+
+    let nearDrug = '', nearDate = '';
+    drugs.forEach(d => {
+      (d.lots || []).filter(l => l.expiry).forEach(lot => {
+        if (!nearDate || lot.expiry < nearDate) { nearDate = lot.expiry; nearDrug = d.name; }
+      });
+    });
+    const retDateISO = nearDate ? (() => {
+      const d = new Date(nearDate + 'T00:00:00');
+      d.setDate(d.getDate() - 15);
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    })() : '';
+    const retDateText = retDateISO ? fmtBE(retDateISO) : '—';
+    const nearText = nearDrug
+      ? parseDrug(nearDrug).drug + (nearDate ? '  ' + fmtCE(nearDate) : '')
+      : '—';
+
+    const fonts = await this._getPdfFonts();
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    doc.addFileToVFS('Sarabun-Regular.ttf', fonts.regular);
+    doc.addFont('Sarabun-Regular.ttf', 'Sarabun', 'normal');
+    doc.addFileToVFS('Sarabun-Bold.ttf', fonts.bold);
+    doc.addFont('Sarabun-Bold.ttf', 'Sarabun', 'bold');
+    doc.setFont('Sarabun', 'normal');
+    doc.setTextColor(0, 0, 0);
+    doc.setDrawColor(30, 30, 30);
+
+    const X0 = 148.5; // right half starts here — left half stays blank, cut down the middle
+    const ML = X0 + 5;
+    const MR = 297 - 4;
+    const CW = MR - ML;
+
+    let y = 12;
+    doc.setFont('Sarabun', 'bold'); doc.setFontSize(11);
+    doc.text('รหัส', ML, y);
+    doc.setFontSize(13);
+    doc.text(eb, ML + 8, y);
+    doc.setLineWidth(0.15);
+    doc.line(ML + 8 + doc.getTextWidth(eb) + 2, y + 0.8, MR, y + 0.8);
+
+    y += 7;
+    doc.setFont('Sarabun', 'bold'); doc.setFontSize(11);
+    doc.text('หน่วยเบิก', ML, y);
+    const dept1End = ML + CW * 0.45;
+    doc.line(ML + 15, y + 0.8, dept1End, y + 0.8);
+    doc.text('วันที่ผลิต', dept1End + 4, y);
+    doc.setFontSize(13);
+    const mfgText = fmtBE(mfg);
+    const mfgX = dept1End + 4 + doc.getTextWidth('วันที่ผลิต') + 2;
+    doc.text(mfgText, mfgX, y);
+    doc.line(mfgX + doc.getTextWidth(mfgText) + 2, y + 0.8, MR, y + 0.8);
+
+    y += 7;
+    doc.setFont('Sarabun', 'bold'); doc.setFontSize(11.5);
+    doc.text('Emergency drugs list', ML + CW / 2, y, { align: 'center' });
+
+    y += 3;
+    doc.autoTable({
+      startY: y,
+      margin: { left: ML, right: 297 - MR },
+      tableWidth: CW,
+      theme: 'grid',
+      styles: { font: 'Sarabun', fontSize: 9.5, cellPadding: 1.3, lineColor: [50, 50, 50], lineWidth: 0.2, valign: 'middle' },
+      headStyles: { fillColor: [221, 221, 221], textColor: 0, fontStyle: 'bold', fontSize: 9.5, halign: 'center' },
+      head: [['ลำดับ', 'ยา', 'ความแรง', 'ประเภท', 'จำนวน', 'EXP.date']],
+      body: drugs.map((d, i) => {
+        const totalQty = (d.lots || []).reduce((s, l) => s + (l.qty || 0), 0);
+        const lots = (d.lots || []).filter(l => l.expiry).sort((a, b) => a.expiry < b.expiry ? -1 : 1);
+        const expStr = lots.length ? lots.map(l => fmtCE(l.expiry)).join('\n') : '—';
+        const { drug, strength } = parseDrug(d.name);
+        return [String(i + 1), drug, strength, d.had ? '(HAD)' : '', String(totalQty), expStr];
+      }),
+      columnStyles: {
+        0: { cellWidth: CW * 0.09, halign: 'center' },
+        1: { cellWidth: CW * 0.26, halign: 'left' },
+        2: { cellWidth: CW * 0.19, halign: 'center' },
+        3: { cellWidth: CW * 0.11, halign: 'center' },
+        4: { cellWidth: CW * 0.10, halign: 'center' },
+        5: { cellWidth: CW * 0.25, halign: 'center' },
+      },
+    });
+
+    y = doc.lastAutoTable.finalY + 5;
+    doc.setFont('Sarabun', 'bold'); doc.setFontSize(12);
+    doc.text('ยาที่ Exp เร็วที่สุด', ML, y);
+    doc.setFont('Sarabun', 'normal');
+    const nearLabelW = doc.getTextWidth('ยาที่ Exp เร็วที่สุด');
+    doc.text(nearText, ML + nearLabelW + 3, y);
+    doc.line(ML + nearLabelW + 3, y + 0.8, MR, y + 0.8);
+
+    y += 7;
+    doc.setFont('Sarabun', 'bold'); doc.setFontSize(13);
+    doc.text('ส่งคืนห้องยาก่อน exp 15 วัน', MR, y, { align: 'right' });
+    y += 5.5;
+    // measure retDateText's width at the font size it's ACTUALLY drawn at
+    // (14pt) before positioning the label next to it — measuring at the
+    // label's own size (12pt) understates the gap needed and the two
+    // overlap ("กำหนดส่งคืนภายใน31/12/72" with no space between them).
+    doc.setFontSize(14);
+    const retDateW = doc.getTextWidth(retDateText);
+    doc.setFontSize(12);
+    doc.setTextColor(198, 40, 40);
+    doc.text('กำหนดส่งคืนภายใน', MR - retDateW - 4, y, { align: 'right' });
+    doc.setFontSize(14);
+    doc.text(retDateText, MR, y, { align: 'right' });
+    doc.setLineWidth(0.2);
+    doc.line(MR - retDateW, y + 0.8, MR, y + 0.8);
+    doc.setTextColor(0, 0, 0);
+
+    y += 8;
+    doc.setFont('Sarabun', 'bold'); doc.setFontSize(10.5);
+    doc.text('ผู้จัด', ML, y);
+    doc.setFont('Sarabun', 'normal');
+    doc.text(preparer, ML + 10, y);
+    doc.line(ML + 10, y + 0.8, MR, y + 0.8);
+
+    y += 6;
+    doc.setFont('Sarabun', 'bold');
+    doc.text('ผู้ตรวจสอบ', ML, y);
+    doc.line(ML + 16, y + 0.8, MR, y + 0.8);
+
+    y += 3;
+    doc.setLineWidth(0.4);
+    doc.line(ML, y, MR, y);
+
+    y += 7;
+    doc.setFont('Sarabun', 'normal'); doc.setFontSize(10.5);
+    const wr = (label1, x1end, label2, x2start, x2end) => {
+      doc.text(label1, ML, y);
+      doc.line(ML + 14, y + 0.8, x1end, y + 0.8);
+      doc.text(label2, x2start, y);
+      doc.line(x2start + 10, y + 0.8, x2end, y + 0.8);
+    };
+    wr('ชื่อผู้ป่วย', ML + CW * 0.62, 'HN', ML + CW * 0.66, MR);
+    y += 8;
+    wr('ยาที่ใช้', ML + CW * 0.62, 'จำนวน', ML + CW * 0.66, MR);
+    y += 8;
+    wr('ยาที่ใช้', ML + CW * 0.62, 'จำนวน', ML + CW * 0.66, MR);
+    y += 8;
+    wr('ยาที่ใช้', ML + CW * 0.62, 'จำนวน', ML + CW * 0.66, MR);
+
+    return doc;
+  }
+
   resetForm() {
     const m = this.state.formMode;
     const today = this.isoOf(this.TODAY);
@@ -5172,7 +5420,7 @@ td.l{text-align:left;padding-left:4px}
       ? { display: 'inline-flex', alignItems: 'center', gap: 7, height: 50, padding: '0 18px', border: '1.5px solid #A7DFC2', background: 'linear-gradient(135deg,#E8F7EE,#D4F0E2)', color: '#169C7F', borderRadius: 13, fontFamily: 'inherit', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', transition: 'all .22s', boxShadow: '0 2px 8px rgba(22,156,127,.15)' }
       : { display: 'inline-flex', alignItems: 'center', gap: 7, height: 50, padding: '0 18px', border: '1.5px solid #C3DDEC', background: 'linear-gradient(135deg,#EEF5FA,#E4F0F8)', color: '#1A6FA3', borderRadius: 13, fontFamily: 'inherit', fontSize: 13.5, fontWeight: 600, cursor: skipPrint ? 'default' : 'pointer', transition: 'all .22s', boxShadow: '0 2px 8px rgba(26,111,163,.1)', opacity: skipPrint ? .55 : 1 };
     vals.printEBFormBtn = h(React.Fragment, null,
-      h('button', { type: 'button', onClick: () => { if (!skipPrint) this.printEBForm('landscape1'); }, style: printBtnStyle },
+      h('button', { type: 'button', onClick: () => { if (!skipPrint) this.printEBFormPDF(); }, style: printBtnStyle },
         ic(printed ? checkSVG : printerSVG, 17),
         h('span', null, printed ? 'พิมพ์แล้ว ✓' : 'พิมพ์ใบกล่อง', printed ? null : h('span', { style: { fontSize: 11, opacity: .72, fontWeight: 500 } }, ' (A4 นอน — A5 ✂)'))),
       (!printed && !skipPrint) ? h('span', { style: { fontSize: 12, color: '#B5740F', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 } }, '⚠ พิมพ์ก่อนบันทึก') : null,
