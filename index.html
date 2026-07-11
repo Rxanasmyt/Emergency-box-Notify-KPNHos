@@ -2012,6 +2012,23 @@ class Component extends DCLogic {
   // a box stuck at 'prepared' (จพ. done, not yet checked) is hard-blocked.
   _resolveDispEB() { const ids = this.BOXES.filter(b => !(b.dispense && !b.receiver) && b.registeredAt).map(b => b.id); return ids.includes(this.state.dispEB) ? this.state.dispEB : (ids[0] || ''); }
   _resolveRetEB() { const ids = this.BOXES.filter(b => b.dispense && !b.receiver).map(b => b.id); return ids.includes(this.state.retEB) ? this.state.retEB : (ids[0] || ''); }
+  // Single source of truth for "does this mode have an unsaved edit right
+  // now" — used by the clear-form button, the landing back-buttons, AND
+  // _syncChipStates (so a background Firestore listener update can't
+  // silently discard unsaved dispense/return data any more than a user
+  // action can). regMfg/regPreparer/regChecker can legitimately be
+  // prefilled from a box's own already-persisted data (see selectRegBox),
+  // so their mere presence must not itself count as an unsaved edit.
+  _isFormDirty(mode) {
+    const st = this.state;
+    if (mode === 'register') return !!this._regTouched;
+    // dispDate/retDate default to '' (never hardcode dates in state init) until
+    // go2()/login populate them with today — an unset date must not itself
+    // count as dirty, or the very first entry into a mode (before go2() has
+    // ever run) would falsely trip this and block navigation with no real edit.
+    if (mode === 'dispense') return st.formDept !== 'ER' || (!!st.dispDate && st.dispDate !== this.isoOf(this.TODAY)) || (st.dispenser && st.dispenser !== (st.currentUser ? st.currentUser.name : '')) || st.swapReturn;
+    return (st.retReceiver && st.retReceiver !== (st.currentUser ? st.currentUser.name : '')) || (!!st.retDate && st.retDate !== this.isoOf(this.TODAY)) || Object.values(st.retDrugUsage || {}).some(d => Object.values(d).some(q => q > 0));
+  }
   // Keeps chip state in sync with what mkEBChips visually shows as selected.
   // Call whenever BOXES changes (Firestore sync, submit) or when switching form modes.
   _syncChipStates() {
@@ -2020,7 +2037,14 @@ class Component extends DCLogic {
     const out     = this.BOXES.filter(b =>  b.dispense && !b.receiver).map(b => b.id);
     const all     = this.BOXES.map(b => b.id);
     if (!inStock.includes(this.state.dispEB)) patch.dispEB = inStock[0] || '';
-    if (!out.includes(this.state.retEB))    { patch.retEB = out[0] || ''; patch.retDrugUsage = {}; }
+    // retEB no longer being out (e.g. another device just returned the box
+    // that was selected here) must NOT silently reassign retEB to a
+    // DIFFERENT box while the user has unsaved per-lot usage quantities
+    // typed into retDrugUsage — that used to zero out their in-progress
+    // paperless-usage entry and swap the return form to a different box
+    // with no warning at all. Mirrors the regEB/_regTouched protection
+    // below; validateForm() already blocks submitting a box no longer out.
+    if (!out.includes(this.state.retEB) && !this._isFormDirty('return')) { patch.retEB = out[0] || ''; patch.retDrugUsage = {}; }
     // regEB no longer being in-stock (e.g. another device just dispensed the box
     // that was selected) must invalidate any printed label — it was printed for a
     // box that is no longer the one about to be submitted. But if the user has an
@@ -2246,15 +2270,18 @@ class Component extends DCLogic {
       return false;
     }
     if (screen !== 'entry') {
-      // _regTouched (only) — a box's prefilled mfg/preparer/etc. from its own
-      // already-persisted data is not "unsaved," so it must not itself count
-      // as dirty here; only a genuine edit (typing/ticking/printing) does.
-      const hasUnsaved = this.state.formMode === 'register' && !!this._regTouched;
+      // Was register-only (_regTouched) — extended to dispense/return via the
+      // shared _isFormDirty() so navigating away entirely (e.g. a sidebar nav
+      // click) while mid-dispense/return with unsaved fields (or, worse,
+      // typed per-lot retDrugUsage quantities) warns the same way leaving a
+      // register edit already did; that protection was never generalized
+      // past register even though the other two modes can lose real data too.
+      const hasUnsaved = this._isFormDirty(this.state.formMode);
       if (hasUnsaved) {
         this.askConfirm({
           tone: 'warn', icon: 'warn',
-          title: 'ออกจากหน้าลงทะเบียน?',
-          body: 'ข้อมูลยาที่กรอกไว้จะหายไป ยืนยันออกโดยไม่บันทึก?',
+          title: 'ออกจากหน้านี้?',
+          body: 'ข้อมูลที่กรอกไว้จะหายไป ยืนยันออกโดยไม่บันทึก?',
           yesLabel: 'ออกโดยไม่บันทึก', noLabel: 'กลับไปแก้ไข',
           onYes: () => { this._regTouched = false; this.setState({ ...patch, boxDrugs: null }); },
         });
@@ -2266,9 +2293,14 @@ class Component extends DCLogic {
     return true;
   }
   go2(formMode) {
-    if (!this._go2Force && this.state.formMode === 'register' && formMode !== 'register') {
-      if (this._regTouched) {
-        this.askConfirm({ tone: 'warn', icon: 'warn', title: 'เปลี่ยนโหมด?', body: 'ข้อมูลยาที่กรอกไว้จะหายไป ยืนยันเปลี่ยนโหมดโดยไม่บันทึก?', yesLabel: 'เปลี่ยนโหมด', noLabel: 'กลับไปแก้ไข',
+    // Was register-only (_regTouched) — extended to dispense/return via the
+    // shared _isFormDirty(), since the patch below unconditionally blanks
+    // retDrugUsage/swapRetDrugUsage on every mode switch regardless of
+    // dirtiness; without this guard that silently discarded typed per-lot
+    // usage quantities the same way an unguarded regEB switch used to.
+    if (!this._go2Force && this.state.formMode !== formMode) {
+      if (this._isFormDirty(this.state.formMode)) {
+        this.askConfirm({ tone: 'warn', icon: 'warn', title: 'เปลี่ยนโหมด?', body: 'ข้อมูลที่กรอกไว้จะหายไป ยืนยันเปลี่ยนโหมดโดยไม่บันทึก?', yesLabel: 'เปลี่ยนโหมด', noLabel: 'กลับไปแก้ไข',
           onYes: () => { this._go2Force = true; this._regTouched = false; this.go2(formMode); this._go2Force = false; } });
         return;
       }
@@ -2770,6 +2802,13 @@ class Component extends DCLogic {
   }
   async doLogin() {
     if (this.state.locked) return;
+    // synchronous re-entrancy guard, checked before the first await — a
+    // double Enter-press/double-click while hashPw() is still resolving
+    // would otherwise pass all the same checks twice and both invocations
+    // would call initFirebaseSync(), attaching duplicate Firestore
+    // listeners (every boxes/audit_log/box_drugs change then fires twice).
+    // Mirrors addUser()'s this._addingUser guard for the same reason.
+    if (this._loggingIn) return;
     let u = this.state.users.find(x => x.username.toLowerCase() === this.state.loginUser.trim().toLowerCase());
     if (!u) {
       if (this.state.users.length === 0) {
@@ -2787,13 +2826,14 @@ class Component extends DCLogic {
     }
     const inputPw = this.state.loginPass;
     if (!inputPw.trim()) { this._failLogin(); return; }
+    this._loggingIn = true;
     const inputHash = await this.hashPw(inputPw.trim());
     // re-fetch user after async gap — state may have changed (password reset, suspension)
     const uFresh = this.state.users.find(x => x.username === u.username);
-    if (!uFresh || uFresh.status === 'suspended') { this._failLogin(); return; }
+    if (!uFresh || uFresh.status === 'suspended') { this._loggingIn = false; this._failLogin(); return; }
     const matchPlain = uFresh.password === inputPw;
     const matchHash  = uFresh.password === inputHash;
-    if (!matchPlain && !matchHash) { this._failLogin(); return; }
+    if (!matchPlain && !matchHash) { this._loggingIn = false; this._failLogin(); return; }
     u = uFresh;
     // auto-upgrade plain-text password to hash on first login after update
     if (matchPlain && !matchHash) {
@@ -2825,6 +2865,7 @@ class Component extends DCLogic {
       window.EB_Sync.initFirebaseSync(this);
       this._syncT = setTimeout(() => { if (window.EB_Sync) window.EB_Sync.syncUsers(updatedU); }, 1500);
     }
+    this._loggingIn = false;
     // load lastSentDate from Firestore so notify screen shows accurate last-sent info
     if (window.EB_Firebase && window.EB_Firebase.db) {
       window.EB_Firebase.db.collection('app_settings').doc('notifications').get()
@@ -3113,7 +3154,12 @@ class Component extends DCLogic {
     }
     if (!Object.keys(toSave).length) { this.setState({ deptPinMsg: 'กรุณากรอกรหัส PIN อย่างน้อย 1 หน่วยงาน', deptPinMsgOk: false }); return; }
     if (!window.EB_Sync) { this.setState({ deptPinMsg: '⚠️ ระบบซิงค์ยังไม่พร้อม', deptPinMsgOk: false }); return; }
-    await window.EB_Sync.syncDeptPins(toSave);
+    try {
+      await window.EB_Sync.syncDeptPins(toSave);
+    } catch (_) {
+      this.setState({ deptPinMsg: '⚠️ บันทึกไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่', deptPinMsgOk: false });
+      return;
+    }
     const savedDepts = Object.keys(toSave);
     this.setState(s => ({
       deptPinInputs: { ...s.deptPinInputs, ...Object.fromEntries(savedDepts.map(d => [d, ''])) },
@@ -5136,7 +5182,13 @@ td.l{text-align:left;padding-left:4px}
     // so a จพ./เภสัชกร can see at a glance why a box isn't dispensable yet.
     vals.dispShowLanding = !!st.dispLanding;
     vals.dispShowForm = !st.dispLanding;
-    vals.dispBackToLanding = () => this.setState({ dispLanding: true });
+    vals.dispBackToLanding = () => {
+      if (this._isFormDirty('dispense')) {
+        this.askConfirm({ tone: 'warn', icon: 'warn', title: 'กลับไปเลือกกล่องอื่น?', body: 'ข้อมูลที่กรอกไว้จะหายไป ยืนยันออกโดยไม่บันทึก?', yesLabel: 'ออกโดยไม่บันทึก', noLabel: 'กลับไปแก้ไข', onYes: () => this.setState({ dispLanding: true }) });
+        return;
+      }
+      this.setState({ dispLanding: true });
+    };
     const _dispLandingItems = allIds.map(id => {
       const b = this.BOXES.find(x => x.id === id);
       const out = outOf(b);
@@ -5286,7 +5338,13 @@ td.l{text-align:left;padding-left:4px}
     // amber, else green) so the most overdue boxes visually stand out.
     vals.retShowLanding = !!st.retLanding;
     vals.retShowForm = !st.retLanding;
-    vals.retBackToLanding = () => this.setState({ retLanding: true });
+    vals.retBackToLanding = () => {
+      if (this._isFormDirty('return')) {
+        this.askConfirm({ tone: 'warn', icon: 'warn', title: 'กลับไปเลือกกล่องอื่น?', body: 'ข้อมูลที่กรอกไว้จะหายไป ยืนยันออกโดยไม่บันทึก?', yesLabel: 'ออกโดยไม่บันทึก', noLabel: 'กลับไปแก้ไข', onYes: () => this.setState({ retLanding: true }) });
+        return;
+      }
+      this.setState({ retLanding: true });
+    };
     const _retLandingItems = allIds.map(id => {
       const b = this.BOXES.find(x => x.id === id);
       const out = outOf(b);
@@ -5401,14 +5459,7 @@ td.l{text-align:left;padding-left:4px}
     );
 
     vals.resetForm = () => {
-      const _m = st.formMode;
-      // _regTouched (only) — regMfg/regPreparer/regChecker can now be legitimately
-      // prefilled from a box's own already-persisted data (see selectRegBox), so
-      // their mere presence must not itself count as an unsaved edit here.
-      const _dirty = _m === 'register' ? !!this._regTouched
-                   : _m === 'dispense' ? (st.formDept !== 'ER' || st.dispDate !== this.isoOf(this.TODAY) || (st.dispenser && st.dispenser !== (st.currentUser ? st.currentUser.name : '')) || st.swapReturn)
-                   : ((st.retReceiver && st.retReceiver !== (st.currentUser ? st.currentUser.name : '')) || st.retDate !== this.isoOf(this.TODAY) || Object.values(st.retDrugUsage || {}).some(d => Object.values(d).some(q => q > 0)));
-      if (_dirty) { this.askConfirm({ tone: 'warn', icon: 'warn', title: 'ล้างฟอร์ม?', body: 'ข้อมูลที่กรอกไว้จะหายทั้งหมด', yesLabel: 'ล้าง', noLabel: 'ยกเลิก', onYes: () => this.resetForm() }); } else { this.resetForm(); }
+      if (this._isFormDirty(st.formMode)) { this.askConfirm({ tone: 'warn', icon: 'warn', title: 'ล้างฟอร์ม?', body: 'ข้อมูลที่กรอกไว้จะหายทั้งหมด', yesLabel: 'ล้าง', noLabel: 'ยกเลิก', onYes: () => this.resetForm() }); } else { this.resetForm(); }
     };
 
     // Print EB form buttons (register step only) — must print before save is allowed
