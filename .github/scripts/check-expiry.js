@@ -241,16 +241,18 @@ function buildAllClearFlexMessages(summaries) {
         contents: [
           { type: 'box', layout: 'horizontal', alignItems: 'center', contents: [
             pill(s.boxId.toUpperCase(), borderColor),
-            { type: 'text', text: stageLabel, size: 'sm', weight: 'bold', color: '#1A1A2E', flex: 1, margin: 'sm' },
+            { type: 'text', text: stageLabel, size: 'sm', weight: 'bold', color: '#1A1A2E', flex: 1, margin: 'sm', wrap: true },
           ] },
           { type: 'box', layout: 'horizontal', margin: 'sm', alignItems: 'center',
             backgroundColor: '#EEF2F7', cornerRadius: '20px',
             paddingTop: '6px', paddingBottom: '6px', paddingStart: '12px', paddingEnd: '12px',
             contents: [{ type: 'text', text: locText, size: 'xs', color: '#455A64' }] },
-          { type: 'box', layout: 'horizontal', margin: 'sm', alignItems: 'center', contents: [
-            { type: 'text', text: `💊 ${s.drugCount} รายการ`, size: 'xs', color: '#78909C', flex: 1 },
-            { type: 'text', text: `หมดอายุสุด: ${expText}`, size: 'xs', color: '#78909C', wrap: true },
-          ] },
+          // drug count and nearest-expiry each get their own full-width row —
+          // squeezing them side-by-side into two flex:1 halves (like the
+          // near-expiry alert's short day-badge pill) clips the much longer
+          // "หมดอายุสุด: เหลือ N วัน (วันที่)" sentence used here.
+          { type: 'text', text: `💊 ${s.drugCount} รายการ`, size: 'xs', color: '#78909C', margin: 'sm' },
+          { type: 'text', text: `📅 หมดอายุสุด: ${expText}`, size: 'xs', color: '#78909C', margin: 'xs', wrap: true },
         ],
       }],
     };
@@ -277,7 +279,19 @@ function buildAllClearFlexMessages(summaries) {
           statBox('📤', outCount, 'จ่ายออกอยู่', '#1A6FA3'),
           statBox('⏳', needsAttnCount, 'รอดำเนินการ', needsAttnCount > 0 ? '#D97706' : '#2C3E50'),
         ] },
-      ],
+        // "all clear" here only means no near-expiry drugs — it must not read
+        // as "everything's fine" when most boxes still haven't been through
+        // Stage 1/2 (จพ. prepare + เภสัชกร verify), since an unverified box
+        // can't be dispensed at all regardless of its drugs' expiry dates.
+        needsAttnCount > 0 ? {
+          type: 'box', layout: 'horizontal', margin: 'lg', backgroundColor: '#0A4A36',
+          cornerRadius: '10px', paddingAll: '10px', alignItems: 'center',
+          contents: [{
+            type: 'text', wrap: true, size: 'xs', color: '#FFE7C2',
+            text: `⚠️  ${needsAttnCount} กล่องยังไม่ผ่านการตรวจสอบ (จัดเตรียม/ยืนยัน) — ยังจ่ายออกไม่ได้จนกว่าจะดำเนินการให้ครบ`,
+          }],
+        } : null,
+      ].filter(Boolean),
     },
     footer: {
       type: 'box', layout: 'vertical', backgroundColor: '#0A4A36', paddingAll: '14px',
