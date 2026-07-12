@@ -27,3 +27,16 @@ jobs:
         run: node .github/scripts/test-lifecycle.js
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+
+      # Guaranteed cleanup even if the step above is cancelled (e.g. someone
+      # clicks "Cancel workflow" mid-run) or the runner is killed before the
+      # script's own .finally()-based cleanup gets to execute — GitHub
+      # Actions still runs if: always() steps after a cancellation, so this
+      # is the only way to guarantee TEST-1 never lingers in production
+      # Firestore, where it would show up as a real, selectable box
+      # indistinguishable from EB-1..EB-10 in the live app.
+      - name: Guaranteed cleanup (runs even if the test above was cancelled)
+        if: always()
+        run: node .github/scripts/test-lifecycle.js --cleanup-only
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}

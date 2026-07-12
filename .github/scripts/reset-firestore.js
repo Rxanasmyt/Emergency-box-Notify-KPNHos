@@ -28,12 +28,21 @@ async function main() {
   await clearCollection('usage_log');
 
   // users — ลบเฉพาะที่ไม่ใช่ admin
+  // Chunked the same way clearCollection() batches everything else — a
+  // single unchunked batch.commit() hard-rejects past Firestore's 500-op
+  // cap, which a hospital could plausibly reach after years of onboarding
+  // technicians/pharmacists/nurses with none ever purged. Without chunking,
+  // hitting that cap here would throw AFTER audit_log/boxes/box_drugs/
+  // usage_log were already fully cleared, leaving users untouched — a
+  // silently inconsistent reset despite the "เสร็จแล้ว!" success message.
   const usersSnap = await db.collection('users').get();
   const nonAdmin = usersSnap.docs.filter(d => d.data().role !== 'admin');
   if (nonAdmin.length) {
-    const batch = db.batch();
-    nonAdmin.forEach(d => batch.delete(d.ref));
-    await batch.commit();
+    for (let i = 0; i < nonAdmin.length; i += 400) {
+      const batch = db.batch();
+      nonAdmin.slice(i, i + 400).forEach(d => batch.delete(d.ref));
+      await batch.commit();
+    }
     console.log(`✓  ลบ ${nonAdmin.length} user ที่ไม่ใช่ admin`);
   } else {
     console.log('⏭  users: ไม่มี user อื่นนอกจาก admin');

@@ -356,6 +356,21 @@ function fetchAuditRange(fromISO,toISO){
     return logs;
   }).catch(err=>{console.warn('[Sync] fetchAuditRange failed:',err.message);throw err;});
 }
+// Same completeness fix as fetchAuditRange, for the admin-wide usage_log
+// report/CSV export — listenAllUsageLog's live listener is capped at 1000
+// most-recent docs, so a date-range filter (or an unbounded export once past
+// the cap) could otherwise silently omit older drug-administration records
+// (who gave what dose to which HN, when) with no indication anything was cut.
+function fetchUsageLogRange(fromISO,toISO){
+  if(!db)return Promise.resolve([]);
+  let q=db.collection(C.usageLog);
+  if(fromISO)q=q.where('recordedAt','>=',fromISO);
+  if(toISO)q=q.where('recordedAt','<=',toISO);
+  return q.get().then(snap=>{
+    const rows=[];snap.forEach(doc=>rows.push({id:doc.id,...doc.data()}));
+    return rows;
+  }).catch(err=>{console.warn('[Sync] fetchUsageLogRange failed:',err.message);throw err;});
+}
 function getDeptPins(){
   if(!db)return Promise.resolve({});
   return db.collection(C.appSettings).doc('dept_pins').get()
@@ -367,5 +382,5 @@ function syncDeptPins(pins){
   return db.collection(C.appSettings).doc('dept_pins').set(pins,{merge:true})
     .catch(err=>{console.error('[Sync] syncDeptPins failed:',err.message);throw err;});
 }
-window.EB_Sync={initUsersOnly,initFirebaseSync,startPublicSync,stopSync,stopAll,logAudit,syncBoxes,syncUsers,deleteUser,syncBoxDrugs,returnBoxAndDrugsTx,logDrugUsageTx,listenUsageLog,listenAllUsageLog,getDeptPins,syncDeptPins,fetchAuditRange};
+window.EB_Sync={initUsersOnly,initFirebaseSync,startPublicSync,stopSync,stopAll,logAudit,syncBoxes,syncUsers,deleteUser,syncBoxDrugs,returnBoxAndDrugsTx,logDrugUsageTx,listenUsageLog,listenAllUsageLog,getDeptPins,syncDeptPins,fetchAuditRange,fetchUsageLogRange};
 })();

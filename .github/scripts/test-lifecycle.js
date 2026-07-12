@@ -136,17 +136,27 @@ async function main() {
   record('firestore.rules blocks delete on audit_log (append-only)', auditDeleteBlocked);
 }
 
-main()
-  .catch((err) => { console.error('❌ Unexpected error during test:', err); results.push({ name: 'unexpected error', pass: false, detail: err.message }); })
-  .finally(async () => {
-    await cleanup();
-    const failed = results.filter((r) => !r.pass);
-    console.log(`\n${'='.repeat(50)}`);
-    console.log(`RESULT: ${results.length - failed.length}/${results.length} checks passed`);
-    if (failed.length) {
-      console.log('FAILED:');
-      failed.forEach((f) => console.log(`  - ${f.name}${f.detail ? ' (' + f.detail + ')' : ''}`));
-      process.exit(1);
-    }
-    process.exit(0);
-  });
+// `node test-lifecycle.js --cleanup-only` just deletes TEST-1 and exits —
+// used as a separate, always-run workflow step (see test-lifecycle.yml) so
+// TEST-1 still gets cleaned up even if someone cancels the main test step
+// (or the runner is killed) partway through: this script's own .finally()
+// below only runs if the Node process itself gets to unwind normally, which
+// a GitHub Actions cancellation of a *running* step does not guarantee.
+if (process.argv.includes('--cleanup-only')) {
+  cleanup().then(() => process.exit(0)).catch((err) => { console.error('❌ cleanup-only failed:', err.message); process.exit(1); });
+} else {
+  main()
+    .catch((err) => { console.error('❌ Unexpected error during test:', err); results.push({ name: 'unexpected error', pass: false, detail: err.message }); })
+    .finally(async () => {
+      await cleanup();
+      const failed = results.filter((r) => !r.pass);
+      console.log(`\n${'='.repeat(50)}`);
+      console.log(`RESULT: ${results.length - failed.length}/${results.length} checks passed`);
+      if (failed.length) {
+        console.log('FAILED:');
+        failed.forEach((f) => console.log(`  - ${f.name}${f.detail ? ' (' + f.detail + ')' : ''}`));
+        process.exit(1);
+      }
+      process.exit(0);
+    });
+}

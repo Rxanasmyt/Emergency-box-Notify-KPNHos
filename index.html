@@ -1624,7 +1624,7 @@ input:focus, select:focus, textarea:focus {
               </div>
             </div>
             <div style="padding: 11px 18px; font-size: 12px; color: #7B8D9C; border-top: 1px solid #EFF3F6; display: flex; align-items: center; gap: 10px;">
-              <span>แสดง <b style="color: #15242E;">{{ usageLogReportCount }}</b> รายการ</span>
+              <span>แสดง <b style="color: #15242E;">{{ usageLogReportCount }}</b> รายการ (สูงสุด 1000 รายการต่อการโหลด — CSV จะดึงข้อมูลย้อนหลังครบถ้วนเสมอ)</span>
               <span style="margin-left: auto; display: flex; align-items: center; gap: 5px; color: #B42121; font-weight: 600; font-size: 11.5px;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #B42121; flex-shrink: 0;"></span>ข้อมูลลับ — เฉพาะ Admin</span>
             </div>
           </div>
@@ -2401,15 +2401,17 @@ class Component extends DCLogic {
     document.addEventListener('visibilitychange', this._onVisibility);
     this.bumpIdle();
     // PWA install prompt
-    window.addEventListener('beforeinstallprompt', (e) => {
+    this._onBeforeInstallPrompt = (e) => {
       e.preventDefault();
       this._installPrompt = e;
       this.setState({ canInstall: true });
-    });
-    window.addEventListener('appinstalled', () => {
+    };
+    window.addEventListener('beforeinstallprompt', this._onBeforeInstallPrompt);
+    this._onAppInstalled = () => {
       this._installPrompt = null;
       this.setState({ canInstall: false });
-    });
+    };
+    window.addEventListener('appinstalled', this._onAppInstalled);
     // btn-primary ripple effect
     this._ripple = (e) => {
       const btn = e.target.closest('.btn-primary');
@@ -2435,6 +2437,8 @@ class Component extends DCLogic {
     (this._idleEvents || []).forEach(ev => window.removeEventListener(ev, this._resetIdle, true));
     if (this._onVisibility) document.removeEventListener('visibilitychange', this._onVisibility);
     if (this._ripple) document.removeEventListener('click', this._ripple);
+    if (this._onBeforeInstallPrompt) window.removeEventListener('beforeinstallprompt', this._onBeforeInstallPrompt);
+    if (this._onAppInstalled) window.removeEventListener('appinstalled', this._onAppInstalled);
     clearTimeout(this._idleT); clearTimeout(this._idleWarnT);
     clearTimeout(this._syncT); clearTimeout(this._lockT);
     clearTimeout(this._t); clearTimeout(this._a);
@@ -2506,6 +2510,23 @@ class Component extends DCLogic {
     } catch (_) {
       this.flash('⚠️ ดึงข้อมูลย้อนหลังครบถ้วนไม่สำเร็จ — ส่งออกเฉพาะข้อมูลที่โหลดไว้ในเครื่องนี้ (อาจไม่ครบ)');
       return this.AUDIT;
+    }
+  }
+  // Same completeness fix as _fetchCompleteAuditRows, for the admin-wide
+  // usage_log report/CSV export — listenAllUsageLog's live listener is
+  // capped at 1000 most-recent docs with no preset system (just plain
+  // ulDateFrom/ulDateTo), so any explicit date filter — or an unbounded
+  // export once already past the cap — could otherwise silently omit older
+  // drug-administration records with no indication anything was cut off.
+  async _fetchCompleteUsageRows(fromISO, toISO) {
+    const live = this.state.allUsageLog || [];
+    const needsFetch = !!fromISO || !!toISO || live.length >= 1000;
+    if (!needsFetch || !window.EB_Sync || !window.EB_Sync.fetchUsageLogRange) return live;
+    try {
+      return await window.EB_Sync.fetchUsageLogRange(fromISO, toISO);
+    } catch (_) {
+      this.flash('⚠️ ดึงข้อมูลย้อนหลังครบถ้วนไม่สำเร็จ — ส่งออกเฉพาะข้อมูลที่โหลดไว้ในเครื่องนี้ (อาจไม่ครบ)');
+      return live;
     }
   }
   logAction(entry) {
@@ -6158,11 +6179,22 @@ td.l{text-align:left;padding-left:4px}
       h('option', { key: 'LR', value: 'LR', selected: ulFilterDept === 'LR' }, 'LR'),
     );
     vals.setUlFilterDept = (e) => this.setState({ ulFilterDept: e.target.value });
-    vals.exportUsageLogCSV = () => {
+    vals.exportUsageLogCSV = async () => {
+      const _rows = await this._fetchCompleteUsageRows(st.ulDateFrom, st.ulDateTo);
+      const _ulFilteredComplete = _rows.filter(u => {
+        if (ulFilterDept !== 'all' && u.dept !== ulFilterDept) return false;
+        if (st.ulDateFrom && (u.recordedAt || '') < st.ulDateFrom) return false;
+        if (st.ulDateTo && (u.recordedAt || '') > st.ulDateTo) return false;
+        if (ulQ) {
+          const hay = `${u.drugName || ''} ${u.boxId || ''} ${u.hn || ''} ${u.patientName || ''}`.toLowerCase();
+          if (!hay.includes(ulQ)) return false;
+        }
+        return true;
+      });
       const hdr = ['ลำดับ', 'วันที่', 'เวลา', 'กล่อง EB', 'ยา', 'จำนวน', 'หน่วยงาน', 'HN', 'ชื่อผู้ป่วย'];
       const esc = (v) => { let s = String(v == null ? '' : v); if (s.length > 0 && '=+-@\t\r'.includes(s[0])) s = "'" + s; return '"' + s.replace(/"/g, '""') + '"'; };
       const lines = [hdr.map(esc).join('\t')];
-      _ulFiltered.forEach((u, i) => lines.push([_ulFiltered.length - i, u.recordedAt || '', u.recordedTime || '', u.boxId || '', u.drugName || '', u.qty || 0, u.dept || '', u.hn || '', u.patientName || ''].map(esc).join('\t')));
+      _ulFilteredComplete.forEach((u, i) => lines.push([_ulFilteredComplete.length - i, u.recordedAt || '', u.recordedTime || '', u.boxId || '', u.drugName || '', u.qty || 0, u.dept || '', u.hn || '', u.patientName || ''].map(esc).join('\t')));
       this._downloadExcelText(lines.join('\r\n'), `EB_usage_log_${this.isoOf(this.TODAY)}.csv`);
     };
 
