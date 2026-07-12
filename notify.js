@@ -70,8 +70,7 @@
     const today = new Date(todayBangkok() + 'T00:00:00');
     const alerts = [];
 
-    component.BOXES.forEach(box => {
-      const drugs = bd[box.id] || [];
+    const pushAlertsFor = (boxId, dept, drugs) => {
       drugs.forEach(drug => {
         const lots = drug.lots || [];
         lots.forEach(lot => {
@@ -80,8 +79,8 @@
           const daysLeft = Math.round((expDate - today) / 86400000);
           if (daysLeft <= thresholdDays) {
             alerts.push({
-              boxId: box.id,
-              dept: box.dept || '—',
+              boxId,
+              dept,
               drugName: drug.name,
               expiry: lot.expiry,
               daysLeft: daysLeft,
@@ -93,6 +92,22 @@
           }
         });
       });
+    };
+
+    const seenBoxIds = new Set();
+    component.BOXES.forEach(box => {
+      seenBoxIds.add(box.id);
+      pushAlertsFor(box.id, box.dept || '—', bd[box.id] || []);
+    });
+    // a box_drugs doc with no matching boxes doc (e.g. the boxes doc was
+    // deleted directly via Firebase Console/Admin SDK — the client app itself
+    // can never cause this, firestore.rules blocks delete on boxes) would
+    // otherwise be invisible here even though check-expiry.js's daily script
+    // deliberately still reports it (dept shown as 'ห้องยา'). Without this,
+    // the daily LINE/email alert and the in-app dashboard's alert count could
+    // permanently disagree about a box neither shows anywhere to act on.
+    Object.keys(bd).forEach(boxId => {
+      if (!seenBoxIds.has(boxId)) pushAlertsFor(boxId, 'ห้องยา', bd[boxId] || []);
     });
 
     alerts.sort((a, b) => a.daysLeft - b.daysLeft);

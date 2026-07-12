@@ -25,24 +25,34 @@ function initUsersOnly(comp){
 function _startUsersListener(){
   if(_usersUnsub)return;
   if(!db)return;
-  // seed hardcoded admin to Firestore if users collection is empty
+  // Seed hardcoded admin to Firestore if users collection is empty — this
+  // one-time check + possible write MUST resolve before the onSnapshot
+  // listener below attaches. Both used to fire back-to-back unsequenced: on a
+  // genuinely fresh Firestore project the listener's own first (empty)
+  // snapshot could land first and set component.state.users to [], so by the
+  // time this .get() callback ran, component.state.users.length was already
+  // 0 and the seed condition never fired — permanently skipping admin seeding
+  // with no retry path (every future page load hits the same empty
+  // collection and races the same way).
   db.collection(C.users).limit(1).get().then(snap=>{
     if(snap.empty&&component&&component.state&&component.state.users&&component.state.users.length){
       console.log('[Sync] Seeding users (admin)...');
       const ub=db.batch();
       component.state.users.forEach(u=>{const{uid,...data}=u;const docId=uid||u.username;ub.set(db.collection(C.users).doc(docId),data);});
-      ub.commit().then(()=>console.log('[Sync] Users seeded.')).catch(err=>console.warn('[Sync] User seed failed:',err.message));
+      return ub.commit().then(()=>console.log('[Sync] Users seeded.')).catch(err=>console.warn('[Sync] User seed failed:',err.message));
     }
-  }).catch(()=>{});
-  _usersUnsub=db.collection(C.users).onSnapshot(snap=>{
-    if(!component)return;
-    const users=[],seen=new Set();
-    snap.forEach(doc=>{
-      const u={uid:doc.id,...doc.data()};
-      if(u.username&&!seen.has(u.username)){seen.add(u.username);users.push(u);}
-    });
-    component.setState({users});
-  },err=>_onListenerError('Users',err));
+  }).catch(()=>{}).then(()=>{
+    if(_usersUnsub)return; // guard against a concurrent initUsersOnly() call landing here twice
+    _usersUnsub=db.collection(C.users).onSnapshot(snap=>{
+      if(!component)return;
+      const users=[],seen=new Set();
+      snap.forEach(doc=>{
+        const u={uid:doc.id,...doc.data()};
+        if(u.username&&!seen.has(u.username)){seen.add(u.username);users.push(u);}
+      });
+      component.setState({users});
+    },err=>_onListenerError('Users',err));
+  });
 }
 
 // Called after login — starts boxes/audit/boxDrugs listeners (users already active)
@@ -211,11 +221,18 @@ function listenBoxDrugs(){
   unsubscribers.push(unsub);
 }
 function logAudit(entry){
-  if(!db)return Promise.resolve();
+  // reject (not resolve) when Firebase never initialized — mirrors
+  // syncUsers/deleteUser/returnBoxAndDrugsTx/logDrugUsageTx below. A silent
+  // resolve() here used to make every write path built on it (_syncBox,
+  // logAction, logBoxHist) report success while nothing was ever persisted,
+  // if firebase-init.js failed to reach Firestore (blocked CDN, ad-blocker,
+  // bad config) for the whole session.
+  if(!db)return Promise.reject(new Error('no-db'));
   return db.collection(C.audit).add({...entry,createdAt:firebase.firestore.FieldValue.serverTimestamp()}).catch(err=>{console.error('[Sync] Audit write failed:',err.message);throw err;});
 }
 function syncBoxes(box){
-  if(!db||!box.id)return Promise.resolve();
+  if(!box.id)return Promise.resolve();
+  if(!db)return Promise.reject(new Error('no-db'));
   const{id,...data}=box;
   return db.collection(C.boxes).doc(id).set(data,{merge:true}).catch(err=>{console.error('[Sync] Box write failed:',err.message);throw err;});
 }
@@ -229,7 +246,7 @@ function syncUsers(user){
   return db.collection(C.users).doc(docId).set(data,{merge:true}).catch(err=>{console.error('[Sync] User write failed:',err.message);throw err;});
 }
 function syncBoxDrugs(boxId,drugs){
-  if(!db)return Promise.resolve();
+  if(!db)return Promise.reject(new Error('no-db'));
   return db.collection(C.boxDrugs).doc(boxId).set({boxId,drugs,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true}).catch(err=>{console.error('[Sync] BoxDrugs write failed:',err.message);throw err;});
 }
 function deleteUser(user){
@@ -405,7 +422,7 @@ function getDeptPins(){
     .catch(err=>{console.warn('[Sync] getDeptPins failed:',err.message);return {};});
 }
 function syncDeptPins(pins){
-  if(!db)return Promise.resolve();
+  if(!db)return Promise.reject(new Error('no-db'));
   return db.collection(C.appSettings).doc('dept_pins').set(pins,{merge:true})
     .catch(err=>{console.error('[Sync] syncDeptPins failed:',err.message);throw err;});
 }

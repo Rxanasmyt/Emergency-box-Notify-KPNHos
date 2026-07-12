@@ -2059,6 +2059,22 @@ class Component extends DCLogic {
     if (mode === 'dispense') return st.formDept !== 'ER' || (!!st.dispDate && st.dispDate !== this.isoOf(this.TODAY)) || (st.dispenser && st.dispenser !== (st.currentUser ? st.currentUser.name : '')) || st.swapReturn;
     return (st.retReceiver && st.retReceiver !== (st.currentUser ? st.currentUser.name : '')) || (!!st.retDate && st.retDate !== this.isoOf(this.TODAY)) || Object.values(st.retDrugUsage || {}).some(d => Object.values(d).some(q => q > 0));
   }
+  // Every place that lets the user "discard" a dirty dispense/return form
+  // used to only clear `_regTouched` — which _isFormDirty('dispense'/'return')
+  // never even reads (only register's dirty-check does). So confirming
+  // "ออกโดยไม่บันทึก"/"เปลี่ยนโหมด" left formDept/dispenser/retReceiver/etc
+  // exactly as dirtied, and _isFormDirty() kept reporting the mode dirty on
+  // every subsequent navigation attempt for the rest of the session — a
+  // spurious "unsaved changes" prompt with nothing left to actually discard.
+  // Returns the state patch that resets whichever fields that mode's
+  // _isFormDirty() actually inspects back to their clean defaults.
+  _clearDirtyFields(mode) {
+    const today = this.isoOf(this.TODAY);
+    const uName = this.state.currentUser ? this.state.currentUser.name : '';
+    if (mode === 'dispense') return { formDept: 'ER', dispDate: today, dispenser: uName, swapReturn: false, swapEB: '', swapReceiver: '', swapReturnDate: today, swapRetDrugUsage: {} };
+    if (mode === 'return') return { retReceiver: uName, retDate: today, retDrugUsage: {} };
+    return {};
+  }
   // Keeps chip state in sync with what mkEBChips visually shows as selected.
   // Call whenever BOXES changes (Firestore sync, submit) or when switching form modes.
   _syncChipStates() {
@@ -2066,7 +2082,14 @@ class Component extends DCLogic {
     const inStock = this.BOXES.filter(b => !(b.dispense && !b.receiver)).map(b => b.id);
     const out     = this.BOXES.filter(b =>  b.dispense && !b.receiver).map(b => b.id);
     const all     = this.BOXES.map(b => b.id);
-    if (!inStock.includes(this.state.dispEB)) patch.dispEB = inStock[0] || '';
+    // dispEB leaving in-stock (e.g. another device just dispensed the box that
+    // was selected here) must NOT silently reassign dispEB to a DIFFERENT box
+    // while the user has an unsaved dispense edit in progress (formDept/
+    // dispenser/swap details typed but not yet submitted) — mirrors the
+    // retEB/regEB protections below. validateForm() already blocks submitting
+    // a box no longer eligible, so surfacing that error is safer than a
+    // silent switch that applies the user's already-typed edit to the wrong box.
+    if (!inStock.includes(this.state.dispEB) && !this._isFormDirty('dispense')) patch.dispEB = inStock[0] || '';
     // retEB no longer being out (e.g. another device just returned the box
     // that was selected here) must NOT silently reassign retEB to a
     // DIFFERENT box while the user has unsaved per-lot usage quantities
@@ -2288,7 +2311,14 @@ class Component extends DCLogic {
       if (u && u.role === 'nurse') return false;
     }
     const patch = { screen };
-    if (this.state.screen === 'notify' && screen !== 'notify') patch.ghTrigger = 'idle';
+    // don't reset a still-in-flight trigger — triggerGHActions()'s own guard
+    // (`if (this.state.ghTrigger === 'loading') return;`) only blocks a second
+    // click while ghTrigger is still 'loading' from the SAME visit. Resetting
+    // it to 'idle' just because the user navigated away let them return to
+    // the Notify screen and click again before the first request's response
+    // ever arrived, firing two overlapping GitHub Actions triggers that then
+    // raced to overwrite the same _ghT timeout/toast state.
+    if (this.state.screen === 'notify' && screen !== 'notify' && this.state.ghTrigger !== 'loading') patch.ghTrigger = 'idle';
     if (this.state.editDrugs) {
       this.askConfirm({
         tone: 'warn', icon: 'warn',
@@ -2313,7 +2343,7 @@ class Component extends DCLogic {
           title: 'ออกจากหน้านี้?',
           body: 'ข้อมูลที่กรอกไว้จะหายไป ยืนยันออกโดยไม่บันทึก?',
           yesLabel: 'ออกโดยไม่บันทึก', noLabel: 'กลับไปแก้ไข',
-          onYes: () => { this._regTouched = false; this.setState({ ...patch, boxDrugs: null }); },
+          onYes: () => { this._regTouched = false; this.setState({ ...patch, ...this._clearDirtyFields(this.state.formMode), boxDrugs: null }); },
         });
         return false;
       }
@@ -2331,7 +2361,7 @@ class Component extends DCLogic {
     if (!this._go2Force && this.state.formMode !== formMode) {
       if (this._isFormDirty(this.state.formMode)) {
         this.askConfirm({ tone: 'warn', icon: 'warn', title: 'เปลี่ยนโหมด?', body: 'ข้อมูลที่กรอกไว้จะหายไป ยืนยันเปลี่ยนโหมดโดยไม่บันทึก?', yesLabel: 'เปลี่ยนโหมด', noLabel: 'กลับไปแก้ไข',
-          onYes: () => { this._go2Force = true; this._regTouched = false; this.go2(formMode); this._go2Force = false; } });
+          onYes: () => { this._go2Force = true; this._regTouched = false; this.setState(this._clearDirtyFields(this.state.formMode)); this.go2(formMode); this._go2Force = false; } });
         return;
       }
     }
@@ -2533,7 +2563,12 @@ class Component extends DCLogic {
     const person = entry.person || (this.state.currentUser ? this.state.currentUser.name : 'ระบบ');
     const row = { date: this.isoOf(this.TODAY), time: this.nowTime(), person, ...entry };
     this.setState(s => ({ auditLog: [row, ...(s.auditLog || [])] }));
-    if (window.EB_Sync) window.EB_Sync.logAudit(row);
+    // this write is fire-and-forget by design (the caller's own box/drug write
+    // is already confirmed before logAction runs — see the "await + check"
+    // pattern documented elsewhere) but a rejected logAudit() used to be an
+    // unhandled promise rejection with zero indication the append-only
+    // audit_log entry was silently lost. Surface it instead of swallowing it.
+    if (window.EB_Sync) window.EB_Sync.logAudit(row).catch(() => this.flash('⚠️ บันทึกประวัติ (audit log) ไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต'));
   }
   // whoOverride lets a caller with no logged-in currentUser (the public QR page,
   // which only has a department PIN, not an individual account) attribute the
@@ -2543,8 +2578,9 @@ class Component extends DCLogic {
     const stamp = `${this.isoOf(this.TODAY)} · ${this.nowTime()}`;
     // update in-state for immediate UI feedback before Firestore snapshot returns
     this.setState(s => { const bh = { ...(s.boxHist || {}) }; bh[boxId] = [{ text, who, stamp }, ...((bh[boxId]) || [])].slice(0, 50); return { boxHist: bh }; });
-    // persist to Firestore so history survives refresh
-    if (window.EB_Sync) window.EB_Sync.logAudit({ cat: 'boxhist', action: text, eb: boxId, dept: '—', drug: '—', person: who, date: this.isoOf(this.TODAY), time: this.nowTime() });
+    // persist to Firestore so history survives refresh — same rationale as
+    // logAction() above for surfacing rather than swallowing a write failure
+    if (window.EB_Sync) window.EB_Sync.logAudit({ cat: 'boxhist', action: text, eb: boxId, dept: '—', drug: '—', person: who, date: this.isoOf(this.TODAY), time: this.nowTime() }).catch(() => this.flash('⚠️ บันทึกประวัติกล่องไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต'));
   }
 
   // ---------- confirm dialog ----------
@@ -2914,7 +2950,7 @@ class Component extends DCLogic {
     if (matchPlain && !matchHash) {
       const upgraded = { ...u, password: inputHash };
       this.setState(s => ({ users: s.users.map(x => x.username === u.username ? upgraded : x) }));
-      if (window.EB_Sync) window.EB_Sync.syncUsers(upgraded);
+      if (window.EB_Sync) window.EB_Sync.syncUsers(upgraded).catch(() => console.warn('[Login] password-hash upgrade write failed'));
       u = upgraded;
     }
     const lastLogin = `${this.fmt(this.TODAY)} ${this.nowTime()}`;
@@ -2938,7 +2974,7 @@ class Component extends DCLogic {
     // anon auth already started in componentDidMount — just start remaining Firestore sync
     if (window.EB_Sync) {
       window.EB_Sync.initFirebaseSync(this);
-      this._syncT = setTimeout(() => { if (window.EB_Sync) window.EB_Sync.syncUsers(updatedU); }, 1500);
+      this._syncT = setTimeout(() => { if (window.EB_Sync) window.EB_Sync.syncUsers(updatedU).catch(() => console.warn('[Login] lastLogin write failed')); }, 1500);
     }
     this._loggingIn = false;
     // load lastSentDate from Firestore so notify screen shows accurate last-sent info
@@ -2997,10 +3033,16 @@ class Component extends DCLogic {
   installApp() {
     if (!this._installPrompt) return;
     this._installPrompt.prompt();
-    this._installPrompt.userChoice.then(r => {
-      if (r.outcome === 'accepted') this.setState({ canInstall: false });
+    // the captured beforeinstallprompt event can only be used once regardless
+    // of outcome — clear canInstall on EVERY outcome (not just 'accepted'), or
+    // a dismissed/cancelled native prompt left the button visibly enabled but
+    // permanently dead (every further click hit the `!this._installPrompt`
+    // guard above and silently no-opped) since beforeinstallprompt is not
+    // guaranteed to fire again in the same page load.
+    this._installPrompt.userChoice.then(() => {
+      this.setState({ canInstall: false });
       this._installPrompt = null;
-    }).catch(() => { this._installPrompt = null; });
+    }).catch(() => { this.setState({ canInstall: false }); this._installPrompt = null; });
   }
   logout() {
     clearTimeout(this._idleT); clearTimeout(this._idleWarnT); clearTimeout(this._syncT);
@@ -4374,7 +4416,6 @@ td.l{text-align:left;padding-left:4px}
     vals.userAvatarBg = cu ? cuRole.soft : '#DCEAF2';
     vals.userAvatarColor = cu ? cuRole.color : '#1A6FA3';
     // ===== NOTIFY SETTINGS =====
-    const nfSettings = window.EB_Notify ? window.EB_Notify.loadSettings() : {};
     vals.dismissExpiryBanner = () => this.setState({ showExpiryBanner: false, _dismissedAlertKeys: Array.from(this._urgentAlertKeys(this.state.expiryAlerts || [])) });
     vals.showExpiryBanner = st.showExpiryBanner;
     const alerts = st.expiryAlerts || [];
@@ -5579,6 +5620,14 @@ td.l{text-align:left;padding-left:4px}
     // navigation guard above
     const selBox = this.BOXES.find(b => b.id === st.selectedEB);
     const selBoxOut = selBox && !!selBox.dispense && !selBox.receiver;
+    // a box that's in-stock but not yet Stage-2 verified (registeredAt unset)
+    // is NOT dispense-eligible — mirrors _resolveDispEB()/the dispense
+    // landing's inStockIds filter. Without this check the quick-action button
+    // force-set dispEB directly, bypassing that eligibility check entirely;
+    // validateForm() still correctly blocked the submit, but with a confusing
+    // "ถูกจ่ายออกไปแล้ว" (already dispensed) message that misdescribed the
+    // real reason (unverified, not out).
+    const selBoxDispenseReady = selBox && !selBoxOut && !!selBox.registeredAt;
     // Both quick-action buttons must check editDrugs the same way go()/the
     // EB-switcher already do — they used to switch mode+screen unconditionally,
     // silently discarding an in-progress drug/expiry edit with no confirm at
@@ -5599,7 +5648,7 @@ td.l{text-align:left;padding-left:4px}
       this.setState({ screen: 'entry', [ebField]: st.selectedEB });
     };
     vals.detailQuickActionsEl = (st.currentUser && st.currentUser.role === 'nurse') ? null : h('div', { style: { display: 'flex', gap: 8, marginTop: 14, paddingTop: 14, borderTop: '1px solid #EFF3F6' } },
-      !selBoxOut ? h('button', {
+      selBoxDispenseReady ? h('button', {
         className: 'btn-primary quick-act-btn',
         onClick: () => _quickAct('dispense', 'dispEB'),
         style: { flex: 1, height: 44, borderRadius: 11, border: 'none', background: 'linear-gradient(135deg,#1E4FD8,#2B7FE0)', color: '#fff', fontFamily: 'inherit', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, boxShadow: '0 4px 14px rgba(43,127,224,.4)', transition: 'all .22s cubic-bezier(.34,1.56,.64,1)' },
@@ -5947,8 +5996,12 @@ td.l{text-align:left;padding-left:4px}
     vals.showActionMsg = !!st.actionMsg;
     vals.actionMsg = st.actionMsg;
     vals.showAddUser = st.showAddUser;
-    vals.openAddUser = () => this.setState({ showAddUser: true });
-    vals.closeAddUser = () => this.setState({ showAddUser: false });
+    // reset every time the modal opens/closes — without this, cancelling a
+    // partially-filled add (including a selected role chip like "admin") left
+    // it prefilled the next time the modal was opened, risking a genuinely
+    // new user silently being created with a stale, unintended role.
+    vals.openAddUser = () => this.setState({ showAddUser: true, nu_name: '', nu_username: '', nu_role: 'technician', nu_dept: 'ห้องยา', nu_pass: '' });
+    vals.closeAddUser = () => this.setState({ showAddUser: false, nu_name: '', nu_username: '', nu_role: 'technician', nu_dept: 'ห้องยา', nu_pass: '' });
     vals.stop = (e) => { e.stopPropagation(); };
 
     // danger zone — reset all boxes

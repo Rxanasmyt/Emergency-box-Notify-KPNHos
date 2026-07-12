@@ -791,8 +791,18 @@ async function sendEmail(alerts) {
 }
 
 // ── All-clear email (Monday, no alerts) ───────────────────────
-function buildAllClearHtml(boxCount) {
+// needsAttnCount mirrors buildAllClearFlexMessages' own amber call-out — "no
+// near-expiry drugs" must not read as "everything's fine" when boxes still
+// haven't passed Stage 1/2 verification and therefore can't be dispensed at
+// all. The LINE message already carries this warning; the email previously
+// didn't, so a reader who only checks email (not LINE) saw an unqualified
+// "all boxes safe" claim with no such caveat.
+function buildAllClearHtml(boxCount, needsAttnCount) {
   const dateStr = new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long', timeZone: 'Asia/Bangkok' });
+  const attnBlock = needsAttnCount > 0 ? `
+      <div style="background:#FFF7ED;border:1.5px solid #FCD9A8;border-radius:12px;padding:14px 20px;margin-top:14px;text-align:left">
+        <div style="font-size:13px;color:#B45309;font-weight:700">⚠️ ${needsAttnCount} กล่องยังไม่ผ่านการตรวจสอบ (จัดเตรียม/ยืนยัน) — ยังจ่ายออกไม่ได้จนกว่าจะดำเนินการให้ครบ</div>
+      </div>` : '';
   return `<!DOCTYPE html>
 <html lang="th">
 <head><meta charset="utf-8"><title>EB Notify — ปลอดภัย</title></head>
@@ -815,7 +825,7 @@ function buildAllClearHtml(boxCount) {
           ✅ &nbsp;ไม่มียากลุ่มวิกฤตหรือยาที่หมดอายุแล้ว<br>
           ✅ &nbsp;Emergency Box พร้อมใช้งานทุกกล่อง
         </div>
-      </div>
+      </div>${attnBlock}
     </div>
     <div style="background:#F5F7FA;padding:16px 32px;border:1px solid #E2E8F0;border-top:0;border-radius:0 0 16px 16px;text-align:center">
       <a href="https://emergencyboxnotyfykpnhos.web.app" style="color:#1A6FA3;font-size:13px;font-weight:600;text-decoration:none">emergencyboxnotyfykpnhos.web.app</a>
@@ -826,9 +836,9 @@ function buildAllClearHtml(boxCount) {
 </html>`;
 }
 
-function buildAllClearPlainText(boxCount) {
+function buildAllClearPlainText(boxCount, needsAttnCount) {
   const dateStr = new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long', timeZone: 'Asia/Bangkok' });
-  return [
+  const lines = [
     'รายงานประจำสัปดาห์ — Emergency Box รพ.กรงปินัง',
     `วันที่: ${dateStr}`,
     '',
@@ -840,13 +850,13 @@ function buildAllClearPlainText(boxCount) {
     `- ยาทุกรายการมีอายุเหลืออีกกว่า ${THRESHOLD_DAYS} วัน`,
     '- ไม่มียากลุ่มวิกฤตหรือยาหมดอายุ',
     '- Emergency Box พร้อมใช้งานทุกกล่อง',
-    '',
-    'emergencyboxnotyfykpnhos.web.app',
-    'รายงานอัตโนมัติ · ฝ่ายเภสัชกรรม รพ.กรงปินัง',
-  ].join('\n');
+  ];
+  if (needsAttnCount > 0) lines.push('', `⚠️ ${needsAttnCount} กล่องยังไม่ผ่านการตรวจสอบ (จัดเตรียม/ยืนยัน) — ยังจ่ายออกไม่ได้จนกว่าจะดำเนินการให้ครบ`);
+  lines.push('', 'emergencyboxnotyfykpnhos.web.app', 'รายงานอัตโนมัติ · ฝ่ายเภสัชกรรม รพ.กรงปินัง');
+  return lines.join('\n');
 }
 
-async function sendAllClearEmail(boxCount) {
+async function sendAllClearEmail(boxCount, needsAttnCount) {
   const from = process.env.EMAIL_FROM;
   const pass = process.env.EMAIL_PASS;
   const to   = process.env.EMAIL_TO;
@@ -860,8 +870,8 @@ async function sendAllClearEmail(boxCount) {
       to: to.split(',').map(e => e.trim()).filter(Boolean),
       replyTo: from,
       subject: 'รายงานประจำสัปดาห์ Emergency Box — ทุกกล่องปลอดภัย',
-      text: buildAllClearPlainText(boxCount),
-      html: buildAllClearHtml(boxCount),
+      text: buildAllClearPlainText(boxCount, needsAttnCount),
+      html: buildAllClearHtml(boxCount, needsAttnCount),
       headers: { 'Message-ID': msgId, 'X-Entity-Ref-ID': msgId },
     });
     console.log(`✅ Email all-clear: ส่งถึง ${to} สำเร็จ`);
@@ -906,7 +916,8 @@ async function main() {
       const summaries = await fetchBoxSummaries().catch(err => { console.error('❌ fetchBoxSummaries error:', err.message); return []; });
       const boxCount = summaries.length;
       if (!boxCount) { console.warn('⚠ boxes collection empty — skipping all-clear to avoid false report'); return; }
-      const emailSent = await sendAllClearEmail(boxCount);
+      const needsAttnCount = summaries.filter(s => s.stage !== 'verified').length;
+      const emailSent = await sendAllClearEmail(boxCount, needsAttnCount);
       let lineSentAC = false;
       if (process.env.MOPH_NOTIFY_CLIENT_KEY && process.env.MOPH_NOTIFY_SECRET_KEY) {
         // Flex carousel with a per-box breakdown (location/registration stage/
