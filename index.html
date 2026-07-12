@@ -2752,6 +2752,10 @@ class Component extends DCLogic {
     const ok = await this._syncBox({ ...box, preparedAt: '', registeredAt: '', checker: '', rejectedReason: reason || '', rejectedAt: this.isoOf(this.TODAY) });
     const drugsOk = await this._syncBoxDrugs(boxId, freshDrugs.map(d => ({ ...d, verified: false })));
     if (!ok || !drugsOk) { this.flash('⚠️ บันทึกไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่'); return; }
+    // a successful reject IS a save — clear the dirty flag so go()/go2()/
+    // regBackToLanding's "unsaved changes" confirm doesn't false-positive on
+    // the very next navigation even though nothing is actually unsaved anymore
+    this._regTouched = false;
     this.setState({ regRejectReason: '', regChecker: '' });
     this.flash(`ตีกลับกล่อง ${boxId} ให้จพ.แก้ไขใหม่แล้ว`);
     this.logAction({ cat: 'register', action: 'ตีกลับให้แก้ไข', eb: boxId, dept: '—', drug: reason ? `เหตุผล: ${reason}` : 'เภสัชกร/แอดมินตีกลับให้จพ.แก้ไขใหม่' });
@@ -4013,8 +4017,13 @@ td.l{text-align:left;padding-left:4px}
       const url = doc.output('bloburl');
       const win = window.open(url, '_blank');
       if (!win) { alert('กรุณาอนุญาต Pop-up เพื่อใช้งานการพิมพ์'); return; }
-      this.setState({ regPrinted: true });
-      this.logBoxHist(this.state.regEB, 'พิมพ์ใบกล่อง EB (PDF)');
+      // guard against the user switching to a DIFFERENT box while the PDF was
+      // being generated (font fetch/build is real async I/O) — must mark the
+      // box that was actually printed (the captured `eb`), never
+      // this.state.regEB read fresh after the await, or a box switched to
+      // mid-generation would get falsely marked "printed"/logged instead
+      if (this.state.regEB === eb) this.setState({ regPrinted: true });
+      this.logBoxHist(eb, 'พิมพ์ใบกล่อง EB (PDF)');
     } catch (err) {
       console.error('[PDF] print error:', err);
       this.flash('⚠️ สร้าง PDF ไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่');
@@ -4970,7 +4979,23 @@ td.l{text-align:left;padding-left:4px}
     };
 
     // ===== STEP 1: REGISTER =====
-    vals.regEBSelectEl = mkEBChips(st.regEB, (id) => this.selectRegBox(id), allIds, '#2B7FE0', _ebStatusMap);
+    // guard the in-form chip strip the same way regBackToLanding/the landing
+    // grid already do — this strip stays visible while the form is open, so
+    // without this a mid-edit chip click silently discarded unsaved Stage
+    // 1/2 data with zero warning (unlike every other box-switch path in the
+    // app, which is dirty-check gated).
+    vals.regEBSelectEl = mkEBChips(st.regEB, (id) => {
+      if (id === st.regEB) return;
+      if (this._regTouched) {
+        this.askConfirm({
+          tone: 'warn', icon: 'warn', title: 'เปลี่ยนกล่องอื่น?', body: 'ข้อมูลที่กรอกไว้จะหายไป ยืนยันออกโดยไม่บันทึก?',
+          yesLabel: 'ออกโดยไม่บันทึก', noLabel: 'กลับไปแก้ไข',
+          onYes: () => { this._regTouched = false; this.selectRegBox(id, { force: true }); },
+        });
+        return;
+      }
+      this.selectRegBox(id);
+    }, allIds, '#2B7FE0', _ebStatusMap);
     vals.regPreparer = st.regPreparer;
     vals.regChecker = st.regChecker;
     // preparer/checker are baked into the printed label — any edit after
@@ -5316,7 +5341,19 @@ td.l{text-align:left;padding-left:4px}
         onClick: () => this.selectDispBox(id),
       });
     }));
-    vals.dispEBSelectEl = mkEBChips(st.dispEB, (id) => this.setState({ dispEB: id }), inStockIds, '#1A6FA3', _ebStatusMap);
+    // same dirty-check guard as regEBSelectEl above
+    vals.dispEBSelectEl = mkEBChips(st.dispEB, (id) => {
+      if (id === st.dispEB) return;
+      if (this._isFormDirty('dispense')) {
+        this.askConfirm({
+          tone: 'warn', icon: 'warn', title: 'เปลี่ยนกล่องอื่น?', body: 'ข้อมูลที่กรอกไว้จะหายไป ยืนยันออกโดยไม่บันทึก?',
+          yesLabel: 'ออกโดยไม่บันทึก', noLabel: 'กลับไปแก้ไข',
+          onYes: () => this.setState({ dispEB: id }),
+        });
+        return;
+      }
+      this.setState({ dispEB: id });
+    }, inStockIds, '#1A6FA3', _ebStatusMap);
     vals.dispHintEl = hint(`พร้อมจ่าย ${inStockIds.length} กล่อง · กล่องที่จ่ายไปแล้วต้องรับคืนก่อน จึงจะจ่ายรหัสเดิมซ้ำได้`, '#1A6FA3', '#EEF5FA', '#D3E6F1', '#169C7F');
     vals.dispDate = st.dispDate;
     vals.dispenser = st.dispenser;
@@ -5455,7 +5492,20 @@ td.l{text-align:left;padding-left:4px}
         : `จ่ายให้ ${(b && b.dept) || '—'} เมื่อ ${b && b.dispense ? this.fmtISO(b.dispense) : '—'}`;
       return mkPickerCard({ id, li: _li, disabled: !out, pulse: out && daysOut > 30, badge, subtitle, onClick: () => this.selectRetBox(id) });
     }));
-    vals.retEBSelectEl = mkEBChips(st.retEB, (id) => this.setState({ retEB: id, retDrugUsage: {} }), outIds, '#169C7F', _ebStatusMap);
+    // same dirty-check guard as regEBSelectEl above — most important here since
+    // switching boxes also wipes retDrugUsage (recorded per-lot drug usage)
+    vals.retEBSelectEl = mkEBChips(st.retEB, (id) => {
+      if (id === st.retEB) return;
+      if (this._isFormDirty('return')) {
+        this.askConfirm({
+          tone: 'warn', icon: 'warn', title: 'เปลี่ยนกล่องอื่น?', body: 'ข้อมูลที่กรอกไว้จะหายไป ยืนยันออกโดยไม่บันทึก?',
+          yesLabel: 'ออกโดยไม่บันทึก', noLabel: 'กลับไปแก้ไข',
+          onYes: () => this.setState({ retEB: id, retDrugUsage: {} }),
+        });
+        return;
+      }
+      this.setState({ retEB: id, retDrugUsage: {} });
+    }, outIds, '#169C7F', _ebStatusMap);
     vals.retHintEl = hint(`ค้างรับคืน ${outIds.length} กล่อง · เลือกได้เฉพาะกล่องที่ถูกจ่ายออกไปและยังไม่ได้คืน`, '#B5740F', '#FBF1E0', '#F0DDB8', '#EE8A2B');
     vals.retDate = st.retDate;
     vals.retReceiver = st.retReceiver;
@@ -6217,6 +6267,7 @@ td.l{text-align:left;padding-left:4px}
     );
     vals.setUlFilterDept = (e) => this.setState({ ulFilterDept: e.target.value });
     vals.exportUsageLogCSV = async () => {
+      if (!vals.canExportCSV) return; // defense in depth — this export contains patient HN/name, admin-only same as exportCSV/adminExportCSV
       const _rows = await this._fetchCompleteUsageRows(st.ulDateFrom, st.ulDateTo);
       const _ulFilteredComplete = _rows.filter(u => {
         if (ulFilterDept !== 'all' && u.dept !== ulFilterDept) return false;
@@ -6268,20 +6319,28 @@ td.l{text-align:left;padding-left:4px}
     // (re)subscribe only when the viewed box actually changes, and only while
     // Detail is the active screen — avoids an idle Firestore listener running
     // for whatever box happens to be selected on unrelated screens
+    let _ulBoxSwitched = false;
     if (screen === 'detail' && st.selectedEB) {
       if (this._detailUsageLogBoxId !== st.selectedEB) {
         this._detailUsageLogBoxId = st.selectedEB;
+        _ulBoxSwitched = true;
         if (this._detailUsageLogUnsub) this._detailUsageLogUnsub();
+        // listenUsageLog's first snapshot always arrives asynchronously (onSnapshot
+        // never fires synchronously) — clear the old box's rows immediately below,
+        // or the panel would keep showing the PREVIOUS box's usage entries (real
+        // patient HN/name/drug data) under the newly-selected box's context until
+        // the new listener's first callback happens to land.
         this._detailUsageLogUnsub = (window.EB_Sync && window.EB_Sync.listenUsageLog)
           ? window.EB_Sync.listenUsageLog(st.selectedEB, rows => this.setState({ detailUsageLog: rows }))
           : null;
+        if (st.detailUsageLog && st.detailUsageLog.length) this.setState({ detailUsageLog: [] });
       }
     } else if (this._detailUsageLogUnsub) {
       this._detailUsageLogUnsub();
       this._detailUsageLogUnsub = null;
       this._detailUsageLogBoxId = null;
     }
-    const ul = st.detailUsageLog || [];
+    const ul = _ulBoxSwitched ? [] : (st.detailUsageLog || []);
     vals.usageLogEl = ul.length ? h(React.Fragment, null, ...ul.slice(0, 15).map((u, i) => h('div', { key: u.id || i, style: { display: 'flex', gap: 10, alignItems: 'flex-start', padding: '8px 0', borderBottom: i < Math.min(ul.length, 15) - 1 ? '1px solid #F4F7F9' : 'none' } },
       h('span', { style: { width: 7, height: 7, flexShrink: 0, borderRadius: '50%', background: '#B5740F', marginTop: 6 } }),
       h('div', { style: { minWidth: 0, flex: 1 } },

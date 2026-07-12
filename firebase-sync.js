@@ -304,9 +304,20 @@ function logDrugUsageTx(boxId,dept,drugIdx,lotIdx,qty,hn,patientName,recordedAt,
     const lot=drug&&(drug.lots||[])[lotIdx];
     if(!drug||!lot){const err=new Error('ไม่พบรายการยานี้ในกล่อง — ข้อมูลอาจเปลี่ยนไปแล้ว รีเฟรชแล้วลองใหม่');err.code='NOT_FOUND';throw err;}
     if(qty>(lot.qty||0)){const err=new Error(`จำนวนที่กรอก (${qty}) มากกว่าที่มีอยู่จริง (${lot.qty||0}) — ตรวจสอบแล้วลองใหม่`);err.code='INSUFFICIENT_QTY';throw err;}
+    // Deliberately does NOT filter out a lot that reaches qty=0 here (unlike
+    // returnBoxAndDrugsTx's one-time full-return cleanup) — drugIdx/lotIdx are
+    // plain array positions chosen from whatever snapshot the client had
+    // rendered, and two concurrent public-page usage submissions on the same
+    // drug's different lots is a realistic scenario (multiple ward staff
+    // scanning the same box's QR around the same time). If an earlier-index
+    // lot were removed here, every later lot's index would shift for the NEXT
+    // transaction that re-reads this array, silently decrementing the wrong
+    // physical lot with no error surfaced. Keeping the (now-empty) lot in
+    // place preserves index stability across concurrent calls; it disappears
+    // the normal way on the next register Stage 1 restock/edit.
     const updatedDrugs=drugs.map((d,di)=>di!==drugIdx?d:{
       ...d,
-      lots:(d.lots||[]).map((l,li)=>li!==lotIdx?l:{...l,qty:l.qty-qty}).filter(l=>l.qty>0),
+      lots:(d.lots||[]).map((l,li)=>li!==lotIdx?l:{...l,qty:l.qty-qty}),
     });
     tx.set(drugsRef,{boxId,drugs:updatedDrugs,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
     if(!boxData.openedAt)tx.update(boxRef,{openedAt:recordedAt});
