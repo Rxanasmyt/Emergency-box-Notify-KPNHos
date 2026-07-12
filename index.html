@@ -2817,8 +2817,19 @@ class Component extends DCLogic {
       body: `กล่อง ${boxId} จะถูกยกเลิกสถานะ "ยืนยันแล้ว — พร้อมจ่าย" ทันที และต้องให้จพ.จัดเตรียม + เภสัชกรตรวจสอบใหม่ทั้งหมดก่อนจึงจะจ่ายได้อีกครั้ง ยืนยันหรือไม่?`,
       yesLabel: 'ยืนยัน แก้ไขใหม่', noLabel: 'ยกเลิก',
       onYes: async () => {
+        // re-fetch the box fresh HERE, not the `box` captured before the
+        // dialog opened — an arbitrarily long human-timescale gap sits
+        // between opening this confirm and the admin clicking "yes", during
+        // which another device could legitimately dispense/edit this same
+        // box. _syncBox() diffs against whatever is CURRENT in this.BOXES,
+        // so writing from a stale pre-dialog snapshot would silently revert
+        // any such concurrent write (e.g. a real dispense) with zero warning
+        // or audit trail, since this action's own log only mentions the
+        // Stage-1 reopen, nothing about fields it never intended to touch.
+        const freshBox = this.BOXES.find(b => b.id === boxId);
+        if (!freshBox || this._regStage(freshBox) !== 'verified') { this.flash('⚠️ กล่องนี้เปลี่ยนสถานะไปแล้ว — กรุณารีเฟรชหน้าแล้วลองใหม่'); return; }
         const freshDrugs = (this.BOX_DRUGS || {})[boxId] || [];
-        const ok = await this._syncBox({ ...box, preparedAt: '', registeredAt: '', checker: '' });
+        const ok = await this._syncBox({ ...freshBox, preparedAt: '', registeredAt: '', checker: '' });
         const drugsOk = await this._syncBoxDrugs(boxId, freshDrugs.map(d => ({ ...d, verified: false })));
         if (!ok || !drugsOk) { this.flash('⚠️ บันทึกไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่'); return; }
         this.flash(`เปิดกล่อง ${boxId} กลับไปแก้ไขใหม่แล้ว — รอจพ.จัดเตรียม + เภสัชกรตรวจสอบอีกครั้ง`);
@@ -3116,17 +3127,26 @@ class Component extends DCLogic {
       yesLabel: 'เปลี่ยนบทบาท', noLabel: 'ยกเลิก',
       onYes: async () => {
         if (!window.EB_Sync) { this.flash('⚠️ ระบบซิงค์ยังไม่พร้อม — กรุณารีเฟรชหน้าแล้วลองใหม่'); return; }
+        // re-fetch the user record fresh HERE, not the `u` captured before the
+        // dialog opened — an admin can leave this confirm open for an
+        // arbitrarily long, human-timescale gap, during which another
+        // device/admin could legitimately change this same user's status/
+        // dept/password. syncUsers() does a full merge write of whatever
+        // object it's given, so writing the stale pre-dialog `u` would
+        // silently revert any such concurrent change with zero warning.
+        const freshU = this.state.users.find(x => x.username === username);
+        if (!freshU) { this.flash('⚠️ ไม่พบผู้ใช้นี้แล้ว — กรุณารีเฟรชหน้าแล้วลองใหม่'); return; }
         // await + check before updating local state/logging — a failed write
         // must never claim success in the UI or the append-only audit_log
         try {
-          await window.EB_Sync.syncUsers({ ...u, role });
+          await window.EB_Sync.syncUsers({ ...freshU, role });
         } catch (err) {
           this.flash('⚠️ เปลี่ยนบทบาทไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
           return;
         }
         this.setState(s => ({ users: s.users.map(x => x.username === username ? { ...x, role } : x) }));
         this.flash('อัปเดตบทบาทผู้ใช้แล้ว');
-        this.logAction({ cat: 'user', action: 'แก้สิทธิ์', eb: '—', dept: u.dept, drug: `เปลี่ยนบทบาท ${u.name} → ${(this.ROLES[role]||{label:role}).label}` });
+        this.logAction({ cat: 'user', action: 'แก้สิทธิ์', eb: '—', dept: freshU.dept, drug: `เปลี่ยนบทบาท ${freshU.name} → ${(this.ROLES[role]||{label:role}).label}` });
       },
     });
   }
@@ -3223,6 +3243,13 @@ class Component extends DCLogic {
       const { nu_name, nu_username, nu_role, nu_dept, nu_pass, users } = this.state;
       if (!nu_name.trim() || !nu_username.trim()) { this.flash('กรุณากรอกชื่อและ username'); return; }
       if (/\s/.test(nu_username.trim())) { this.flash('username ต้องไม่มีช่องว่าง'); return; }
+      // username becomes the literal Firestore document ID (firebase-sync.js's
+      // syncUsers: docId=uid||user.username) — a '/' (or a name that's exactly
+      // '.'/'..') is not a valid Firestore doc ID and throws synchronously
+      // inside syncUsers(), which addUser()'s catch then misattributes to a
+      // generic "network problem" with no way for the admin to discover the
+      // real cause. Reject it here with an accurate message instead.
+      if (/[\/]/.test(nu_username.trim()) || nu_username.trim() === '.' || nu_username.trim() === '..') { this.flash('username ต้องไม่มีเครื่องหมาย / หรือเป็น "." หรือ ".."'); return; }
       if (nu_pass && !nu_pass.trim()) { this.flash('รหัสผ่านต้องไม่เป็นช่องว่าง'); return; }
       if (nu_pass && nu_pass.trim().length < 4) { this.flash('รหัสผ่านต้องมีอย่างน้อย 4 ตัวอักษร'); return; }
       if (users.some(u => u.username.toLowerCase() === nu_username.trim().toLowerCase())) { this.flash('username นี้มีอยู่แล้ว'); return; }
@@ -4026,9 +4053,20 @@ td.l{text-align:left;padding-left:4px}
       for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
       return btoa(binary);
     };
+    // Must check r.ok — fetch() only rejects on a genuine network error, never
+    // on a non-2xx response. If a device prints for the first time while
+    // offline and these font files were never precached (sw.js deliberately
+    // excludes them from PRECACHE_URLS, only caching them opportunistically
+    // after a successful online fetch), the service worker's cacheFirst()
+    // falls back to its offline-HTML Response — which fetch() resolves
+    // successfully, not rejects. Without this check, that HTML page's bytes
+    // would silently be base64-encoded and cached AS IF they were real font
+    // data, permanently corrupting every print for the rest of the session
+    // (this._pdfFontsCache is deliberately cached once-per-session and would
+    // never be retried even after the device reconnects).
     const [regularBuf, boldBuf] = await Promise.all([
-      fetch('./fonts/Sarabun-Regular.ttf').then(r => r.arrayBuffer()),
-      fetch('./fonts/Sarabun-Bold.ttf').then(r => r.arrayBuffer()),
+      fetch('./fonts/Sarabun-Regular.ttf').then(r => { if (!r.ok) throw new Error('font fetch failed: ' + r.status); return r.arrayBuffer(); }),
+      fetch('./fonts/Sarabun-Bold.ttf').then(r => { if (!r.ok) throw new Error('font fetch failed: ' + r.status); return r.arrayBuffer(); }),
     ]);
     this._pdfFontsCache = { regular: toBase64(regularBuf), bold: toBase64(boldBuf) };
     return this._pdfFontsCache;
@@ -5334,7 +5372,7 @@ td.l{text-align:left;padding-left:4px}
     vals.dispShowForm = !st.dispLanding;
     vals.dispBackToLanding = () => {
       if (this._isFormDirty('dispense')) {
-        this.askConfirm({ tone: 'warn', icon: 'warn', title: 'กลับไปเลือกกล่องอื่น?', body: 'ข้อมูลที่กรอกไว้จะหายไป ยืนยันออกโดยไม่บันทึก?', yesLabel: 'ออกโดยไม่บันทึก', noLabel: 'กลับไปแก้ไข', onYes: () => this.setState({ dispLanding: true }) });
+        this.askConfirm({ tone: 'warn', icon: 'warn', title: 'กลับไปเลือกกล่องอื่น?', body: 'ข้อมูลที่กรอกไว้จะหายไป ยืนยันออกโดยไม่บันทึก?', yesLabel: 'ออกโดยไม่บันทึก', noLabel: 'กลับไปแก้ไข', onYes: () => this.setState({ dispLanding: true, ...this._clearDirtyFields('dispense') }) });
         return;
       }
       this.setState({ dispLanding: true });
@@ -5389,7 +5427,7 @@ td.l{text-align:left;padding-left:4px}
         this.askConfirm({
           tone: 'warn', icon: 'warn', title: 'เปลี่ยนกล่องอื่น?', body: 'ข้อมูลที่กรอกไว้จะหายไป ยืนยันออกโดยไม่บันทึก?',
           yesLabel: 'ออกโดยไม่บันทึก', noLabel: 'กลับไปแก้ไข',
-          onYes: () => this.setState({ dispEB: id }),
+          onYes: () => this.setState({ dispEB: id, ...this._clearDirtyFields('dispense') }),
         });
         return;
       }
@@ -5502,7 +5540,7 @@ td.l{text-align:left;padding-left:4px}
     vals.retShowForm = !st.retLanding;
     vals.retBackToLanding = () => {
       if (this._isFormDirty('return')) {
-        this.askConfirm({ tone: 'warn', icon: 'warn', title: 'กลับไปเลือกกล่องอื่น?', body: 'ข้อมูลที่กรอกไว้จะหายไป ยืนยันออกโดยไม่บันทึก?', yesLabel: 'ออกโดยไม่บันทึก', noLabel: 'กลับไปแก้ไข', onYes: () => this.setState({ retLanding: true }) });
+        this.askConfirm({ tone: 'warn', icon: 'warn', title: 'กลับไปเลือกกล่องอื่น?', body: 'ข้อมูลที่กรอกไว้จะหายไป ยืนยันออกโดยไม่บันทึก?', yesLabel: 'ออกโดยไม่บันทึก', noLabel: 'กลับไปแก้ไข', onYes: () => this.setState({ retLanding: true, ...this._clearDirtyFields('return') }) });
         return;
       }
       this.setState({ retLanding: true });
@@ -5541,7 +5579,7 @@ td.l{text-align:left;padding-left:4px}
         this.askConfirm({
           tone: 'warn', icon: 'warn', title: 'เปลี่ยนกล่องอื่น?', body: 'ข้อมูลที่กรอกไว้จะหายไป ยืนยันออกโดยไม่บันทึก?',
           yesLabel: 'ออกโดยไม่บันทึก', noLabel: 'กลับไปแก้ไข',
-          onYes: () => this.setState({ retEB: id, retDrugUsage: {} }),
+          onYes: () => this.setState({ retEB: id, ...this._clearDirtyFields('return') }),
         });
         return;
       }
