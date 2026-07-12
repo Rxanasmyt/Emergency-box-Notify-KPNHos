@@ -818,7 +818,7 @@ input:focus, select:focus, textarea:focus {
             </div>
             <div style="font-size: 13px; color: #9A5B4C; margin-top: 3px;">{{ urgentDetail }}</div>
           </div>
-          <button onClick="{{ goEntry }}" style="margin-left: auto; flex-shrink: 0; background: #E03E3E; color: #fff; border: none; border-radius: 11px; padding: 11px 18px; font-size: 13.5px; font-weight: 600; cursor: pointer; box-shadow: 0 6px 18px rgba(224,62,62,.3); transition: all .22s cubic-bezier(.34,1.56,.64,1);" style-hover="transform: translateY(-2px); box-shadow: 0 10px 28px rgba(224,62,62,.4);" style-active="transform: scale(.96);">บันทึกรับคืน →</button>
+          <button onClick="{{ goEntryReturn }}" style="margin-left: auto; flex-shrink: 0; background: #E03E3E; color: #fff; border: none; border-radius: 11px; padding: 11px 18px; font-size: 13.5px; font-weight: 600; cursor: pointer; box-shadow: 0 6px 18px rgba(224,62,62,.3); transition: all .22s cubic-bezier(.34,1.56,.64,1);" style-hover="transform: translateY(-2px); box-shadow: 0 10px 28px rgba(224,62,62,.4);" style-active="transform: scale(.96);">บันทึกรับคืน →</button>
         </div>
 
         <!-- KPI cards -->
@@ -3320,6 +3320,13 @@ class Component extends DCLogic {
           if (st.regMfg && near && st.regMfg > near) errs.push('วันผลิตต้องมาก่อนวันหมดอายุ');
           const _lotsNoExp = list.reduce((n, d) => n + (d.lots || []).filter(l => !l.expiry).length, 0);
           if (_lotsNoExp > 0) errs.push(`กรอกวันหมดอายุให้ครบ (ยังขาดอยู่ ${_lotsNoExp} lot)`);
+          // plausibility cap — an unbounded date input lets a mistyped year (e.g.
+          // 9999 instead of 2027) silently hide a lot from every near-expiry alert
+          // system-wide with no way to detect it later; 10 years is far beyond any
+          // real drug shelf life this app tracks.
+          const _maxPlausibleExp = this.isoOf(this.addDays(this.isoOf(this.TODAY), 3652));
+          const _lotsImplausible = list.reduce((n, d) => n + (d.lots || []).filter(l => l.expiry && l.expiry > _maxPlausibleExp).length, 0);
+          if (_lotsImplausible > 0) errs.push(`วันหมดอายุไกลเกินไป (เกิน 10 ปีจากวันนี้) — ตรวจสอบอีกครั้ง ${_lotsImplausible} lot`);
         }
       }
     } else if (st.formMode === 'dispense') {
@@ -3510,33 +3517,35 @@ class Component extends DCLogic {
         const freshDrugs = (this.BOX_DRUGS || {})[regEB] || [];
         const near = this.nearDrugOf(regEB, { [regEB]: freshDrugs });
         const nearISO = this.regNearISOof(regEB, { [regEB]: freshDrugs });
+        const regChecker = (this.state.regChecker || '').trim();
         const meta = { ...(this.state.boxMeta || {}) };
-        meta[regEB] = { mfg: box.mfg, preparer: box.preparer, checker: this.state.regChecker, registeredAt: this.isoOf(this.TODAY) };
+        meta[regEB] = { mfg: box.mfg, preparer: box.preparer, checker: regChecker, registeredAt: this.isoOf(this.TODAY) };
         this.setState({ boxMeta: meta, regHadConfirm: false });
         // await both writes before logging — see the dispense path for why:
         // logging "ยืนยันสำเร็จ" to the append-only audit_log before confirming
         // the write actually landed would leave a permanent false record.
         const [regBoxOk, regDrugsOk] = await Promise.all([
-          this._syncBox({ ...box, expiry: nearISO || '', nearDrug: near || '', checker: this.state.regChecker, registeredAt: this.isoOf(this.TODAY) }),
+          this._syncBox({ ...box, expiry: nearISO || '', nearDrug: near || '', checker: regChecker, registeredAt: this.isoOf(this.TODAY) }),
           this._syncBoxDrugs(regEB, freshDrugs.map(d => ({ ...d, verified: true }))),
         ]);
         if (!regBoxOk || !regDrugsOk) { this.setState({ submitting: false }); this.flash('⚠️ บันทึกไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่'); return; }
         msg = `ตรวจสอบและยืนยันลงทะเบียน ${regEB} สำเร็จ · ตรวจพบยาใกล้หมดอายุสุด: ${near || 'ไม่มีข้อมูล'}`;
         this.logAction({ cat: 'register', action: 'ตรวจสอบ/ยืนยันลงทะเบียน', eb: regEB, dept: '—', drug: `เภสัชกรตรวจสอบยาครบทุกรายการ · ใกล้หมดอายุสุด: ${near}` });
-        this.logBoxHist(regEB, `ยืนยันลงทะเบียน — ผ่านการตรวจสอบ (ตรวจโดย ${this.state.regChecker || '-'})`);
+        this.logBoxHist(regEB, `ยืนยันลงทะเบียน — ผ่านการตรวจสอบ (ตรวจโดย ${regChecker || '-'})`);
       } else {
         // Stage 1: จพ. จัดยาเข้ากล่อง + พิมพ์ใบกล่อง — บันทึกไว้เป็น "จัดเตรียมแล้ว" รอเภสัชกรตรวจสอบ
+        const regPreparer = (this.state.regPreparer || '').trim();
         const meta = { ...(this.state.boxMeta || {}) };
-        meta[regEB] = { mfg: this.state.regMfg, preparer: this.state.regPreparer, preparedAt: this.isoOf(this.TODAY) };
+        meta[regEB] = { mfg: this.state.regMfg, preparer: regPreparer, preparedAt: this.isoOf(this.TODAY) };
         this.setState({ boxMeta: meta });
         const [prepBoxOk, prepDrugsOk] = await Promise.all([
-          this._syncBox({ ...box, mfg: this.state.regMfg, preparer: this.state.regPreparer, preparedAt: this.isoOf(this.TODAY), checker: '', registeredAt: '', rejectedReason: '', rejectedAt: '', dispense: '', dispenser: '', receiver: '', retDate: '', openedAt: '' }),
+          this._syncBox({ ...box, mfg: this.state.regMfg, preparer: regPreparer, preparedAt: this.isoOf(this.TODAY), checker: '', registeredAt: '', rejectedReason: '', rejectedAt: '', dispense: '', dispenser: '', receiver: '', retDate: '', openedAt: '' }),
           this._syncBoxDrugs(regEB, (BD[regEB] || []).map(d => ({ ...d, verified: false }))),
         ]);
         if (!prepBoxOk || !prepDrugsOk) { this.setState({ submitting: false }); this.flash('⚠️ บันทึกไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่'); return; }
         msg = `จัดเตรียมกล่อง ${regEB} เรียบร้อย · รอเภสัชกรตรวจสอบก่อนจึงจะพร้อมจ่าย`;
         this.logAction({ cat: 'register', action: 'จัดเตรียมกล่อง', eb: regEB, dept: '—', drug: `จพ.จัดยาเข้ากล่อง รอเภสัชกรตรวจสอบ` });
-        this.logBoxHist(regEB, `จัดเตรียมกล่อง (จัดโดย ${this.state.regPreparer || '-'}) — รอเภสัชกรตรวจสอบ`);
+        this.logBoxHist(regEB, `จัดเตรียมกล่อง (จัดโดย ${regPreparer || '-'}) — รอเภสัชกรตรวจสอบ`);
       }
     }
     else if (m === 'dispense') {
@@ -3590,19 +3599,21 @@ class Component extends DCLogic {
       // await this write before logging/toasting — logging a dispense to the
       // append-only audit_log before confirming it actually landed would leave
       // a permanent false record if the write failed (network drop, etc.)
-      const dispenseOk = await this._syncBox({ ...box, dept: formDept, dispense: this.state.dispDate, dispenser: this.state.dispenser, receiver: '', retDate: '' });
+      const dispenser = (this.state.dispenser || '').trim();
+      const dispenseOk = await this._syncBox({ ...box, dept: formDept, dispense: this.state.dispDate, dispenser, receiver: '', retDate: '' });
       if (!dispenseOk) { this.setState({ submitting: false }); return; }
       if (swapReturn) {
         const swBox = this.BOXES.find(b => b.id === resolvedSwapEB) || { id: resolvedSwapEB };
         // atomic: swap box marked returned + its drug quantities decremented
         // together, both re-read fresh from the server — see returnBoxAndDrugsTx
+        const swapReceiver = (this.state.swapReceiver || '').trim();
         let _swResult;
         try {
           // returning ALSO resets preparedAt/registeredAt/checker — a box that was
           // just out and used is no longer guaranteed full/verified, so it must go
           // through จพ. restock (Stage 1) + pharmacist re-verify (Stage 2) again
           // before _resolveDispEB()/the dispense list will allow it out a second time
-          _swResult = await window.EB_Sync.returnBoxAndDrugsTx(resolvedSwapEB, { receiver: this.state.swapReceiver, retDate: this.state.swapReturnDate, openedAt: '', preparedAt: '', registeredAt: '', checker: '' }, _swUsageCheck);
+          _swResult = await window.EB_Sync.returnBoxAndDrugsTx(resolvedSwapEB, { receiver: swapReceiver, retDate: this.state.swapReturnDate, openedAt: '', preparedAt: '', registeredAt: '', checker: '' }, _swUsageCheck);
         } catch (err) {
           this.setState({ submitting: false });
           this.flash(err.code === 'NOT_OUT'
@@ -3610,22 +3621,23 @@ class Component extends DCLogic {
             : '⚠️ บันทึกไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
           return;
         }
-        this.BOXES = this.BOXES.map(b => b.id === resolvedSwapEB ? { ...b, receiver: this.state.swapReceiver, retDate: this.state.swapReturnDate, openedAt: '', preparedAt: '', registeredAt: '', checker: '' } : b);
+        this.BOXES = this.BOXES.map(b => b.id === resolvedSwapEB ? { ...b, receiver: swapReceiver, retDate: this.state.swapReturnDate, openedAt: '', preparedAt: '', registeredAt: '', checker: '' } : b);
         if (_swResult.drugs) this.BOX_DRUGS = { ...(this.BOX_DRUGS || {}), [resolvedSwapEB]: _swResult.drugs };
         const _swSummary = _swPrevDrugsCheck.map((drug, di) => {
           const _used = Object.values((_swUsageCheck[di] || {})).reduce((s, q) => s + q, 0);
           return _used > 0 ? `${drug.name} ใช้ ${_used}` : null;
         }).filter(Boolean);
         if (_swSummary.length > 0) this.logBoxHist(resolvedSwapEB, `บันทึกยาที่ใช้: ${_swSummary.join(', ')}`);
-        this.logAction({ cat: 'return', action: 'รับคืน', eb: resolvedSwapEB, dept: swBox.dept || formDept, drug: `รับคืน วันที่ ${this.fmtISO(this.state.swapReturnDate)} · โดย ${this.state.swapReceiver || '-'}` });
-        this.logBoxHist(resolvedSwapEB, `รับคืนจาก ${swBox.dept || formDept} วันที่ ${this.fmtISO(this.state.swapReturnDate)} (โดย ${this.state.swapReceiver || '-'})`);
+        this.logAction({ cat: 'return', action: 'รับคืน', eb: resolvedSwapEB, dept: swBox.dept || formDept, drug: `รับคืน วันที่ ${this.fmtISO(this.state.swapReturnDate)} · โดย ${swapReceiver || '-'}` });
+        this.logBoxHist(resolvedSwapEB, `รับคืนจาก ${swBox.dept || formDept} วันที่ ${this.fmtISO(this.state.swapReturnDate)} (โดย ${swapReceiver || '-'})`);
       }
       msg = swapReturn ? `เปลี่ยนกล่อง: จ่าย ${dispEB} → ${formDept} · รับคืน ${resolvedSwapEB} สำเร็จ` : `จ่าย ${dispEB} → ${formDept} สำเร็จ`;
       this.logAction({ cat: 'dispense', action: 'จ่าย', eb: dispEB, dept: formDept, drug: this.nearDrugOf(dispEB) });
-      this.logBoxHist(dispEB, `จ่ายให้ ${formDept} (โดย ${this.state.dispenser || '-'})`);
+      this.logBoxHist(dispEB, `จ่ายให้ ${formDept} (โดย ${dispenser || '-'})`);
     }
     else {
-      const { retReceiver, retDate, retDrugUsage } = this.state;
+      const { retDate, retDrugUsage } = this.state;
+      const retReceiver = (this.state.retReceiver || '').trim();
       const _effRetEB = this._resolveRetEB();
       if (_effRetEB && this.state.retEB && _effRetEB !== this.state.retEB) {
         this.setState({ submitting: false });
@@ -4244,7 +4256,6 @@ td.l{text-align:left;padding-left:4px}
       pageTitle: (titles[screen] || titles.dashboard)[0],
       pageSub: (titles[screen] || titles.dashboard)[1],
       goDashboard: () => this.go('dashboard'),
-      goEntry: () => this.go('entry'),
       goDetail: () => this.go('detail'),
       goEntryReturn: () => {
         if (this.state.editDrugs) {
@@ -5518,15 +5529,34 @@ td.l{text-align:left;padding-left:4px}
     // navigation guard above
     const selBox = this.BOXES.find(b => b.id === st.selectedEB);
     const selBoxOut = selBox && !!selBox.dispense && !selBox.receiver;
+    // Both quick-action buttons must check editDrugs the same way go()/the
+    // EB-switcher already do — they used to switch mode+screen unconditionally,
+    // silently discarding an in-progress drug/expiry edit with no confirm at
+    // all (a real gap in an otherwise-consistent "warn before discarding
+    // unsaved edits" pattern used everywhere else in the app).
+    const _quickAct = (mode, ebField, patch) => {
+      if (st.editDrugs) {
+        this.askConfirm({
+          tone: 'warn', icon: 'warn',
+          title: 'ออกจากการแก้ไขยา?',
+          body: 'การแก้ไขยาที่ยังไม่ได้บันทึกจะหายไป ยืนยันออกโดยไม่บันทึก?',
+          yesLabel: 'ออกโดยไม่บันทึก', noLabel: 'กลับไปแก้ไข',
+          onYes: () => { this._bdBackup = null; this.go2(mode); this.setState({ screen: 'entry', editDrugs: false, boxDrugs: null, [ebField]: st.selectedEB }); },
+        });
+        return;
+      }
+      this.go2(mode);
+      this.setState({ screen: 'entry', [ebField]: st.selectedEB });
+    };
     vals.detailQuickActionsEl = (st.currentUser && st.currentUser.role === 'nurse') ? null : h('div', { style: { display: 'flex', gap: 8, marginTop: 14, paddingTop: 14, borderTop: '1px solid #EFF3F6' } },
       !selBoxOut ? h('button', {
         className: 'btn-primary quick-act-btn',
-        onClick: () => { this.go2('dispense'); this.setState({ screen: 'entry', dispEB: st.selectedEB }); },
+        onClick: () => _quickAct('dispense', 'dispEB'),
         style: { flex: 1, height: 44, borderRadius: 11, border: 'none', background: 'linear-gradient(135deg,#1E4FD8,#2B7FE0)', color: '#fff', fontFamily: 'inherit', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, boxShadow: '0 4px 14px rgba(43,127,224,.4)', transition: 'all .22s cubic-bezier(.34,1.56,.64,1)' },
       }, ic('<svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M4 12h13m0 0l-5-5m5 5l-5 5" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',15), 'จ่าย EB นี้') : null,
       selBoxOut ? h('button', {
         className: 'btn-primary quick-act-btn',
-        onClick: () => { this.go2('return'); this.setState({ screen: 'entry', retEB: st.selectedEB }); },
+        onClick: () => _quickAct('return', 'retEB'),
         style: { flex: 1, height: 44, borderRadius: 11, border: 'none', background: 'linear-gradient(135deg,#059669,#0DB9A0)', color: '#fff', fontFamily: 'inherit', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, boxShadow: '0 4px 14px rgba(13,185,160,.4)', transition: 'all .22s cubic-bezier(.34,1.56,.64,1)' },
       }, ic('<svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M20 12H7m0 0l5-5m-5 5l5 5" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',15), 'รับคืน EB นี้') : null,
     );
@@ -5756,8 +5786,13 @@ td.l{text-align:left;padding-left:4px}
     vals.showCustomDate      = st.datePreset === 'custom';
     vals.dateFrom            = st.dateFrom;
     vals.dateTo              = st.dateTo;
-    vals.setDateFrom         = (e) => this.setState({ dateFrom: e.target.value });
-    vals.setDateTo           = (e) => this.setState({ dateTo:   e.target.value });
+    // _mkDateRange already swaps from/to internally for filtering/labeling
+    // when from > to — swap the actual stored state here too, or the visible
+    // <input type="date"> elements would keep showing the reversed order the
+    // user typed even though filtering/the label silently used the swapped
+    // values instead.
+    vals.setDateFrom         = (e) => { const v = e.target.value; this.setState(s => (s.dateTo && v > s.dateTo) ? { dateFrom: s.dateTo, dateTo: v } : { dateFrom: v }); };
+    vals.setDateTo           = (e) => { const v = e.target.value; this.setState(s => (s.dateFrom && v < s.dateFrom) ? { dateFrom: v, dateTo: s.dateFrom } : { dateTo: v }); };
     vals.fiscalYearOptionsEl = _mkFYOptions(st.fiscalYear);
     vals.setFiscalYear       = (e) => this.setState({ fiscalYear: parseInt(e.target.value, 10) });
     vals.dateRangeLabel      = _mkDRLabel(st.datePreset, st.fiscalYear, _dateRange);
@@ -6085,8 +6120,9 @@ td.l{text-align:left;padding-left:4px}
     vals.showAdminCustomDate     = st.aDatePreset === 'custom';
     vals.aDateFrom               = st.aDateFrom;
     vals.aDateTo                 = st.aDateTo;
-    vals.setADateFrom            = (e) => this.setState({ aDateFrom: e.target.value });
-    vals.setADateTo              = (e) => this.setState({ aDateTo:   e.target.value });
+    // same from/to swap-on-display fix as setDateFrom/setDateTo above
+    vals.setADateFrom            = (e) => { const v = e.target.value; this.setState(s => (s.aDateTo && v > s.aDateTo) ? { aDateFrom: s.aDateTo, aDateTo: v } : { aDateFrom: v }); };
+    vals.setADateTo              = (e) => { const v = e.target.value; this.setState(s => (s.aDateFrom && v < s.aDateFrom) ? { aDateFrom: v, aDateTo: s.aDateFrom } : { aDateTo: v }); };
     vals.adminFiscalYearOptionsEl = _mkFYOptions(st.aFiscalYear);
     vals.setAFiscalYear          = (e) => this.setState({ aFiscalYear: parseInt(e.target.value, 10) });
     vals.adminDateRangeLabel     = _mkDRLabel(st.aDatePreset, st.aFiscalYear, _adr);
@@ -6114,6 +6150,7 @@ td.l{text-align:left;padding-left:4px}
     });
     vals.adminAuditCount = _adminFiltered.length;
     vals.adminExportCSV = async () => {
+      if (!vals.canExportCSV) return; // defense in depth — button/section is already hidden for non-admin
       const _rows = await this._fetchCompleteAuditRows(st.aDatePreset, _adr);
       const _adminFilteredComplete = _rows.filter(r => {
         const af = st.aFilter || 'all';
@@ -6199,10 +6236,27 @@ td.l{text-align:left;padding-left:4px}
     };
 
     // ===== box edit history (detail) =====
-    // primary source: auditLog persisted in Firestore (cat='boxhist'); fallback: in-memory for immediate feedback
+    // primary source: a one-time complete fetch (fetchBoxHistory) — the live
+    // listenAudit() array is capped at 500 most-recent docs across the WHOLE
+    // audit_log, so once total docs exceed that cap an older box's history can
+    // silently fall out of the live window with no indication anything was
+    // cut off (same risk _fetchCompleteAuditRows already fixes for the History
+    // screen). Falls back to the capped live array, then in-memory, while the
+    // fetch is still pending or if it fails.
+    if (screen === 'detail' && st.selectedEB) {
+      if (this._detailBoxHistId !== st.selectedEB && window.EB_Sync && window.EB_Sync.fetchBoxHistory) {
+        this._detailBoxHistId = st.selectedEB;
+        window.EB_Sync.fetchBoxHistory(st.selectedEB).then(rows => {
+          if (this.state.selectedEB === st.selectedEB) this.setState({ detailBoxHistFull: rows, detailBoxHistBoxId: st.selectedEB });
+        });
+      }
+    } else {
+      this._detailBoxHistId = null;
+    }
+    const _bhComplete = (st.detailBoxHistBoxId === st.selectedEB) ? (st.detailBoxHistFull || []) : null;
     const _bhFromAudit = (st.auditLog || []).filter(r => r.cat === 'boxhist' && r.eb === st.selectedEB).slice(0, 50).map(r => ({ text: r.action || '', who: r.person || '—', stamp: `${r.date || ''} · ${r.time || ''}` }));
     const _bhInMem = ((st.boxHist || {})[st.selectedEB] || []);
-    const bh = _bhFromAudit.length ? _bhFromAudit : _bhInMem;
+    const bh = (_bhComplete && _bhComplete.length) ? _bhComplete.slice(0, 50) : (_bhFromAudit.length ? _bhFromAudit : _bhInMem);
     vals.boxHistEl = bh.length ? h(React.Fragment, null, ...bh.map((e, i) => h('div', { key: i, style: { display: 'flex', gap: 10, alignItems: 'flex-start', padding: '8px 0', borderBottom: i < bh.length - 1 ? '1px solid #F4F7F9' : 'none' } },
       h('span', { style: { width: 7, height: 7, flexShrink: 0, borderRadius: '50%', background: '#1A6FA3', marginTop: 6 } }),
       h('div', { style: { minWidth: 0 } }, h('div', { style: { fontSize: 12.5, color: '#15242E', fontWeight: 500 } }, e.text), h('div', { style: { fontSize: 11, color: '#9AAAB8', marginTop: 1 } }, `${e.who} · ${e.stamp}`))))) : h('div', { style: { textAlign: 'center', padding: '20px 10px', animation: 'fadeUp .5s ease both' } },

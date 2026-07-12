@@ -371,6 +371,22 @@ function fetchUsageLogRange(fromISO,toISO){
     return rows;
   }).catch(err=>{console.warn('[Sync] fetchUsageLogRange failed:',err.message);throw err;});
 }
+// One-time (non-realtime) per-box fetch — the Detail screen's box-history
+// panel reads from the live listenAudit() array (capped at 500 most-recent
+// docs across the WHOLE audit_log), so once total audit_log docs exceed 500
+// an older box's history entries can silently fall out of that window with
+// no indication anything was cut off. Two equality filters (eb + cat) don't
+// need a composite index, unlike an added orderBy would.
+function fetchBoxHistory(boxId){
+  if(!db)return Promise.resolve([]);
+  return db.collection(C.audit).where('eb','==',boxId).where('cat','==','boxhist').get()
+    .then(snap=>{
+      const rows=[];
+      snap.forEach(doc=>{const d=doc.data();rows.push({text:d.action||'',who:d.person||'—',stamp:`${d.date||''} · ${d.time||''}`,date:d.date||'',time:d.time||''});});
+      rows.sort((a,b)=>{const ka=a.date+' '+a.time,kb=b.date+' '+b.time;return kb<ka?-1:kb>ka?1:0;});
+      return rows;
+    }).catch(err=>{console.warn('[Sync] fetchBoxHistory failed:',err.message);return [];});
+}
 function getDeptPins(){
   if(!db)return Promise.resolve({});
   return db.collection(C.appSettings).doc('dept_pins').get()
@@ -382,5 +398,5 @@ function syncDeptPins(pins){
   return db.collection(C.appSettings).doc('dept_pins').set(pins,{merge:true})
     .catch(err=>{console.error('[Sync] syncDeptPins failed:',err.message);throw err;});
 }
-window.EB_Sync={initUsersOnly,initFirebaseSync,startPublicSync,stopSync,stopAll,logAudit,syncBoxes,syncUsers,deleteUser,syncBoxDrugs,returnBoxAndDrugsTx,logDrugUsageTx,listenUsageLog,listenAllUsageLog,getDeptPins,syncDeptPins,fetchAuditRange,fetchUsageLogRange};
+window.EB_Sync={initUsersOnly,initFirebaseSync,startPublicSync,stopSync,stopAll,logAudit,syncBoxes,syncUsers,deleteUser,syncBoxDrugs,returnBoxAndDrugsTx,logDrugUsageTx,listenUsageLog,listenAllUsageLog,getDeptPins,syncDeptPins,fetchAuditRange,fetchUsageLogRange,fetchBoxHistory};
 })();
