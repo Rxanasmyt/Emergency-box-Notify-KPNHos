@@ -4140,10 +4140,10 @@ td.l{text-align:left;padding-left:4px}
       return { drug: name, strength: '' };
     };
 
-    let nearDrug = '', nearDate = '';
-    drugs.forEach(d => {
+    let nearDrug = '', nearDate = '', nearDrugIndex = -1;
+    drugs.forEach((d, di) => {
       (d.lots || []).filter(l => l.expiry).forEach(lot => {
-        if (!nearDate || lot.expiry < nearDate) { nearDate = lot.expiry; nearDrug = d.name; }
+        if (!nearDate || lot.expiry < nearDate) { nearDate = lot.expiry; nearDrug = d.name; nearDrugIndex = di; }
       });
     });
     const retDateISO = nearDate ? (() => {
@@ -4208,7 +4208,14 @@ td.l{text-align:left;padding-left:4px}
       // that space proportionally to how many drugs the box actually has,
       // rather than bolting on extra unrelated rows at the bottom.
       styles: { font: 'Sarabun', fontSize: 9.5, cellPadding: 1.7, lineColor: [50, 50, 50], lineWidth: 0.2, valign: 'middle' },
-      headStyles: { fillColor: [221, 221, 221], textColor: 0, fontStyle: 'bold', fontSize: 9.5, halign: 'center' },
+      // header stays the same gray design, just darker (170 vs the old 221)
+      // so it still reads as the darkest element once the near-expiry row
+      // below gets its own (lighter) highlight color — the header must not
+      // blend in with or look lighter than a highlighted body row.
+      headStyles: { fillColor: [170, 170, 170], textColor: 0, fontStyle: 'bold', fontSize: 9.5, halign: 'center' },
+      // no alternating light/dark row banding — only the single soonest-
+      // expiring drug's row should stand out, so every other row is plain white.
+      alternateRowStyles: { fillColor: [255, 255, 255] },
       head: [['ลำดับ', 'ยา', 'ความแรง', 'ประเภท', 'จำนวน', 'EXP.date']],
       body: drugs.map((d, i) => {
         const totalQty = (d.lots || []).reduce((s, l) => s + (l.qty || 0), 0);
@@ -4224,6 +4231,15 @@ td.l{text-align:left;padding-left:4px}
         3: { cellWidth: CW * 0.11, halign: 'center' },
         4: { cellWidth: CW * 0.10, halign: 'center' },
         5: { cellWidth: CW * 0.25, halign: 'center' },
+      },
+      // highlight only the row of the soonest-expiring drug (nearDrugIndex,
+      // already computed above) — a light amber tint, deliberately lighter
+      // than the darkened header above so the header still reads as the
+      // darkest element on the table.
+      didParseCell: (data) => {
+        if (data.section === 'body' && data.row.index === nearDrugIndex) {
+          data.cell.styles.fillColor = [255, 224, 130];
+        }
       },
     });
 
