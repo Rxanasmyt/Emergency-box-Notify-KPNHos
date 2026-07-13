@@ -5,7 +5,18 @@ const C={boxes:'boxes',audit:'audit_log',users:'users',boxDrugs:'box_drugs',usag
 // Called from componentDidMount — signs in anonymously and starts users listener
 // so login can authenticate against ALL users in Firestore from any device
 function initUsersOnly(comp){
-  if(!window.EB_Firebase){console.warn('[Sync] Firebase not ready');return;}
+  if(!window.EB_Firebase){
+    console.warn('[Sync] Firebase not ready');
+    // firebase-init.js failed entirely (CDN blocked, ad-blocker, invalid
+    // config) — without this, state.users stays permanently empty with the
+    // SAME "loading, please wait" symptom as a failed anonymous sign-in
+    // below, but authInitError (doLogin()'s only signal to show a real error
+    // instead) was never set for this specific failure mode, since it used
+    // to require window.EB_Firebase to already exist before even reaching
+    // the signInAnonymously().catch() that sets it.
+    if(comp&&comp.setState)comp.setState({authInitError:true});
+    return;
+  }
   db=window.EB_Firebase.db;component=comp;
   if(_usersUnsub){return;} // already listening, just update component reference
   window.EB_Firebase.auth.signInAnonymously()

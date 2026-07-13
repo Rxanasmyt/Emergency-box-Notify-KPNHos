@@ -2192,14 +2192,23 @@ class Component extends DCLogic {
   }
   async verifyPubPin() {
     if (this.state.pubPinLocked) return;
+    // synchronous re-entrancy guard, checked before the first await — same
+    // reasoning as doLogin()'s _loggingIn: a double-click/double-tap on
+    // "ยืนยัน" while getDeptPins()/hashPw() are still resolving would
+    // otherwise pass the pubPinLocked check twice, and both calls would
+    // independently call _failPubPin() on a mismatch — silently double-
+    // counting a SINGLE wrong PIN entry as 2 of the 5 allowed attempts.
+    if (this._verifyingPubPin) return;
+    this._verifyingPubPin = true;
     const box = this.BOXES.find(b => b.id === this.state.publicBoxId);
     const dept = box ? box.dept : '';
-    if (!dept) { this.setState({ pubPinError: 'ไม่พบหน่วยงานของกล่องนี้' }); return; }
-    if (!window.EB_Sync) { this.setState({ pubPinError: 'ระบบยังไม่พร้อม กรุณาลองใหม่' }); return; }
+    if (!dept) { this._verifyingPubPin = false; this.setState({ pubPinError: 'ไม่พบหน่วยงานของกล่องนี้' }); return; }
+    if (!window.EB_Sync) { this._verifyingPubPin = false; this.setState({ pubPinError: 'ระบบยังไม่พร้อม กรุณาลองใหม่' }); return; }
     const pins = await window.EB_Sync.getDeptPins();
     const deptPin = pins[dept];
-    if (!deptPin || !deptPin.hash) { this.setState({ pubPinError: `หน่วยงาน ${dept} ยังไม่ได้ตั้งรหัส PIN — ติดต่อฝ่ายเภสัชกรรม` }); return; }
+    if (!deptPin || !deptPin.hash) { this._verifyingPubPin = false; this.setState({ pubPinError: `หน่วยงาน ${dept} ยังไม่ได้ตั้งรหัส PIN — ติดต่อฝ่ายเภสัชกรรม` }); return; }
     const inputHash = await this.hashPw(this.state.pubPinInput.trim());
+    this._verifyingPubPin = false;
     if (inputHash !== deptPin.hash) { this._failPubPin(dept); return; }
     try { sessionStorage.removeItem(this._pubPinLockKey(dept)); sessionStorage.removeItem(this._pubPinAttemptsKey(dept)); } catch (_) {}
     this.setState({ pubPinVerified: true, pubPinError: '', pubPinAttempts: 0 });
