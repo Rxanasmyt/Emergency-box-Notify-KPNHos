@@ -8,15 +8,32 @@ on:
         required: true
         default: ''
 
+# Serializes concurrent manual runs instead of letting them race against each
+# other (two admins triggering this close together, or a double-click) —
+# queues the second run rather than cancelling it, since this workflow
+# performs a destructive, non-idempotent-to-interrupt cleanup.
+concurrency:
+  group: reset-firestore
+  cancel-in-progress: false
+
 jobs:
   reset:
     name: Clear Firestore Test Data
     runs-on: ubuntu-latest
 
     steps:
+      # CONFIRM is passed via env, never spliced directly into the script
+      # text — interpolating ${{ github.event.inputs.confirm }} straight into
+      # the `run:` block (the previous form) is a classic GitHub Actions
+      # script-injection pattern: a crafted input value like
+      # `x" ]; then :; fi; curl ...; if [ "x` can break out of the `[ ]` test
+      # and run arbitrary shell in this job, which later receives
+      # FIREBASE_SERVICE_ACCOUNT as an env var.
       - name: Verify confirmation (must be exactly "YES")
+        env:
+          CONFIRM: ${{ github.event.inputs.confirm }}
         run: |
-          if [ "${{ github.event.inputs.confirm }}" != "YES" ]; then
+          if [ "$CONFIRM" != "YES" ]; then
             echo "❌ ยืนยันไม่ถูกต้อง — ต้องพิมพ์ YES (ตัวพิมพ์ใหญ่เท่านั้น) จึงจะลบข้อมูลได้"
             exit 1
           fi

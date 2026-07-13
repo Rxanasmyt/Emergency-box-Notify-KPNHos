@@ -7,6 +7,19 @@ on:
       - main
       - master
 
+# All three trigger branches deploy to the SAME Firebase Hosting live channel
+# and the same Firestore rules target — without this, two pushes landing on
+# different branches close together (e.g. a merge fast-forwarding main right
+# after a direct push to the dev branch) could run two deploy jobs
+# concurrently with no ordering guarantee, letting the OLDER commit's deploy
+# finish last and silently overwrite the newer commit's hosting/rules
+# deploy with stale content. Queue instead of racing; do not cancel an
+# in-progress deploy mid-way (a half-applied Firestore rules deploy is worse
+# than a delayed one).
+concurrency:
+  group: firebase-deploy
+  cancel-in-progress: false
+
 jobs:
   deploy:
     name: Firebase Hosting + Firestore Rules Deploy

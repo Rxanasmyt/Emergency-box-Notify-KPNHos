@@ -2589,16 +2589,32 @@ class Component extends DCLogic {
   runConfirm() { const c = this.state.confirm; this.setState({ confirm: null }); if (c && c.onYes) c.onYes(); }
 
   // ---------- edit box drugs (qty + expiry) ----------
+  // Always seed from the live this.BOX_DRUGS (synced Firestore ground truth),
+  // never this.state.boxDrugs — while editDrugs is true, listenBoxDrugs()
+  // deliberately stops pushing fresh snapshots into state.boxDrugs so it
+  // doesn't clobber an in-progress edit, but this.BOX_DRUGS itself keeps
+  // updating live. If startEditDrugs() ever preferred state.boxDrugs, a
+  // cancel-then-reedit cycle would seed the NEW edit's backup from the OLD
+  // edit's stale pre-cancel snapshot instead of current data — and because
+  // that stale snapshot would then permanently disagree with whatever
+  // real concurrent write happened while the first edit was open,
+  // saveEditDrugs()'s concurrent-change guard would keep refusing to save
+  // forever, even though "cancel then edit again" is the guard's own
+  // suggested recovery step.
   startEditDrugs() {
-    const src = this.state.boxDrugs || this.BOX_DRUGS || {};
+    const src = this.BOX_DRUGS || {};
     this._bdBackup = JSON.parse(JSON.stringify(src));
     this.setState({ editDrugs: true, boxDrugs: JSON.parse(JSON.stringify(src)) });
   }
   cancelEditDrugs() {
-    const backup = this._bdBackup;
     this._bdBackup = null;
-    // null forces UI to read from BOX_DRUGS (Firestore source) — avoids showing dirty edited state
-    this.setState({ editDrugs: false, boxDrugs: backup || null });
+    // always null, never the just-discarded backup — forces every screen
+    // (dashboard, Detail, dispense/return previews) back onto the live
+    // this.BOX_DRUGS immediately, instead of freezing the WHOLE app's drug
+    // data (not just the box being edited) at whatever it looked like the
+    // moment editing started, until an unrelated screen navigation or
+    // box_drugs write happened to refresh it.
+    this.setState({ editDrugs: false, boxDrugs: null });
   }
   async saveEditDrugs() {
     if (this._savingDrugs) return; // prevent double-save race
@@ -4201,13 +4217,19 @@ td.l{text-align:left;padding-left:4px}
       startY: y,
       margin: { left: ML, right: 297 - MR },
       tableWidth: CW,
-      // cellPadding bumped from 1.3 -> 1.7: the printed label previously left
-      // a large unused blank area below the fixed-position content that
-      // follows the table (reported directly from a printed label) — a
-      // slightly taller, easier-to-read table (not more rows/content) fills
-      // that space proportionally to how many drugs the box actually has,
-      // rather than bolting on extra unrelated rows at the bottom.
-      styles: { font: 'Sarabun', fontSize: 9.5, cellPadding: 1.7, lineColor: [50, 50, 50], lineWidth: 0.2, valign: 'middle' },
+      // cellPadding bumped from 1.3 -> 1.6 (was briefly 1.7, trimmed back
+      // slightly): the printed label previously left a large unused blank
+      // area below the fixed-position content that follows the table
+      // (reported directly from a printed label) — a slightly taller,
+      // easier-to-read table (not more rows/content) fills that space
+      // proportionally to how many drugs the box actually has. This app's
+      // box always has exactly this.DRUGS.length (10) drug rows — never
+      // user-addable — so there's a comfortable page-height margin at that
+      // count; 1.6 (not 1.7) keeps a bit more headroom in case this.DRUGS
+      // ever grows, since the widened post-table spacing below already
+      // narrows the margin for a taller table. See CLAUDE.md for the
+      // measured numbers if DRUGS.length ever changes.
+      styles: { font: 'Sarabun', fontSize: 9.5, cellPadding: 1.6, lineColor: [50, 50, 50], lineWidth: 0.2, valign: 'middle' },
       // header stays the same gray design, just darker (170 vs the old 221)
       // so it still reads as the darkest element once the near-expiry row
       // below gets its own (lighter) highlight color — the header must not

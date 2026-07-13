@@ -3,6 +3,15 @@ name: Test Lifecycle (safe, temp box)
 on:
   workflow_dispatch:
 
+# Two concurrent runs would both operate on the exact same fixed doc IDs
+# (boxes/TEST-1, box_drugs/TEST-1) — one run's resetTestBoxToOut() or its
+# cleanup step could delete/overwrite TEST-1 while another run is mid-
+# transaction, producing a spurious NOT_OUT failure or a false pass/fail
+# that doesn't reflect a real app bug. Queue instead of racing.
+concurrency:
+  group: test-lifecycle
+  cancel-in-progress: false
+
 jobs:
   test:
     name: Register/Dispense/Return smoke test against a throwaway TEST-1 box

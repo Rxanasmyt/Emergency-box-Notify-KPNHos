@@ -2,7 +2,20 @@
 
 const admin = require('firebase-admin');
 
+const EXPECTED_PROJECT_ID = 'emergencyboxnotyfykpnhos';
+
 const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+// Unlike test-lifecycle.js (which hardcodes + logs its target project id),
+// this script previously never verified or even printed which project it
+// was about to wipe — the workflow's "YES" confirmation gives the approving
+// human zero indication which project's data is actually being deleted if
+// the FIREBASE_SERVICE_ACCOUNT secret is ever rotated to point at a
+// different project (e.g. a copy-paste mistake during key rotation).
+console.log(`🎯 Target Firestore project: ${serviceAccount.project_id}`);
+if (serviceAccount.project_id !== EXPECTED_PROJECT_ID) {
+  console.error(`❌ Refusing to run — expected project "${EXPECTED_PROJECT_ID}" but FIREBASE_SERVICE_ACCOUNT points to "${serviceAccount.project_id}"`);
+  process.exit(1);
+}
 admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
 const db = admin.firestore();
 
