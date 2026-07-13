@@ -4274,12 +4274,20 @@ td.l{text-align:left;padding-left:4px}
       doc.line(x2start + 10, y + 0.8, x2end, y + 0.8);
     };
     wr('ชื่อผู้ป่วย', ML + CW * 0.62, 'HN', ML + CW * 0.66, MR);
-    y += 8;
-    wr('ยาที่ใช้', ML + CW * 0.62, 'จำนวน', ML + CW * 0.66, MR);
-    y += 8;
-    wr('ยาที่ใช้', ML + CW * 0.62, 'จำนวน', ML + CW * 0.66, MR);
-    y += 8;
-    wr('ยาที่ใช้', ML + CW * 0.62, 'จำนวน', ML + CW * 0.66, MR);
+    // "ยาที่ใช้/จำนวน" recording rows: fill however much vertical space is
+    // actually left down to the bottom margin instead of a hardcoded count
+    // of 3 — a box with few drugs/lots leaves a short table and a lot of
+    // unused blank page below a fixed 3-row block, wasting space a ward
+    // nurse could otherwise use to record more drug-usage lines by hand on
+    // the physical printout. Bounded so a very tall/many-lot table (which
+    // pushes the table itself further down) still gets at least 3 rows and
+    // never overflows the page.
+    const ROW_H = 8, BOTTOM_MARGIN = 198;
+    const rowCount = Math.max(3, Math.min(9, Math.floor((BOTTOM_MARGIN - y) / ROW_H)));
+    for (let i = 0; i < rowCount; i++) {
+      y += ROW_H;
+      wr('ยาที่ใช้', ML + CW * 0.62, 'จำนวน', ML + CW * 0.66, MR);
+    }
 
     return doc;
   }
