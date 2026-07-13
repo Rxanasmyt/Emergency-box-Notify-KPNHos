@@ -4180,7 +4180,7 @@ td.l{text-align:left;padding-left:4px}
     doc.setLineWidth(0.15);
     doc.line(ML + 8 + doc.getTextWidth(eb) + 2, y + 0.8, MR, y + 0.8);
 
-    y += 7;
+    y += 8;
     doc.setFont('Sarabun', 'bold'); doc.setFontSize(11);
     doc.text('หน่วยเบิก', ML, y);
     const dept1End = ML + CW * 0.45;
@@ -4192,17 +4192,22 @@ td.l{text-align:left;padding-left:4px}
     doc.text(mfgText, mfgX, y);
     doc.line(mfgX + doc.getTextWidth(mfgText) + 2, y + 0.8, MR, y + 0.8);
 
-    y += 7;
+    y += 8;
     doc.setFont('Sarabun', 'bold'); doc.setFontSize(11.5);
     doc.text('Emergency drugs list', ML + CW / 2, y, { align: 'center' });
 
-    y += 3;
+    y += 4;
     doc.autoTable({
       startY: y,
       margin: { left: ML, right: 297 - MR },
       tableWidth: CW,
-      theme: 'grid',
-      styles: { font: 'Sarabun', fontSize: 9.5, cellPadding: 1.3, lineColor: [50, 50, 50], lineWidth: 0.2, valign: 'middle' },
+      // cellPadding bumped from 1.3 -> 1.7: the printed label previously left
+      // a large unused blank area below the fixed-position content that
+      // follows the table (reported directly from a printed label) — a
+      // slightly taller, easier-to-read table (not more rows/content) fills
+      // that space proportionally to how many drugs the box actually has,
+      // rather than bolting on extra unrelated rows at the bottom.
+      styles: { font: 'Sarabun', fontSize: 9.5, cellPadding: 1.7, lineColor: [50, 50, 50], lineWidth: 0.2, valign: 'middle' },
       headStyles: { fillColor: [221, 221, 221], textColor: 0, fontStyle: 'bold', fontSize: 9.5, halign: 'center' },
       head: [['ลำดับ', 'ยา', 'ความแรง', 'ประเภท', 'จำนวน', 'EXP.date']],
       body: drugs.map((d, i) => {
@@ -4222,7 +4227,13 @@ td.l{text-align:left;padding-left:4px}
       },
     });
 
-    y = doc.lastAutoTable.finalY + 5;
+    // Post-table spacing below is intentionally more generous than the
+    // original tight values (5/7/5.5/8/6/3/7/8 mm) — the printed label used
+    // to leave a large unused blank area at the bottom (reported directly
+    // from a printed label), so every gap here is widened proportionally to
+    // spread the SAME fixed content down the page nicely, rather than
+    // bolting on extra rows/content that weren't asked for.
+    y = doc.lastAutoTable.finalY + 6.5;
     doc.setFont('Sarabun', 'bold'); doc.setFontSize(12);
     doc.text('ยาที่ Exp เร็วที่สุด', ML, y);
     doc.setFont('Sarabun', 'normal');
@@ -4230,10 +4241,10 @@ td.l{text-align:left;padding-left:4px}
     doc.text(nearText, ML + nearLabelW + 3, y);
     doc.line(ML + nearLabelW + 3, y + 0.8, MR, y + 0.8);
 
-    y += 7;
+    y += 8.5;
     doc.setFont('Sarabun', 'bold'); doc.setFontSize(13);
     doc.text('ส่งคืนห้องยาก่อน exp 15 วัน', MR, y, { align: 'right' });
-    y += 5.5;
+    y += 7;
     // measure retDateText's width at the font size it's ACTUALLY drawn at
     // (14pt) before positioning the label next to it — measuring at the
     // label's own size (12pt) understates the gap needed and the two
@@ -4249,23 +4260,23 @@ td.l{text-align:left;padding-left:4px}
     doc.line(MR - retDateW, y + 0.8, MR, y + 0.8);
     doc.setTextColor(0, 0, 0);
 
-    y += 8;
+    y += 9.5;
     doc.setFont('Sarabun', 'bold'); doc.setFontSize(10.5);
     doc.text('ผู้จัด', ML, y);
     doc.setFont('Sarabun', 'normal');
     doc.text(preparer, ML + 10, y);
     doc.line(ML + 10, y + 0.8, MR, y + 0.8);
 
-    y += 6;
+    y += 7.5;
     doc.setFont('Sarabun', 'bold');
     doc.text('ผู้ตรวจสอบ', ML, y);
     doc.line(ML + 16, y + 0.8, MR, y + 0.8);
 
-    y += 3;
+    y += 4;
     doc.setLineWidth(0.4);
     doc.line(ML, y, MR, y);
 
-    y += 7;
+    y += 8.5;
     doc.setFont('Sarabun', 'normal'); doc.setFontSize(10.5);
     const wr = (label1, x1end, label2, x2start, x2end) => {
       doc.text(label1, ML, y);
@@ -4274,20 +4285,12 @@ td.l{text-align:left;padding-left:4px}
       doc.line(x2start + 10, y + 0.8, x2end, y + 0.8);
     };
     wr('ชื่อผู้ป่วย', ML + CW * 0.62, 'HN', ML + CW * 0.66, MR);
-    // "ยาที่ใช้/จำนวน" recording rows: fill however much vertical space is
-    // actually left down to the bottom margin instead of a hardcoded count
-    // of 3 — a box with few drugs/lots leaves a short table and a lot of
-    // unused blank page below a fixed 3-row block, wasting space a ward
-    // nurse could otherwise use to record more drug-usage lines by hand on
-    // the physical printout. Bounded so a very tall/many-lot table (which
-    // pushes the table itself further down) still gets at least 3 rows and
-    // never overflows the page.
-    const ROW_H = 8, BOTTOM_MARGIN = 198;
-    const rowCount = Math.max(3, Math.min(9, Math.floor((BOTTOM_MARGIN - y) / ROW_H)));
-    for (let i = 0; i < rowCount; i++) {
-      y += ROW_H;
-      wr('ยาที่ใช้', ML + CW * 0.62, 'จำนวน', ML + CW * 0.66, MR);
-    }
+    y += 9.5;
+    wr('ยาที่ใช้', ML + CW * 0.62, 'จำนวน', ML + CW * 0.66, MR);
+    y += 9.5;
+    wr('ยาที่ใช้', ML + CW * 0.62, 'จำนวน', ML + CW * 0.66, MR);
+    y += 9.5;
+    wr('ยาที่ใช้', ML + CW * 0.62, 'จำนวน', ML + CW * 0.66, MR);
 
     return doc;
   }
