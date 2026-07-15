@@ -363,7 +363,13 @@
     onmouseleave: "onMouseLeave",
     onfocus: "onFocus",
     onblur: "onBlur",
-    ondoubleclick: "onDoubleClick",
+    // the real, browser-parsed HTML attribute for a double-click handler is
+    // "ondblclick" — "ondoubleclick" is not a real HTML event and can never
+    // occur as a parsed attribute name, so it was a dead map entry; an author
+    // writing the actual valid attribute fell through to the generic
+    // capitalize-key[2] fallback (-> "onDblclick", not a recognized React
+    // synthetic event prop) and silently got no listener at all.
+    ondblclick: "onDoubleClick",
     oncontextmenu: "onContextMenu"
   };
   var ATTRS = `(?:[^>"']|"[^"]*"|'[^']*')*`;

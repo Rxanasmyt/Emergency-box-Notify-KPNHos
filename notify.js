@@ -122,7 +122,12 @@
     const notice = alerts.filter(a => a.status === 'notice');
 
     let msg = '🏥 แจ้งเตือนยาใกล้หมดอายุ - Emergency Box\n';
-    msg += `📅 วันที่: ${new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })}\n`;
+    // todayBangkok() (already Bangkok-anchored, same as the daysLeft math
+    // this message's own alerts were computed from a few lines above) — a
+    // raw new Date() here could print a date a full calendar day off from
+    // the day-count in the very alerts being reported, on a device whose
+    // clock isn't set to Bangkok time.
+    msg += `📅 วันที่: ${new Date(todayBangkok() + 'T00:00:00').toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })}\n`;
     msg += `📊 พบยาที่ต้องดำเนินการ ${alerts.length} รายการ\n\n`;
 
     if (expired.length) {

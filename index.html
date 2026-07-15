@@ -867,7 +867,7 @@ input:focus, select:focus, textarea:focus {
             <div class="kpi-num" style="font-family: 'IBM Plex Mono', monospace; font-size: 34px; font-weight: 600; margin-top: 10px; letter-spacing: -1px; animation: countUp .4s ease .1s both;">{{ kpiTotal }}</div>
             <div style="font-size: 12px; color: #9AAAB8; margin-top: 2px;">EB-1 ถึง EB-{{ kpiTotal }}</div>
           </div>
-          <div class="kpi-card-teal" onClick="{{ goDetail }}" style="animation: fadeUp .5s cubic-bezier(.34,1.56,.64,1) .09s both; background: #fff; border: 1px solid #E7EEF3; border-radius: 16px; padding: 18px 20px; transition: transform .28s cubic-bezier(.34,1.56,.64,1), box-shadow .28s cubic-bezier(.4,0,.2,1); cursor: pointer;" style-hover="transform: translateY(-3px); box-shadow: 0 12px 32px rgba(13,185,160,.28);">
+          <div class="kpi-card-teal" onClick="{{ goDetail }}" onKeyDown="{{ goDetailOnKey }}" tabindex="0" role="button" style="animation: fadeUp .5s cubic-bezier(.34,1.56,.64,1) .09s both; background: #fff; border: 1px solid #E7EEF3; border-radius: 16px; padding: 18px 20px; transition: transform .28s cubic-bezier(.34,1.56,.64,1), box-shadow .28s cubic-bezier(.4,0,.2,1); cursor: pointer;" style-hover="transform: translateY(-3px); box-shadow: 0 12px 32px rgba(13,185,160,.28);">
             <div style="display: flex; align-items: center; justify-content: space-between;">
               <span style="font-size: 13px; color: #7B8D9C; font-weight: 500;">ถูกเบิกออก (ใช้งาน) →</span>
               <span style="width: 34px; height: 34px; border-radius: 10px; background: #E4F4EF; color: #169C7F; display: flex; align-items: center; justify-content: center;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M3 13l4 4L21 5" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
@@ -875,7 +875,7 @@ input:focus, select:focus, textarea:focus {
             <div class="kpi-num" style="font-family: 'IBM Plex Mono', monospace; font-size: 34px; font-weight: 600; margin-top: 10px; letter-spacing: -1px; animation: countUp .4s ease .2s both;">{{ kpiDispensed }}</div>
             <div style="font-size: 12px; color: #9AAAB8; margin-top: 2px;">{{ kpiDeptText }}</div>
           </div>
-          <div class="kpi-card-rose" onClick="{{ goEntryReturn }}" style="animation: fadeUp .5s cubic-bezier(.34,1.56,.64,1) .14s both; background: #fff; border: 1px solid #F4C9C9; border-radius: 16px; padding: 18px 20px; position: relative; overflow: hidden; transition: transform .28s cubic-bezier(.34,1.56,.64,1), box-shadow .28s cubic-bezier(.4,0,.2,1); cursor: pointer;" style-hover="transform: translateY(-3px); box-shadow: 0 12px 32px rgba(244,63,94,.32);">
+          <div class="kpi-card-rose" onClick="{{ goEntryReturn }}" onKeyDown="{{ goEntryReturnOnKey }}" tabindex="0" role="button" style="animation: fadeUp .5s cubic-bezier(.34,1.56,.64,1) .14s both; background: #fff; border: 1px solid #F4C9C9; border-radius: 16px; padding: 18px 20px; position: relative; overflow: hidden; transition: transform .28s cubic-bezier(.34,1.56,.64,1), box-shadow .28s cubic-bezier(.4,0,.2,1); cursor: pointer;" style-hover="transform: translateY(-3px); box-shadow: 0 12px 32px rgba(244,63,94,.32);">
             <div style="position: absolute; inset: 0; background: linear-gradient(180deg, rgba(255,255,255,.12), transparent 60%);"></div>
             <div style="display: flex; align-items: center; justify-content: space-between; position: relative;">
               <span style="font-size: 13px; color: #B42121; font-weight: 600;">ต้องส่งคืนด่วน →</span>
@@ -1046,7 +1046,7 @@ input:focus, select:focus, textarea:focus {
             </div>
             <div style="display: flex; flex-direction: column;">
               <sc-for list="{{ recentTx }}" as="tx" hint-placeholder-count="5">
-                <div onClick="{{ tx.goDetail }}" style="display: flex; align-items: center; gap: 13px; padding: 11px 6px; border-bottom: 1px solid #F0F4F7; border-radius: 10px; transition: background .18s, transform .22s cubic-bezier(.34,1.56,.64,1); cursor: {{ tx.hasDetail ? 'pointer' : 'default' }};" style-hover="background: #F0F7FF; transform: translateX(3px);">
+                <div onClick="{{ tx.goDetail }}" onKeyDown="{{ tx.goDetailOnKey }}" tabindex="{{ tx.hasDetail ? '0' : '-1' }}" role="button" style="display: flex; align-items: center; gap: 13px; padding: 11px 6px; border-bottom: 1px solid #F0F4F7; border-radius: 10px; transition: background .18s, transform .22s cubic-bezier(.34,1.56,.64,1); cursor: {{ tx.hasDetail ? 'pointer' : 'default' }};" style-hover="background: #F0F7FF; transform: translateX(3px);">
                   <span style="width: 32px; height: 32px; flex-shrink: 0; border-radius: 9px; background: {{ tx.soft }}; color: {{ tx.color }}; display: flex; align-items: center; justify-content: center;">{{ tx.icon }}</span>
                   <div style="min-width: 0; flex: 1;">
                     <div style="font-size: 13px; font-weight: 600;"><span style="font-family: 'IBM Plex Mono', monospace;">{{ tx.eb }}</span> · {{ tx.action }} <span style="color: #9AAAB8; font-weight: 500;">→ {{ tx.dept }}</span></div>
@@ -1154,7 +1154,7 @@ input:focus, select:focus, textarea:focus {
               <div style="margin-top: 16px; padding: 14px 16px; border: 1.5px dashed #F0B8B8; border-radius: 12px; background: #FFF8F8; animation: fadeUp .35s cubic-bezier(.34,1.56,.64,1) both;">
                 <label style="display: block; font-size: 12px; font-weight: 600; color: #B42121; margin-bottom: 7px;">พบข้อผิดพลาดในข้อมูลที่จพ.จัดเตรียม? ตีกลับให้แก้ไขใหม่ (ระบุเหตุผลได้ ไม่บังคับ)</label>
                 <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                  <input type="text" value="{{ regRejectReason }}" onInput="{{ setRegRejectReason }}" placeholder="เช่น จำนวนยาไม่ตรง / วันหมดอายุผิด" style="flex: 1; min-width: 220px; height: 42px; border: 1.5px solid #F0C2C2; border-radius: 10px; padding: 0 12px; font-size: 13px; color: #15242E; transition: border-color .2s;">
+                  <input type="text" value="{{ regRejectReason }}" onInput="{{ setRegRejectReason }}" onKeyDown="{{ rejectReasonOnEnter }}" placeholder="เช่น จำนวนยาไม่ตรง / วันหมดอายุผิด" style="flex: 1; min-width: 220px; height: 42px; border: 1.5px solid #F0C2C2; border-radius: 10px; padding: 0 12px; font-size: 13px; color: #15242E; transition: border-color .2s;">
                   <button onClick="{{ doRejectReg }}" style="height: 42px; padding: 0 18px; border: 1.5px solid #E03E3E; background: #fff; color: #E03E3E; border-radius: 10px; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; transition: all .22s cubic-bezier(.34,1.56,.64,1);" style-hover="background: #E03E3E; color: #fff; transform: translateY(-1px); box-shadow: 0 6px 16px rgba(224,62,62,.35);" style-active="transform: scale(.96);">ตีกลับให้แก้ไข</button>
                 </div>
               </div>
@@ -1244,7 +1244,7 @@ input:focus, select:focus, textarea:focus {
                   </div>
                   <div>
                     <label style="display: block; font-size: 12px; font-weight: 600; color: #4A5C6A; margin-bottom: 7px;">ลงชื่อผู้รับคืน <span style="color:#E03E3E;">*</span></label>
-                    <input type="text" value="{{ swapReceiver }}" onInput="{{ setSwapReceiver }}" placeholder="ผู้รับคืน" list="eb-persons" style="width: 100%; height: 44px; border: 1.5px solid #DBE4EB; border-radius: 10px; padding: 0 12px; font-size: 13.5px; color: #15242E;">
+                    <input type="text" value="{{ swapReceiver }}" onInput="{{ setSwapReceiver }}" onKeyDown="{{ submitOnEnter }}" placeholder="ผู้รับคืน" list="eb-persons" style="width: 100%; height: 44px; border: 1.5px solid #DBE4EB; border-radius: 10px; padding: 0 12px; font-size: 13.5px; color: #15242E;">
                   </div>
                 </div>
                 {{ swapRetDrugUsageEl }}
@@ -1594,7 +1594,7 @@ input:focus, select:focus, textarea:focus {
                       {{ r.dateHeaderText }}
                     </div>
                   </sc-if>
-                  <div class="drug-row" onClick="{{ r.goDetail }}" style="display: grid; grid-template-columns: 44px 148px 108px 68px minmax(110px,1fr) minmax(140px,1fr) minmax(160px,1fr); gap: 0; min-width: 860px; align-items: center; padding: 11px 18px; border-bottom: 1px solid #F4F7F9; font-size: 12.5px; background: {{ r.rowBg }}; cursor: {{ r.hasDetail ? 'pointer' : 'default' }};">
+                  <div class="drug-row" onClick="{{ r.goDetail }}" onKeyDown="{{ r.goDetailOnKey }}" tabindex="{{ r.hasDetail ? '0' : '-1' }}" role="button" style="display: grid; grid-template-columns: 44px 148px 108px 68px minmax(110px,1fr) minmax(140px,1fr) minmax(160px,1fr); gap: 0; min-width: 860px; align-items: center; padding: 11px 18px; border-bottom: 1px solid #F4F7F9; font-size: 12.5px; background: {{ r.rowBg }}; cursor: {{ r.hasDetail ? 'pointer' : 'default' }};">
                     <span style="font-size: 10px; color: #B0BCCA; font-family: 'IBM Plex Mono', monospace; text-align: center;">{{ r.seq }}</span>
                     <span style="color: #4A5C6A; font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; white-space: nowrap;">{{ r.dateTime }}</span>
                     <span><span style="display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700; color: {{ r.color }}; background: {{ r.soft }}; border-radius: 20px; padding: 3px 10px; white-space: nowrap;">{{ r.icon }} {{ r.action }}</span></span>
@@ -2613,7 +2613,14 @@ class Component extends DCLogic {
   staySignedIn() { clearInterval(this._idleCountI); this.setState({ idleWarn: false, idleCountdown: 60 }); this.bumpIdle(); }
 
   // ---------- audit log ----------
-  nowTime() { const d = new Date(); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
+  // anchored to Asia/Bangkok, same trick as get TODAY() — every call site
+  // pairs this with isoOf(this.TODAY) (also Bangkok-anchored) into one
+  // audit_log/usage_log/lastLogin timestamp; a raw new Date() here silently
+  // disagreed by exactly the device's UTC offset whenever the workstation's
+  // clock wasn't set to Bangkok time, producing a self-contradictory
+  // date+time pair (e.g. a time that hasn't happened yet relative to the
+  // recorded date).
+  nowTime() { const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Bangkok' })); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
   // Downloads text as an Excel-friendly file. UTF-8 + BOM is the "correct"
   // web-standard encoding, but Excel — especially on Thai-locale Windows —
   // unreliably honors the BOM and renders Thai text as mojibake anyway.
@@ -3236,7 +3243,16 @@ class Component extends DCLogic {
     // next login can authenticate against all users in Firestore without re-signing-in
   }
   fillDemo(username) {
-    this.setState({ loginUser: username, loginPass: '1234', loginError: '' });
+    // resync per-username lockout state, same as setLoginUser() does on
+    // every manual keystroke — without this, clicking a demo quick-fill
+    // button left state.locked/attempts/lockCountdown exactly as they were
+    // for whatever username was previously in the field, which could either
+    // falsely lock out a never-tried account (if the previous username was
+    // locked) or silently bypass a REAL active lockout on this account (if
+    // the previous username wasn't locked) since doLogin() only checks the
+    // in-memory `locked` flag, never sessionStorage directly.
+    const lockState = this._loadLockStateFor(username.trim().toLowerCase());
+    this.setState({ loginUser: username, loginPass: '1234', loginError: '', ...lockState });
   }
   capsCheck(e) {
     try { this.setState({ capsOn: e.getModifierState && e.getModifierState('CapsLock') }); } catch (_) {}
@@ -4489,6 +4505,12 @@ td.l{text-align:left;padding-left:4px}
     const screen = st.screen;
     const h = React.createElement;
     const ic = (svg, sz) => h('span', { style: { display: 'flex', alignItems: 'center', width: sz || 19, height: sz || 19, flexShrink: 0 }, dangerouslySetInnerHTML: { __html: svg } });
+    // Several clickable dashboard/history rows are plain <div onClick> with
+    // no keyboard equivalent — a screen-reader/keyboard-only user could never
+    // reach them (Tab skips right over a <div>, and Enter/Space don't fire a
+    // native click on one). Pair with tabIndex="0" role="button" in the
+    // template wherever this is used.
+    const onKeyActivate = (fn) => fn ? ((e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn(); } }) : null;
     const ICONS = {
       dashboard: '<svg width="19" height="19" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7" rx="2" stroke="currentColor" stroke-width="1.9"/><rect x="14" y="3" width="7" height="7" rx="2" stroke="currentColor" stroke-width="1.9"/><rect x="3" y="14" width="7" height="7" rx="2" stroke="currentColor" stroke-width="1.9"/><rect x="14" y="14" width="7" height="7" rx="2" stroke="currentColor" stroke-width="1.9"/></svg>',
       entry: '<svg width="19" height="19" viewBox="0 0 24 24" fill="none"><path d="M16.5 3.5l4 4L8 20l-4.5 1L4.5 16.5 16.5 3.5z" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></svg>',
@@ -4547,6 +4569,8 @@ td.l{text-align:left;padding-left:4px}
       publicView: st.publicView,
       printQRCodes: () => this.printQRCodes(),
     };
+    vals.goDetailOnKey = onKeyActivate(vals.goDetail);
+    vals.goEntryReturnOnKey = onKeyActivate(vals.goEntryReturn);
 
     // ===== LOGIN SCREEN =====
     vals.loginUser = st.loginUser;
@@ -4620,7 +4644,12 @@ td.l{text-align:left;padding-left:4px}
       );
     }));
 
-    { const _d = new Date(); const _m = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']; vals.todayStr = `${_d.getDate()} ${_m[_d.getMonth()]} ${_d.getFullYear()+543}`; }
+    // this.TODAY (not a raw new Date()) — Bangkok-anchored, same reasoning
+    // as nowTime()/get TODAY() above: a device whose clock isn't set to
+    // Bangkok time could show a login-screen date a full calendar day
+    // behind everything else in the app (dashboard, validation, audit log)
+    // that already uses this.TODAY.
+    { const _d = this.TODAY; const _m = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']; vals.todayStr = `${_d.getDate()} ${_m[_d.getMonth()]} ${_d.getFullYear()+543}`; }
     // ===== current user (sidebar) =====
     const cu = st.currentUser;
     const cuRole = (cu && this.ROLES[cu.role]) || this.ROLES.pharmacist;
@@ -5061,7 +5090,7 @@ td.l{text-align:left;padding-left:4px}
         goDetail: _hasBox ? () => this.setState({ screen: 'detail', selectedEB: t.eb }) : null,
         hasDetail: _hasBox,
       };
-    });
+    }).map(t => ({ ...t, goDetailOnKey: onKeyActivate(t.goDetail) }));
 
     const OVERDUE_DAYS = 30;
     const daysSince = (iso) => iso ? -this.daysBetween(this.parse(iso)) : 0;
@@ -5431,6 +5460,12 @@ td.l{text-align:left;padding-left:4px}
         );
     vals.regRejectReason = st.regRejectReason;
     vals.setRegRejectReason = (e) => this.setState({ regRejectReason: e.target.value });
+    // deliberately its own handler, NOT the shared submitOnEnter — this field
+    // sits in the Stage 2 verify view, where submitOnEnter's trySubmit()
+    // would VERIFY the box, the opposite of what typing a rejection reason
+    // and hitting Enter should do. doRejectReg() itself only opens a confirm
+    // dialog (doesn't reject immediately), so triggering it via Enter is safe.
+    vals.rejectReasonOnEnter = (e) => { if (e.key === 'Enter') vals.doRejectReg(); };
     vals.doRejectReg = () => {
       const _eb = st.regEB;
       const _reason = (st.regRejectReason || '').trim();
@@ -6469,7 +6504,7 @@ td.l{text-align:left;padding-left:4px}
         rowBg: r.cat==='dispense'?'rgba(26,111,163,.025)':r.cat==='return'?'rgba(22,156,127,.025)':r.cat==='user'?'rgba(180,33,33,.02)':'#fff',
         goDetail: _ebId ? () => { this.setState({ screen: 'detail', selectedEB: _ebId }); } : null,
         hasDetail: !!_ebId };
-    });
+    }).map(r => ({ ...r, goDetailOnKey: onKeyActivate(r.goDetail) }));
     vals.adminAuditCount = _adminFiltered.length;
     vals.adminExportCSV = async () => {
       if (!vals.canExportCSV) return; // defense in depth — button/section is already hidden for non-admin
