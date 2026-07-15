@@ -229,9 +229,16 @@
   }
   function parensWrapWhole(expr) {
     let depth = 0;
+    let quote = null;
     for (let i = 0; i < expr.length - 1; i++) {
-      if (expr[i] === "(") depth++;
-      else if (expr[i] === ")") {
+      const c = expr[i];
+      if (quote) {
+        if (c === quote && expr[i - 1] !== "\\") quote = null;
+        continue;
+      }
+      if (c === '"' || c === "'") { quote = c; continue; }
+      if (c === "(") depth++;
+      else if (c === ")") {
         depth--;
         if (depth === 0) return false;
       }
@@ -240,8 +247,14 @@
   }
   function findTopLevelEquality(expr) {
     let depth = 0;
+    let quote = null;
     for (let i = 0; i < expr.length; i++) {
       const c = expr[i];
+      if (quote) {
+        if (c === quote && expr[i - 1] !== "\\") quote = null;
+        continue;
+      }
+      if (c === '"' || c === "'") { quote = c; continue; }
       if (c === "[" || c === "(") depth++;
       else if (c === "]" || c === ")") depth--;
       else if (depth === 0 && (c === "=" || c === "!") && expr[i + 1] === "=") {
