@@ -165,7 +165,12 @@ function listenBoxes(){
     const boxes=[];snap.forEach(doc=>{boxes.push({id:doc.id,...doc.data()});});
     boxes.sort((a,b)=>{const n=(s)=>parseInt(s.replace(/\D/g,''),10)||0;return n(a.id)-n(b.id);});
     // always update BOXES even when empty — prevents stale data after deletion
-    component.BOXES=boxes;component.setState({});
+    // boxesSynced flips true here so the app can gate its very first
+    // post-login render behind a loading state instead of briefly showing
+    // this.BOXES's blank class-property default (see showInitialBoxesLoading
+    // in index.html's renderVals()), which looks identical to a freshly-
+    // reset set of boxes.
+    component.BOXES=boxes;component.setState({boxesSynced:true});
     if(typeof component._syncChipStates==='function')component._syncChipStates();
     // expiry alerts depend on box fields too (dept/dispense/receiver), not just
     // box_drugs — without this, a plain dispense/return/register write (which

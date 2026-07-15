@@ -807,6 +807,21 @@ input:focus, select:focus, textarea:focus {
     </div>
     </sc-if>
 
+    <!-- Right after login, this.BOXES still holds its blank class-property
+         default (mfg/expiry/dispense all '' for every EB) until listenBoxes()'s
+         first onSnapshot callback arrives — the Dashboard rendered against that
+         default for one or more frames looks identical to a freshly-reset set
+         of boxes (the same shape confirmResetBoxes() resets everything back
+         to), which read as "the app flashed the reset-boxes screen" on open.
+         Cover the screen with a plain loading state until the first real
+         snapshot lands, mirroring the public QR page's existing isLoaded gate. -->
+    <sc-if value="{{ showInitialBoxesLoading }}" hint-placeholder-val="{{ false }}">
+    <div style="position: fixed; inset: 0; z-index: 250; background: #F5F8FA; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;">
+      <div style="width: 40px; height: 40px; border: 3.5px solid #D1E3F0; border-top: 3.5px solid #1A6FA3; border-radius: 50%; animation: sweep .8s linear infinite;"></div>
+      <div style="font-size: 13.5px; color: #7B8D9C; font-weight: 500;">กำลังโหลดข้อมูลกล่อง...</div>
+    </div>
+    </sc-if>
+
     <!-- Scroll content -->
     <div class="page-content app-scroll-area">
 
@@ -1875,6 +1890,9 @@ class Component extends DCLogic {
     // auth
     authed: false,
     authInitError: false,
+    // flips true on listenBoxes()'s first onSnapshot callback — see
+    // showInitialBoxesLoading in renderVals() for why this exists
+    boxesSynced: false,
     // set by firebase-sync.js's _onListenerError when boxes/audit_log/
     // box_drugs/users onSnapshot hits a TERMINAL error (Firestore's SDK
     // already retries transient blips internally, so this only fires when a
@@ -3178,6 +3196,7 @@ class Component extends DCLogic {
     this._regTouched = false;
     this.setState({
       authed: false, currentUser: null, loginUser: '', loginPass: '', showPass: false, screen: 'dashboard',
+      boxesSynced: false,
       loginError: '', attempts: 0, locked: false, lockCountdown: 0,
       idleWarn: false,
       formMode: 'register',
@@ -4670,6 +4689,10 @@ td.l{text-align:left;padding-left:4px}
     vals.doLogout = () => this.askConfirm({ tone: 'plain', icon: 'logout', title: 'ออกจากระบบ?', body: 'คุณจะถูกนำกลับไปหน้าเข้าสู่ระบบ', yesLabel: 'ออกจากระบบ', noLabel: 'อยู่ต่อ', onYes: () => { this.logAction({ cat: 'auth', action: 'ออกระบบ', eb: '—', dept: '—', drug: 'ออกจากระบบโดยผู้ใช้' }); this.logout(); } });
     vals.hasSyncError = !!st._syncError;
     vals.reloadPage = () => window.location.reload();
+    // covers the brief window right after login where this.BOXES still holds
+    // its blank class-property default (looks identical to a freshly-reset
+    // set of boxes) until listenBoxes()'s first onSnapshot callback lands
+    vals.showInitialBoxesLoading = st.authed && !st.publicView && !st.boxesSynced && !st._syncError;
 
     // ===== Department PIN management (paperless usage logging) =====
     const DEPT_LABELS = { ER: 'ER · ห้องฉุกเฉิน', WARD: 'WARD · หอผู้ป่วย', LR: 'LR · ห้องคลอด' };
