@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Emergency Box Management & Alert System</title>
 <meta name="description" content="ระบบจัดการและแจ้งเตือน Emergency Box ฝ่ายเภสัชกรรม โรงพยาบาลกรงปินัง">
 <meta name="theme-color" content="#1A6FA3">
@@ -179,7 +179,14 @@ input[type="date"] { min-height: 46px; }
   z-index: 88;
   animation: fadeIn .2s ease both;
 }
-.sidebar-overlay.visible { display: block; }
+/* .visible only takes effect at mobile widths (see @media (max-width: 768px)
+   below) — this overlay exists solely to dismiss the mobile slide-in drawer.
+   Without this gating, leaving the drawer open (sidebarOpen:true) and then
+   resizing/rotating past the mobile breakpoint (e.g. a tablet rotated to
+   landscape, or a browser window un-snapped past 768px) left this
+   full-viewport, z-index:88 overlay stuck rendered on the desktop layout —
+   which has no drawer to dismiss — silently graying out and blocking clicks
+   on the entire app until the user happened to click it away. */
 
 /* ===== Mobile bottom nav ===== */
 .mobile-bottomnav {
@@ -277,6 +284,7 @@ input[type="date"] { min-height: 46px; }
 
 /* ===== Mobile (max 768px) ===== */
 @media (max-width: 768px) {
+  .sidebar-overlay.visible { display: block; }
   /* Sidebar becomes slide-in drawer */
   .sidebar {
     position: fixed !important;
@@ -1030,7 +1038,7 @@ input:focus, select:focus, textarea:focus {
       <div class="page-enter entry-sheet" style="max-width: 960px; margin: 0 auto; animation: fadeUp .45s ease both;">
 
         <!-- Flow stepper -->
-        <div style="display: flex; align-items: stretch; gap: 0; margin-bottom: 22px; background: #fff; border: 1px solid #E7EEF3; border-radius: 16px; padding: 8px; overflow-x: auto;">{{ modeToggleEl }}</div>
+        <div class="entry-stepper" style="display: flex; align-items: stretch; gap: 0; margin-bottom: 22px; background: #fff; border: 1px solid #E7EEF3; border-radius: 16px; padding: 8px; overflow-x: auto;">{{ modeToggleEl }}</div>
 
         <div style="background: #fff; border: 1px solid #E7EEF3; border-radius: 20px; padding: 26px 28px; box-shadow: 0 2px 8px rgba(20,40,55,.04), 0 0 0 1px rgba(226,233,240,.5); transition: box-shadow .3s cubic-bezier(.4,0,.2,1);">
           <div style="display: flex; align-items: center; gap: 11px; margin-bottom: 22px; padding-bottom: 18px; border-bottom: 1px solid #EFF3F6;">
@@ -1661,7 +1669,7 @@ input:focus, select:focus, textarea:focus {
             </div>
             <span style="margin-left: auto; background: #1B5E20; color: #A5D6A7; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; white-space: nowrap;">● เปิดใช้งาน</span>
           </div>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;">
+          <div class="notify-email-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;">
             <div style="background: rgba(255,255,255,.08); border-radius: 12px; padding: 12px 14px;">
               <div style="font-size: 11px; color: #90CAF9; margin-bottom: 4px;">⏰ กำหนดการส่ง</div>
               <div style="font-size: 13.5px; font-weight: 700;">ทุกวัน 09:00 น.</div>

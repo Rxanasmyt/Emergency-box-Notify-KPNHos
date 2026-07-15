@@ -223,7 +223,12 @@
     if (expr === "undefined") return void 0;
     if (NUMBER_RE.test(expr)) return Number(expr);
     if (expr.length >= 2 && (expr[0] === '"' || expr[0] === "'") && expr[expr.length - 1] === expr[0]) {
-      return expr.slice(1, -1);
+      // unescape \" / \' — the quote-tracking scanners above (parensWrapWhole/
+      // findTopLevelEquality/findTopLevelTernary) all already treat \" as a
+      // non-terminating escaped quote, implying a literal quote character was
+      // meant; extracting the literal without unescaping left the backslash
+      // in the rendered output instead of the intended embedded quote.
+      return expr.slice(1, -1).replace(/\\(["'])/g, "$1");
     }
     return resolvePath(vals, expr);
   }
@@ -298,9 +303,20 @@
       } else if (expr[i] === "[") {
         let depth = 1;
         let j = i + 1;
+        let quote = null;
+        // quote-aware, mirroring parensWrapWhole/findTopLevelEquality/
+        // findTopLevelTernary — a `]`/`[` inside a quoted computed-member key
+        // (e.g. `obj["a]b"]`) must not be counted as a real bracket.
         while (j < expr.length && depth > 0) {
-          if (expr[j] === "[") depth++;
-          else if (expr[j] === "]") {
+          const c = expr[j];
+          if (quote) {
+            if (c === quote && expr[j - 1] !== "\\") quote = null;
+            j++;
+            continue;
+          }
+          if (c === '"' || c === "'") { quote = c; j++; continue; }
+          if (c === "[") depth++;
+          else if (c === "]") {
             depth--;
             if (depth === 0) break;
           }
@@ -355,7 +371,14 @@
     "<(x-import|dc-import)(" + ATTRS + ")/>",
     "gi"
   );
-  var CAMEL_ATTR_RE = /(\s)([a-z]+[A-Z][A-Za-z0-9]*)(\s*=)/g;
+  // (?!=) after the `=` stops this from matching the first `=` of a `==`/`===`
+  // comparison inside a {{ }} expression (e.g. `{{ auditCount === 0 }}`) — a
+  // real HTML attribute's `=` is never immediately followed by another `=`,
+  // so this doesn't affect genuine camelCase attribute rewriting. Without
+  // it, `auditCount === 0` got corrupted into `sc-camel-audit-count === 0`
+  // (a name resolvePath can never match), silently breaking any {{ }}
+  // binding that happens to compare a camelCase identifier with ==/===.
+  var CAMEL_ATTR_RE = /(\s)([a-z]+[A-Z][A-Za-z0-9]*)(\s*=(?!=))/g;
   function encodeCase(html) {
     html = html.replace(
       IMPORT_SELF_CLOSE_RE,
