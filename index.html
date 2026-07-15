@@ -2884,7 +2884,18 @@ class Component extends DCLogic {
     // regBackToLanding's "unsaved changes" confirm doesn't false-positive on
     // the very next navigation even though nothing is actually unsaved anymore
     this._regTouched = false;
-    this.setState({ regRejectReason: '', regChecker: '' });
+    // return to the landing overview, same as every other "I'm done with
+    // this box" completion path (Stage 1 submit / Stage 2 verify both go
+    // through resetForm(), which sets regLanding:true "so finishing one box
+    // returns to the overview instead of auto-jumping into some other box").
+    // Without this, the box's stage flips 'prepared' -> 'none' as a direct
+    // result of this write, and since regShowForm/regShowLanding are driven
+    // purely by state.regLanding (untouched here), the still-open form
+    // screen silently re-renders as an EDITABLE Stage 1 form for the exact
+    // box the pharmacist just rejected — showing them their own just-typed
+    // rejection reason back as a "รอ จพ. แก้ไข" banner on a form that's now
+    // nominally theirs to fill in, instead of moving on to the next pending box.
+    this.setState({ regRejectReason: '', regChecker: '', regLanding: true });
     this.flash(`ตีกลับกล่อง ${boxId} ให้จพ.แก้ไขใหม่แล้ว`);
     this.logAction({ cat: 'register', action: 'ตีกลับให้แก้ไข', eb: boxId, dept: '—', drug: reason ? `เหตุผล: ${reason}` : 'เภสัชกร/แอดมินตีกลับให้จพ.แก้ไขใหม่' });
     this.logBoxHist(boxId, `เภสัชกร/แอดมินตีกลับให้จพ.แก้ไข${reason ? ' — ' + reason : ''}`);
