@@ -2,6 +2,19 @@
 <html>
 <head>
 <meta charset="utf-8">
+<!-- support.js's own hideRawTemplate() applies this same `x-dc{display:none}`
+     rule, but it can't run until support.js's turn in the deferred script
+     queue arrives — which waits for React/ReactDOM/all 3 Firebase-compat
+     scripts to finish downloading AND executing first (deferred scripts run
+     in strict document order). The browser parses and paints the raw <x-dc>
+     markup below (every screen's real HTML, unprocessed {{ }} bindings,
+     admin-only buttons like "รีเซ็ตทั้งหมด") well before that — an unknown
+     custom element has no default hiding, so on a slow/first (uncached)
+     load this raw, unfiltered template flashed on screen before the login
+     screen or any JS-driven view ever took over. This inline rule takes
+     effect at the very first paint, no JS required, closing that window
+     entirely; support.js's own later call is now just a harmless duplicate. -->
+<style>x-dc{display:none}</style>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Emergency Box Management & Alert System</title>
 <meta name="description" content="ระบบจัดการและแจ้งเตือน Emergency Box ฝ่ายเภสัชกรรม โรงพยาบาลกรงปินัง">
