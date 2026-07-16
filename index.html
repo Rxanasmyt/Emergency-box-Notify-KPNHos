@@ -1841,7 +1841,7 @@ input:focus, select:focus, textarea:focus {
   <!-- Add-user modal -->
   <sc-if value="{{ showAddUser }}" hint-placeholder-val="{{ false }}">
     <div style="position: fixed; inset: 0; background: rgba(14,42,60,.5); backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; z-index: 200; animation: overlayIn .2s ease both;" onClick="{{ closeAddUser }}">
-      <div onClick="{{ stop }}" style="width: 100%; max-width: 480px; background: rgba(255,255,255,.96); backdrop-filter: blur(20px) saturate(1.5); -webkit-backdrop-filter: blur(20px) saturate(1.5); border-radius: 22px; padding: 26px 28px; box-shadow: 0 32px 80px rgba(14,42,60,.35), 0 8px 24px rgba(14,42,60,.12); animation: modalPop .4s cubic-bezier(.34,1.56,.64,1) both;">
+      <div onClick="{{ stop }}" style="width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; background: rgba(255,255,255,.96); backdrop-filter: blur(20px) saturate(1.5); -webkit-backdrop-filter: blur(20px) saturate(1.5); border-radius: 22px; padding: 26px 28px; box-shadow: 0 32px 80px rgba(14,42,60,.35), 0 8px 24px rgba(14,42,60,.12); animation: modalPop .4s cubic-bezier(.34,1.56,.64,1) both;">
         <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 22px;">
           <span style="width: 42px; height: 42px; border-radius: 12px; background: linear-gradient(135deg, #1A6FA3, #168C84); color: #fff; display: flex; align-items: center; justify-content: center;">
             <svg width="21" height="21" viewBox="0 0 24 24" fill="none"><circle cx="10" cy="8" r="3.4" stroke="#fff" stroke-width="1.9"/><path d="M4 19a6 6 0 0 1 12 0" stroke="#fff" stroke-width="1.9" stroke-linecap="round"/><path d="M19 7v6M22 10h-6" stroke="#fff" stroke-width="1.9" stroke-linecap="round"/></svg>
@@ -1887,7 +1887,7 @@ input:focus, select:focus, textarea:focus {
   <!-- Reset-all-boxes modal (typed confirmation required) -->
   <sc-if value="{{ showResetBoxes }}" hint-placeholder-val="{{ false }}">
     <div style="position: fixed; inset: 0; background: rgba(14,42,60,.5); backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; z-index: 300; animation: overlayIn .2s ease both;" onClick="{{ closeResetBoxes }}">
-      <div onClick="{{ stop }}" style="width: 100%; max-width: 440px; background: #fff; border-radius: 20px; padding: 26px 26px 22px; box-shadow: 0 24px 60px rgba(14,42,60,.4); animation: modalPop .3s cubic-bezier(.2,.9,.2,1) both;">
+      <div onClick="{{ stop }}" style="width: 100%; max-width: 440px; max-height: 90vh; overflow-y: auto; background: #fff; border-radius: 20px; padding: 26px 26px 22px; box-shadow: 0 24px 60px rgba(14,42,60,.4); animation: modalPop .3s cubic-bezier(.2,.9,.2,1) both;">
         <div style="display: flex; gap: 14px; margin-bottom: 16px;">
           <span style="width: 48px; height: 48px; flex-shrink: 0; border-radius: 13px; background: #FCEDED; color: #E03E3E; display: flex; align-items: center; justify-content: center;">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 3.5l9 16H3l9-16z" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/><path d="M12 10v4.5M12 17.3v.2" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/></svg>
@@ -6397,7 +6397,7 @@ td.l{text-align:left;padding-left:4px}
     vals.changePwUsername = st.changePwUsername;
     const cpwTarget = st.changePwUsername ? (st.users || []).find(u => u.username === st.changePwUsername) : null;
     vals.changePwModalEl = !st.showChangePw ? null : h('div', { onClick: () => this.setState({ showChangePw: false }), style: { position: 'fixed', inset: 0, background: 'rgba(14,42,60,.45)', zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center' } },
-      h('div', { onClick: (e) => e.stopPropagation(), style: { background: '#fff', borderRadius: 18, padding: '28px 30px', width: 360, boxShadow: '0 12px 48px rgba(0,0,0,.18)' } },
+      h('div', { onClick: (e) => e.stopPropagation(), style: { background: '#fff', borderRadius: 18, padding: '28px 30px', width: 360, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 12px 48px rgba(0,0,0,.18)' } },
         h('div', { style: { fontWeight: 700, fontSize: 16, color: '#15242E', marginBottom: 4 } }, 'เปลี่ยนรหัสผ่าน'),
         h('div', { style: { fontSize: 12.5, color: '#7B8D9C', marginBottom: 20 } }, cpwTarget ? `${cpwTarget.name} (${cpwTarget.username})` : ''),
         st.currentUser && st.currentUser.username === st.changePwUsername ? h(React.Fragment, null,
