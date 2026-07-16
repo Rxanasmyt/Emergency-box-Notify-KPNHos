@@ -3319,12 +3319,17 @@ class Component extends DCLogic {
       },
     });
   }
-  async toggleUserStatus(username) {
+  async toggleUserStatus(username, expectedStatus) {
     if (!this.state.currentUser || this.state.currentUser.role !== 'admin') return;
     if (username === this.state.currentUser.username) { this.flash('ไม่สามารถระงับบัญชีของตัวเองได้'); return; }
     const targetUser = this.state.users.find(u => u.username === username);
     if (!targetUser) return;
-    const newStatus = (targetUser.status || 'active') === 'active' ? 'suspended' : 'active';
+    const liveStatus = targetUser.status || 'active';
+    if (expectedStatus && liveStatus !== expectedStatus) {
+      this.flash('⚠️ สถานะบัญชีนี้เปลี่ยนไปแล้ว (อาจโดยผู้อื่น) — กรุณาตรวจสอบอีกครั้ง');
+      return;
+    }
+    const newStatus = liveStatus === 'active' ? 'suspended' : 'active';
     if (targetUser.role === 'admin' && newStatus === 'suspended' && this._activeAdminCount(username) === 0) {
       this.flash('⚠️ ไม่สามารถระงับบัญชีนี้ได้ — ต้องมีแอดมินที่ใช้งานได้อย่างน้อย 1 คนเสมอ');
       return;
@@ -3457,31 +3462,37 @@ class Component extends DCLogic {
   }
   async saveDeptPins() {
     if (!this.state.currentUser || this.state.currentUser.role !== 'admin') return;
-    const { deptPinInputs } = this.state;
-    const toSave = {};
-    for (const dept of ['ER', 'WARD', 'LR']) {
-      const pin = (deptPinInputs[dept] || '').trim();
-      if (!pin) continue;
-      if (!/^\d{4,8}$/.test(pin)) { this.setState({ deptPinMsg: `รหัส ${dept} ต้องเป็นตัวเลข 4-8 หลัก`, deptPinMsgOk: false }); return; }
-      toSave[dept] = { hash: await this.hashPw(pin) };
-    }
-    if (!Object.keys(toSave).length) { this.setState({ deptPinMsg: 'กรุณากรอกรหัส PIN อย่างน้อย 1 หน่วยงาน', deptPinMsgOk: false }); return; }
-    if (!window.EB_Sync) { this.setState({ deptPinMsg: '⚠️ ระบบซิงค์ยังไม่พร้อม', deptPinMsgOk: false }); return; }
+    if (this._savingDeptPins) return;
+    this._savingDeptPins = true;
     try {
-      await window.EB_Sync.syncDeptPins(toSave);
-    } catch (_) {
-      this.setState({ deptPinMsg: '⚠️ บันทึกไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่', deptPinMsgOk: false });
-      return;
+      const { deptPinInputs } = this.state;
+      const toSave = {};
+      for (const dept of ['ER', 'WARD', 'LR']) {
+        const pin = (deptPinInputs[dept] || '').trim();
+        if (!pin) continue;
+        if (!/^\d{4,8}$/.test(pin)) { this.setState({ deptPinMsg: `รหัส ${dept} ต้องเป็นตัวเลข 4-8 หลัก`, deptPinMsgOk: false }); return; }
+        toSave[dept] = { hash: await this.hashPw(pin) };
+      }
+      if (!Object.keys(toSave).length) { this.setState({ deptPinMsg: 'กรุณากรอกรหัส PIN อย่างน้อย 1 หน่วยงาน', deptPinMsgOk: false }); return; }
+      if (!window.EB_Sync) { this.setState({ deptPinMsg: '⚠️ ระบบซิงค์ยังไม่พร้อม', deptPinMsgOk: false }); return; }
+      try {
+        await window.EB_Sync.syncDeptPins(toSave);
+      } catch (_) {
+        this.setState({ deptPinMsg: '⚠️ บันทึกไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่', deptPinMsgOk: false });
+        return;
+      }
+      const savedDepts = Object.keys(toSave);
+      this.setState(s => ({
+        deptPinInputs: { ...s.deptPinInputs, ...Object.fromEntries(savedDepts.map(d => [d, ''])) },
+        deptPinsSet: { ...s.deptPinsSet, ...Object.fromEntries(savedDepts.map(d => [d, true])) },
+        deptPinMsg: `บันทึกรหัส PIN เรียบร้อย: ${savedDepts.join(', ')}`, deptPinMsgOk: true,
+      }));
+      this.logAction({ cat: 'user', action: 'จัดการผู้ใช้', eb: '—', dept: '—', drug: `ตั้งรหัสหน่วยงาน (Dept PIN): ${savedDepts.join(', ')}` });
+      clearTimeout(this._deptPinMsgT);
+      this._deptPinMsgT = setTimeout(() => this.setState({ deptPinMsg: '' }), 3000);
+    } finally {
+      this._savingDeptPins = false;
     }
-    const savedDepts = Object.keys(toSave);
-    this.setState(s => ({
-      deptPinInputs: { ...s.deptPinInputs, ...Object.fromEntries(savedDepts.map(d => [d, ''])) },
-      deptPinsSet: { ...s.deptPinsSet, ...Object.fromEntries(savedDepts.map(d => [d, true])) },
-      deptPinMsg: 'บันทึกรหัส PIN เรียบร้อย', deptPinMsgOk: true,
-    }));
-    this.logAction({ cat: 'user', action: 'จัดการผู้ใช้', eb: '—', dept: '—', drug: `ตั้งรหัสหน่วยงาน (Dept PIN): ${savedDepts.join(', ')}` });
-    clearTimeout(this._deptPinMsgT);
-    this._deptPinMsgT = setTimeout(() => this.setState({ deptPinMsg: '' }), 3000);
   }
   // ---------- reset all boxes (admin only) ----------
   openResetBoxes() {
@@ -4712,7 +4723,12 @@ td.l{text-align:left;padding-left:4px}
       const v = e.target.value;
       this.setState({ ghPAT: v });
       clearTimeout(this._patT);
-      this._patT = setTimeout(() => { if (window.EB_Notify) window.EB_Notify.saveToFirestore({ githubPAT: v }); }, 800);
+      this._patT = setTimeout(() => {
+        if (!window.EB_Notify) return;
+        window.EB_Notify.saveToFirestore({ githubPAT: v }).then(ok => {
+          if (ok === false) this.flash('⚠️ บันทึก GitHub PAT ไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่');
+        });
+      }, 800);
     };
     const _ghState = st.ghTrigger || 'idle';
     const _ghMsgs = { idle: '', loading: '⏳ กำลังส่งคำสั่ง…', success: '✓ ส่งแล้ว — LINE + Email จะถึงภายใน 1-2 นาที', error: '✗ เกิดข้อผิดพลาด · ตรวจสอบว่ากรอก PAT และมีสิทธิ์ Actions' };
@@ -6010,10 +6026,12 @@ td.l{text-align:left;padding-left:4px}
       openedAtText: box.openedAt ? this.fmtISO(box.openedAt) : '',
     };
 
-    // expiry countdown ring SVG
-    const ringDays = boxExp ? Math.round((new Date(boxExp + 'T00:00:00') - this.TODAY) / 86400000) : null;
+    // expiry countdown ring SVG — must share the SAME return-date basis (expiry - 15) and
+    // status buckets as statusOf()/bStatus (the badge shown right next to it) and the
+    // dashboard donut, not a raw days-to-expiry count with its own separate color scale.
+    const ringDays = boxExp ? this.daysBetween(this.addDays(boxExp, -15)) : null;
     const ringPct = ringDays == null ? 0 : Math.min(1, Math.max(0, ringDays / 90));
-    const ringColor = ringDays == null ? '#C5D4E0' : ringDays <= 0 ? '#F43F5E' : ringDays <= 15 ? '#F59E0B' : ringDays <= 30 ? '#0DB9A0' : '#10B981';
+    const ringColor = ringDays == null ? '#C5D4E0' : bStatus.color;
     const circ = 226.2;
     vals.expiryRingEl = h('div', { style: { position: 'relative', width: 64, height: 64, flexShrink: 0 } },
       h('svg', { viewBox: '0 0 88 88', width: 64, height: 64 },
@@ -6358,8 +6376,8 @@ td.l{text-align:left;padding-left:4px}
         h('div', { style: { display: 'flex', gap: 6, justifyContent: 'flex-end' } },
           this.iconBtn('reset', 'เปลี่ยนรหัสผ่าน', '#7C5CD6', '#EFEAFB', () => this.openChangePw(u.username)),
           isSelfRow(u) ? null : this.iconBtn(suspended ? 'unlock' : 'lock', suspended ? 'เปิดใช้งาน' : 'ระงับบัญชี', suspended ? '#169C7F' : '#D9810F', suspended ? '#E4F4EF' : '#FBF1E0', () => {
-            if (suspended) { this.askConfirm({ tone: 'warn', icon: 'unlock', title: 'เปิดใช้งานบัญชี?', body: `${u.name} (${u.username}) จะสามารถเข้าระบบได้อีกครั้ง`, yesLabel: 'เปิดใช้งาน', noLabel: 'ยกเลิก', onYes: () => this.toggleUserStatus(u.username) }); }
-            else this.askConfirm({ tone: 'warn', icon: 'lock', title: 'ระงับบัญชีผู้ใช้?', body: `${u.name} (${u.username}) จะเข้าระบบไม่ได้จนกว่าจะเปิดใช้งานอีกครั้ง`, yesLabel: 'ระงับบัญชี', noLabel: 'ยกเลิก', onYes: () => this.toggleUserStatus(u.username) });
+            if (suspended) { this.askConfirm({ tone: 'warn', icon: 'unlock', title: 'เปิดใช้งานบัญชี?', body: `${u.name} (${u.username}) จะสามารถเข้าระบบได้อีกครั้ง`, yesLabel: 'เปิดใช้งาน', noLabel: 'ยกเลิก', onYes: () => this.toggleUserStatus(u.username, 'suspended') }); }
+            else this.askConfirm({ tone: 'warn', icon: 'lock', title: 'ระงับบัญชีผู้ใช้?', body: `${u.name} (${u.username}) จะเข้าระบบไม่ได้จนกว่าจะเปิดใช้งานอีกครั้ง`, yesLabel: 'ระงับบัญชี', noLabel: 'ยกเลิก', onYes: () => this.toggleUserStatus(u.username, 'active') });
           }),
           isSelfRow(u) ? null : this.iconBtn('trash', 'ลบบัญชี', '#E03E3E', '#FCEDED', () => this.askConfirm({ tone: 'danger', icon: 'trash', title: 'ลบบัญชีผู้ใช้ถาวร?', body: `ลบ ${u.name} (${u.username}) ออกจากระบบ การกระทำนี้ย้อนกลับไม่ได้`, yesLabel: 'ลบถาวร', noLabel: 'ยกเลิก', onYes: () => this.deleteUser(u.username) })),
         ),

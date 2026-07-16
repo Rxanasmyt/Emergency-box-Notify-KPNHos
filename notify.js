@@ -42,9 +42,9 @@
   }
 
   function saveToFirestore(s) {
-    if (!window.EB_Firebase || !window.EB_Firebase.db) return Promise.resolve();
+    if (!window.EB_Firebase || !window.EB_Firebase.db) return Promise.resolve(false);
     return window.EB_Firebase.db.collection('app_settings').doc('notifications')
-      .set(s, { merge: true }).catch(() => {});
+      .set(s, { merge: true }).then(() => true).catch(() => false);
   }
 
   function todayBangkok() {
