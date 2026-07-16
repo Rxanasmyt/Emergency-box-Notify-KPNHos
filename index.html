@@ -2016,7 +2016,7 @@ class Component extends DCLogic {
     deptPinMsg: '', deptPinMsgOk: true,
     // paperless: public QR "open box / log usage" flow
     pubOpenFlow: false, pubPinInput: '', pubPinVerified: false, pubPinError: '', pubPinLocked: false, pubPinAttempts: 0, pubPinLockCountdown: 0,
-    pubUsageDrugIdx: null, pubUsageLotIdx: null, pubUsageQty: '', pubUsageHN: '', pubUsagePatient: '',
+    pubUsageDrugIdx: null, pubUsageLotIdx: null, pubUsageSelDrugName: '', pubUsageSelLotExpiry: '', pubUsageQty: '', pubUsageHN: '', pubUsagePatient: '',
     pubUsageBusy: false, pubUsageMsg: '', pubUsageMsgOk: true, pubUsageLog: [],
     // paperless: pharmacist detail-screen usage log for the selected box
     detailUsageLog: [],
@@ -2262,18 +2262,35 @@ class Component extends DCLogic {
     try { sessionStorage.removeItem(this._pubPinLockKey(dept)); sessionStorage.removeItem(this._pubPinAttemptsKey(dept)); } catch (_) {}
     this.setState({ pubPinVerified: true, pubPinError: '', pubPinAttempts: 0 });
   }
-  setPubUsageDrug(drugIdx, lotIdx) { this.setState({ pubUsageDrugIdx: drugIdx, pubUsageLotIdx: lotIdx }); }
+  setPubUsageDrug(drugIdx, lotIdx, drugName, lotExpiry) { this.setState({ pubUsageDrugIdx: drugIdx, pubUsageLotIdx: lotIdx, pubUsageSelDrugName: drugName, pubUsageSelLotExpiry: lotExpiry }); }
   setPubUsageQty(v) { this.setState({ pubUsageQty: String(v).replace(/\D/g, '') }); }
   setPubUsageHN(v) { this.setState({ pubUsageHN: v }); }
   setPubUsagePatient(v) { this.setState({ pubUsagePatient: v }); }
   async submitPubUsage() {
     if (this.state.pubUsageBusy) return;
-    const { publicBoxId, pubUsageDrugIdx, pubUsageLotIdx, pubUsageQty, pubUsageHN, pubUsagePatient } = this.state;
+    const { publicBoxId, pubUsageDrugIdx, pubUsageLotIdx, pubUsageSelDrugName, pubUsageSelLotExpiry, pubUsageQty, pubUsageHN, pubUsagePatient } = this.state;
     if (pubUsageDrugIdx === null || pubUsageLotIdx === null) { this.setState({ pubUsageMsg: 'กรุณาเลือกยาที่ใช้', pubUsageMsgOk: false }); return; }
     const qty = parseInt(pubUsageQty, 10);
     if (!qty || qty <= 0) { this.setState({ pubUsageMsg: 'กรุณากรอกจำนวนที่ใช้', pubUsageMsgOk: false }); return; }
     if (!(pubUsageHN || '').trim()) { this.setState({ pubUsageMsg: 'กรุณากรอก HN ผู้ป่วย', pubUsageMsgOk: false }); return; }
     if (!window.EB_Sync) { this.setState({ pubUsageMsg: '⚠️ ระบบซิงค์ยังไม่พร้อม', pubUsageMsgOk: false }); return; }
+    // re-validate the selected drug/lot against the LIVE box_drugs array right before
+    // submitting — logDrugUsageTx addresses a lot purely by array position, and a
+    // concurrent admin edit (Detail screen's removeLot()/saveEditDrugs(), a whole-array
+    // overwrite) can shift every later lot's index down between the moment this lot
+    // was clicked and this submit finally running, silently decrementing a DIFFERENT
+    // physical lot with no error surfaced (both index-out-of-range and insufficient-qty
+    // checks would still pass against the wrong lot that happens to now sit there).
+    const _liveDrugs = (this.BOX_DRUGS || {})[publicBoxId] || [];
+    const _liveDrug = _liveDrugs[pubUsageDrugIdx];
+    const _liveLot = _liveDrug && (_liveDrug.lots || [])[pubUsageLotIdx];
+    if (!_liveDrug || !_liveLot || _liveDrug.name !== pubUsageSelDrugName || _liveLot.expiry !== pubUsageSelLotExpiry) {
+      this.setState({
+        pubUsageDrugIdx: null, pubUsageLotIdx: null, pubUsageSelDrugName: '', pubUsageSelLotExpiry: '',
+        pubUsageMsg: '⚠️ ข้อมูลยาในกล่องมีการเปลี่ยนแปลง กรุณาเลือกยาที่ใช้ใหม่อีกครั้ง', pubUsageMsgOk: false,
+      });
+      return;
+    }
     this.setState({ pubUsageBusy: true });
     const box = this.BOXES.find(b => b.id === publicBoxId);
     const dept = box ? box.dept : '';
@@ -2284,7 +2301,7 @@ class Component extends DCLogic {
       this.BOX_DRUGS = { ...(this.BOX_DRUGS || {}), [publicBoxId]: result.drugs };
       this.setState(s => ({
         boxDrugs: { ...(s.boxDrugs || {}), [publicBoxId]: result.drugs },
-        pubUsageBusy: false, pubUsageQty: '', pubUsageHN: '', pubUsagePatient: '', pubUsageDrugIdx: null, pubUsageLotIdx: null,
+        pubUsageBusy: false, pubUsageQty: '', pubUsageHN: '', pubUsagePatient: '', pubUsageDrugIdx: null, pubUsageLotIdx: null, pubUsageSelDrugName: '', pubUsageSelLotExpiry: '',
         pubUsageMsg: `บันทึกการใช้ ${result.drugName} จำนวน ${qty} เรียบร้อย`, pubUsageMsgOk: true,
       }));
       // A drug-administration event is exactly the kind of thing an admin needs to
@@ -2969,6 +2986,9 @@ class Component extends DCLogic {
     if (!this._canVerifyReg()) return;
     const box = this.BOXES.find(b => b.id === boxId);
     if (!box || this._regStage(box) !== 'verified') return;
+    // defense in depth — canAdminReopenReg already hides the button for a
+    // currently dispensed-out box; refuse here too in case that's ever bypassed.
+    if (box.dispense && !box.receiver) { this.flash('⚠️ กล่องนี้กำลังจ่ายออกอยู่ — รับคืนก่อนจึงจะแก้ไขการลงทะเบียนได้'); return; }
     const actorName = this.state.currentUser.name || this.state.currentUser.username;
     this.askConfirm({
       tone: 'warn', icon: 'warn',
@@ -4960,7 +4980,7 @@ td.l{text-align:left;padding-left:4px}
               h('div', { style: { display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14, maxHeight: 160, overflowY: 'auto' } },
                 ...pubBD.flatMap((d, di) => (d.lots || []).map((lot, li) => (lot.qty > 0) ? h('button', {
                   key: di + '_' + li,
-                  onClick: () => this.setPubUsageDrug(di, li),
+                  onClick: () => this.setPubUsageDrug(di, li, d.name, lot.expiry),
                   style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', textAlign: 'left', padding: '10px 14px', borderRadius: 10, border: (st.pubUsageDrugIdx === di && st.pubUsageLotIdx === li) ? '1.5px solid #2B7FE0' : '1.5px solid #E7EEF3', background: (st.pubUsageDrugIdx === di && st.pubUsageLotIdx === li) ? '#EEF5FA' : '#fff', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12.5 },
                 },
                   h('span', null, d.name, d.lots.length > 1 ? ` (Lot ${li + 1})` : ''),
@@ -5344,7 +5364,13 @@ td.l{text-align:left;padding-left:4px}
     // place — whoever can verify a box can also reopen it).
     vals.regIsVerifiedLocked = regStage === 'verified';
     vals.regIsEditable = !vals.regIsVerifyStep && !vals.regIsLocked && !vals.regIsVerifiedLocked;
-    vals.canAdminReopenReg = vals.regIsVerifiedLocked && regCanVerify;
+    // A currently dispensed-out box must never be reopened back to Stage 1 —
+    // it would desync `_regStage()==='none'` (unregistered) from `dispense`/
+    // `receiver` (still physically out), a combination no other code path in
+    // the app expects and that returnBoxAndDrugsTx's own reset would then
+    // silently re-collide with on the eventual real return.
+    const regBoxIsOut = !!(regBoxObj && regBoxObj.dispense && !regBoxObj.receiver);
+    vals.canAdminReopenReg = vals.regIsVerifiedLocked && regCanVerify && !regBoxIsOut;
     vals.adminReopenRegBtn = () => this.adminReopenReg(st.regEB);
     const _stageBadge = {
       none:     { label: 'ยังไม่จัดเตรียม',                              bg: '#F1F4F7', color: '#7B8D9C', border: '#DCE3E9' },
