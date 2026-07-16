@@ -3844,6 +3844,16 @@ class Component extends DCLogic {
       const dispenser = (this.state.dispenser || '').trim();
       const dispenseOk = await this._syncBox({ ...box, dept: formDept, dispense: this.state.dispDate, dispenser, receiver: '', retDate: '' });
       if (!dispenseOk) { this.setState({ submitting: false }); return; }
+      // Log the dispense here, immediately after ITS OWN write is confirmed —
+      // not after the swap-return half below. When swapReturn is true this is
+      // a combined two-write action; if the swap-return's returnBoxAndDrugsTx
+      // throws (e.g. NOT_OUT from a concurrent return, or a network drop),
+      // the function used to return early WITHOUT ever logging the dispense
+      // that had already succeeded — leaving dispEB sitting in Firestore as
+      // dispensed-out with zero audit_log/box-history trace, while the user
+      // only saw a failure toast implying nothing was saved at all.
+      this.logAction({ cat: 'dispense', action: 'จ่าย', eb: dispEB, dept: formDept, drug: this.nearDrugOf(dispEB) });
+      this.logBoxHist(dispEB, `จ่ายให้ ${formDept} (โดย ${dispenser || '-'})`);
       if (swapReturn) {
         const swBox = this.BOXES.find(b => b.id === resolvedSwapEB) || { id: resolvedSwapEB };
         // atomic: swap box marked returned + its drug quantities decremented
@@ -3858,9 +3868,12 @@ class Component extends DCLogic {
           _swResult = await window.EB_Sync.returnBoxAndDrugsTx(resolvedSwapEB, { receiver: swapReceiver, retDate: this.state.swapReturnDate, openedAt: '', preparedAt: '', registeredAt: '', checker: '' }, _swUsageCheck);
         } catch (err) {
           this.setState({ submitting: false });
-          this.flash(err.code === 'NOT_OUT'
+          // the dispense above is already logged and real — tell the user
+          // clearly that half of this combined action succeeded, instead of
+          // an error message that reads as if nothing was saved at all
+          this.flash((err.code === 'NOT_OUT'
             ? `⚠️ กล่อง ${resolvedSwapEB} ถูกรับคืนไปแล้ว (อาจโดยผู้อื่น) — กรุณารีเฟรชหน้าแล้วตรวจสอบอีกครั้ง`
-            : '⚠️ บันทึกไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
+            : '⚠️ บันทึกรับคืนไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต') + ` (จ่าย ${dispEB} → ${formDept} บันทึกสำเร็จแล้ว)`);
           return;
         }
         this.BOXES = this.BOXES.map(b => b.id === resolvedSwapEB ? { ...b, receiver: swapReceiver, retDate: this.state.swapReturnDate, openedAt: '', preparedAt: '', registeredAt: '', checker: '' } : b);
@@ -3874,8 +3887,6 @@ class Component extends DCLogic {
         this.logBoxHist(resolvedSwapEB, `รับคืนจาก ${swBox.dept || formDept} วันที่ ${this.fmtISO(this.state.swapReturnDate)} (โดย ${swapReceiver || '-'})`);
       }
       msg = swapReturn ? `เปลี่ยนกล่อง: จ่าย ${dispEB} → ${formDept} · รับคืน ${resolvedSwapEB} สำเร็จ` : `จ่าย ${dispEB} → ${formDept} สำเร็จ`;
-      this.logAction({ cat: 'dispense', action: 'จ่าย', eb: dispEB, dept: formDept, drug: this.nearDrugOf(dispEB) });
-      this.logBoxHist(dispEB, `จ่ายให้ ${formDept} (โดย ${dispenser || '-'})`);
     }
     else {
       const { retDate, retDrugUsage } = this.state;
