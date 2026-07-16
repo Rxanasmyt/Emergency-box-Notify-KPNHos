@@ -4348,9 +4348,22 @@ td.l{text-align:left;padding-left:4px}
     if (missing.length) { this.flash(`กรอกข้อมูลให้ครบก่อนพิมพ์: ${missing.join(', ')}`); return; }
 
     this.flash('⏳ กำลังสร้าง PDF...');
+    // Capture the fields that are flat, non-box-scoped state (mfg/preparer —
+    // unlike boxDrugs/BOX_DRUGS, which are keyed by box id and so stay correct
+    // per-box even if the user switches boxes mid-generation) BEFORE the real
+    // async gap below. _ensurePdfLibs() does real network I/O (chained vendor
+    // script loads, easily 1-3+ seconds first time), and the EB-chip strip
+    // stays clickable while it's in flight — switching to a different box
+    // during that gap updates st.regMfg/regPreparer to the OTHER box's values,
+    // so re-reading this.state after the await would print box A's correct
+    // drug/lot table (BD is keyed by eb, so that part is fine) alongside box
+    // B's manufacture date and preparer name on the same label.
+    const mfgSnap = st.regMfg;
+    const preparerSnap = (st.regPreparer || '').trim();
+    const boxDrugsSnap = st.boxDrugs || this.BOX_DRUGS || {};
     try {
       await this._ensurePdfLibs();
-      const doc = await this._buildEBFormPDF(eb);
+      const doc = await this._buildEBFormPDF(eb, mfgSnap, preparerSnap, boxDrugsSnap);
       doc.autoPrint();
       const url = doc.output('bloburl');
       const win = window.open(url, '_blank');
@@ -4367,14 +4380,10 @@ td.l{text-align:left;padding-left:4px}
       this.flash('⚠️ สร้าง PDF ไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่');
     }
   }
-  async _buildEBFormPDF(eb) {
-    const st = this.state;
-    const mfg = st.regMfg;
-    const preparer = st.regPreparer || '';
+  async _buildEBFormPDF(eb, mfg, preparer, BD) {
     // checker line is printed blank — see printEBForm()'s identical comment
     const checker = '';
-    const BD = st.boxDrugs || this.BOX_DRUGS || {};
-    const drugs = BD[eb] || [];
+    const drugs = (BD || {})[eb] || [];
 
     const fmtBE = (iso) => {
       if (!iso) return '—';
