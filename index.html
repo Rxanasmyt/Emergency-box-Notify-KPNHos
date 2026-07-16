@@ -68,7 +68,19 @@
     });
     const _hadSWController = !!navigator.serviceWorker.controller;
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (_hadSWController) window.location.reload();
+      if (!_hadSWController) return;
+      // A new SW version taking over this tab forces a reload so the tab never
+      // runs old JS against a newly-cached backend contract — but reloading
+      // unconditionally would silently discard an in-progress, unsaved
+      // register/dispense/return/drug-edit form with zero warning, purely
+      // because a background deploy happened to land while the tab was open.
+      // window.__ebHasUnsavedWork is kept live by renderVals() on every render;
+      // defer the reload (checked periodically) until it's safe.
+      const _tryReload = () => {
+        if (window.__ebHasUnsavedWork) { setTimeout(_tryReload, 3000); return; }
+        window.location.reload();
+      };
+      _tryReload();
     });
   }
 </script>
@@ -4555,6 +4567,11 @@ td.l{text-align:left;padding-left:4px}
   renderVals() {
     const st = this.state;
     const screen = st.screen;
+    // Exposed for the SW-update auto-reload guard in <head> (see the
+    // `controllerchange` handler) — a background deploy landing while a
+    // pharmacist has an unsaved register/dispense/return/drug-edit form open
+    // must not silently reload and discard it out from under them.
+    window.__ebHasUnsavedWork = !!st.editDrugs || (screen === 'entry' && !!st.formMode && this._isFormDirty(st.formMode));
     const h = React.createElement;
     const ic = (svg, sz) => h('span', { style: { display: 'flex', alignItems: 'center', width: sz || 19, height: sz || 19, flexShrink: 0 }, dangerouslySetInnerHTML: { __html: svg } });
     // Several clickable dashboard/history rows are plain <div onClick> with
@@ -6679,7 +6696,19 @@ td.l{text-align:left;padding-left:4px}
     const _bhComplete = (st.detailBoxHistBoxId === st.selectedEB) ? (st.detailBoxHistFull || []) : null;
     const _bhFromAudit = (st.auditLog || []).filter(r => r.cat === 'boxhist' && r.eb === st.selectedEB).slice(0, 50).map(r => ({ text: r.action || '', who: r.person || '—', stamp: `${r.date || ''} · ${r.time || ''}` }));
     const _bhInMem = ((st.boxHist || {})[st.selectedEB] || []);
-    const bh = (_bhComplete && _bhComplete.length) ? _bhComplete.slice(0, 50) : (_bhFromAudit.length ? _bhFromAudit : _bhInMem);
+    // `_bhComplete` is a ONE-TIME fetch (re-run only when selectedEB changes) — without
+    // merging in whatever's newer, a box-history entry logged WHILE already viewing this
+    // same box (e.g. saveEditDrugs()'s "แก้ไขจำนวน/วันหมดอายุยา") would never appear until
+    // navigating away and back, even though state.boxHist/state.auditLog already have it.
+    let bh;
+    if (_bhComplete && _bhComplete.length) {
+      const _bhLive = _bhInMem.length ? _bhInMem : _bhFromAudit;
+      const _bhKnown = new Set(_bhComplete.map(r => r.stamp + '|' + r.text));
+      const _bhFresh = _bhLive.filter(r => !_bhKnown.has(r.stamp + '|' + r.text));
+      bh = [..._bhFresh, ..._bhComplete].slice(0, 50);
+    } else {
+      bh = (_bhFromAudit.length ? _bhFromAudit : _bhInMem);
+    }
     vals.boxHistEl = bh.length ? h(React.Fragment, null, ...bh.map((e, i) => h('div', { key: i, style: { display: 'flex', gap: 10, alignItems: 'flex-start', padding: '8px 0', borderBottom: i < bh.length - 1 ? '1px solid #F4F7F9' : 'none' } },
       h('span', { style: { width: 7, height: 7, flexShrink: 0, borderRadius: '50%', background: '#1A6FA3', marginTop: 6 } }),
       h('div', { style: { minWidth: 0 } }, h('div', { style: { fontSize: 12.5, color: '#15242E', fontWeight: 500 } }, e.text), h('div', { style: { fontSize: 11, color: '#9AAAB8', marginTop: 1 } }, `${e.who} · ${e.stamp}`))))) : h('div', { style: { textAlign: 'center', padding: '20px 10px', animation: 'fadeUp .5s ease both' } },
