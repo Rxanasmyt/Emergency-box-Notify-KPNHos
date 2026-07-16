@@ -2638,23 +2638,24 @@ class Component extends DCLogic {
   // running on stale permissions indefinitely — a suspended/deleted user
   // was never forced out, and a demoted admin's role-gated UI/actions kept
   // working — until they happened to manually log out and back in.
+  // No re-entrancy flag needed here (unlike doLogin()'s _loggingIn/addUser()'s
+  // _addingUser, which guard a real gap across an `await`) — __setLogicState
+  // (support.js) mutates this.state synchronously, before the deferred
+  // re-render/next componentDidUpdate call, so `authed`/`currentUser.role`
+  // already reflect logout()/setState()'s effect by the time any subsequent
+  // call could re-enter this method. A flag toggled true-then-false with no
+  // async gap between the two assignments protects against nothing.
   componentDidUpdate() {
-    if (!this.state.authed || !this.state.currentUser || this._selfAccountActing) return;
-    const me = this.state.users.find(u => u.username === this.state.currentUser.username);
+    if (!this.state.authed || !this.state.currentUser) return;
+    const me = (this.state.users || []).find(u => u.username === this.state.currentUser.username);
     if (!me) {
-      this._selfAccountActing = true;
       this.flash('บัญชีของคุณถูกลบออกจากระบบ — กรุณาเข้าสู่ระบบใหม่');
       this.logout();
-      this._selfAccountActing = false;
     } else if ((me.status || 'active') === 'suspended') {
-      this._selfAccountActing = true;
       this.flash('บัญชีของคุณถูกระงับการใช้งาน — กรุณาติดต่อผู้ดูแลระบบ');
       this.logout();
-      this._selfAccountActing = false;
     } else if (me.role !== this.state.currentUser.role) {
-      this._selfAccountActing = true;
       this.setState({ currentUser: { ...this.state.currentUser, role: me.role } });
-      this._selfAccountActing = false;
     }
   }
   componentWillUnmount() {
