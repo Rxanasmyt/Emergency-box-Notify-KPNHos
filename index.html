@@ -3600,6 +3600,17 @@ class Component extends DCLogic {
         const stage = this._regStage(_regBoxCheck);
         const list = (st.boxDrugs || this.BOX_DRUGS || {})[st.regEB] || [];
         const near = this.regNearISOof(st.regEB);
+        // A box's box_drugs doc can legitimately be missing/empty (e.g. deleted
+        // out-of-band via Firebase Console — the same reachable scenario
+        // documented elsewhere for an orphaned box_drugs doc, just the reverse
+        // case). selectRegBox() falls back to [] rather than rebuilding from
+        // this.DRUGS, and without this check Stage 1 would silently persist
+        // `drugs: []` to Firestore with zero validation error — passing every
+        // other check vacuously (no lots to flag missing expiry on) and even
+        // sailing through Stage 2 (no drugs to require HAD-confirm or
+        // verification on), leaving a "verified"/dispensable box with no drugs
+        // in it at all. Mirrors saveEditDrugs()'s existing 0-length guard.
+        if (list.length === 0) errs.push('ไม่พบรายการยาในกล่องนี้ — กรุณารีเฟรชหน้าหรือติดต่อแอดมิน');
         if (stage === 'prepared') {
           // Stage 2: pharmacist/admin verifies จพ.'s prepared box against the physical box/label
           if (!this._canVerifyReg()) errs.push('เฉพาะเภสัชกร/แอดมินเท่านั้นที่ตรวจสอบและยืนยันการลงทะเบียนได้');
