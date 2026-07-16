@@ -2,18 +2,28 @@
 <html>
 <head>
 <meta charset="utf-8">
-<!-- support.js's own hideRawTemplate() applies this same `x-dc{display:none}`
+<!-- support.js's own hideRawTemplate() applies this same x-dc{display:none}
      rule, but it can't run until support.js's turn in the deferred script
-     queue arrives — which waits for React/ReactDOM/all 3 Firebase-compat
+     queue arrives, which waits for React/ReactDOM/all 3 Firebase-compat
      scripts to finish downloading AND executing first (deferred scripts run
-     in strict document order). The browser parses and paints the raw <x-dc>
-     markup below (every screen's real HTML, unprocessed {{ }} bindings,
-     admin-only buttons like "รีเซ็ตทั้งหมด") well before that — an unknown
-     custom element has no default hiding, so on a slow/first (uncached)
-     load this raw, unfiltered template flashed on screen before the login
-     screen or any JS-driven view ever took over. This inline rule takes
-     effect at the very first paint, no JS required, closing that window
-     entirely; support.js's own later call is now just a harmless duplicate. -->
+     in strict document order). The browser parses and paints the raw
+     template markup below (every screen's real HTML, unprocessed template
+     bindings, admin-only buttons like the full-reset one) well before that,
+     since an unknown custom element has no default hiding, so on a
+     slow/first (uncached) load this raw, unfiltered template flashed on
+     screen before the login screen or any JS-driven view ever took over.
+     This inline rule takes effect at the very first paint, no JS required,
+     closing that window entirely; support.js's own later call is now just a
+     harmless duplicate.
+     IMPORTANT: never write the literal x-dc tag (angle brackets included)
+     anywhere in this comment or any other raw text outside the real
+     template block below — support.js locates the template by searching
+     the raw document text for the first such opening tag, and a look-alike
+     string earlier in the document (this comment, in an earlier version of
+     this exact fix) hijacks that search, corrupting the template boundary
+     and leaking part of this comment's own text out onto the rendered page
+     as literal visible content, unhidden by the CSS rule above (it was
+     never inside a real x-dc element to begin with). -->
 <style>x-dc{display:none}</style>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Emergency Box Management & Alert System</title>
