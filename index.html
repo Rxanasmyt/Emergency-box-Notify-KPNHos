@@ -2630,6 +2630,33 @@ class Component extends DCLogic {
       if (window.EB_Sync) window.EB_Sync.initUsersOnly(this);
     }
   }
+  // listenUsers() keeps state.users live for every logged-in device, but
+  // nothing previously compared that live data against the CURRENT device's
+  // own currentUser snapshot (set once at login, never touched again except
+  // at logout). So another admin suspending/deleting this exact account, or
+  // changing its role, from a different device left this session silently
+  // running on stale permissions indefinitely — a suspended/deleted user
+  // was never forced out, and a demoted admin's role-gated UI/actions kept
+  // working — until they happened to manually log out and back in.
+  componentDidUpdate() {
+    if (!this.state.authed || !this.state.currentUser || this._selfAccountActing) return;
+    const me = this.state.users.find(u => u.username === this.state.currentUser.username);
+    if (!me) {
+      this._selfAccountActing = true;
+      this.flash('บัญชีของคุณถูกลบออกจากระบบ — กรุณาเข้าสู่ระบบใหม่');
+      this.logout();
+      this._selfAccountActing = false;
+    } else if ((me.status || 'active') === 'suspended') {
+      this._selfAccountActing = true;
+      this.flash('บัญชีของคุณถูกระงับการใช้งาน — กรุณาติดต่อผู้ดูแลระบบ');
+      this.logout();
+      this._selfAccountActing = false;
+    } else if (me.role !== this.state.currentUser.role) {
+      this._selfAccountActing = true;
+      this.setState({ currentUser: { ...this.state.currentUser, role: me.role } });
+      this._selfAccountActing = false;
+    }
+  }
   componentWillUnmount() {
     (this._idleEvents || []).forEach(ev => window.removeEventListener(ev, this._resetIdle, true));
     if (this._onVisibility) document.removeEventListener('visibilitychange', this._onVisibility);
