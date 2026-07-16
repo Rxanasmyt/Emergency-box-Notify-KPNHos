@@ -94,28 +94,34 @@ function stopAll(){
 }
 
 // Called when viewing public box page (QR code scan) — no login required
-function startPublicSync(comp) {
+function startPublicSync(comp, boxId) {
   if (!window.EB_Firebase) { console.warn('[Sync] Firebase not ready'); return; }
+  if (!boxId) { console.warn('[Sync] startPublicSync called with no boxId'); return; }
   db = window.EB_Firebase.db; component = comp;
   if (_publicListening || unsubscribers.length) return; // already listening — just update component ref
   _publicListening = true; // set synchronously before async auth to prevent race on double-call
   window.EB_Firebase.auth.signInAnonymously()
     .then(() => {
       console.log('[Sync] Public sync: anon auth OK');
-      const u1 = db.collection(C.boxes).onSnapshot(snap => {
+      // Scoped to the single scanned box — this page requires no login at all,
+      // so without this every ordinary QR scan (a delivery person, a visiting
+      // relative) streamed the live dispense/receiver/preparer/checker fields
+      // AND full drug/lot/quantity data for EVERY box in every department to
+      // that anonymous browser, not just the one scanned. firestore.rules'
+      // accepted trust model is about a visitor actively probing Firestore
+      // with devtools — this was a much larger, purely incidental exposure
+      // with zero effort required to trigger it.
+      const u1 = db.collection(C.boxes).doc(boxId).onSnapshot(doc => {
         if (!component) return;
-        const boxes = [];
-        snap.forEach(doc => boxes.push({ id: doc.id, ...doc.data() }));
-        boxes.sort((a, b) => { const n = s => parseInt(s.replace(/\D/g, ''), 10) || 0; return n(a.id) - n(b.id); });
-        component.BOXES = boxes;
+        component.BOXES = doc.exists ? [{ id: doc.id, ...doc.data() }] : [];
         component.setState({ _publicSynced: true });
-      }, err => { console.warn('[Sync] Public boxes error:', err.message); if (component) component.setState({ _publicLoadError: true }); });
-      const u2 = db.collection(C.boxDrugs).onSnapshot(snap => {
+      }, err => { console.warn('[Sync] Public box error:', err.message); if (component) component.setState({ _publicLoadError: true }); });
+      const u2 = db.collection(C.boxDrugs).doc(boxId).onSnapshot(doc => {
         if (!component) return;
-        const bd = {};
-        snap.forEach(doc => { const d = doc.data(); const boxId = d.boxId || doc.id; if (boxId && d.drugs) bd[boxId] = d.drugs; });
+        const d = doc.exists ? doc.data() : null;
+        const bd = (d && d.drugs) ? { [d.boxId || boxId]: d.drugs } : {};
         component.BOX_DRUGS = bd;
-        component.setState({ boxDrugs: Object.keys(bd).length ? bd : {} });
+        component.setState({ boxDrugs: bd });
       }, err => { console.warn('[Sync] Public drugs error:', err.message); if (component) component.setState({ _publicLoadError: true }); });
       unsubscribers.push(u1, u2);
     })

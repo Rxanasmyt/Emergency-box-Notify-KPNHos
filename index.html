@@ -2615,7 +2615,7 @@ class Component extends DCLogic {
     document.addEventListener('click', this._ripple, { passive: true });
     // QR code public box view — publicView/publicBoxId already parsed from URL in state init
     if (this.state.publicView && this.state.publicBoxId) {
-      if (window.EB_Sync) window.EB_Sync.startPublicSync(this);
+      if (window.EB_Sync) window.EB_Sync.startPublicSync(this, this.state.publicBoxId);
     } else {
       // Start users listener immediately so any device can login with any account
       if (window.EB_Sync) window.EB_Sync.initUsersOnly(this);
