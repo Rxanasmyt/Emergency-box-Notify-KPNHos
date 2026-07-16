@@ -5736,14 +5736,25 @@ td.l{text-align:left;padding-left:4px}
       }
       this.setState({ dispLanding: true });
     };
+    // urgency rank within the dispensable tier — lower sorts first. Mirrors the
+    // Return landing's expUrgent secondary sort (this session): without a
+    // secondary key here, ties within the same priority tier fall back to
+    // plain box-ID order, so a dispensable box with a critically-near-expiry
+    // lot (already flagged red/pulsing via _ebStatusMap below) could still
+    // render BELOW a completely fresh box purely because of its ID — no
+    // first-expire-first-out cue for a จพ./pharmacist scanning top-to-bottom
+    // for which box to dispense next, a real stock-rotation concern.
+    const _urgencyRank = { critical: 0, warning: 1, ok: 2 };
     const _dispLandingItems = allIds.map(id => {
       const b = this.BOXES.find(x => x.id === id);
       const out = outOf(b);
       const dispensable = inStockIds.includes(id);
       const stage = this._regStage(b);
       const priority = dispensable ? 0 : (out ? 2 : 1);
-      return { id, b, out, dispensable, stage, priority };
-    }).sort((a, z) => a.priority - z.priority);
+      const _urgencyKey = (_ebStatusMap[id] || {}).key;
+      const urgency = _urgencyKey in _urgencyRank ? _urgencyRank[_urgencyKey] : 2;
+      return { id, b, out, dispensable, stage, priority, urgency };
+    }).sort((a, z) => a.priority - z.priority || a.urgency - z.urgency);
     vals.dispLandingSummaryEl = (() => {
       const counts = { dispensable: 0, notReady: 0, out: 0 };
       _dispLandingItems.forEach(it => { if (it.dispensable) counts.dispensable++; else if (it.out) counts.out++; else counts.notReady++; });
