@@ -6564,6 +6564,15 @@ td.l{text-align:left;padding-left:4px}
         h('div', { style: { width: 54, height: 54, margin: '0 auto 14px', borderRadius: '50%', background: '#FBF1E0', color: '#D9810F', display: 'flex', alignItems: 'center', justifyContent: 'center' }, dangerouslySetInnerHTML: { __html: '<svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M12 7v5l3 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.8"/></svg>' } }),
         h('div', { style: { fontSize: 17, fontWeight: 700 } }, 'ไม่มีการใช้งาน'),
         h('div', { style: { fontSize: 13, color: '#6B7C8A', marginTop: 6, lineHeight: 1.55 } }, 'ระบบจะออกจากระบบอัตโนมัติเพื่อความปลอดภัยของข้อมูลผู้ป่วย'),
+        // window.__ebHasUnsavedWork mirrors the same dirty-check every other
+        // navigation/mode-switch confirm in this app already warns about —
+        // auto-logout is a deliberate security measure and must still fire on
+        // schedule (unlike the SW-update reload, which can safely wait
+        // indefinitely), but silently discarding an in-progress Stage 1/2
+        // registration or an open drug editor with no mention it's about to
+        // happen is its own gap; at minimum tell the user before the
+        // countdown reaches zero.
+        window.__ebHasUnsavedWork ? h('div', { style: { fontSize: 12, fontWeight: 600, color: '#B45F06', marginTop: 8, background: '#FFF8ED', border: '1px solid #F5DBAE', borderRadius: 9, padding: '8px 10px', lineHeight: 1.5 } }, '⚠️ มีข้อมูลที่ยังไม่ได้บันทึก — จะหายไปหากออกจากระบบ') : null,
         h('div', { style: { fontSize: 36, fontWeight: 700, color: st.idleCountdown <= 10 ? '#E03E3E' : '#D9810F', margin: '14px 0 4px', fontFamily: "'IBM Plex Mono', monospace", transition: 'color .3s' } }, st.idleCountdown),
         h('div', { style: { fontSize: 12, color: '#9AAAB8', marginBottom: 4 } }, 'วินาที'),
         h('button', { onClick: () => this.staySignedIn(), style: { width: '100%', height: 47, marginTop: 14, border: 'none', borderRadius: 12, background: 'linear-gradient(135deg, #1A6FA3, #168C84)', color: '#fff', fontFamily: 'inherit', fontSize: 14, fontWeight: 600, cursor: 'pointer' } }, 'ใช้งานต่อ'))) : null;
