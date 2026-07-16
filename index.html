@@ -2802,6 +2802,17 @@ class Component extends DCLogic {
         if (lot.expiry < this.isoOf(this.TODAY)) { this.flash('มียาที่หมดอายุแล้ว — แก้วันหมดอายุก่อนบันทึก'); return; }
       }
     }
+    // Same 10-year expiry-plausibility cap validateForm()'s register Stage 1
+    // branch already enforces — this editor is a fully separate save path
+    // (Detail screen, independent of register) that never received that fix.
+    // A mistyped year (e.g. 9999 instead of 2027) here would otherwise silently
+    // drop that lot out of every near-expiry alert/dashboard computation
+    // system-wide, with no error and no way to detect it later.
+    const _maxPlausibleExpEdit = this.isoOf(this.addDays(this.isoOf(this.TODAY), 3652));
+    for (const drug of drugs) {
+      const _implausible = (drug.lots || []).filter(l => l.expiry && l.expiry > _maxPlausibleExpEdit).length;
+      if (_implausible > 0) { this.flash(`วันหมดอายุไกลเกินไป (เกิน 10 ปีจากวันนี้) — ตรวจสอบอีกครั้ง ${_implausible} lot`); return; }
+    }
     // Detect a concurrent change (e.g. a return or paperless usage-log entry
     // decrementing quantities) made by someone else while this edit was open —
     // this write is a plain overwrite of the whole drugs[] array, not a
