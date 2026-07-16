@@ -6654,7 +6654,14 @@ td.l{text-align:left;padding-left:4px}
     const qrBoxId = st.showDrugQR;
     if (qrBoxId) {
       const qrDrugs = (BD[qrBoxId] || []);
-      const BASE_URL = 'https://emergencyboxnotyfykpnhos.web.app/drug.html';
+      // Derived live from the current origin, matching printQRCodes()'s
+      // pattern — hardcoding the production URL here meant this QR code
+      // would silently encode the WRONG deployment's address (pointing away
+      // from wherever the page is actually being served) on any other origin
+      // (a custom domain, a Firebase Hosting preview channel, a local/staging
+      // deployment), while the same-page inline drug-info link a few hundred
+      // lines up already correctly uses a relative `./drug.html?id=...` path.
+      const BASE_URL = window.location.origin + '/drug.html';
       const qrItems = qrDrugs.map(d => {
         const drugId = this.drugNameToId(d.name);
         const url = drugId ? BASE_URL + '?id=' + drugId : null;
