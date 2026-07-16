@@ -5803,9 +5803,23 @@ td.l{text-align:left;padding-left:4px}
     // drug usage table for swap-return in dispense form
     // exclude the box being dispensed from eligible swap sources — same as submit() logic
     const _swOutIds = outIds.filter(id => id !== (inStockIds.includes(st.dispEB) ? st.dispEB : inStockIds[0]));
-    const _swapEBU = st.swapEB && _swOutIds.includes(st.swapEB) ? st.swapEB : _swOutIds[0];
-    const _swapDrugsU = _swapEBU ? (BDdash[_swapEBU] || []) : [];
-    vals.swapRetDrugUsageEl = st.swapReturn && _swapDrugsU.length > 0 ? h('div', { style: { marginTop: 14, paddingTop: 14, borderTop: '1px solid #ECF1F5' } },
+    // Do NOT silently fall back to a different box when st.swapEB just left the
+    // out-list (e.g. returned by another device mid-edit) — that used to swap in
+    // a DIFFERENT box's drug/lot data under the same-looking usage table while
+    // any already-typed usage quantities (keyed only by drugIdx/lotIdx, not box
+    // id) stayed put, so a "used 2" the user entered for the ORIGINAL box's drug
+    // #0 silently appeared to apply to the substituted box's unrelated drug #0
+    // with zero warning. Only render real data when st.swapEB itself is still
+    // genuinely valid; otherwise show an explicit "box changed, please
+    // reselect" notice — validateForm()/submit() already correctly reject a
+    // stale swapEB at save time, but the display shouldn't disagree with that
+    // in the meantime.
+    const _swapEBStillValid = !!(st.swapEB && _swOutIds.includes(st.swapEB));
+    const _swapDrugsU = _swapEBStillValid ? (BDdash[st.swapEB] || []) : [];
+    vals.swapEBStale = st.swapReturn && !!st.swapEB && !_swapEBStillValid;
+    vals.swapRetDrugUsageEl = vals.swapEBStale ? h('div', { style: { marginTop: 14, paddingTop: 14, borderTop: '1px solid #ECF1F5', fontSize: 12.5, color: '#B45F06', background: '#FFF8ED', border: '1px solid #F5DBAE', borderRadius: 10, padding: '10px 12px' } },
+      `⚠️ กล่อง ${st.swapEB} ไม่ได้อยู่ในสถานะจ่ายออกแล้ว (อาจถูกรับคืนโดยผู้อื่น) — กรุณาเลือกกล่องอื่นที่ต้องการรับคืน`
+    ) : st.swapReturn && _swapDrugsU.length > 0 ? h('div', { style: { marginTop: 14, paddingTop: 14, borderTop: '1px solid #ECF1F5' } },
       h('label', { style: { display: 'block', fontSize: 12, fontWeight: 600, color: '#4A5C6A', marginBottom: 10 } },
         'บันทึกยาที่ใช้ในกล่องที่รับคืน ',
         h('span', { style: { fontSize: 11, fontWeight: 400, color: '#9AAAB8' } }, '(ใส่ 0 สำหรับยาที่ไม่ได้ใช้)')
