@@ -137,6 +137,14 @@ async function fetchExpiringDrugs() {
             returnDeadline,
             returnDeadlineThai: thaiDate(returnDeadline),
             daysLeft: days,
+            // days remaining until the RETURN deadline (expiry - 15), matching
+            // index.html's statusOf()/daysText() convention exactly — daysLeft
+            // above (raw days until physical expiry) is kept for status-bucket
+            // classification (the 0/15/30 thresholds below already line up with
+            // this return-date basis), but is NOT what should be displayed as
+            // "N วัน" to a reader, since that number would then disagree with
+            // the in-app dashboard's countdown for the exact same lot.
+            returnDaysLeft: daysUntil(returnDeadline),
             status: days <= 0 ? 'expired' : days <= 15 ? 'critical' : days <= 30 ? 'warning' : 'notice',
             statusLabel: statusLabel(days),
           });
@@ -371,10 +379,10 @@ function buildFlexMessages(alerts) {
   // ── Helper: drug card (colored-border style) ──
   function drugCard(a, borderColor, itemBg) {
     const locText = a.isOut ? `🏥  เบิกออก → ${a.location}` : '💊  ห้องยา';
-    const dayText = a.daysLeft < 0
-      ? `เกิน ${Math.abs(a.daysLeft)} วัน`
-      : a.daysLeft === 0 ? 'หมดวันนี้' : `เหลือ ${a.daysLeft} วัน`;
-    const dayBadgeColor = a.daysLeft < 0 ? '#B71C1C' : a.daysLeft <= 7 ? '#C62828' : a.daysLeft <= 15 ? '#E64A19' : '#1565C0';
+    const dayText = a.returnDaysLeft < 0
+      ? `เกินกำหนดส่งคืน ${Math.abs(a.returnDaysLeft)} วัน`
+      : a.returnDaysLeft === 0 ? 'ครบกำหนดส่งคืนวันนี้' : `เหลืออีก ${a.returnDaysLeft} วันถึงกำหนดส่งคืน`;
+    const dayBadgeColor = a.returnDaysLeft < 0 ? '#B71C1C' : a.returnDaysLeft <= 7 ? '#C62828' : a.returnDaysLeft <= 15 ? '#E64A19' : '#1565C0';
 
     const nameRow = [
       pill(a.boxId.toUpperCase(), borderColor),
@@ -458,16 +466,23 @@ function buildFlexMessages(alerts) {
     { list: notice,   label: 'เตือนล่วงหน้า',      emoji: '🔵', hBg: '#0D47A1', hFg: '#FFFFFF', bodyBg: '#F0F8FF', borderColor: '#1565C0', itemBg: '#FFFFFF' },
   ];
 
-  // LINE carousel limit = 12 bubbles; 1 reserved for summary → max 11 severity bubbles
-  let severityBubbleCount = 0;
+  // LINE carousel limit = 12 bubbles; 1 reserved for the summary bubble above.
+  // Build every severity bubble first (uncapped), THEN cap — a silent `break`
+  // mid-loop used to drop the remaining severities' drugs from the carousel
+  // entirely with no indication anything was cut off, even though the summary
+  // bubble's stat tiles report the TRUE, un-truncated counts — a reader could
+  // see "40 เตือนล่วงหน้า" in the stats while the carousel itself only shows
+  // however many fit in the remaining slots. Matches the "no silent caps"
+  // pattern this file's email/plain-text builders already use for their own
+  // truncation (an explicit "...และอีก N รายการ" note).
+  const severityBubbles = [];
+  let shownCount = 0;
   severities.forEach(({ list, label, emoji, hBg, hFg, bodyBg, borderColor, itemBg }) => {
     if (!list.length) return;
     for (let i = 0; i < list.length; i += 6) {
-      if (severityBubbleCount >= 11) break;
       const chunk = list.slice(i, i + 6);
       const titleSuffix = list.length > 6 ? ` (${Math.floor(i/6)+1}/${Math.ceil(list.length/6)})` : '';
-
-      bubbles.push({
+      severityBubbles.push({
         type: 'bubble', size: 'mega',
         header: {
           type: 'box', layout: 'horizontal', backgroundColor: hBg, paddingAll: '16px', alignItems: 'center',
@@ -487,9 +502,37 @@ function buildFlexMessages(alerts) {
           contents: chunk.map(a => drugCard(a, borderColor, itemBg)),
         },
       });
-      severityBubbleCount++;
+      shownCount += chunk.length;
     }
   });
+
+  const MAX_SEVERITY_BUBBLES = 11;
+  if (severityBubbles.length > MAX_SEVERITY_BUBBLES) {
+    const kept = severityBubbles.slice(0, MAX_SEVERITY_BUBBLES - 1);
+    const keptDrugCount = kept.reduce((n, b) => n + b.body.contents.length, 0);
+    const remaining = alerts.length - keptDrugCount;
+    bubbles.push(...kept);
+    bubbles.push({
+      type: 'bubble', size: 'mega',
+      body: {
+        type: 'box', layout: 'vertical', backgroundColor: '#F0F4F8', paddingAll: '20px', justifyContent: 'center',
+        contents: [
+          { type: 'text', text: '➕', size: 'xxl', align: 'center' },
+          { type: 'text', text: `และอีก ${remaining} รายการ`, weight: 'bold', size: 'md', align: 'center', margin: 'md', wrap: true },
+          { type: 'text', text: 'เปิดแอปเพื่อดูรายการทั้งหมด', size: 'xs', color: '#78909C', align: 'center', margin: 'sm', wrap: true },
+        ],
+      },
+      footer: {
+        type: 'box', layout: 'vertical', paddingAll: '14px',
+        contents: [{
+          type: 'button', style: 'primary', color: '#1E88E5', height: 'sm',
+          action: { type: 'uri', label: '🔗  เปิดแอป EB Notify', uri: 'https://emergencyboxnotyfykpnhos.web.app' },
+        }],
+      },
+    });
+  } else {
+    bubbles.push(...severityBubbles);
+  }
 
   return [{
     type: 'flex',
@@ -569,7 +612,7 @@ function buildHtmlEmail(alerts) {
           ${hadAlerts.map(a => {
             const color = a.status === 'expired' ? '#B42121' : a.status === 'critical' ? '#9A5000' : '#7B4F00';
             const boxStatusLabel = a.isOut ? `<span style="color:#D9810F;font-weight:700">จ่ายออก</span><br><span style="font-size:11px;color:#7B6030">${escHtml(a.location)}</span>` : `<span style="color:#169C7F;font-weight:700">อยู่ที่คลัง</span>`;
-            const days = a.daysLeft < 0 ? `เกิน ${Math.abs(a.daysLeft)} วัน` : a.daysLeft === 0 ? 'หมดอายุวันนี้' : `เหลือ ${a.daysLeft} วัน`;
+            const days = a.returnDaysLeft < 0 ? `เกินกำหนดส่งคืน ${Math.abs(a.returnDaysLeft)} วัน` : a.returnDaysLeft === 0 ? 'ครบกำหนดส่งคืนวันนี้' : `เหลืออีก ${a.returnDaysLeft} วันถึงกำหนดส่งคืน`;
             return `<tr style="background:#FFF8F8">
               <td style="padding:8px 10px;border-bottom:1px solid #F5C6C6;font-weight:700;color:#B42121">${escHtml(a.boxId)}</td>
               <td style="padding:8px 10px;border-bottom:1px solid #F5C6C6">${boxStatusLabel}</td>
@@ -606,7 +649,7 @@ function buildHtmlEmail(alerts) {
   const rows = alerts.slice(0, 50).map((a, i) => {
     const color = a.status === 'expired' ? '#B42121' : a.status === 'critical' ? '#9A5000' : a.status === 'warning' ? '#7B4F00' : '#1A6FA3';
     const rowBg = i % 2 === 0 ? '#FFFFFF' : '#F9FBFC';
-    const days = a.daysLeft < 0 ? `เกิน ${Math.abs(a.daysLeft)} วัน` : a.daysLeft === 0 ? 'หมดอายุวันนี้' : `เหลือ ${a.daysLeft} วัน`;
+    const days = a.returnDaysLeft < 0 ? `เกินกำหนดส่งคืน ${Math.abs(a.returnDaysLeft)} วัน` : a.returnDaysLeft === 0 ? 'ครบกำหนดส่งคืนวันนี้' : `เหลืออีก ${a.returnDaysLeft} วันถึงกำหนดส่งคืน`;
     const boxStatusLabel = a.isOut
       ? `<span style="color:#D9810F;font-weight:700">จ่ายออก</span><br><span style="font-size:11px;color:#7B6030">${escHtml(a.location)}</span>`
       : `<span style="color:#169C7F;font-weight:700">อยู่ที่คลัง</span>`;
@@ -685,8 +728,11 @@ function buildPlainText(alerts) {
 
   const line = (a) => {
     const boxInfo = a.isOut ? `จ่ายออก → ${a.location}` : 'อยู่ที่คลัง';
-    const days = a.daysLeft < 0 ? `เกิน ${Math.abs(a.daysLeft)} วัน` : a.daysLeft === 0 ? 'หมดอายุวันนี้' : `เหลือ ${a.daysLeft} วัน`;
-    return `  - ${a.boxId} [${boxInfo}]  ${a.drugName}${a.isHAD ? ' [HAD]' : ''}  จำนวน ${Number(a.qty) || 0}  ส่งคืนภายใน: ${a.returnDeadlineThai}  หมดอายุ: ${a.expiryThai} (${days})`;
+    // day-count is attached to the RETURN deadline (matching index.html's
+    // statusOf()/daysText() convention), not the expiry date directly below it —
+    // see returnDaysLeft's definition in fetchExpiringDrugs() for why.
+    const days = a.returnDaysLeft < 0 ? `เกินกำหนดส่งคืน ${Math.abs(a.returnDaysLeft)} วัน` : a.returnDaysLeft === 0 ? 'ครบกำหนดส่งคืนวันนี้' : `เหลืออีก ${a.returnDaysLeft} วันถึงกำหนดส่งคืน`;
+    return `  - ${a.boxId} [${boxInfo}]  ${a.drugName}${a.isHAD ? ' [HAD]' : ''}  จำนวน ${Number(a.qty) || 0}  ส่งคืนภายใน: ${a.returnDeadlineThai} (${days})  หมดอายุ: ${a.expiryThai}`;
   };
 
   let t = `แจ้งเตือนยาใกล้หมดอายุ — Emergency Box รพ.กรงปินัง\n`;

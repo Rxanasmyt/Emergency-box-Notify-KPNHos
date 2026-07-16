@@ -4757,6 +4757,11 @@ td.l{text-align:left;padding-left:4px}
     // GitHub Actions manual trigger — PAT lives in Firestore only (never localStorage)
     vals.githubPAT = st.ghPAT;
     vals.setGithubPAT = (e) => {
+      // defense in depth — the Notify screen template already gates this to
+      // admin only (isNotify requires role==='admin'), but doLogin() loads
+      // ghPAT into state for every role regardless, so this method-level
+      // check must exist too, matching every other admin action's pattern.
+      if (!this.state.currentUser || this.state.currentUser.role !== 'admin') return;
       const v = e.target.value;
       this.setState({ ghPAT: v });
       clearTimeout(this._patT);
@@ -4773,6 +4778,9 @@ td.l{text-align:left;padding-left:4px}
     vals.ghTriggerMsg   = _ghMsgs[_ghState];
     vals.ghTriggerColor = _ghColors[_ghState];
     vals.triggerGHActions = async () => {
+      // defense in depth — see setGithubPAT above for why this can't rely on
+      // the template's isNotify gate alone.
+      if (!this.state.currentUser || this.state.currentUser.role !== 'admin') return;
       if (this.state.ghTrigger === 'loading') return;
       const pat = (st.ghPAT || '').trim();
       if (!pat) { this.setState({ ghTrigger: 'error' }); clearTimeout(this._ghT); this._ghT = setTimeout(() => this.setState({ ghTrigger: 'idle' }), 4000); return; }
