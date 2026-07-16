@@ -20,6 +20,10 @@ jobs:
   reset:
     name: Clear Firestore Test Data
     runs-on: ubuntu-latest
+    # only reads the repo + talks to Firestore via the Admin SDK service
+    # account — no GITHUB_TOKEN scope is ever needed
+    permissions:
+      contents: read
 
     steps:
       # CONFIRM is passed via env, never spliced directly into the script

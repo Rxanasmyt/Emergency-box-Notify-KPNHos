@@ -51,6 +51,21 @@ jobs:
           git tag "${{ steps.bump.outputs.new_tag }}"
           git push origin "${{ steps.bump.outputs.new_tag }}"
 
+      # github.event.head_commit.message is attacker-influenceable (a squash-merge
+      # commonly defaults its message to an external PR's title, fully controlled
+      # by whoever opened the PR) — read it via env: (never spliced with ${{ }}
+      # into the run: script body, same discipline reset-data.yml already uses for
+      # its confirm input) and reduce it to a single sanitized line before it ever
+      # reaches the public release body, so it can't inject stray markdown/links
+      # into the project's release notes.
+      - name: Sanitize commit summary for release notes
+        id: commit_summary
+        env:
+          RAW_MSG: ${{ github.event.head_commit.message }}
+        run: |
+          SAFE=$(printf '%s' "$RAW_MSG" | head -n 1 | tr -d '[]()' | cut -c1-200)
+          echo "text=${SAFE}" >> $GITHUB_OUTPUT
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -59,7 +74,7 @@ jobs:
           body: |
             ## ${{ steps.bump.outputs.new_tag }}
 
-            **Commit:** ${{ github.event.head_commit.message }}
+            **Commit:** ${{ steps.commit_summary.outputs.text }}
             **Branch:** `${{ github.ref_name }}`
             **SHA:** `${{ github.sha }}`
 

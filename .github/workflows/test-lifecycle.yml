@@ -16,6 +16,10 @@ jobs:
   test:
     name: Register/Dispense/Return smoke test against a throwaway TEST-1 box
     runs-on: ubuntu-latest
+    # only reads the repo + talks to Firestore via the Admin/client SDKs —
+    # no GITHUB_TOKEN scope is ever needed
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout

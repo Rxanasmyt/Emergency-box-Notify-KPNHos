@@ -9,6 +9,11 @@ jobs:
   notify:
     name: Check Expiry & Send Alerts
     runs-on: ubuntu-latest
+    # this job only reads the repo and talks to Firestore/LINE/email via its
+    # own secrets — it never needs any GITHUB_TOKEN scope, so pin it to
+    # read-only instead of inheriting the org/repo's default token permissions
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout
