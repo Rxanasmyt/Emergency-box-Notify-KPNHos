@@ -889,7 +889,7 @@ input:focus, select:focus, textarea:focus {
             <div class="kpi-num" style="font-family: 'IBM Plex Mono', monospace; font-size: 34px; font-weight: 600; margin-top: 10px; letter-spacing: -1px; animation: countUp .4s ease .1s both;">{{ kpiTotal }}</div>
             <div style="font-size: 12px; color: #9AAAB8; margin-top: 2px;">EB-1 ถึง EB-{{ kpiTotal }}</div>
           </div>
-          <div class="kpi-card-teal" onClick="{{ goDetail }}" onKeyDown="{{ goDetailOnKey }}" tabindex="0" role="button" style="animation: fadeUp .5s cubic-bezier(.34,1.56,.64,1) .09s both; background: #fff; border: 1px solid #E7EEF3; border-radius: 16px; padding: 18px 20px; transition: transform .28s cubic-bezier(.34,1.56,.64,1), box-shadow .28s cubic-bezier(.4,0,.2,1); cursor: pointer;" style-hover="transform: translateY(-3px); box-shadow: 0 12px 32px rgba(13,185,160,.28);">
+          <div class="kpi-card-teal" onClick="{{ goActiveBoxes }}" onKeyDown="{{ goActiveBoxesOnKey }}" tabindex="0" role="button" style="animation: fadeUp .5s cubic-bezier(.34,1.56,.64,1) .09s both; background: #fff; border: 1px solid #E7EEF3; border-radius: 16px; padding: 18px 20px; transition: transform .28s cubic-bezier(.34,1.56,.64,1), box-shadow .28s cubic-bezier(.4,0,.2,1); cursor: pointer;" style-hover="transform: translateY(-3px); box-shadow: 0 12px 32px rgba(13,185,160,.28);">
             <div style="display: flex; align-items: center; justify-content: space-between;">
               <span style="font-size: 13px; color: #7B8D9C; font-weight: 500;">ถูกเบิกออก (ใช้งาน) →</span>
               <span style="width: 34px; height: 34px; border-radius: 10px; background: #E4F4EF; color: #169C7F; display: flex; align-items: center; justify-content: center;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M3 13l4 4L21 5" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
@@ -4657,6 +4657,16 @@ td.l{text-align:left;padding-left:4px}
       pageSub: (titles[screen] || titles.dashboard)[1],
       goDashboard: () => this.go('dashboard'),
       goDetail: () => this.go('detail'),
+      // The "ถูกเบิกออก (ใช้งาน)" KPI card used to just call goDetail(), which
+      // opens the Detail screen on whatever selectedEB happens to already be
+      // set (arbitrary/stale — the last box viewed anywhere in the app, or the
+      // 'EB-4' default), with zero relationship to the "out" boxes the KPI
+      // number actually counts. Point it at the first genuinely out box instead.
+      goActiveBoxes: () => {
+        const outBox = this.BOXES.find(b => b.dispense && !b.receiver);
+        if (outBox && this.go('detail')) this.setState({ selectedEB: outBox.id });
+        else this.go('detail');
+      },
       goEntryReturn: () => {
         if (this.state.editDrugs) {
           this.askConfirm({
@@ -4683,6 +4693,7 @@ td.l{text-align:left;padding-left:4px}
       printQRCodes: () => this.printQRCodes(),
     };
     vals.goDetailOnKey = onKeyActivate(vals.goDetail);
+    vals.goActiveBoxesOnKey = onKeyActivate(vals.goActiveBoxes);
     vals.goEntryReturnOnKey = onKeyActivate(vals.goEntryReturn);
 
     // ===== LOGIN SCREEN =====
@@ -5911,7 +5922,16 @@ td.l{text-align:left;padding-left:4px}
       const b = this.BOXES.find(x => x.id === id);
       const out = outOf(b);
       const daysOut = out && b.dispense ? Math.round((this.TODAY - this.parse(b.dispense)) / 86400000) : 0;
-      return { id, b, out, daysOut, priority: out ? 0 : 1 };
+      // The dashboard's "ต้องส่งคืนด่วน" shortcut flags urgency by drug EXPIRY
+      // (statusOf(exp(b)) === 'critical'), completely independent of daysOut
+      // (how long the box has physically been checked out) — a box dispensed
+      // minutes ago whose only lot expires in a few days is expiry-urgent but
+      // would otherwise show the calmest green "just went out" badge here,
+      // with zero indication of why the dashboard flagged it. Surface that
+      // same signal on this landing card so the two screens can't silently
+      // disagree about which box actually needs prioritizing.
+      const expUrgent = out && this.statusOf(this.boxExpiryISO(id, BDdash)).key === 'critical';
+      return { id, b, out, daysOut, expUrgent, priority: out ? (expUrgent ? -1 : 0) : 1 };
     }).sort((a, z) => a.priority - z.priority || z.daysOut - a.daysOut);
     vals.retLandingSummaryEl = (() => {
       const counts = { out: 0, inStock: 0 };
@@ -5924,14 +5944,19 @@ td.l{text-align:left;padding-left:4px}
         ...chips.map((c, i) => h('span', { key: i, style: { display: 'inline-flex', alignItems: 'center', padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: c.bg, color: c.color } }, c.label))
       ) : null;
     })();
-    vals.retLandingCardsEl = h(React.Fragment, null, ..._retLandingItems.map(({ id, b, out, daysOut }, _li) => {
+    vals.retLandingCardsEl = h(React.Fragment, null, ..._retLandingItems.map(({ id, b, out, daysOut, expUrgent }, _li) => {
       const badge = !out ? { label: '✅ อยู่ในห้องยา', bg: '#E4F4EF', color: '#169C7F', border: '#C4E7DB' }
         : daysOut > 30 ? { label: `📤 ค้างรับคืน ${daysOut} วัน`, bg: '#FEF3C7', color: '#D97706', border: '#FCD34D' }
         : daysOut > 15 ? { label: `📤 ค้างรับคืน ${daysOut} วัน`, bg: '#FBF1E0', color: '#B5740F', border: '#F4DEC2' }
         : { label: `📤 ค้างรับคืน ${daysOut} วัน`, bg: '#E4F4EF', color: '#169C7F', border: '#C4E7DB' };
       const subtitle = !out ? 'ยังไม่ได้จ่ายออก — ไม่มีอะไรต้องรับคืน'
         : `จ่ายให้ ${(b && b.dept) || '—'} เมื่อ ${b && b.dispense ? this.fmtISO(b.dispense) : '—'}`;
-      return mkPickerCard({ id, li: _li, disabled: !out, pulse: out && daysOut > 30, badge, subtitle, onClick: () => this.selectRetBox(id) });
+      return mkPickerCard({
+        id, li: _li, disabled: !out, pulse: out && (daysOut > 30 || expUrgent), badge, subtitle,
+        subtitle2: expUrgent ? '⚠️ ยาใกล้หมดอายุ — ควรรับคืนด่วน' : null,
+        subtitle2Color: expUrgent ? '#E03E3E' : null,
+        onClick: () => this.selectRetBox(id),
+      });
     }));
     // same dirty-check guard as regEBSelectEl above — most important here since
     // switching boxes also wipes retDrugUsage (recorded per-lot drug usage)
