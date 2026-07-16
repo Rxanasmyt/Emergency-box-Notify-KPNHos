@@ -2092,7 +2092,20 @@ class Component extends DCLogic {
   AUDIT = [];
 
   // ---------- date helpers ----------
-  parse(iso) { if (!iso || typeof iso !== 'string') return null; const d = new Date(iso + 'T00:00:00'); return isNaN(d.getTime()) ? null : d; }
+  parse(iso) {
+    if (!iso || typeof iso !== 'string') return null;
+    const d = new Date(iso + 'T00:00:00');
+    if (isNaN(d.getTime())) return null;
+    // new Date() performs calendar arithmetic, not strict ISO-8601 grammar
+    // validation, for the day-of-month component — "2026-02-30" silently
+    // rolls over to 2026-03-02 instead of being rejected. Every date field in
+    // this app is a native <input type="date">, which doesn't let a user
+    // pick/type an out-of-range day for a given month, so this is currently
+    // unreachable through the UI — but round-trip it anyway so this shared
+    // helper can never silently normalize a malformed date if that ever changes.
+    const y = d.getFullYear(), mo = String(d.getMonth() + 1).padStart(2, '0'), dy = String(d.getDate()).padStart(2, '0');
+    return `${y}-${mo}-${dy}` === iso ? d : null;
+  }
   addDays(iso, n) { const d = this.parse(iso); if (!d) return null; d.setDate(d.getDate() + n); return d; }
   fmt(d) { if (!d || isNaN(d.getTime())) return '—'; return `${d.getDate()} ${this.TH_MONTHS[d.getMonth()]} ${d.getFullYear() + 543}`; }
   fmtISO(iso) { return iso ? this.fmt(this.parse(iso)) : '—'; }
