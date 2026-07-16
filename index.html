@@ -5495,7 +5495,7 @@ td.l{text-align:left;padding-left:4px}
       const n = parseInt((hex || '#7B8D9C').replace('#', ''), 16);
       return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
     };
-    const mkPickerCard = ({ id, li, disabled, pulse, badge, subtitle, subtitleIcon, subtitleAccent, subtitle2, subtitle2Icon, subtitle2Accent, subtitle2Color, onClick }) => h('button', {
+    const mkPickerCard = ({ id, li, disabled, pulse, badge, subtitle, subtitleIcon, subtitleAccent, subtitle2, subtitle2Icon, subtitle2Accent, subtitle2Color, subtitle3, subtitle3Icon, subtitle3Color, onClick }) => h('button', {
       key: id, type: 'button', disabled,
       onClick: disabled ? undefined : onClick,
       // hover elevation tinted with the card's own status color — a subtle
@@ -5527,6 +5527,14 @@ td.l{text-align:left;padding-left:4px}
         subtitleIcon ? h('span', { style: { fontSize: 11 } }, subtitleIcon) : null, subtitle),
       subtitle2 ? h('div', { style: { fontSize: subtitle2Accent ? 11 : 10.5, fontWeight: subtitle2Accent ? 700 : 500, color: subtitle2Accent ? (subtitle2Color || badge.color) : '#9AAAB8', marginTop: -2, display: 'flex', alignItems: 'center', gap: 5 } },
         subtitle2Icon ? h('span', { style: { fontSize: 10 } }, subtitle2Icon) : null, subtitle2) : null,
+      // third line — currently only the register landing's verified-in-stock
+      // card uses this, to surface the SAME near-expiry warning the dispense
+      // landing already computes for the identical box set (_ebStatusMap) —
+      // without it, a box could show 🟢 "พร้อมจ่าย" on Dispense with a red
+      // near-expiry warning while its Register landing card, right next to it
+      // in the same app, showed no expiry indication at all.
+      subtitle3 ? h('div', { style: { fontSize: 10.5, fontWeight: 700, color: subtitle3Color || badge.color, marginTop: -2, display: 'flex', alignItems: 'center', gap: 5 } },
+        subtitle3Icon ? h('span', { style: { fontSize: 10 } }, subtitle3Icon) : null, subtitle3) : null,
     );
     // urgency order: rejected (needs จพ. action now) > prepared (needs เภสัชกร
     // action now) > none > verified — a dispensed-out box can't be acted on
@@ -5572,9 +5580,13 @@ td.l{text-align:left;padding-left:4px}
         : isVerifiedInStock ? `ตรวจสอบโดย ${(b && b.checker) || '—'}`
         : `จัดเตรียมโดย ${(b && b.preparer) || '—'}`;
       const subtitle2 = isVerifiedInStock ? `จัดเตรียมโดย ${(b && b.preparer) || '—'}` : null;
+      const _regSt = isVerifiedInStock ? _ebStatusMap[id] : null;
+      const subtitle3 = _regSt && _regSt.key === 'critical' ? '⚠ ใกล้/เกินกำหนดส่งคืนแล้ว'
+        : _regSt && _regSt.key === 'warning' ? 'ใกล้กำหนดส่งคืน' : null;
       return mkPickerCard({
-        id, li: _li, disabled: isOut, pulse: rejected, badge, subtitle, subtitle2,
+        id, li: _li, disabled: isOut, pulse: rejected, badge, subtitle, subtitle2, subtitle3,
         subtitleAccent: isVerifiedInStock, subtitleIcon: isVerifiedInStock ? '✅' : null, subtitle2Icon: isVerifiedInStock ? '📝' : null,
+        subtitle3Icon: subtitle3 ? '⏰' : null, subtitle3Color: _regSt && _regSt.key === 'critical' ? '#E03E3E' : '#D97706',
         onClick: () => this.selectRegBox(id, { force: true }),
       });
     }));
