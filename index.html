@@ -359,6 +359,9 @@ input[type="date"] { min-height: 46px; }
 
   /* Toast above bottom nav */
   .app-toast { bottom: 72px !important; }
+  /* flash()'s toast stacks above the success toast's mobile position too,
+     same reasoning as the desktop offset above */
+  .flash-toast { bottom: 138px !important; }
 
   /* KPI 2 columns */
   .kpi-grid { grid-template-columns: repeat(2,1fr) !important; gap: 10px !important; }
@@ -1827,9 +1830,15 @@ input:focus, select:focus, textarea:focus {
     </div>
   </sc-if>
 
-  <!-- Action message toast (user mgmt) -->
+  <!-- Action message toast (flash()) — positioned ABOVE the success toast's
+       spot (bottom:96px vs the success toast's bottom:30px), not the exact
+       same coordinates, so a background flash() (e.g. a fire-and-forget
+       logAudit() failure) can never render directly on top of and hide a
+       still-visible submit-success toast; both can be read if they overlap
+       in time. Also carries the app-toast class so it gets the same
+       above-bottom-nav offset on mobile the success toast already has. -->
   <sc-if value="{{ showActionMsg }}" hint-placeholder-val="{{ false }}">
-    <div style="position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: rgba(21,36,46,.92); backdrop-filter: blur(16px) saturate(1.6); -webkit-backdrop-filter: blur(16px) saturate(1.6); color: #fff; border-radius: 16px; padding: 13px 20px; display: flex; align-items: center; gap: 11px; box-shadow: 0 16px 48px rgba(20,40,55,.35), 0 4px 12px rgba(20,40,55,.15); animation: toastIn .5s cubic-bezier(.34,1.56,.64,1) both; z-index: 120;">
+    <div class="flash-toast" style="position: fixed; bottom: 96px; left: 50%; transform: translateX(-50%); background: rgba(21,36,46,.92); backdrop-filter: blur(16px) saturate(1.6); -webkit-backdrop-filter: blur(16px) saturate(1.6); color: #fff; border-radius: 16px; padding: 13px 20px; display: flex; align-items: center; gap: 11px; box-shadow: 0 16px 48px rgba(20,40,55,.35), 0 4px 12px rgba(20,40,55,.15); animation: toastIn .5s cubic-bezier(.34,1.56,.64,1) both; z-index: 120;">
       <span style="width: 24px; height: 24px; border-radius: 50%; background: #1A6FA3; display: flex; align-items: center; justify-content: center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
       <span style="font-size: 13.5px; font-weight: 600;">{{ actionMsg }}</span>
     </div>
@@ -3326,6 +3335,16 @@ class Component extends DCLogic {
 
   // ---------- user management (admin) ----------
   flash(msg) {
+    // A fire-and-forget write (logAction/logBoxHist's .catch(() => this.flash(...))
+    // for a failed audit-log write, among others) can resolve well after the
+    // user has already logged out — the component stays mounted through
+    // logout (authed just flips false), so a stale callback's flash() would
+    // otherwise render a confusing, out-of-context toast over the now-visible
+    // login screen (or a different user's session on a shared workstation).
+    // The public QR page never sets `authed` at all (it has no login), so it
+    // must stay excluded from this guard or its own logAction()/submitPubUsage()
+    // failure toasts would be silently swallowed.
+    if (!this.state.authed && !this.state.publicView) return;
     this.setState({ actionMsg: msg });
     clearTimeout(this._a);
     const dur = Math.min(5500, Math.max(2200, msg.length * 70));
