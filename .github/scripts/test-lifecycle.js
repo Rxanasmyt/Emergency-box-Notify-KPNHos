@@ -66,6 +66,7 @@ async function returnBoxAndDrugsTx(boxId, boxFields, usageMap) {
     if (drugs.length > 0) {
       updatedDrugs = drugs.map((d, di) => ({
         ...d,
+        verified: false,
         lots: (d.lots || []).map((l, li) => ({ ...l, qty: Math.max(0, (l.qty || 0) - ((usageMap[di] || {})[li] || 0)) })).filter((l) => l.qty > 0),
       }));
       tx.set(drugsRef, { boxId, drugs: updatedDrugs }, { merge: true });
@@ -82,14 +83,27 @@ async function resetTestBoxToOut() {
   }, { merge: true });
   await adminDb.collection('box_drugs').doc(TEST_BOX_ID).set({
     boxId: TEST_BOX_ID,
-    drugs: [{ name: 'Test Drug', had: false, par: 10, lots: [{ lot: 'T1', qty: 10, expiry: '2027-01-01' }] }],
+    drugs: [{ name: 'Test Drug', had: false, par: 10, verified: true, lots: [{ lot: 'T1', qty: 10, expiry: '2027-01-01' }] }],
   });
 }
 
 async function cleanup() {
-  await adminDb.collection('boxes').doc(TEST_BOX_ID).delete().catch(() => {});
-  await adminDb.collection('box_drugs').doc(TEST_BOX_ID).delete().catch(() => {});
-  await adminDb.collection('audit_log').doc('TEST-1-rules-check').delete().catch(() => {});
+  // Each delete's error is surfaced (not blanket-swallowed) — a transient
+  // Firestore/network/permission failure here must not let this function
+  // (or the "--cleanup-only" step that's the ONLY guaranteed-cleanup path
+  // after a cancelled/killed run, see below) silently report success while
+  // TEST-1 actually still lingers in production Firestore.
+  const jobs = [
+    ['boxes', TEST_BOX_ID],
+    ['box_drugs', TEST_BOX_ID],
+    ['audit_log', 'TEST-1-rules-check'],
+  ];
+  const outcomes = await Promise.allSettled(jobs.map(([col, id]) => adminDb.collection(col).doc(id).delete()));
+  const failed = outcomes.map((o, i) => ({ o, job: jobs[i] })).filter(({ o }) => o.status === 'rejected');
+  if (failed.length) {
+    failed.forEach(({ o, job }) => console.error(`❌ cleanup failed to delete ${job[0]}/${job[1]}:`, o.reason && o.reason.message));
+    throw new Error(`cleanup left ${failed.length}/${jobs.length} doc(s) undeleted`);
+  }
   console.log('🧹 cleaned up TEST-1 box, box_drugs, and test audit_log doc');
 }
 
@@ -110,6 +124,7 @@ async function main() {
   record('return transaction succeeds on first return', retOk, retOk ? '' : String(retResult));
   if (retOk) {
     record('return transaction decremented qty 10 -> 7 correctly', retResult.drugs[0].lots[0].qty === 7, `got ${retResult.drugs?.[0]?.lots?.[0]?.qty}`);
+    record('return transaction resets verified to false (must be re-checked before next dispense)', retResult.drugs[0].verified === false, `got ${retResult.drugs?.[0]?.verified}`);
     const boxAfter = (await adminDb.collection('boxes').doc(TEST_BOX_ID).get()).data();
     record('box marked receiver+retDate after return', boxAfter.receiver === 'ผู้ทดสอบ' && boxAfter.retDate === '2026-07-08');
   }
@@ -148,7 +163,13 @@ if (process.argv.includes('--cleanup-only')) {
   main()
     .catch((err) => { console.error('❌ Unexpected error during test:', err); results.push({ name: 'unexpected error', pass: false, detail: err.message }); })
     .finally(async () => {
-      await cleanup();
+      // cleanup() now throws on a real delete failure (see above) instead of
+      // silently swallowing it — catch it here so it doesn't become an
+      // unhandled rejection that skips printing the test results below, but
+      // still surface it as a failed check so a real cleanup failure can't
+      // report as a fully-green run (the --cleanup-only workflow step is the
+      // real safety net for a cancelled run; this is the normal-completion path).
+      await cleanup().catch((err) => { console.error('❌', err.message); results.push({ name: 'cleanup', pass: false, detail: err.message }); });
       const failed = results.filter((r) => !r.pass);
       console.log(`\n${'='.repeat(50)}`);
       console.log(`RESULT: ${results.length - failed.length}/${results.length} checks passed`);
