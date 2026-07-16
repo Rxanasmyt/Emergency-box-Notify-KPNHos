@@ -1,4 +1,4 @@
-const CACHE_NAME = 'eb-notify-v2.53.0';
+const CACHE_NAME = 'eb-notify-v2.54.0';
 const PRECACHE_URLS = ['./index.html','./support.js','./manifest.json','./icons/icon-192.svg','./icons/icon-512.svg','./firebase-init.js','./firebase-sync.js','./notify.js'];
 const CDN_PATTERNS = ['fonts.gstatic.com','unpkg.com/react','unpkg.com/react-dom','cdnjs.cloudflare.com','gstatic.com/firebasejs'];
 

@@ -598,7 +598,13 @@ function render() {
 
   if (id) {
     backBtn.style.display = 'flex';
-    const drug = DRUGS[id];
+    // DRUGS is a plain object literal, so a bare DRUGS[id] inherits
+    // Object.prototype for ids like "constructor"/"toString"/"__proto__" —
+    // hasOwnProperty guards against that resolving to an inherited function
+    // instead of undefined, which would otherwise crash renderDrugDetail()
+    // (it expects a real drug record) and leave a blank page instead of
+    // falling through to the "coming soon" state below.
+    const drug = Object.prototype.hasOwnProperty.call(DRUGS, id) ? DRUGS[id] : undefined;
     if (!drug) {
       app.innerHTML = renderComingSoon(id);
     } else {
@@ -611,7 +617,15 @@ function render() {
 }
 
 function esc(s) {
-  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  // Also escapes single quotes — this helper is used both inside plain HTML
+  // text/double-quoted attributes AND inside single-quoted JS string
+  // literals embedded in onclick="showDrug('...')" attributes (see
+  // renderDrugList() below); an unescaped ' would close that JS string
+  // literal early, letting the rest of the attribute run as script. Drug ids
+  // are hardcoded static data today, not Firestore-sourced, but this page
+  // has no React-style auto-escaping backstop the way index.html does, so
+  // the helper itself must be safe for both contexts it's actually used in.
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
 function renderDrugList() {
