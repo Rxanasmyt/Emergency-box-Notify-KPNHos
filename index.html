@@ -2411,8 +2411,15 @@ class Component extends DCLogic {
       const b = this.BOXES.find(x => x.id === id);
       return (b && b.nearDrug) ? b.nearDrug : ((list[0] && list[0].name) ? list[0].name : '');
     }
-    const nearest = withExp.reduce((m, d) => this.drugMinExp(d) < this.drugMinExp(m) ? d : m, withExp[0]);
-    return (nearest && nearest.name) ? nearest.name : '';
+    // When two or more drugs share the exact same soonest expiry date, show
+    // ALL of them — a plain reduce() (`d < m ? d : m`) keeps only the FIRST
+    // one encountered on a tie, silently dropping the other drug(s) that are
+    // equally as near-expiry from box.nearDrug (and everywhere that reads
+    // it: the box list row, Detail screen, dispense/Stage-2 checks, printed
+    // labels) with zero indication anything was omitted.
+    const nearestExp = withExp.reduce((m, d) => this.drugMinExp(d) < m ? this.drugMinExp(d) : m, this.drugMinExp(withExp[0]));
+    const tied = withExp.filter(d => this.drugMinExp(d) === nearestExp);
+    return tied.map(d => d.name).join(', ');
   }
 
   // status from expiry → based on RETURN date (15d before expiry)
@@ -4118,12 +4125,17 @@ class Component extends DCLogic {
       return { drug: name, strength: '' };
     };
 
-    let nearDrug = '', nearDate = '';
+    let nearDate = '';
     drugs.forEach(d => {
       (d.lots || []).filter(l => l.expiry).forEach(lot => {
-        if (!nearDate || lot.expiry < nearDate) { nearDate = lot.expiry; nearDrug = d.name; }
+        if (!nearDate || lot.expiry < nearDate) nearDate = lot.expiry;
       });
     });
+    // show EVERY drug tied for the soonest expiry, not just the first one
+    // encountered — see nearDrugOf()'s identical fix for the full rationale
+    const nearDrugNames = nearDate
+      ? drugs.filter(d => (d.lots || []).some(l => l.expiry === nearDate)).map(d => d.name)
+      : [];
 
     // return date = 15 days before nearest expiry, formatted as BE (พ.ศ.)
     const retDateISO = nearDate ? (() => {
@@ -4149,8 +4161,8 @@ class Component extends DCLogic {
       </tr>`;
     });
 
-    const nearText = nearDrug
-      ? _esc(parseDrug(nearDrug).drug) + (nearDate ? '  ' + fmtCE(nearDate) : '')
+    const nearText = nearDrugNames.length
+      ? _esc(nearDrugNames.map(n => parseDrug(n).drug).join(', ')) + (nearDate ? '  ' + fmtCE(nearDate) : '')
       : '—';
 
     // Form content — portrait A5 (148.5mm × 210mm) layout, matching physical EB form
@@ -4454,11 +4466,19 @@ td.l{text-align:left;padding-left:4px}
       return { drug: name, strength: '' };
     };
 
-    let nearDrug = '', nearDate = '', nearDrugIndex = -1;
-    drugs.forEach((d, di) => {
+    let nearDate = '';
+    drugs.forEach(d => {
       (d.lots || []).filter(l => l.expiry).forEach(lot => {
-        if (!nearDate || lot.expiry < nearDate) { nearDate = lot.expiry; nearDrug = d.name; nearDrugIndex = di; }
+        if (!nearDate || lot.expiry < nearDate) nearDate = lot.expiry;
       });
+    });
+    // show/highlight EVERY drug tied for the soonest expiry, not just the
+    // first one encountered — see nearDrugOf()'s identical fix for the
+    // full rationale (this was silently dropping tied drugs from the label)
+    const nearDrugNames = [];
+    const nearDrugIndices = new Set();
+    drugs.forEach((d, di) => {
+      if (nearDate && (d.lots || []).some(l => l.expiry === nearDate)) { nearDrugNames.push(d.name); nearDrugIndices.add(di); }
     });
     const retDateISO = nearDate ? (() => {
       const d = new Date(nearDate + 'T00:00:00');
@@ -4466,8 +4486,8 @@ td.l{text-align:left;padding-left:4px}
       return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     })() : '';
     const retDateText = retDateISO ? fmtBE(retDateISO) : '—';
-    const nearText = nearDrug
-      ? parseDrug(nearDrug).drug + (nearDate ? '  ' + fmtCE(nearDate) : '')
+    const nearText = nearDrugNames.length
+      ? nearDrugNames.map(n => parseDrug(n).drug).join(', ') + (nearDate ? '  ' + fmtCE(nearDate) : '')
       : '—';
 
     const fonts = await this._getPdfFonts();
@@ -4552,12 +4572,13 @@ td.l{text-align:left;padding-left:4px}
         4: { cellWidth: CW * 0.10, halign: 'center' },
         5: { cellWidth: CW * 0.25, halign: 'center' },
       },
-      // highlight only the row of the soonest-expiring drug (nearDrugIndex,
-      // already computed above) — a light amber tint, deliberately lighter
+      // highlight the row(s) of the soonest-expiring drug(s) (nearDrugIndices,
+      // already computed above — a Set so ties all highlight, not just the
+      // first one encountered) — a light amber tint, deliberately lighter
       // than the darkened header above so the header still reads as the
       // darkest element on the table.
       didParseCell: (data) => {
-        if (data.section === 'body' && data.row.index === nearDrugIndex) {
+        if (data.section === 'body' && nearDrugIndices.has(data.row.index)) {
           data.cell.styles.fillColor = [255, 224, 130];
         }
       },
