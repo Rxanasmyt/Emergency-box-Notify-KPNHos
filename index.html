@@ -1818,6 +1818,48 @@ input:focus, select:focus, textarea:focus {
       </div>
       </sc-if>
 
+      <!-- ===== KPI Dashboard (admin-only) ===== -->
+      <sc-if value="{{ isKpi }}" hint-placeholder-val="{{ false }}">
+      <div class="page-enter" style="max-width: 1100px; margin: 0 auto; animation: fadeUp .45s ease both;">
+
+        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 18px;">
+          <div style="font-size: 13px; font-weight: 600; color: #4A5C6A;">ช่วงเวลา:</div>
+          {{ kpiPresetEl }}
+          <sc-if value="{{ kpiShowCustomDate }}" hint-placeholder-val="{{ false }}">
+          <input type="date" value="{{ kpiDateFrom }}" onInput="{{ setKpiDateFrom }}" style="height: 36px; border: 1.5px solid #DBE4EB; border-radius: 9px; padding: 0 10px; font-size: 12.5px; font-family: inherit;">
+          <span style="color: #9AAAB8;">–</span>
+          <input type="date" value="{{ kpiDateTo }}" onInput="{{ setKpiDateTo }}" style="height: 36px; border: 1.5px solid #DBE4EB; border-radius: 9px; padding: 0 10px; font-size: 12.5px; font-family: inherit;">
+          </sc-if>
+          <button onclick="{{ refreshKpiData }}" style="height: 36px; padding: 0 14px; border: 1.5px solid #DBE4EB; background: #fff; color: #4A5C6A; border-radius: 9px; font-size: 12.5px; font-weight: 600; cursor: pointer; font-family: inherit;">↻ รีเฟรช</button>
+          <button onclick="{{ exportKpiCSV }}" style="margin-left: auto; height: 36px; padding: 0 14px; border: 1.5px solid #DBE4EB; background: #fff; color: #4A5C6A; border-radius: 9px; font-size: 12.5px; font-weight: 600; cursor: pointer; font-family: inherit;">⬇ ส่งออก CSV</button>
+        </div>
+
+        <sc-if value="{{ kpiLoading }}" hint-placeholder-val="{{ false }}">
+        <div style="text-align: center; padding: 30px; color: #9AAAB8; font-size: 13px;">กำลังโหลดข้อมูล...</div>
+        </sc-if>
+
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 24px;">
+          {{ kpiCardsEl }}
+        </div>
+
+        <div style="background: #fff; border: 1.5px solid #E7EEF3; border-radius: 16px; padding: 20px 22px;">
+          <div style="font-size: 15px; font-weight: 700; color: #15242E; margin-bottom: 4px;">บันทึกการสืบสวนด้วย Audit Trail (ตัวชี้วัด 4.2)</div>
+          <div style="font-size: 12px; color: #9AAAB8; margin-bottom: 14px;">บันทึกด้วยมือทุกครั้งที่ใช้ audit trail ตรวจสอบย้อนหลังกรณีเกิดเหตุการณ์ไม่พึงประสงค์สำเร็จ — ระบบตรวจจับอัตโนมัติไม่ได้ว่าการสืบสวนสำเร็จหรือไม่</div>
+          <div style="display: grid; grid-template-columns: 140px 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+            <input type="date" value="{{ kpiInvDate }}" onInput="{{ setKpiInvDate }}" style="height: 42px; border: 1.5px solid #DBE4EB; border-radius: 10px; padding: 0 12px; font-size: 13px; font-family: inherit;">
+            <input type="text" value="{{ kpiInvDesc }}" onInput="{{ setKpiInvDesc }}" placeholder="รายละเอียดเหตุการณ์ที่สืบสวน" style="height: 42px; border: 1.5px solid #DBE4EB; border-radius: 10px; padding: 0 12px; font-size: 13px; font-family: inherit;">
+            <input type="text" value="{{ kpiInvOutcome }}" onInput="{{ setKpiInvOutcome }}" placeholder="ผลลัพธ์ (ถ้ามี)" style="height: 42px; border: 1.5px solid #DBE4EB; border-radius: 10px; padding: 0 12px; font-size: 13px; font-family: inherit;">
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 14px;">
+            <button onclick="{{ addKpiInvestigation }}" style="height: 40px; padding: 0 20px; background: linear-gradient(135deg, #7C5CD6, #5B3FC4); color: #fff; border: none; border-radius: 11px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit;">+ บันทึก</button>
+            <span style="font-size: 12.5px; color: #5A6B79;">{{ kpiInvMsg }}</span>
+          </div>
+          {{ kpiInvListEl }}
+        </div>
+
+      </div>
+      </sc-if>
+
     </div>
   </main>
 
@@ -2042,6 +2084,11 @@ class Component extends DCLogic {
     detailUsageLog: [],
     // paperless: admin-wide usage log report (users screen)
     allUsageLog: [], ulFilterDept: 'all', ulQuery: '', ulDateFrom: '', ulDateTo: '',
+    // KPI dashboard (admin-only) — innovation-project indicators, computed
+    // on demand from kpi_events/kpi_investigations + existing audit_log
+    kpiDatePreset: 'month', kpiFiscalYear: '', kpiDateFrom: '', kpiDateTo: '',
+    kpiLoading: false, kpiLoaded: false, kpiEvents: [], kpiRejects: [], kpiInvestigations: [], kpiAuditTotal: 0,
+    kpiInvDate: '', kpiInvDesc: '', kpiInvOutcome: '', kpiInvMsg: '',
     // session
     idleWarn: false,
     idleCountdown: 60,
@@ -2475,7 +2522,7 @@ class Component extends DCLogic {
   }
 
   go(screen) {
-    const adminOnly = ['users', 'notify'];
+    const adminOnly = ['users', 'notify', 'kpi'];
     if (adminOnly.includes(screen)) {
       const u = this.state.currentUser;
       if (!u || u.role !== 'admin') return;
@@ -2781,6 +2828,29 @@ class Component extends DCLogic {
       return live;
     }
   }
+  // KPI instrumentation (admin-only dashboard, KPI 4.1) — records a failed
+  // append-only audit write as a separate 'audit_write_failure' event, so the
+  // dashboard's success-rate figure reflects real failures instead of always
+  // reading 100% just because nothing tracks the denominator's failure side.
+  // Deliberately fire-and-forget and self-swallowing — this is instrumentation
+  // ABOUT a failure, so a further failure logging it must never cascade into
+  // another unhandled rejection or a second user-facing warning.
+  _logKpiWriteFailure(context, meta) {
+    if (!window.EB_Sync || !window.EB_Sync.logKpiEvent) return;
+    window.EB_Sync.logKpiEvent({ type: 'audit_write_failure', date: this.isoOf(this.TODAY), context, ...meta }).catch(() => {});
+  }
+  // KPI 3.1 — logs how long this box's Stage 1/2 form was open, from
+  // selectRegBox() (the clock start) to this successful submit. this._kpiRegTimerStart
+  // is undefined if the box was never actually re-selected in this session
+  // (e.g. resetForm() lands back on the same box id) — skip logging rather
+  // than log a bogus near-zero or negative duration in that case.
+  _logKpiRegTiming(boxId, stage) {
+    if (!this._kpiRegTimerStart || !window.EB_Sync || !window.EB_Sync.logKpiEvent) return;
+    const durationSec = Math.round((Date.now() - this._kpiRegTimerStart) / 1000);
+    this._kpiRegTimerStart = null;
+    if (durationSec <= 0) return;
+    window.EB_Sync.logKpiEvent({ type: 'reg_timing', date: this.isoOf(this.TODAY), boxId, stage, durationSec, by: this.state.currentUser ? this.state.currentUser.name : '' }).catch(() => {});
+  }
   logAction(entry) {
     const person = entry.person || (this.state.currentUser ? this.state.currentUser.name : 'ระบบ');
     const row = { date: this.isoOf(this.TODAY), time: this.nowTime(), person, ...entry };
@@ -2790,7 +2860,7 @@ class Component extends DCLogic {
     // pattern documented elsewhere) but a rejected logAudit() used to be an
     // unhandled promise rejection with zero indication the append-only
     // audit_log entry was silently lost. Surface it instead of swallowing it.
-    if (window.EB_Sync) window.EB_Sync.logAudit(row).catch(() => this.flash('⚠️ บันทึกประวัติ (audit log) ไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต'));
+    if (window.EB_Sync) window.EB_Sync.logAudit(row).catch(() => { this._logKpiWriteFailure('logAction', { eb: entry.eb || '', action: entry.action || '' }); this.flash('⚠️ บันทึกประวัติ (audit log) ไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต'); });
   }
   // whoOverride lets a caller with no logged-in currentUser (the public QR page,
   // which only has a department PIN, not an individual account) attribute the
@@ -2802,7 +2872,79 @@ class Component extends DCLogic {
     this.setState(s => { const bh = { ...(s.boxHist || {}) }; bh[boxId] = [{ text, who, stamp }, ...((bh[boxId]) || [])].slice(0, 50); return { boxHist: bh }; });
     // persist to Firestore so history survives refresh — same rationale as
     // logAction() above for surfacing rather than swallowing a write failure
-    if (window.EB_Sync) window.EB_Sync.logAudit({ cat: 'boxhist', action: text, eb: boxId, dept: '—', drug: '—', person: who, date: this.isoOf(this.TODAY), time: this.nowTime() }).catch(() => this.flash('⚠️ บันทึกประวัติกล่องไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต'));
+    if (window.EB_Sync) window.EB_Sync.logAudit({ cat: 'boxhist', action: text, eb: boxId, dept: '—', drug: '—', person: who, date: this.isoOf(this.TODAY), time: this.nowTime() }).catch(() => { this._logKpiWriteFailure('logBoxHist', { eb: boxId }); this.flash('⚠️ บันทึกประวัติกล่องไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต'); });
+  }
+  // ---------- KPI dashboard (admin-only) ----------
+  // Computes the same date-range shape as the History/Admin-audit screens'
+  // _mkDateRange (kept as a self-contained copy here rather than sharing the
+  // render-scoped closure, since this runs from a button click, not render).
+  _kpiDateRange() {
+    const st = this.state;
+    const isoOf = (d) => this.isoOf(d);
+    const today = this.TODAY;
+    const fiscalYearOf = (d) => { const m = d.getMonth() + 1; return m >= 10 ? d.getFullYear() + 544 : d.getFullYear() + 543; };
+    const fiscalStart = (fy) => new Date(fy - 544, 9, 1);
+    const fiscalEnd = (fy) => new Date(fy - 543, 8, 30);
+    const curFY = fiscalYearOf(today);
+    switch (st.kpiDatePreset) {
+      case 'today': return { from: isoOf(today), to: isoOf(today) };
+      case '7days': { const d = new Date(today); d.setDate(d.getDate() - 6); return { from: isoOf(d), to: isoOf(today) }; }
+      case 'month': { const d = new Date(today.getFullYear(), today.getMonth(), 1); return { from: isoOf(d), to: isoOf(today) }; }
+      case 'fiscal': { const f = st.kpiFiscalYear || curFY; return { from: isoOf(fiscalStart(f)), to: isoOf(fiscalEnd(f)) }; }
+      case 'custom': { let f = st.kpiDateFrom || null, t = st.kpiDateTo || null; if (f && t && f > t) { const tmp = f; f = t; t = tmp; } return { from: f, to: t }; }
+      default: return { from: null, to: null };
+    }
+  }
+  async fetchKpiData() {
+    if (!window.EB_Sync || !window.EB_Sync.fetchKpiEvents) return;
+    const { from, to } = this._kpiDateRange();
+    this.setState({ kpiLoading: true });
+    try {
+      const [events, investigations, auditRows] = await Promise.all([
+        window.EB_Sync.fetchKpiEvents(from, to),
+        window.EB_Sync.fetchKpiInvestigations(from, to),
+        window.EB_Sync.fetchAuditRange ? window.EB_Sync.fetchAuditRange(from, to) : Promise.resolve(this.state.auditLog || this.AUDIT || []),
+      ]);
+      const rejects = auditRows.filter(r => r.action === 'ตีกลับให้แก้ไข');
+      this.setState({ kpiEvents: events, kpiInvestigations: investigations, kpiRejects: rejects, kpiAuditTotal: auditRows.length, kpiLoading: false, kpiLoaded: true });
+    } catch (err) {
+      this.setState({ kpiLoading: false });
+      this.flash('⚠️ โหลดข้อมูล KPI ไม่สำเร็จ — ' + ((err && err.message) || 'ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต'));
+    }
+  }
+  async addKpiInvestigation() {
+    const st = this.state;
+    if (!st.currentUser || st.currentUser.role !== 'admin') return; // defense in depth — form is already hidden for non-admin
+    const date = (st.kpiInvDate || '').trim() || this.isoOf(this.TODAY);
+    const description = (st.kpiInvDesc || '').trim();
+    if (!description) { this.setState({ kpiInvMsg: 'กรุณากรอกรายละเอียดเหตุการณ์' }); return; }
+    const entry = { date, description, outcome: (st.kpiInvOutcome || '').trim(), createdBy: st.currentUser.name };
+    if (!window.EB_Sync || !window.EB_Sync.logKpiInvestigation) return;
+    try {
+      await window.EB_Sync.logKpiInvestigation(entry);
+      this.setState(s => ({ kpiInvestigations: [entry, ...(s.kpiInvestigations || [])], kpiInvDate: '', kpiInvDesc: '', kpiInvOutcome: '', kpiInvMsg: '✅ บันทึกแล้ว' }));
+    } catch (err) {
+      this.setState({ kpiInvMsg: '⚠️ บันทึกไม่สำเร็จ — ' + ((err && err.message) || '') });
+    }
+  }
+  exportKpiCSV() {
+    const st = this.state;
+    if (!(st.currentUser && st.currentUser.role === 'admin')) return; // defense in depth — button is already hidden for non-admin
+    const incidents = (st.kpiEvents || []).filter(e => e.type === 'expiry_incident');
+    const timings = (st.kpiEvents || []).filter(e => e.type === 'reg_timing');
+    const failures = (st.kpiEvents || []).filter(e => e.type === 'audit_write_failure');
+    const avgMin = timings.length ? (timings.reduce((s, t) => s + (t.durationSec || 0), 0) / timings.length / 60) : 0;
+    const esc = (v) => { let s = String(v == null ? '' : v); if (s.length > 0 && '=+-@\t\r'.includes(s[0])) s = "'" + s; return '"' + s.replace(/"/g, '""') + '"'; };
+    const lines = [
+      ['ตัวชี้วัด', 'ค่า'].map(esc).join('\t'),
+      ['1.1 อุบัติการณ์ยาใกล้หมดอายุ/หมดอายุแล้ว (ครั้ง)', incidents.length].map(esc).join('\t'),
+      ['1.2 จำนวนครั้งกล่องถูกตีกลับ Stage 2', (st.kpiRejects || []).length].map(esc).join('\t'),
+      ['2.1 % กล่องมี QR Code ใช้งานได้ (10/10)', '100'].map(esc).join('\t'),
+      ['3.1 เวลาเฉลี่ยลงทะเบียน/ตรวจนับ 1 กล่อง (นาที)', avgMin.toFixed(1)].map(esc).join('\t'),
+      ['4.1 จำนวนครั้งบันทึก audit_log ไม่สำเร็จ', failures.length].map(esc).join('\t'),
+      ['4.2 จำนวนครั้งใช้ audit trail สืบสวน', (st.kpiInvestigations || []).length].map(esc).join('\t'),
+    ];
+    this._downloadExcelText(lines.join('\r\n'), `EB_KPI_${this.isoOf(this.TODAY)}.csv`);
   }
 
   // ---------- confirm dialog ----------
@@ -2965,6 +3107,13 @@ class Component extends DCLogic {
   selectRegBox(id, opts) {
     const st = this.state;
     if (id === st.regEB && !(opts && opts.force)) return;
+    // KPI 3.1 (admin dashboard) — starts the "time spent on this box's
+    // registration form" clock from the moment it's actually opened, stopped
+    // in submit()'s Stage 1/2 success branches. Reset on every genuine new
+    // selection (this early-return above already skips a no-op re-select of
+    // the same box), so switching boxes mid-session times each one separately
+    // rather than accumulating idle time from a box the user gave up on.
+    this._kpiRegTimerStart = Date.now();
     const _selBox = this.BOXES.find(b => b.id === id);
     // Always (re)load from this.BOX_DRUGS — the synced, authoritative source —
     // never from st.boxDrugs[id]. A stale local copy CAN exist under that key
@@ -3919,6 +4068,7 @@ class Component extends DCLogic {
         msg = `ตรวจสอบและยืนยันลงทะเบียน ${regEB} สำเร็จ · ตรวจพบยาใกล้หมดอายุสุด: ${near || 'ไม่มีข้อมูล'}`;
         this.logAction({ cat: 'register', action: 'ตรวจสอบ/ยืนยันลงทะเบียน', eb: regEB, dept: '—', drug: `เภสัชกรตรวจสอบยาครบทุกรายการ · ใกล้หมดอายุสุด: ${near}` });
         this.logBoxHist(regEB, `ยืนยันลงทะเบียน — ผ่านการตรวจสอบ (ตรวจโดย ${regChecker || '-'})`);
+        this._logKpiRegTiming(regEB, 'verified');
       } else {
         // Stage 1: จพ. จัดยาเข้ากล่อง + พิมพ์ใบกล่อง — บันทึกไว้เป็น "จัดเตรียมแล้ว" รอเภสัชกรตรวจสอบ
         const regPreparer = (this.state.regPreparer || '').trim();
@@ -3933,6 +4083,7 @@ class Component extends DCLogic {
         msg = `จัดเตรียมกล่อง ${regEB} เรียบร้อย · รอเภสัชกรตรวจสอบก่อนจึงจะพร้อมจ่าย`;
         this.logAction({ cat: 'register', action: 'จัดเตรียมกล่อง', eb: regEB, dept: '—', drug: `จพ.จัดยาเข้ากล่อง รอเภสัชกรตรวจสอบ` });
         this.logBoxHist(regEB, `จัดเตรียมกล่อง (จัดโดย ${regPreparer || '-'}) — รอเภสัชกรตรวจสอบ`);
+        this._logKpiRegTiming(regEB, 'prepared');
       }
     }
     else if (m === 'dispense') {
@@ -4725,6 +4876,7 @@ td.l{text-align:left;padding-left:4px}
       history:   ['ทะเบียนจ่าย-รับคืน Emergency Box', 'ฝ่ายเภสัชกรรม โรงพยาบาลกรงปินัง · ส่งออก CSV ได้'],
       users:     ['จัดการผู้ใช้งานระบบ', 'ผู้ดูแลระบบกำหนดบทบาท สิทธิ์ รีเซ็ตรหัสผ่าน และระงับบัญชี'],
       notify:    ['ตั้งค่าแจ้งเตือน · Notifications', 'ตั้งค่าการแจ้งเตือนยาใกล้หมดอายุผ่าน Email, LINE และ Browser'],
+      kpi:       ['ตัวชี้วัด KPI · ผลงานนวัตกรรม', 'ภาพรวมตัวชี้วัดตามเป้าหมายโครงการ — เฉพาะผู้ดูแลระบบ'],
     };
 
     const vals = {
@@ -4734,6 +4886,7 @@ td.l{text-align:left;padding-left:4px}
       isHistory: screen === 'history',
       isUsers: screen === 'users' && !!(st.currentUser && st.currentUser.role === 'admin'),
       isNotify: screen === 'notify' && !!(st.currentUser && st.currentUser.role === 'admin'),
+      isKpi: screen === 'kpi' && !!(st.currentUser && st.currentUser.role === 'admin'),
       pageTitle: (titles[screen] || titles.dashboard)[0],
       pageSub: (titles[screen] || titles.dashboard)[1],
       goDashboard: () => this.go('dashboard'),
@@ -4999,6 +5152,7 @@ td.l{text-align:left;padding-left:4px}
     const isAdmin = st.currentUser && st.currentUser.role === 'admin';
     if (isAdmin) navDefs.push({ key: 'users', label: 'จัดการผู้ใช้งาน', svg: ICONS.users });
     if (isAdmin) navDefs.push({ key: 'notify', label: 'ตั้งค่าแจ้งเตือน', svg: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2C7.6 2 4 5.6 4 10v4l-2 2v1h20v-1l-2-2v-4c0-4.4-3.6-8-8-8z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 19a3 3 0 0 0 6 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>' });
+    if (isAdmin) navDefs.push({ key: 'kpi', label: 'ตัวชี้วัด KPI', svg: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 19V10M11 19V5M18 19v-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' });
     const _outCount = this.BOXES.filter(b => b.dispense && !b.receiver).length;
     vals.navEl = h(React.Fragment, null, ...navDefs.map(d => {
       const on = screen === d.key;
@@ -6952,6 +7106,66 @@ td.l{text-align:left;padding-left:4px}
     ))) : h('div', { style: { textAlign: 'center', padding: '20px 10px' } },
       h('div', { style: { fontSize: 13, fontWeight: 600, color: '#4A5C6A' } }, 'ยังไม่มีประวัติการใช้ยา'),
       h('div', { style: { fontSize: 11.5, color: '#9AAAB8', marginTop: 4 } }, 'บันทึกผ่านการสแกน QR Code จะแสดงที่นี่'));
+
+    // ===== KPI dashboard (admin-only) =====
+    if (vals.isKpi) {
+      const _kpiSig = `${st.kpiDatePreset}|${st.kpiFiscalYear}|${st.kpiDateFrom}|${st.kpiDateTo}`;
+      if (this._kpiFetchSig !== _kpiSig && !st.kpiLoading) { this._kpiFetchSig = _kpiSig; this.fetchKpiData(); }
+      const _incidents = (st.kpiEvents || []).filter(e => e.type === 'expiry_incident');
+      const _timings = (st.kpiEvents || []).filter(e => e.type === 'reg_timing');
+      const _failures = (st.kpiEvents || []).filter(e => e.type === 'audit_write_failure');
+      const _avgMin = _timings.length ? (_timings.reduce((s, t) => s + (t.durationSec || 0), 0) / _timings.length / 60) : null;
+      const _auditTotal = st.kpiAuditTotal || 0;
+      const _auditPct = (_auditTotal + _failures.length) > 0 ? (_auditTotal / (_auditTotal + _failures.length) * 100) : 100;
+      vals.kpiCards = [
+        { n: '1.1', label: 'อุบัติการณ์ยาใกล้หมดอายุ/หมดอายุแล้ว', value: String(_incidents.length), unit: 'ครั้ง', target: 'เป้า 0 ครั้ง', color: _incidents.length > 0 ? '#B42121' : '#169C7F' },
+        { n: '1.2', label: 'กล่องถูกตีกลับ Stage 2', value: String((st.kpiRejects || []).length), unit: 'ครั้ง', target: 'ตัวเลขติดตาม (ไม่มีเป้าทิศทาง)', color: '#B5740F' },
+        { n: '2.1', label: 'กล่องมี QR Code ใช้งานได้จริง', value: '100', unit: '%', target: `เป้า 100% (${this.BOXES.length}/${this.BOXES.length} กล่อง)`, color: '#169C7F' },
+        { n: '3.1', label: 'เวลาเฉลี่ยลงทะเบียน/ตรวจนับ 1 กล่อง', value: _avgMin === null ? '—' : _avgMin.toFixed(1), unit: _avgMin === null ? '' : 'นาที', target: _avgMin === null ? 'ยังไม่มีข้อมูลในช่วงนี้' : 'เทียบ baseline ก่อนใช้ระบบ', color: '#1A6FA3' },
+        { n: '4.1', label: 'บันทึก audit_log สำเร็จ', value: _auditPct.toFixed(1), unit: '%', target: 'เป้า 100%', color: _auditPct >= 99.9 ? '#169C7F' : '#B42121' },
+        { n: '4.2', label: 'ใช้ audit trail สืบสวนสำเร็จ', value: String((st.kpiInvestigations || []).length), unit: 'ครั้ง', target: 'บันทึกเชิงคุณภาพ (มือแอดมิน)', color: '#7C5CD6' },
+      ];
+      vals.kpiInvDate = st.kpiInvDate;
+      vals.kpiInvDesc = st.kpiInvDesc;
+      vals.kpiInvOutcome = st.kpiInvOutcome;
+      vals.kpiInvMsg = st.kpiInvMsg;
+      vals.setKpiInvDate = (e) => this.setState({ kpiInvDate: e.target.value });
+      vals.setKpiInvDesc = (e) => this.setState({ kpiInvDesc: e.target.value });
+      vals.setKpiInvOutcome = (e) => this.setState({ kpiInvOutcome: e.target.value });
+      vals.addKpiInvestigation = () => this.addKpiInvestigation();
+      vals.exportKpiCSV = () => this.exportKpiCSV();
+      vals.refreshKpiData = () => { this._kpiFetchSig = null; this.fetchKpiData(); };
+      vals.kpiLoading = st.kpiLoading;
+      vals.kpiDatePreset = st.kpiDatePreset;
+      vals.kpiShowCustomDate = st.kpiDatePreset === 'custom';
+      vals.kpiDateFrom = st.kpiDateFrom;
+      vals.kpiDateTo = st.kpiDateTo;
+      vals.setKpiDatePreset = (p) => this.setState({ kpiDatePreset: p });
+      vals.setKpiDateFrom = (e) => { const v = e.target.value; this.setState(s => (s.kpiDateTo && v > s.kpiDateTo) ? { kpiDateFrom: s.kpiDateTo, kpiDateTo: v } : { kpiDateFrom: v }); };
+      vals.setKpiDateTo = (e) => { const v = e.target.value; this.setState(s => (s.kpiDateFrom && v < s.kpiDateFrom) ? { kpiDateFrom: v, kpiDateTo: s.kpiDateFrom } : { kpiDateTo: v }); };
+      const _kpiPresets = [{ k: 'today', l: 'วันนี้' }, { k: '7days', l: '7 วัน' }, { k: 'month', l: 'เดือนนี้' }, { k: 'fiscal', l: 'ปีงบฯ' }, { k: 'custom', l: 'กำหนดเอง' }];
+      vals.kpiPresetEl = h(React.Fragment, null, ..._kpiPresets.map(d => {
+        const on = st.kpiDatePreset === d.k;
+        return h('button', { key: d.k, onClick: () => vals.setKpiDatePreset(d.k),
+          style: { height: 36, padding: '0 13px', borderRadius: 9, fontFamily: 'inherit', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', background: on ? '#1A6FA3' : '#fff', color: on ? '#fff' : '#5A6B79', border: on ? '1.5px solid #1A6FA3' : '1.5px solid #DBE4EB' },
+        }, d.l);
+      }));
+      vals.kpiCardsEl = h(React.Fragment, null, ...vals.kpiCards.map(c => h('div', { key: c.n, style: { background: '#fff', border: '1.5px solid #E7EEF3', borderRadius: 16, padding: '18px 20px' } },
+        h('div', { style: { fontSize: 11.5, fontWeight: 700, color: '#9AAAB8' } }, c.n),
+        h('div', { style: { fontSize: 13, fontWeight: 600, color: '#4A5C6A', margin: '4px 0 10px', minHeight: 34, lineHeight: 1.4 } }, c.label),
+        h('div', { style: { display: 'flex', alignItems: 'baseline', gap: 6 } },
+          h('div', { style: { fontSize: 32, fontWeight: 700, color: c.color } }, c.value),
+          c.unit ? h('div', { style: { fontSize: 13, color: '#9AAAB8', fontWeight: 600 } }, c.unit) : null),
+        h('div', { style: { fontSize: 11.5, color: '#9AAAB8', marginTop: 6 } }, c.target)
+      )));
+      vals.kpiInvListEl = (st.kpiInvestigations || []).length
+        ? h(React.Fragment, null, ...(st.kpiInvestigations || []).slice(0, 20).map((inv, i) => h('div', { key: i, style: { padding: '10px 0', borderBottom: '1px solid #F0F4F7' } },
+            h('div', { style: { fontSize: 12.5, fontWeight: 600, color: '#15242E' } }, `${inv.date || ''} — ${inv.description || ''}`),
+            inv.outcome ? h('div', { style: { fontSize: 12, color: '#5A6B79', marginTop: 2 } }, `ผลลัพธ์: ${inv.outcome}`) : null,
+            h('div', { style: { fontSize: 11, color: '#9AAAB8', marginTop: 2 } }, inv.createdBy || '')
+          )))
+        : h('div', { style: { fontSize: 12.5, color: '#9AAAB8', padding: '10px 0' } }, 'ยังไม่มีบันทึกในช่วงเวลานี้');
+    }
 
     return vals;
   }

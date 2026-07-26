@@ -47,5 +47,22 @@ service cloud.firestore {
       allow read, create, update: if isAuth();
       allow delete: if false;
     }
+    // kpi_events: append-only instrumentation feeding the admin-only KPI
+    // dashboard (expiry incidents, registration timing, audit write
+    // failures) — written by the daily check-expiry.js Action (via the
+    // Admin SDK, which bypasses these rules entirely) and by the app itself.
+    // Same append-only rationale as audit_log/usage_log: a KPI history must
+    // not be editable after the fact.
+    match /kpi_events/{entryId} {
+      allow read, create: if isAuth();
+      allow update, delete: if false;
+    }
+    // kpi_investigations: admin's manual log of audit-trail investigations
+    // (KPI 4.2) — append-only for the same reason; a correction is added as
+    // a new entry rather than editing history.
+    match /kpi_investigations/{entryId} {
+      allow read, create: if isAuth();
+      allow update, delete: if false;
+    }
   }
 }

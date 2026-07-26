@@ -157,6 +157,40 @@ async function fetchExpiringDrugs() {
   return alerts;
 }
 
+// ── KPI instrumentation (admin-only dashboard, KPI 1.1) ────────────────────
+// Logs one 'expiry_incident' event per drug lot that is currently 'critical'
+// (≤15 days from expiry) or 'expired' — the target for this KPI is 0, so
+// only the two bad-outcome tiers count as an incident; 'warning'/'notice' are
+// expected early-warning states, not failures. Runs on every check-expiry
+// invocation regardless of whether a notification actually gets sent, so the
+// KPI reflects real detections, not just successful sends. Chunked in
+// batches of 400 (Firestore's per-batch cap is 500) matching the existing
+// reset-firestore.js pattern, though in practice this list is always small.
+async function logKpiIncidents(alerts) {
+  const incidents = alerts.filter(a => a.status === 'expired' || a.status === 'critical');
+  if (!incidents.length) return;
+  for (let i = 0; i < incidents.length; i += 400) {
+    const chunk = incidents.slice(i, i + 400);
+    const batch = db.batch();
+    chunk.forEach(a => {
+      const ref = db.collection('kpi_events').doc();
+      batch.set(ref, {
+        type: 'expiry_incident',
+        date: TODAY_ISO,
+        boxId: a.boxId,
+        dept: a.location,
+        drugName: a.drugName,
+        isHAD: a.isHAD,
+        status: a.status,
+        daysLeft: a.daysLeft,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    });
+    await batch.commit().catch(err => console.error('❌ logKpiIncidents batch failed:', err.message));
+  }
+  console.log(`📈 KPI: logged ${incidents.length} expiry incident(s) (critical/expired) for ${TODAY_ISO}`);
+}
+
 // ── Per-box status summary (used for the "all clear" report — no near-expiry
 // drugs found, but the admin/pharmacist still wants to see each box's
 // current state at a glance rather than just a bare count) ────────────────
@@ -949,6 +983,7 @@ async function main() {
   let alerts;
   try {
     alerts = await fetchExpiringDrugs();
+    await logKpiIncidents(alerts);
   } catch (err) {
     console.error('❌ Firestore error:', err.message);
     process.exit(1);

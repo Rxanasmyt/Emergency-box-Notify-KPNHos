@@ -1,6 +1,6 @@
 (function(){'use strict';
 let db=null,component=null,unsubscribers=[],_usersUnsub=null,_publicListening=false;
-const C={boxes:'boxes',audit:'audit_log',users:'users',boxDrugs:'box_drugs',usageLog:'usage_log',appSettings:'app_settings'};
+const C={boxes:'boxes',audit:'audit_log',users:'users',boxDrugs:'box_drugs',usageLog:'usage_log',appSettings:'app_settings',kpiEvents:'kpi_events',kpiInvestigations:'kpi_investigations'};
 
 // Called from componentDidMount — signs in anonymously and starts users listener
 // so login can authenticate against ALL users in Firestore from any device
@@ -421,6 +421,46 @@ function fetchUsageLogRange(fromISO,toISO){
     return rows;
   }).catch(err=>{console.warn('[Sync] fetchUsageLogRange failed:',err.message);throw err;});
 }
+// KPI instrumentation — append-only event log feeding the admin-only KPI
+// dashboard. `entry.type` distinguishes what kind of event this is
+// ('expiry_incident' from the daily check-expiry.js Action, 'reg_timing' from
+// a completed Stage 1/2 registration, 'audit_write_failure' from a failed
+// logAction/logBoxHist call). Fire-and-forget from every call site — a KPI
+// write failing must never block or roll back the real action it's measuring.
+function logKpiEvent(entry){
+  if(!db)return Promise.reject(new Error('no-db'));
+  return db.collection(C.kpiEvents).add({...entry,createdAt:firebase.firestore.FieldValue.serverTimestamp()}).catch(err=>{console.warn('[Sync] KPI event write failed:',err.message);throw err;});
+}
+// One-time range query against `date` (ISO, no composite index needed) — the
+// KPI dashboard fetches on demand rather than keeping a live listener, since
+// admin-only trend/report viewing doesn't need sub-second realtime updates.
+function fetchKpiEvents(fromISO,toISO){
+  if(!db)return Promise.resolve([]);
+  let q=db.collection(C.kpiEvents);
+  if(fromISO)q=q.where('date','>=',fromISO);
+  if(toISO)q=q.where('date','<=',toISO);
+  return q.get().then(snap=>{
+    const rows=[];snap.forEach(doc=>rows.push({id:doc.id,...doc.data()}));
+    return rows;
+  }).catch(err=>{console.warn('[Sync] fetchKpiEvents failed:',err.message);throw err;});
+}
+// Admin's manual log of audit-trail investigations (KPI 4.2 — a system
+// cannot auto-detect whether an investigation was "successful", so this is a
+// deliberately simple hand-entered record, append-only like the rest).
+function logKpiInvestigation(entry){
+  if(!db)return Promise.reject(new Error('no-db'));
+  return db.collection(C.kpiInvestigations).add({...entry,createdAt:firebase.firestore.FieldValue.serverTimestamp()}).catch(err=>{console.warn('[Sync] KPI investigation write failed:',err.message);throw err;});
+}
+function fetchKpiInvestigations(fromISO,toISO){
+  if(!db)return Promise.resolve([]);
+  let q=db.collection(C.kpiInvestigations);
+  if(fromISO)q=q.where('date','>=',fromISO);
+  if(toISO)q=q.where('date','<=',toISO);
+  return q.get().then(snap=>{
+    const rows=[];snap.forEach(doc=>rows.push({id:doc.id,...doc.data()}));
+    return rows;
+  }).catch(err=>{console.warn('[Sync] fetchKpiInvestigations failed:',err.message);throw err;});
+}
 // One-time (non-realtime) per-box fetch — the Detail screen's box-history
 // panel reads from the live listenAudit() array (capped at 500 most-recent
 // docs across the WHOLE audit_log), so once total audit_log docs exceed 500
@@ -448,5 +488,5 @@ function syncDeptPins(pins){
   return db.collection(C.appSettings).doc('dept_pins').set(pins,{merge:true})
     .catch(err=>{console.error('[Sync] syncDeptPins failed:',err.message);throw err;});
 }
-window.EB_Sync={initUsersOnly,initFirebaseSync,startPublicSync,stopSync,stopAll,logAudit,syncBoxes,syncUsers,deleteUser,syncBoxDrugs,returnBoxAndDrugsTx,logDrugUsageTx,listenUsageLog,listenAllUsageLog,getDeptPins,syncDeptPins,fetchAuditRange,fetchUsageLogRange,fetchBoxHistory};
+window.EB_Sync={initUsersOnly,initFirebaseSync,startPublicSync,stopSync,stopAll,logAudit,syncBoxes,syncUsers,deleteUser,syncBoxDrugs,returnBoxAndDrugsTx,logDrugUsageTx,listenUsageLog,listenAllUsageLog,getDeptPins,syncDeptPins,fetchAuditRange,fetchUsageLogRange,fetchBoxHistory,logKpiEvent,fetchKpiEvents,logKpiInvestigation,fetchKpiInvestigations};
 })();
