@@ -1102,7 +1102,6 @@ input:focus, select:focus, textarea:focus {
             </div>
           </div>
 
-          {{ personDatalistEl }}
           <!-- ===== STEP 1: REGISTER / PREPARE (2-stage: จพ. เตรียม -> เภสัชกร ตรวจสอบ) ===== -->
           <sc-if value="{{ isRegister }}" hint-placeholder-val="{{ true }}">
 
@@ -1150,7 +1149,7 @@ input:focus, select:focus, textarea:focus {
               <div class="form-grid-2" style="margin-bottom: 26px;">
                 <div>
                   <label style="display: block; font-size: 12.5px; font-weight: 600; color: #4A5C6A; margin-bottom: 7px;">ผู้จัดเตรียม · จพ.เภสัชกรรม <span style="color:#E03E3E;">*</span></label>
-                  <input type="text" value="{{ regPreparer }}" onInput="{{ setRegPreparer }}" onKeyDown="{{ submitOnEnter }}" placeholder="ลงชื่อผู้จัดยา" list="eb-persons" style="width: 100%; height: 46px; border: 1.5px solid #DBE4EB; border-radius: 11px; padding: 0 14px; font-size: 14px; color: #15242E;">
+                  <input type="text" value="{{ regPreparer }}" placeholder="ลงชื่อผู้จัดยา" style="width: 100%; height: 46px; border: 1.5px solid #DBE4EB; border-radius: 11px; padding: 0 14px; font-size: 14px; color: #15242E; background: #F4F8FB; cursor: not-allowed; pointer-events: none;">
                 </div>
               </div>
               <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
@@ -1166,7 +1165,7 @@ input:focus, select:focus, textarea:focus {
               <div class="form-grid-2" style="margin-bottom: 26px;">
                 <div>
                   <label style="display: block; font-size: 12.5px; font-weight: 600; color: #4A5C6A; margin-bottom: 7px;">เภสัชกรผู้ตรวจสอบ <span style="color:#E03E3E;">*</span></label>
-                  <input type="text" value="{{ regChecker }}" onInput="{{ setRegChecker }}" onKeyDown="{{ submitOnEnter }}" placeholder="ลงชื่อเภสัชกรตรวจสอบความถูกต้อง" list="eb-persons" style="width: 100%; height: 46px; border: 1.5px solid #DBE4EB; border-radius: 11px; padding: 0 14px; font-size: 14px; color: #15242E;">
+                  <input type="text" value="{{ regChecker }}" placeholder="ลงชื่อเภสัชกรตรวจสอบความถูกต้อง" style="width: 100%; height: 46px; border: 1.5px solid #DBE4EB; border-radius: 11px; padding: 0 14px; font-size: 14px; color: #15242E; background: #F4F8FB; cursor: not-allowed; pointer-events: none;">
                 </div>
               </div>
               <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
@@ -1244,7 +1243,7 @@ input:focus, select:focus, textarea:focus {
               </div>
               <div>
                 <label style="display: block; font-size: 12.5px; font-weight: 600; color: #4A5C6A; margin-bottom: 7px;">ลงชื่อผู้จ่าย <span style="color:#E03E3E;">*</span></label>
-                <input type="text" value="{{ dispenser }}" onInput="{{ setDispenser }}" onKeyDown="{{ submitOnEnter }}" placeholder="ลงชื่อผู้จ่าย" list="eb-persons" style="width: 100%; height: 46px; border: 1.5px solid #DBE4EB; border-radius: 11px; padding: 0 14px; font-size: 14px; color: #15242E;">
+                <input type="text" value="{{ dispenser }}" placeholder="ลงชื่อผู้จ่าย" style="width: 100%; height: 46px; border: 1.5px solid #DBE4EB; border-radius: 11px; padding: 0 14px; font-size: 14px; color: #15242E; background: #F4F8FB; cursor: not-allowed; pointer-events: none;">
               </div>
             </div>
 
@@ -1269,7 +1268,7 @@ input:focus, select:focus, textarea:focus {
                   </div>
                   <div>
                     <label style="display: block; font-size: 12px; font-weight: 600; color: #4A5C6A; margin-bottom: 7px;">ลงชื่อผู้รับคืน <span style="color:#E03E3E;">*</span></label>
-                    <input type="text" value="{{ swapReceiver }}" onInput="{{ setSwapReceiver }}" onKeyDown="{{ submitOnEnter }}" placeholder="ผู้รับคืน" list="eb-persons" style="width: 100%; height: 44px; border: 1.5px solid #DBE4EB; border-radius: 10px; padding: 0 12px; font-size: 13.5px; color: #15242E;">
+                    <input type="text" value="{{ swapReceiver }}" placeholder="ผู้รับคืน" style="width: 100%; height: 44px; border: 1.5px solid #DBE4EB; border-radius: 10px; padding: 0 12px; font-size: 13.5px; color: #15242E; background: #F4F8FB; cursor: not-allowed; pointer-events: none;">
                   </div>
                 </div>
                 {{ swapRetDrugUsageEl }}
@@ -1321,7 +1320,7 @@ input:focus, select:focus, textarea:focus {
               </div>
               <div>
                 <label style="display: block; font-size: 12.5px; font-weight: 600; color: #4A5C6A; margin-bottom: 7px;">ลงชื่อผู้รับคืน <span style="color:#E03E3E;">*</span></label>
-                <input type="text" value="{{ retReceiver }}" onInput="{{ setRetReceiver }}" onKeyDown="{{ submitOnEnter }}" placeholder="ลงชื่อผู้รับคืน" list="eb-persons" style="width: 100%; height: 46px; border: 1.5px solid #DBE4EB; border-radius: 11px; padding: 0 14px; font-size: 14px; color: #15242E;">
+                <input type="text" value="{{ retReceiver }}" placeholder="ลงชื่อผู้รับคืน" style="width: 100%; height: 46px; border: 1.5px solid #DBE4EB; border-radius: 11px; padding: 0 14px; font-size: 14px; color: #15242E; background: #F4F8FB; cursor: not-allowed; pointer-events: none;">
               </div>
             </div>
 
@@ -2139,8 +2138,12 @@ class Component extends DCLogic {
     // go2()/login populate them with today — an unset date must not itself
     // count as dirty, or the very first entry into a mode (before go2() has
     // ever run) would falsely trip this and block navigation with no real edit.
-    if (mode === 'dispense') return st.formDept !== 'ER' || (!!st.dispDate && st.dispDate !== this.isoOf(this.TODAY)) || (st.dispenser && st.dispenser !== (st.currentUser ? st.currentUser.name : '')) || st.swapReturn;
-    return (st.retReceiver && st.retReceiver !== (st.currentUser ? st.currentUser.name : '')) || (!!st.retDate && st.retDate !== this.isoOf(this.TODAY)) || Object.values(st.retDrugUsage || {}).some(d => Object.values(d).some(q => q > 0));
+    // dispenser/retReceiver are read-only signature fields (always the
+    // logged-in account's own name) and can no longer diverge from it, so
+    // they're not checked here anymore — they can never be a source of an
+    // unsaved edit.
+    if (mode === 'dispense') return st.formDept !== 'ER' || (!!st.dispDate && st.dispDate !== this.isoOf(this.TODAY)) || st.swapReturn;
+    return (!!st.retDate && st.retDate !== this.isoOf(this.TODAY)) || Object.values(st.retDrugUsage || {}).some(d => Object.values(d).some(q => q > 0));
   }
   // Every place that lets the user "discard" a dirty dispense/return form
   // used to only clear `_regTouched` — which _isFormDirty('dispense'/'return')
@@ -2542,17 +2545,18 @@ class Component extends DCLogic {
     const today = this.isoOf(this.TODAY);
     const user = this.state.currentUser;
     const uName = user ? user.name : '';
-    const isPharm = user && (user.role === 'pharmacist' || user.role === 'admin');
     const patch = { formMode, regPrinted: false, regSkipPrint: false, regHadConfirm: false, swapReturn: false,
       swapRetDrugUsage: {}, retDrugUsage: {},
       dispDate: (this.state.dispDate && this.state.dispDate >= today) ? this.state.dispDate : today,
       retDate: (this.state.retDate && this.state.retDate >= today) ? this.state.retDate : today,
       swapReturnDate: (this.state.swapReturnDate && this.state.swapReturnDate >= today) ? this.state.swapReturnDate : today,
     };
-    if (formMode === 'dispense' && !this.state.dispenser && uName) patch.dispenser = uName;
-    if (formMode === 'return'   && !this.state.retReceiver && uName) patch.retReceiver = uName;
-    if (formMode === 'register' && !this.state.regChecker  && isPharm) patch.regChecker  = uName;
-    if (formMode === 'register' && !this.state.regPreparer && !isPharm && uName) patch.regPreparer = uName;
+    // dispenser/retReceiver/regChecker/regPreparer are read-only signature
+    // fields — always the logged-in account's own name, unconditionally,
+    // never merely a fallback for when the field happens to be empty.
+    if (formMode === 'dispense') patch.dispenser = uName;
+    if (formMode === 'return')   patch.retReceiver = uName;
+    if (formMode === 'register') { patch.regChecker = uName; patch.regPreparer = uName; }
     // switching into any of the 3 modes always starts at that mode's
     // box-picker overview, not whatever box happened to be selected last time
     if (formMode === 'register') patch.regLanding = true;
@@ -2971,17 +2975,22 @@ class Component extends DCLogic {
     // switching box invalidates any label already printed for the PREVIOUS box —
     // the print gate must be re-earned for whichever box actually gets submitted
     const _upd = { regEB: id, regHadConfirm: false, regPrinted: false, regRejectReason: '', regLanding: false };
-    // a box already has mfg/preparer persisted (e.g. re-opened after a Stage 2
-    // reject) — load it so จพ. sees and can fix what was actually entered,
-    // instead of an empty field. A brand-new box keeps whatever's typed so far.
+    // a box already has mfg persisted (e.g. re-opened after a Stage 2 reject) —
+    // load it so จพ. sees and can fix what was actually entered, instead of an
+    // empty field. A brand-new box keeps whatever's typed so far. regPreparer/
+    // regChecker are NOT prefilled from the box's own persisted preparer/checker
+    // here — they're read-only signatures that always show whoever is actually
+    // logged in and doing this action right now (see doLogin/go2), never a
+    // stale name left over from a previous person's Stage 1/2 submission.
     if (_selBox && _selBox.mfg) _upd.regMfg = _selBox.mfg;
-    if (_selBox && _selBox.preparer) _upd.regPreparer = _selBox.preparer;
+    const _u = st.currentUser;
+    if (_u) { _upd.regPreparer = _u.name; _upd.regChecker = _u.name; }
     _upd.boxDrugs = { ...(st.boxDrugs || this.BOX_DRUGS || {}), [id]: _existBD.map(d => ({ ...d, lots: (d.lots || []).map(l => ({ ...l })) })) };
     // do NOT set _regTouched here — merely viewing a box's already-persisted
-    // data (including a prefilled regMfg/regPreparer above) is not an unsaved
-    // edit. Setting it unconditionally made every "leave without saving?"
-    // dirty-check below fire on every navigation after a single box selection,
-    // since regMfg/regPreparer are now genuinely non-empty for any real box.
+    // data (including a prefilled regMfg above) is not an unsaved edit. Setting
+    // it unconditionally made every "leave without saving?" dirty-check below
+    // fire on every navigation after a single box selection, since regMfg is
+    // now genuinely non-empty for any real box.
     this.setState(_upd);
   }
   // Dispense/return box-picker landing cards — mirror selectRegBox's role
@@ -3238,8 +3247,12 @@ class Component extends DCLogic {
       dispenser: u.name,
       retReceiver: u.name,
       swapReceiver: u.name,
-      regPreparer: (u.role === 'pharmacist' || u.role === 'admin') ? '' : u.name,
-      regChecker:  (u.role === 'pharmacist' || u.role === 'admin') ? u.name : '',
+      // Always the logged-in account's own name, regardless of role — these
+      // fields are read-only signatures (see the input's readonly attribute)
+      // so whichever stage form is actually shown always credits whoever is
+      // really signed in, never a role-guessed blank or a stale name.
+      regPreparer: u.name,
+      regChecker: u.name,
     }));
     // anon auth already started in componentDidMount — just start remaining Firestore sync
     if (window.EB_Sync) {
@@ -4670,7 +4683,7 @@ td.l{text-align:left;padding-left:4px}
       // synced this.BOX_DRUGS instead — never guess, never shadow real data.
       this._regTouched = false;
       // back to the box-picker overview after finishing one — see regLanding
-      this.setState({ submitting: false, regEB: newRegEB, regMfg: '', regPreparer: '', regChecker: '', regHadConfirm: false, regPrinted: false, regSkipPrint: false, boxDrugs: null, dispenser: '', retReceiver: '', regLanding: true });
+      this.setState({ submitting: false, regEB: newRegEB, regMfg: '', regPreparer: uName, regChecker: uName, regHadConfirm: false, regPrinted: false, regSkipPrint: false, boxDrugs: null, dispenser: '', retReceiver: '', regLanding: true });
     }
     else if (m === 'dispense') this.setState({ submitting: false, dispEB: dispensableIds[0] || '', formDept: 'ER', dispenser: uName, swapReturn: false, swapEB: '', swapReceiver: '', swapRetDrugUsage: {}, retDrugUsage: {}, dispDate: today, swapReturnDate: today, retReceiver: '', dispLanding: true });
     else this.setState({ submitting: false, retEB: outIds[0] || '', retReceiver: uName, retDate: today, retDrugUsage: {}, swapRetDrugUsage: {}, dispenser: '', retLanding: true });
@@ -5492,10 +5505,9 @@ td.l{text-align:left;padding-left:4px}
     }, allIds, '#2B7FE0', _ebStatusMap);
     vals.regPreparer = st.regPreparer;
     vals.regChecker = st.regChecker;
-    // preparer/checker are baked into the printed label — any edit after
-    // printing must invalidate regPrinted so a stale label can't reach submit()
-    vals.setRegPreparer = (e) => { this._regTouched = true; this.setState({ regPreparer: e.target.value, regPrinted: false }); };
-    vals.setRegChecker = (e) => { this._regTouched = true; this.setState({ regChecker: e.target.value, regPrinted: false }); };
+    // regPreparer/regChecker are read-only in the template (always the logged-in
+    // account's own name — see doLogin/go2/selectRegBox) so an accountability
+    // signature can never be typed as someone else's name.
 
     // 2-stage register lifecycle: จพ. เตรียม (Stage 1) -> เภสัชกร/admin ตรวจสอบ (Stage 2)
     const regBoxObj = this.BOXES.find(b => b.id === st.regEB);
@@ -5887,7 +5899,6 @@ td.l{text-align:left;padding-left:4px}
     vals.dispDate = st.dispDate;
     vals.dispenser = st.dispenser;
     vals.setDispDate = (e) => this.setState({ dispDate: e.target.value });
-    vals.setDispenser = (e) => this.setState({ dispenser: e.target.value });
     const dispBox = this.BOXES.find(b => b.id === (inStockIds.includes(st.dispEB) ? st.dispEB : inStockIds[0]));
     let dispWarn = null;
     if (dispBox) {
@@ -5992,8 +6003,6 @@ td.l{text-align:left;padding-left:4px}
         })
       )
     ) : null;
-    vals.setSwapReceiver = (e) => this.setState({ swapReceiver: e.target.value });
-
     // ===== STEP 3: RETURN =====
     // Landing: overview grid of every EB box for the return action — only a
     // currently dispensed-out box (outIds, computed above) is selectable;
@@ -6067,7 +6076,6 @@ td.l{text-align:left;padding-left:4px}
     vals.retDate = st.retDate;
     vals.retReceiver = st.retReceiver;
     vals.setRetDate = (e) => this.setState({ retDate: e.target.value });
-    vals.setRetReceiver = (e) => this.setState({ retReceiver: e.target.value });
     vals.retBoxInfoEl = boxInfoCard(this.BOXES.find(b => b.id === (outIds.includes(st.retEB) ? st.retEB : outIds[0])), '#169C7F', regBD);
 
     const effRetBox = this.BOXES.find(b => b.id === (outIds.includes(st.retEB) ? st.retEB : outIds[0]));
@@ -6123,10 +6131,6 @@ td.l{text-align:left;padding-left:4px}
         })
       )
     ) : null;
-
-    // autocomplete datalist from audit log person names
-    const auditPersons = [...new Set((st.auditLog || this.AUDIT || []).map(r => r.person || '').filter(Boolean).sort())];
-    vals.personDatalistEl = h('datalist', { id: 'eb-persons' }, ...auditPersons.map(p => h('option', { key: p, value: p })));
 
     // Enter key → submit (when form is valid)
     vals.submitOnEnter = (e) => { if (e.key === 'Enter') this.trySubmit(); };
