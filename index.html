@@ -7229,20 +7229,41 @@ td.l{text-align:left;padding-left:4px}
       const _fmtCsv = (e) => ({ primary: `${e.source || '—'}`, secondary: `${e.date || ''} · โดย ${e.by || '—'}` });
       const _fmtHad = (e) => ({ primary: `${e.boxId || '—'} · ${e.hadDrugCount} รายการ HAD`, secondary: `${e.date || ''} · ${e.hadConfirmed ? '✅ ยืนยันแล้ว' : '⚠️ ไม่ได้ยืนยัน'}` });
       const _fmtReadiness = (e) => ({ primary: `${e.readyCount}/${e.totalCount} กล่องพร้อมใช้ (${e.readyPct}%)`, secondary: e.date || '' });
+      // Daily trend series feeding each card's sparkline — buckets raw events
+      // by their `date` field and reduces each day to a single number via
+      // `mode` ('count' = how many that day, 'avg' = mean of valueFn that
+      // day, 'pct' = % where predFn is true that day). Skipped for cards
+      // where a day-by-day trend wouldn't mean anything (1.1ข is a live
+      // snapshot with no history; 2.1 is a fixed 100% by design; 4.2 is a
+      // short hand-entered list better read as-is; 4.1 mixes two different
+      // collections' dates and isn't a clean daily series without more work).
+      const _series = (items, mode, valueFn, predFn) => {
+        const byDate = {};
+        items.forEach(it => { const d = it.date; if (!d) return; (byDate[d] = byDate[d] || []).push(it); });
+        return Object.keys(byDate).sort().map(d => {
+          const bucket = byDate[d];
+          let v;
+          if (mode === 'count') v = bucket.length;
+          else if (mode === 'avg') v = bucket.reduce((s, it) => s + (valueFn(it) || 0), 0) / bucket.length;
+          else if (mode === 'pct') v = bucket.filter(predFn).length / bucket.length * 100;
+          else v = 0;
+          return { date: d, value: v };
+        });
+      };
       vals.kpiCards = [
-        { n: '1.1', label: 'อุบัติการณ์ยาใกล้หมดอายุ/หมดอายุแล้ว', value: String(_incidents.length), unit: 'ครั้ง', target: 'เป้า 0 ครั้ง', color: _incidents.length > 0 ? '#B42121' : '#169C7F', rows: _incidents.map(_fmtIncident) },
-        { n: 'HA-1', label: '% ยา HAD ผ่านการตรวจสอบสองครั้งก่อนจ่ายออก', value: _hadPct === null ? '—' : _hadPct.toFixed(1), unit: _hadPct === null ? '' : '%', target: _hadPct === null ? 'ยังไม่มีกล่องที่มียา HAD ในช่วงนี้' : 'เป้า 100%', color: _hadPct === null ? '#9AAAB8' : (_hadPct >= 99.9 ? '#169C7F' : '#B42121'), rows: _hadChecks.map(_fmtHad) },
-        { n: 'HA-2', label: '% ความพร้อมใช้งานของกล่องยาฉุกเฉิน (เฉลี่ยรายวัน)', value: _avgReadyPct === null ? '—' : _avgReadyPct.toFixed(1), unit: _avgReadyPct === null ? '' : '%', target: _avgReadyPct === null ? 'ยังไม่มีข้อมูลในช่วงนี้' : 'เป้า 100% ทุกวัน', color: _avgReadyPct === null ? '#9AAAB8' : (_avgReadyPct >= 99.9 ? '#169C7F' : '#B5740F'), rows: _readinessSnaps.map(_fmtReadiness) },
-        { n: '1.1ก', label: 'เวลาเฉลี่ยรอตรวจสอบ Stage 2 (จัดเตรียม→ยืนยัน)', value: _avgWaitDays === null ? '—' : _avgWaitDays.toFixed(1), unit: _avgWaitDays === null ? '' : 'วัน', target: _avgWaitDays === null ? 'ยังไม่มีข้อมูลในช่วงนี้' : 'ยิ่งน้อยยิ่งดี', color: '#1A6FA3', rows: _stage2Waits.map(_fmtWait) },
-        { n: '1.1ข', label: 'กล่องค้างสถานะจัดเตรียมเกิน 1 วัน (ขณะนี้)', value: String(_stuckPrepared.length), unit: 'กล่อง', target: 'เป้า 0 กล่อง', color: _stuckPrepared.length > 0 ? '#B5740F' : '#169C7F', rows: _stuckPrepared.map(_fmtStuck) },
-        { n: '1.2', label: 'กล่องถูกตีกลับ Stage 2', value: String((st.kpiRejects || []).length), unit: 'ครั้ง', target: 'ตัวเลขติดตาม (ไม่มีเป้าทิศทาง)', color: '#B5740F', rows: (st.kpiRejects || []).map(_fmtReject) },
-        { n: '1.3', label: 'กล่องส่งคืนช้ากว่ากำหนด', value: String(_lateCount), unit: `/${_lateReturns.length} ครั้ง`, target: 'เป้า 0 ครั้ง', color: _lateCount > 0 ? '#B42121' : '#169C7F', rows: _lateReturns.map(_fmtLate) },
-        { n: '2.1', label: 'กล่องมี QR Code ใช้งานได้จริง', value: '100', unit: '%', target: `เป้า 100% (${this.BOXES.length}/${this.BOXES.length} กล่อง)`, color: '#169C7F', rows: this.BOXES.map(b => _fmtBoxId(b.id)) },
-        { n: '2.2', label: 'จำนวนครั้งสแกน/เปิดดูหน้า QR', value: String(_qrViews.length), unit: 'ครั้ง', target: 'ตัวชี้วัดการยอมรับของผู้ใช้', color: '#1A6FA3', rows: _qrViews.map(_fmtQr) },
-        { n: '3.1', label: 'เวลาเฉลี่ยลงทะเบียน/ตรวจนับ 1 กล่อง', value: _avgMin === null ? '—' : _avgMin.toFixed(1), unit: _avgMin === null ? '' : 'นาที', target: _avgMin === null ? 'ยังไม่มีข้อมูลในช่วงนี้' : 'เทียบ baseline ก่อนใช้ระบบ', color: '#1A6FA3', rows: _timings.map(_fmtTiming) },
-        { n: '4.1', label: 'บันทึก audit_log สำเร็จ', value: _auditPct.toFixed(1), unit: '%', target: 'เป้า 100%', color: _auditPct >= 99.9 ? '#169C7F' : '#B42121', rows: _failures.map(_fmtFailure) },
-        { n: '4.2', label: 'ใช้ audit trail สืบสวนสำเร็จ', value: String((st.kpiInvestigations || []).length), unit: 'ครั้ง', target: 'บันทึกเชิงคุณภาพ (มือแอดมิน)', color: '#7C5CD6', rows: (st.kpiInvestigations || []).map(_fmtInv) },
-        { n: '4.2ก', label: 'จำนวนครั้ง export CSV (หลักฐานว่ามีการตรวจสอบ)', value: String(_csvExports.length), unit: 'ครั้ง', target: 'ตัวชี้วัดการใช้งาน audit trail จริง', color: '#7C5CD6', rows: _csvExports.map(_fmtCsv) },
+        { n: '1.1', icon: '🔴', label: 'อุบัติการณ์ยาใกล้หมดอายุ/หมดอายุแล้ว', value: String(_incidents.length), unit: 'ครั้ง', target: 'เป้า 0 ครั้ง', color: _incidents.length > 0 ? '#B42121' : '#169C7F', rows: _incidents.map(_fmtIncident), series: _series(_incidents, 'count') },
+        { n: 'HA-1', icon: '⚠️', label: '% ยา HAD ผ่านการตรวจสอบสองครั้งก่อนจ่ายออก', value: _hadPct === null ? '—' : _hadPct.toFixed(1), unit: _hadPct === null ? '' : '%', target: _hadPct === null ? 'ยังไม่มีกล่องที่มียา HAD ในช่วงนี้' : 'เป้า 100%', color: _hadPct === null ? '#9AAAB8' : (_hadPct >= 99.9 ? '#169C7F' : '#B42121'), rows: _hadChecks.map(_fmtHad), series: _series(_hadChecks, 'pct', null, e => e.hadConfirmed) },
+        { n: 'HA-2', icon: '📦', label: '% ความพร้อมใช้งานของกล่องยาฉุกเฉิน (เฉลี่ยรายวัน)', value: _avgReadyPct === null ? '—' : _avgReadyPct.toFixed(1), unit: _avgReadyPct === null ? '' : '%', target: _avgReadyPct === null ? 'ยังไม่มีข้อมูลในช่วงนี้' : 'เป้า 100% ทุกวัน', color: _avgReadyPct === null ? '#9AAAB8' : (_avgReadyPct >= 99.9 ? '#169C7F' : '#B5740F'), rows: _readinessSnaps.map(_fmtReadiness), series: _readinessSnaps.map(r => ({ date: r.date, value: r.readyPct || 0 })) },
+        { n: '1.1ก', icon: '⏱️', label: 'เวลาเฉลี่ยรอตรวจสอบ Stage 2 (จัดเตรียม→ยืนยัน)', value: _avgWaitDays === null ? '—' : _avgWaitDays.toFixed(1), unit: _avgWaitDays === null ? '' : 'วัน', target: _avgWaitDays === null ? 'ยังไม่มีข้อมูลในช่วงนี้' : 'ยิ่งน้อยยิ่งดี', color: '#1A6FA3', rows: _stage2Waits.map(_fmtWait), series: _series(_stage2Waits, 'avg', w => w.waitDays) },
+        { n: '1.1ข', icon: '📋', label: 'กล่องค้างสถานะจัดเตรียมเกิน 1 วัน (ขณะนี้)', value: String(_stuckPrepared.length), unit: 'กล่อง', target: 'เป้า 0 กล่อง', color: _stuckPrepared.length > 0 ? '#B5740F' : '#169C7F', rows: _stuckPrepared.map(_fmtStuck) },
+        { n: '1.2', icon: '↩️', label: 'กล่องถูกตีกลับ Stage 2', value: String((st.kpiRejects || []).length), unit: 'ครั้ง', target: 'ตัวเลขติดตาม (ไม่มีเป้าทิศทาง)', color: '#B5740F', rows: (st.kpiRejects || []).map(_fmtReject), series: _series(st.kpiRejects || [], 'count') },
+        { n: '1.3', icon: '📅', label: 'กล่องส่งคืนช้ากว่ากำหนด', value: String(_lateCount), unit: `/${_lateReturns.length} ครั้ง`, target: 'เป้า 0 ครั้ง', color: _lateCount > 0 ? '#B42121' : '#169C7F', rows: _lateReturns.map(_fmtLate), series: _series(_lateReturns, 'pct', null, e => e.wasLate) },
+        { n: '2.1', icon: '📱', label: 'กล่องมี QR Code ใช้งานได้จริง', value: '100', unit: '%', target: `เป้า 100% (${this.BOXES.length}/${this.BOXES.length} กล่อง)`, color: '#169C7F', rows: this.BOXES.map(b => _fmtBoxId(b.id)) },
+        { n: '2.2', icon: '👁️', label: 'จำนวนครั้งสแกน/เปิดดูหน้า QR', value: String(_qrViews.length), unit: 'ครั้ง', target: 'ตัวชี้วัดการยอมรับของผู้ใช้', color: '#1A6FA3', rows: _qrViews.map(_fmtQr), series: _series(_qrViews, 'count') },
+        { n: '3.1', icon: '⏳', label: 'เวลาเฉลี่ยลงทะเบียน/ตรวจนับ 1 กล่อง', value: _avgMin === null ? '—' : _avgMin.toFixed(1), unit: _avgMin === null ? '' : 'นาที', target: _avgMin === null ? 'ยังไม่มีข้อมูลในช่วงนี้' : 'เทียบ baseline ก่อนใช้ระบบ', color: '#1A6FA3', rows: _timings.map(_fmtTiming), series: _series(_timings, 'avg', t => (t.durationSec || 0) / 60) },
+        { n: '4.1', icon: '🛡️', label: 'บันทึก audit_log สำเร็จ', value: _auditPct.toFixed(1), unit: '%', target: 'เป้า 100%', color: _auditPct >= 99.9 ? '#169C7F' : '#B42121', rows: _failures.map(_fmtFailure) },
+        { n: '4.2', icon: '🔍', label: 'ใช้ audit trail สืบสวนสำเร็จ', value: String((st.kpiInvestigations || []).length), unit: 'ครั้ง', target: 'บันทึกเชิงคุณภาพ (มือแอดมิน)', color: '#7C5CD6', rows: (st.kpiInvestigations || []).map(_fmtInv) },
+        { n: '4.2ก', icon: '⬇️', label: 'จำนวนครั้ง export CSV (หลักฐานว่ามีการตรวจสอบ)', value: String(_csvExports.length), unit: 'ครั้ง', target: 'ตัวชี้วัดการใช้งาน audit trail จริง', color: '#7C5CD6', rows: _csvExports.map(_fmtCsv), series: _series(_csvExports, 'count') },
       ];
       vals.kpiInvDate = st.kpiInvDate;
       vals.kpiInvDesc = st.kpiInvDesc;
@@ -7270,20 +7291,52 @@ td.l{text-align:left;padding-left:4px}
         }, d.l);
       }));
       vals.toggleKpiExpand = (n) => this.setState(s => ({ kpiExpanded: s.kpiExpanded === n ? null : n }));
-      vals.kpiCardsEl = h(React.Fragment, null, ...vals.kpiCards.map(c => {
+      // small helper local to sharpen a hex color into a translucent rgba —
+      // mirrors the same hexToRgba trick the landing-card hover tint uses
+      // elsewhere in this app, kept local here rather than shared since it's
+      // a one-line pure function with no state
+      const _hexToRgba = (hex, a) => { const h2 = hex.replace('#', ''); const r = parseInt(h2.slice(0,2),16), g = parseInt(h2.slice(2,4),16), b = parseInt(h2.slice(4,6),16); return `rgba(${r},${g},${b},${a})`; };
+      // Sparkline: a plain inline SVG polyline, no charting library — same
+      // hand-rolled-SVG approach the dashboard's own donut chart already
+      // uses. Flat/near-flat series get a visible mid-line rather than a
+      // meaningless 0-height line; single-point series render nothing (a
+      // trend needs ≥2 points to mean anything).
+      const _sparkline = (series, color) => {
+        if (!series || series.length < 2) return null;
+        const w = 100, h2 = 28, pad = 3;
+        const vals2 = series.map(s => s.value);
+        const min = Math.min(...vals2), max = Math.max(...vals2);
+        const range = (max - min) || 1;
+        const stepX = (w - pad * 2) / (series.length - 1);
+        const pts = series.map((s, i) => {
+          const x = pad + i * stepX;
+          const y = max === min ? h2 / 2 : (pad + (1 - (s.value - min) / range) * (h2 - pad * 2));
+          return `${x.toFixed(1)},${y.toFixed(1)}`;
+        });
+        const areaPts = `${pad},${h2 - pad} ${pts.join(' ')} ${(pad + (series.length - 1) * stepX).toFixed(1)},${h2 - pad}`;
+        return h('svg', { width: '100%', height: h2, viewBox: `0 0 ${w} ${h2}`, preserveAspectRatio: 'none', style: { display: 'block', marginTop: 8 } },
+          h('polygon', { points: areaPts, fill: _hexToRgba(color, .12), stroke: 'none' }),
+          h('polyline', { points: pts.join(' '), fill: 'none', stroke: color, strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round' })
+        );
+      };
+      vals.kpiCardsEl = h(React.Fragment, null, ...vals.kpiCards.map((c, ci) => {
         const on = st.kpiExpanded === c.n;
         return h('div', {
           key: c.n, onClick: () => vals.toggleKpiExpand(c.n),
-          style: { background: '#fff', border: on ? `1.5px solid ${c.color}` : '1.5px solid #E7EEF3', borderRadius: 16, padding: '18px 20px', cursor: 'pointer', boxShadow: on ? `0 6px 20px ${c.color}22` : 'none', transition: 'all .15s' },
+          onMouseEnter: (e) => { if (!on) { e.currentTarget.style.boxShadow = `0 8px 22px ${_hexToRgba(c.color, .16)}`; e.currentTarget.style.transform = 'translateY(-2px)'; } },
+          onMouseLeave: (e) => { if (!on) { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.transform = 'none'; } },
+          style: { background: '#fff', border: on ? `1.5px solid ${c.color}` : '1.5px solid #E7EEF3', borderRadius: 16, padding: '18px 20px', cursor: 'pointer', boxShadow: on ? `0 6px 20px ${_hexToRgba(c.color, .13)}` : 'none', transform: 'none', transition: 'transform .18s cubic-bezier(.34,1.56,.64,1), box-shadow .18s ease, border-color .15s ease' },
         },
-          h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+            h('div', { style: { width: 26, height: 26, borderRadius: '50%', background: _hexToRgba(c.color, .12), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0 } }, c.icon || '📊'),
             h('div', { style: { fontSize: 11.5, fontWeight: 700, color: '#9AAAB8', flex: 1 } }, c.n),
-            h('div', { style: { fontSize: 10.5, color: c.color, fontWeight: 700 } }, on ? '▲ ซ่อนรายละเอียด' : `▾ ดูรายละเอียด (${c.rows.length})`)),
-          h('div', { style: { fontSize: 13, fontWeight: 600, color: '#4A5C6A', margin: '4px 0 10px', minHeight: 34, lineHeight: 1.4 } }, c.label),
+            h('div', { style: { fontSize: 10.5, color: c.color, fontWeight: 700, whiteSpace: 'nowrap' } }, on ? '▲ ซ่อนรายละเอียด' : `▾ ดูรายละเอียด (${c.rows.length})`)),
+          h('div', { style: { fontSize: 13, fontWeight: 600, color: '#4A5C6A', margin: '8px 0 10px', minHeight: 34, lineHeight: 1.4 } }, c.label),
           h('div', { style: { display: 'flex', alignItems: 'baseline', gap: 6 } },
             h('div', { style: { fontSize: 32, fontWeight: 700, color: c.color } }, c.value),
             c.unit ? h('div', { style: { fontSize: 13, color: '#9AAAB8', fontWeight: 600 } }, c.unit) : null),
-          h('div', { style: { fontSize: 11.5, color: '#9AAAB8', marginTop: 6 } }, c.target)
+          h('div', { style: { fontSize: 11.5, color: '#9AAAB8', marginTop: 6 } }, c.target),
+          _sparkline(c.series, c.color)
         );
       }));
       const _expandedCard = vals.kpiCards.find(c => c.n === st.kpiExpanded);
