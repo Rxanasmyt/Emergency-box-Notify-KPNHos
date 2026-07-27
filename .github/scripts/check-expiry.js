@@ -191,6 +191,29 @@ async function logKpiIncidents(alerts) {
   console.log(`📈 KPI: logged ${incidents.length} expiry incident(s) (critical/expired) for ${TODAY_ISO}`);
 }
 
+// ── KPI instrumentation — emergency-box readiness (HA indicator 2) ─────────
+// Logs one snapshot per run: how many boxes are 'verified' AND currently in
+// stock (สถานะ "พร้อมใช้งาน" ตามความหมายของ HA — ยืนยันแล้วและไม่ได้ถูกเบิกออก
+// อยู่) vs the total box count, at the moment this daily check runs. A daily
+// snapshot (piggy-backing on the existing once-a-day cron) gives a real
+// historical trend without needing to reconstruct box-state history from
+// audit_log events, which this app doesn't store in a form that supports it.
+async function logKpiReadiness(summaries) {
+  const total = summaries.length;
+  if (!total) return;
+  const ready = summaries.filter(s => s.stage === 'verified' && !s.isOut).length;
+  const readyPct = Math.round((ready / total) * 1000) / 10;
+  await db.collection('kpi_events').add({
+    type: 'readiness_snapshot',
+    date: TODAY_ISO,
+    readyCount: ready,
+    totalCount: total,
+    readyPct,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  }).catch(err => console.error('❌ logKpiReadiness failed:', err.message));
+  console.log(`📈 KPI: readiness snapshot ${ready}/${total} (${readyPct}%) for ${TODAY_ISO}`);
+}
+
 // ── Per-box status summary (used for the "all clear" report — no near-expiry
 // drugs found, but the admin/pharmacist still wants to see each box's
 // current state at a glance rather than just a bare count) ────────────────
@@ -981,9 +1004,16 @@ async function main() {
   }
 
   let alerts;
+  let kpiSummaries = [];
   try {
     alerts = await fetchExpiringDrugs();
     await logKpiIncidents(alerts);
+    // fetched once here (regardless of alert branch below) so the readiness
+    // snapshot (HA indicator 2) is logged every day this script runs, not
+    // only on the all-clear path, which used to be the only caller of
+    // fetchBoxSummaries()
+    kpiSummaries = await fetchBoxSummaries().catch(err => { console.error('❌ fetchBoxSummaries error:', err.message); return []; });
+    await logKpiReadiness(kpiSummaries);
   } catch (err) {
     console.error('❌ Firestore error:', err.message);
     process.exit(1);
@@ -994,7 +1024,7 @@ async function main() {
     console.log('💡 หมายเหตุ: ถ้าในแอปมียาแต่ที่นี่บอกว่าไม่พบ → ข้อมูลใน Firestore อาจยังไม่ถูก sync');
     if (isMonday || IS_MANUAL) {
       console.log('\n📬 ส่งรายงานสรุป (All Clear)');
-      const summaries = await fetchBoxSummaries().catch(err => { console.error('❌ fetchBoxSummaries error:', err.message); return []; });
+      const summaries = kpiSummaries;
       const boxCount = summaries.length;
       if (!boxCount) { console.warn('⚠ boxes collection empty — skipping all-clear to avoid false report'); return; }
       const needsAttnCount = summaries.filter(s => s.stage !== 'verified').length;

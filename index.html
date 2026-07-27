@@ -2891,6 +2891,19 @@ class Component extends DCLogic {
     const daysUntilDeadline = this.daysBetween(deadline); // deadline - TODAY; negative = already past deadline
     window.EB_Sync.logKpiEvent({ type: 'return_lateness', date: this.isoOf(this.TODAY), boxId, daysLate: daysUntilDeadline < 0 ? -daysUntilDeadline : 0, wasLate: daysUntilDeadline < 0 }).catch(() => {});
   }
+  // KPI (HA indicator 1) — records, for every Stage 2 verification of a box
+  // that contains ≥1 High Alert Drug, whether the separate HAD double-check
+  // was actually confirmed. validateForm() already REQUIRES regHadConfirm
+  // for any box with a HAD drug before Stage 2 can even submit (see the
+  // 'ยืนยันการตรวจสอบยา HAD' error), so this is expected to always read
+  // hadConfirmed:true in practice — logging it anyway gives HA a real,
+  // per-box audit record of that compliance instead of just "no known
+  // failures", which is what a surveyor actually wants to see. Boxes with
+  // zero HAD drugs are skipped entirely — there's nothing to double-check.
+  _logKpiHadCheck(boxId, hadDrugCount, hadConfirmed) {
+    if (!window.EB_Sync || !window.EB_Sync.logKpiEvent || !hadDrugCount) return;
+    window.EB_Sync.logKpiEvent({ type: 'had_check', date: this.isoOf(this.TODAY), boxId, hadDrugCount, hadConfirmed: !!hadConfirmed }).catch(() => {});
+  }
   logAction(entry) {
     const person = entry.person || (this.state.currentUser ? this.state.currentUser.name : 'ระบบ');
     const row = { date: this.isoOf(this.TODAY), time: this.nowTime(), person, ...entry };
@@ -2981,12 +2994,18 @@ class Component extends DCLogic {
     const lateCount = lateReturns.filter(e => e.wasLate).length;
     const csvExports = (st.kpiEvents || []).filter(e => e.type === 'csv_export');
     const qrViews = (st.kpiEvents || []).filter(e => e.type === 'qr_pageview');
+    const hadChecks = (st.kpiEvents || []).filter(e => e.type === 'had_check');
+    const hadPct = hadChecks.length ? (hadChecks.filter(e => e.hadConfirmed).length / hadChecks.length * 100) : null;
+    const readinessSnaps = (st.kpiEvents || []).filter(e => e.type === 'readiness_snapshot');
+    const avgReadyPct = readinessSnaps.length ? (readinessSnaps.reduce((s, r) => s + (r.readyPct || 0), 0) / readinessSnaps.length) : null;
     const esc = (v) => { let s = String(v == null ? '' : v); if (s.length > 0 && '=+-@\t\r'.includes(s[0])) s = "'" + s; return '"' + s.replace(/"/g, '""') + '"'; };
     const lines = [
       ['ตัวชี้วัด', 'ค่า'].map(esc).join('\t'),
       ['1.1 อุบัติการณ์ยาใกล้หมดอายุ/หมดอายุแล้ว (ครั้ง)', incidents.length].map(esc).join('\t'),
       ['1.1ก เวลาเฉลี่ยรอตรวจสอบ Stage 2 (วัน)', avgWaitDays.toFixed(1)].map(esc).join('\t'),
       ['1.1ข กล่องค้างสถานะจัดเตรียมเกิน 1 วัน (ขณะนี้)', stuckPrepared.length].map(esc).join('\t'),
+      ['HA-1 % ยา HAD ผ่านการตรวจสอบสองครั้งก่อนจ่ายออก', hadPct === null ? 'N/A' : hadPct.toFixed(1)].map(esc).join('\t'),
+      ['HA-2 % ความพร้อมใช้งานของกล่องยาฉุกเฉิน (เฉลี่ยรายวัน)', avgReadyPct === null ? 'N/A' : avgReadyPct.toFixed(1)].map(esc).join('\t'),
       ['1.2 จำนวนครั้งกล่องถูกตีกลับ Stage 2', (st.kpiRejects || []).length].map(esc).join('\t'),
       ['1.3 กล่องส่งคืนช้ากว่ากำหนด', `${lateCount}/${lateReturns.length}`].map(esc).join('\t'),
       ['2.1 % กล่องมี QR Code ใช้งานได้ (10/10)', '100'].map(esc).join('\t'),
@@ -4123,6 +4142,7 @@ class Component extends DCLogic {
         this.logBoxHist(regEB, `ยืนยันลงทะเบียน — ผ่านการตรวจสอบ (ตรวจโดย ${regChecker || '-'})`);
         this._logKpiRegTiming(regEB, 'verified');
         this._logKpiStage2Wait(regEB, box.preparedAt, this.isoOf(this.TODAY));
+        this._logKpiHadCheck(regEB, freshDrugs.filter(d => d.had).length, this.state.regHadConfirm);
       } else {
         // Stage 1: จพ. จัดยาเข้ากล่อง + พิมพ์ใบกล่อง — บันทึกไว้เป็น "จัดเตรียมแล้ว" รอเภสัชกรตรวจสอบ
         const regPreparer = (this.state.regPreparer || '').trim();
@@ -7187,6 +7207,11 @@ td.l{text-align:left;padding-left:4px}
       const _lateCount = _lateReturns.filter(e => e.wasLate).length;
       const _csvExports = (st.kpiEvents || []).filter(e => e.type === 'csv_export');
       const _qrViews = (st.kpiEvents || []).filter(e => e.type === 'qr_pageview');
+      const _hadChecks = (st.kpiEvents || []).filter(e => e.type === 'had_check');
+      const _hadConfirmedCount = _hadChecks.filter(e => e.hadConfirmed).length;
+      const _hadPct = _hadChecks.length ? (_hadConfirmedCount / _hadChecks.length * 100) : null;
+      const _readinessSnaps = (st.kpiEvents || []).filter(e => e.type === 'readiness_snapshot');
+      const _avgReadyPct = _readinessSnaps.length ? (_readinessSnaps.reduce((s, r) => s + (r.readyPct || 0), 0) / _readinessSnaps.length) : null;
       // rows: the actual underlying records behind each card's number, shown
       // when the card is clicked — an aggregate count with no way to see
       // what it's actually counting isn't independently verifiable by anyone
@@ -7202,8 +7227,12 @@ td.l{text-align:left;padding-left:4px}
       const _fmtFailure = (e) => ({ primary: `${e.context || '—'} · ${e.eb || e.action || ''}`, secondary: e.date || '' });
       const _fmtInv = (inv) => ({ primary: `${inv.date || ''} — ${inv.description || ''}`, secondary: `${inv.outcome ? 'ผลลัพธ์: ' + inv.outcome + ' · ' : ''}${inv.createdBy || ''}` });
       const _fmtCsv = (e) => ({ primary: `${e.source || '—'}`, secondary: `${e.date || ''} · โดย ${e.by || '—'}` });
+      const _fmtHad = (e) => ({ primary: `${e.boxId || '—'} · ${e.hadDrugCount} รายการ HAD`, secondary: `${e.date || ''} · ${e.hadConfirmed ? '✅ ยืนยันแล้ว' : '⚠️ ไม่ได้ยืนยัน'}` });
+      const _fmtReadiness = (e) => ({ primary: `${e.readyCount}/${e.totalCount} กล่องพร้อมใช้ (${e.readyPct}%)`, secondary: e.date || '' });
       vals.kpiCards = [
         { n: '1.1', label: 'อุบัติการณ์ยาใกล้หมดอายุ/หมดอายุแล้ว', value: String(_incidents.length), unit: 'ครั้ง', target: 'เป้า 0 ครั้ง', color: _incidents.length > 0 ? '#B42121' : '#169C7F', rows: _incidents.map(_fmtIncident) },
+        { n: 'HA-1', label: '% ยา HAD ผ่านการตรวจสอบสองครั้งก่อนจ่ายออก', value: _hadPct === null ? '—' : _hadPct.toFixed(1), unit: _hadPct === null ? '' : '%', target: _hadPct === null ? 'ยังไม่มีกล่องที่มียา HAD ในช่วงนี้' : 'เป้า 100%', color: _hadPct === null ? '#9AAAB8' : (_hadPct >= 99.9 ? '#169C7F' : '#B42121'), rows: _hadChecks.map(_fmtHad) },
+        { n: 'HA-2', label: '% ความพร้อมใช้งานของกล่องยาฉุกเฉิน (เฉลี่ยรายวัน)', value: _avgReadyPct === null ? '—' : _avgReadyPct.toFixed(1), unit: _avgReadyPct === null ? '' : '%', target: _avgReadyPct === null ? 'ยังไม่มีข้อมูลในช่วงนี้' : 'เป้า 100% ทุกวัน', color: _avgReadyPct === null ? '#9AAAB8' : (_avgReadyPct >= 99.9 ? '#169C7F' : '#B5740F'), rows: _readinessSnaps.map(_fmtReadiness) },
         { n: '1.1ก', label: 'เวลาเฉลี่ยรอตรวจสอบ Stage 2 (จัดเตรียม→ยืนยัน)', value: _avgWaitDays === null ? '—' : _avgWaitDays.toFixed(1), unit: _avgWaitDays === null ? '' : 'วัน', target: _avgWaitDays === null ? 'ยังไม่มีข้อมูลในช่วงนี้' : 'ยิ่งน้อยยิ่งดี', color: '#1A6FA3', rows: _stage2Waits.map(_fmtWait) },
         { n: '1.1ข', label: 'กล่องค้างสถานะจัดเตรียมเกิน 1 วัน (ขณะนี้)', value: String(_stuckPrepared.length), unit: 'กล่อง', target: 'เป้า 0 กล่อง', color: _stuckPrepared.length > 0 ? '#B5740F' : '#169C7F', rows: _stuckPrepared.map(_fmtStuck) },
         { n: '1.2', label: 'กล่องถูกตีกลับ Stage 2', value: String((st.kpiRejects || []).length), unit: 'ครั้ง', target: 'ตัวเลขติดตาม (ไม่มีเป้าทิศทาง)', color: '#B5740F', rows: (st.kpiRejects || []).map(_fmtReject) },
