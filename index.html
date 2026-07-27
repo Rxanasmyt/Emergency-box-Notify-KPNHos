@@ -1838,9 +1838,10 @@ input:focus, select:focus, textarea:focus {
         <div style="text-align: center; padding: 30px; color: #9AAAB8; font-size: 13px;">กำลังโหลดข้อมูล...</div>
         </sc-if>
 
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 24px;">
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 14px;">
           {{ kpiCardsEl }}
         </div>
+        {{ kpiDetailEl }}
 
         <div style="background: #fff; border: 1.5px solid #E7EEF3; border-radius: 16px; padding: 20px 22px;">
           <div style="font-size: 15px; font-weight: 700; color: #15242E; margin-bottom: 4px;">บันทึกการสืบสวนด้วย Audit Trail (ตัวชี้วัด 4.2)</div>
@@ -2088,7 +2089,7 @@ class Component extends DCLogic {
     // on demand from kpi_events/kpi_investigations + existing audit_log
     kpiDatePreset: 'month', kpiFiscalYear: '', kpiDateFrom: '', kpiDateTo: '',
     kpiLoading: false, kpiLoaded: false, kpiEvents: [], kpiRejects: [], kpiInvestigations: [], kpiAuditTotal: 0,
-    kpiInvDate: '', kpiInvDesc: '', kpiInvOutcome: '', kpiInvMsg: '',
+    kpiInvDate: '', kpiInvDesc: '', kpiInvOutcome: '', kpiInvMsg: '', kpiExpanded: null,
     // session
     idleWarn: false,
     idleCountdown: 60,
@@ -7186,18 +7187,33 @@ td.l{text-align:left;padding-left:4px}
       const _lateCount = _lateReturns.filter(e => e.wasLate).length;
       const _csvExports = (st.kpiEvents || []).filter(e => e.type === 'csv_export');
       const _qrViews = (st.kpiEvents || []).filter(e => e.type === 'qr_pageview');
+      // rows: the actual underlying records behind each card's number, shown
+      // when the card is clicked — an aggregate count with no way to see
+      // what it's actually counting isn't independently verifiable by anyone
+      // reading the dashboard.
+      const _fmtIncident = (e) => ({ primary: `${e.boxId || '—'} · ${e.drugName || '—'}`, secondary: `${e.date || ''} · ${e.status === 'expired' ? 'หมดอายุแล้ว' : 'วิกฤต'} (เหลือ ${e.daysLeft ?? '—'} วัน) · ${e.dept || ''}` });
+      const _fmtWait = (e) => ({ primary: `${e.boxId || '—'}`, secondary: `${e.date || ''} · รอ ${e.waitDays ?? '—'} วัน` });
+      const _fmtStuck = (b) => ({ primary: b.id, secondary: `จัดเตรียมเมื่อ ${this.fmtISO(b.preparedAt)} · ผู้จัดเตรียม ${b.preparer || '—'}` });
+      const _fmtReject = (r) => ({ primary: `${r.eb || '—'} · ${r.person || '—'}`, secondary: `${r.date || ''} ${r.time || ''}` });
+      const _fmtLate = (e) => ({ primary: `${e.boxId || '—'}`, secondary: `${e.date || ''} · ${e.wasLate ? `เกินกำหนด ${e.daysLate} วัน` : 'ตรงกำหนด'}` });
+      const _fmtBoxId = (id) => ({ primary: id, secondary: '' });
+      const _fmtQr = (e) => ({ primary: `${e.boxId || '—'}`, secondary: e.date || '' });
+      const _fmtTiming = (e) => ({ primary: `${e.boxId || '—'} · ${e.stage === 'verified' ? 'Stage 2 ยืนยัน' : 'Stage 1 จัดเตรียม'}`, secondary: `${e.date || ''} · ${((e.durationSec || 0) / 60).toFixed(1)} นาที` });
+      const _fmtFailure = (e) => ({ primary: `${e.context || '—'} · ${e.eb || e.action || ''}`, secondary: e.date || '' });
+      const _fmtInv = (inv) => ({ primary: `${inv.date || ''} — ${inv.description || ''}`, secondary: `${inv.outcome ? 'ผลลัพธ์: ' + inv.outcome + ' · ' : ''}${inv.createdBy || ''}` });
+      const _fmtCsv = (e) => ({ primary: `${e.source || '—'}`, secondary: `${e.date || ''} · โดย ${e.by || '—'}` });
       vals.kpiCards = [
-        { n: '1.1', label: 'อุบัติการณ์ยาใกล้หมดอายุ/หมดอายุแล้ว', value: String(_incidents.length), unit: 'ครั้ง', target: 'เป้า 0 ครั้ง', color: _incidents.length > 0 ? '#B42121' : '#169C7F' },
-        { n: '1.1ก', label: 'เวลาเฉลี่ยรอตรวจสอบ Stage 2 (จัดเตรียม→ยืนยัน)', value: _avgWaitDays === null ? '—' : _avgWaitDays.toFixed(1), unit: _avgWaitDays === null ? '' : 'วัน', target: _avgWaitDays === null ? 'ยังไม่มีข้อมูลในช่วงนี้' : 'ยิ่งน้อยยิ่งดี', color: '#1A6FA3' },
-        { n: '1.1ข', label: 'กล่องค้างสถานะจัดเตรียมเกิน 1 วัน (ขณะนี้)', value: String(_stuckPrepared.length), unit: 'กล่อง', target: 'เป้า 0 กล่อง', color: _stuckPrepared.length > 0 ? '#B5740F' : '#169C7F' },
-        { n: '1.2', label: 'กล่องถูกตีกลับ Stage 2', value: String((st.kpiRejects || []).length), unit: 'ครั้ง', target: 'ตัวเลขติดตาม (ไม่มีเป้าทิศทาง)', color: '#B5740F' },
-        { n: '1.3', label: 'กล่องส่งคืนช้ากว่ากำหนด', value: String(_lateCount), unit: `/${_lateReturns.length} ครั้ง`, target: 'เป้า 0 ครั้ง', color: _lateCount > 0 ? '#B42121' : '#169C7F' },
-        { n: '2.1', label: 'กล่องมี QR Code ใช้งานได้จริง', value: '100', unit: '%', target: `เป้า 100% (${this.BOXES.length}/${this.BOXES.length} กล่อง)`, color: '#169C7F' },
-        { n: '2.2', label: 'จำนวนครั้งสแกน/เปิดดูหน้า QR', value: String(_qrViews.length), unit: 'ครั้ง', target: 'ตัวชี้วัดการยอมรับของผู้ใช้', color: '#1A6FA3' },
-        { n: '3.1', label: 'เวลาเฉลี่ยลงทะเบียน/ตรวจนับ 1 กล่อง', value: _avgMin === null ? '—' : _avgMin.toFixed(1), unit: _avgMin === null ? '' : 'นาที', target: _avgMin === null ? 'ยังไม่มีข้อมูลในช่วงนี้' : 'เทียบ baseline ก่อนใช้ระบบ', color: '#1A6FA3' },
-        { n: '4.1', label: 'บันทึก audit_log สำเร็จ', value: _auditPct.toFixed(1), unit: '%', target: 'เป้า 100%', color: _auditPct >= 99.9 ? '#169C7F' : '#B42121' },
-        { n: '4.2', label: 'ใช้ audit trail สืบสวนสำเร็จ', value: String((st.kpiInvestigations || []).length), unit: 'ครั้ง', target: 'บันทึกเชิงคุณภาพ (มือแอดมิน)', color: '#7C5CD6' },
-        { n: '4.2ก', label: 'จำนวนครั้ง export CSV (หลักฐานว่ามีการตรวจสอบ)', value: String(_csvExports.length), unit: 'ครั้ง', target: 'ตัวชี้วัดการใช้งาน audit trail จริง', color: '#7C5CD6' },
+        { n: '1.1', label: 'อุบัติการณ์ยาใกล้หมดอายุ/หมดอายุแล้ว', value: String(_incidents.length), unit: 'ครั้ง', target: 'เป้า 0 ครั้ง', color: _incidents.length > 0 ? '#B42121' : '#169C7F', rows: _incidents.map(_fmtIncident) },
+        { n: '1.1ก', label: 'เวลาเฉลี่ยรอตรวจสอบ Stage 2 (จัดเตรียม→ยืนยัน)', value: _avgWaitDays === null ? '—' : _avgWaitDays.toFixed(1), unit: _avgWaitDays === null ? '' : 'วัน', target: _avgWaitDays === null ? 'ยังไม่มีข้อมูลในช่วงนี้' : 'ยิ่งน้อยยิ่งดี', color: '#1A6FA3', rows: _stage2Waits.map(_fmtWait) },
+        { n: '1.1ข', label: 'กล่องค้างสถานะจัดเตรียมเกิน 1 วัน (ขณะนี้)', value: String(_stuckPrepared.length), unit: 'กล่อง', target: 'เป้า 0 กล่อง', color: _stuckPrepared.length > 0 ? '#B5740F' : '#169C7F', rows: _stuckPrepared.map(_fmtStuck) },
+        { n: '1.2', label: 'กล่องถูกตีกลับ Stage 2', value: String((st.kpiRejects || []).length), unit: 'ครั้ง', target: 'ตัวเลขติดตาม (ไม่มีเป้าทิศทาง)', color: '#B5740F', rows: (st.kpiRejects || []).map(_fmtReject) },
+        { n: '1.3', label: 'กล่องส่งคืนช้ากว่ากำหนด', value: String(_lateCount), unit: `/${_lateReturns.length} ครั้ง`, target: 'เป้า 0 ครั้ง', color: _lateCount > 0 ? '#B42121' : '#169C7F', rows: _lateReturns.map(_fmtLate) },
+        { n: '2.1', label: 'กล่องมี QR Code ใช้งานได้จริง', value: '100', unit: '%', target: `เป้า 100% (${this.BOXES.length}/${this.BOXES.length} กล่อง)`, color: '#169C7F', rows: this.BOXES.map(b => _fmtBoxId(b.id)) },
+        { n: '2.2', label: 'จำนวนครั้งสแกน/เปิดดูหน้า QR', value: String(_qrViews.length), unit: 'ครั้ง', target: 'ตัวชี้วัดการยอมรับของผู้ใช้', color: '#1A6FA3', rows: _qrViews.map(_fmtQr) },
+        { n: '3.1', label: 'เวลาเฉลี่ยลงทะเบียน/ตรวจนับ 1 กล่อง', value: _avgMin === null ? '—' : _avgMin.toFixed(1), unit: _avgMin === null ? '' : 'นาที', target: _avgMin === null ? 'ยังไม่มีข้อมูลในช่วงนี้' : 'เทียบ baseline ก่อนใช้ระบบ', color: '#1A6FA3', rows: _timings.map(_fmtTiming) },
+        { n: '4.1', label: 'บันทึก audit_log สำเร็จ', value: _auditPct.toFixed(1), unit: '%', target: 'เป้า 100%', color: _auditPct >= 99.9 ? '#169C7F' : '#B42121', rows: _failures.map(_fmtFailure) },
+        { n: '4.2', label: 'ใช้ audit trail สืบสวนสำเร็จ', value: String((st.kpiInvestigations || []).length), unit: 'ครั้ง', target: 'บันทึกเชิงคุณภาพ (มือแอดมิน)', color: '#7C5CD6', rows: (st.kpiInvestigations || []).map(_fmtInv) },
+        { n: '4.2ก', label: 'จำนวนครั้ง export CSV (หลักฐานว่ามีการตรวจสอบ)', value: String(_csvExports.length), unit: 'ครั้ง', target: 'ตัวชี้วัดการใช้งาน audit trail จริง', color: '#7C5CD6', rows: _csvExports.map(_fmtCsv) },
       ];
       vals.kpiInvDate = st.kpiInvDate;
       vals.kpiInvDesc = st.kpiInvDesc;
@@ -7224,14 +7240,35 @@ td.l{text-align:left;padding-left:4px}
           style: { height: 36, padding: '0 13px', borderRadius: 9, fontFamily: 'inherit', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', background: on ? '#1A6FA3' : '#fff', color: on ? '#fff' : '#5A6B79', border: on ? '1.5px solid #1A6FA3' : '1.5px solid #DBE4EB' },
         }, d.l);
       }));
-      vals.kpiCardsEl = h(React.Fragment, null, ...vals.kpiCards.map(c => h('div', { key: c.n, style: { background: '#fff', border: '1.5px solid #E7EEF3', borderRadius: 16, padding: '18px 20px' } },
-        h('div', { style: { fontSize: 11.5, fontWeight: 700, color: '#9AAAB8' } }, c.n),
-        h('div', { style: { fontSize: 13, fontWeight: 600, color: '#4A5C6A', margin: '4px 0 10px', minHeight: 34, lineHeight: 1.4 } }, c.label),
-        h('div', { style: { display: 'flex', alignItems: 'baseline', gap: 6 } },
-          h('div', { style: { fontSize: 32, fontWeight: 700, color: c.color } }, c.value),
-          c.unit ? h('div', { style: { fontSize: 13, color: '#9AAAB8', fontWeight: 600 } }, c.unit) : null),
-        h('div', { style: { fontSize: 11.5, color: '#9AAAB8', marginTop: 6 } }, c.target)
-      )));
+      vals.toggleKpiExpand = (n) => this.setState(s => ({ kpiExpanded: s.kpiExpanded === n ? null : n }));
+      vals.kpiCardsEl = h(React.Fragment, null, ...vals.kpiCards.map(c => {
+        const on = st.kpiExpanded === c.n;
+        return h('div', {
+          key: c.n, onClick: () => vals.toggleKpiExpand(c.n),
+          style: { background: '#fff', border: on ? `1.5px solid ${c.color}` : '1.5px solid #E7EEF3', borderRadius: 16, padding: '18px 20px', cursor: 'pointer', boxShadow: on ? `0 6px 20px ${c.color}22` : 'none', transition: 'all .15s' },
+        },
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
+            h('div', { style: { fontSize: 11.5, fontWeight: 700, color: '#9AAAB8', flex: 1 } }, c.n),
+            h('div', { style: { fontSize: 10.5, color: c.color, fontWeight: 700 } }, on ? '▲ ซ่อนรายละเอียด' : `▾ ดูรายละเอียด (${c.rows.length})`)),
+          h('div', { style: { fontSize: 13, fontWeight: 600, color: '#4A5C6A', margin: '4px 0 10px', minHeight: 34, lineHeight: 1.4 } }, c.label),
+          h('div', { style: { display: 'flex', alignItems: 'baseline', gap: 6 } },
+            h('div', { style: { fontSize: 32, fontWeight: 700, color: c.color } }, c.value),
+            c.unit ? h('div', { style: { fontSize: 13, color: '#9AAAB8', fontWeight: 600 } }, c.unit) : null),
+          h('div', { style: { fontSize: 11.5, color: '#9AAAB8', marginTop: 6 } }, c.target)
+        );
+      }));
+      const _expandedCard = vals.kpiCards.find(c => c.n === st.kpiExpanded);
+      vals.kpiDetailEl = _expandedCard ? h('div', { style: { background: '#fff', border: `1.5px solid ${_expandedCard.color}`, borderRadius: 16, padding: '18px 22px', marginTop: -6, marginBottom: 24 } },
+        h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 } },
+          h('div', { style: { fontSize: 14, fontWeight: 700, color: '#15242E', flex: 1 } }, `รายละเอียด — ${_expandedCard.n} ${_expandedCard.label}`),
+          h('button', { onClick: () => vals.toggleKpiExpand(_expandedCard.n), style: { border: 'none', background: 'none', cursor: 'pointer', fontSize: 18, color: '#9AAAB8', lineHeight: 1 } }, '×')),
+        _expandedCard.rows.length
+          ? h('div', { style: { maxHeight: 320, overflowY: 'auto' } }, ..._expandedCard.rows.map((r, i) => h('div', { key: i, style: { padding: '8px 0', borderBottom: i < _expandedCard.rows.length - 1 ? '1px solid #F0F4F7' : 'none' } },
+              h('div', { style: { fontSize: 12.5, fontWeight: 600, color: '#15242E' } }, r.primary),
+              r.secondary ? h('div', { style: { fontSize: 11.5, color: '#9AAAB8', marginTop: 2 } }, r.secondary) : null
+            )))
+          : h('div', { style: { fontSize: 12.5, color: '#9AAAB8', padding: '10px 0' } }, 'ไม่มีรายการในช่วงเวลานี้')
+      ) : null;
       vals.kpiInvListEl = (st.kpiInvestigations || []).length
         ? h(React.Fragment, null, ...(st.kpiInvestigations || []).slice(0, 20).map((inv, i) => h('div', { key: i, style: { padding: '10px 0', borderBottom: '1px solid #F0F4F7' } },
             h('div', { style: { fontSize: 12.5, fontWeight: 600, color: '#15242E' } }, `${inv.date || ''} — ${inv.description || ''}`),
