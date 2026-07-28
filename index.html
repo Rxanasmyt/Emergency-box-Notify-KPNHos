@@ -291,6 +291,10 @@ input[type="date"] { min-height: 46px; }
 
 /* ===== Responsive Grid Classes ===== */
 .kpi-grid { display: grid; gap: 16px; grid-template-columns: repeat(4,1fr); }
+/* Admin KPI dashboard's card grid — distinct from .kpi-grid above (the main
+   Dashboard's 4-tile summary, an unrelated pre-existing feature with the
+   same-sounding name) so responsive rules for one never affect the other. */
+.kpi-dash-grid { display: grid; gap: 14px; grid-template-columns: repeat(3,1fr); margin-bottom: 14px; }
 .dash-mid-grid { display: grid; gap: 16px; grid-template-columns: 1.55fr 1fr; }
 .dash-bot-grid { display: grid; gap: 16px; grid-template-columns: 1fr 1.4fr; }
 .form-grid-2 { display: grid; gap: 18px; grid-template-columns: 1fr 1fr; }
@@ -311,6 +315,7 @@ input[type="date"] { min-height: 46px; }
 /* ===== Tablet (max 1080px) ===== */
 @media (max-width: 1080px) {
   .kpi-grid { grid-template-columns: repeat(2,1fr); gap: 12px; }
+  .kpi-dash-grid { grid-template-columns: repeat(2,1fr); }
   .dash-mid-grid { grid-template-columns: 1fr; }
   .dash-bot-grid { grid-template-columns: 1fr; }
   .detail-grid { grid-template-columns: 1fr; }
@@ -365,6 +370,7 @@ input[type="date"] { min-height: 46px; }
 
   /* KPI 2 columns */
   .kpi-grid { grid-template-columns: repeat(2,1fr) !important; gap: 10px !important; }
+  .kpi-dash-grid { grid-template-columns: repeat(2,1fr) !important; gap: 10px !important; }
 
   /* Grids: single column */
   .dash-mid-grid, .dash-bot-grid { grid-template-columns: 1fr !important; gap: 12px !important; }
@@ -418,6 +424,10 @@ input[type="date"] { min-height: 46px; }
 /* ===== Small mobile (max 480px) ===== */
 @media (max-width: 480px) {
   .kpi-grid { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
+  /* single column at this width — the admin KPI cards carry a label, a
+     sparkline and (for cards with a real target) a status badge, which
+     reads cramped squeezed into a half-width column on a small phone */
+  .kpi-dash-grid { grid-template-columns: 1fr !important; gap: 8px !important; }
   .page-content { padding: 10px 10px 72px !important; }
   .app-header h1 { font-size: 15px !important; }
   .form-grid-3 { grid-template-columns: 1fr !important; }
@@ -1785,6 +1795,17 @@ input:focus, select:focus, textarea:focus {
             </div>
           </div>
 
+          <!-- Near-expiry alert threshold -->
+          <div style="background: #F6F9FC; border-radius: 12px; padding: 16px 18px; margin-bottom: 16px;">
+            <label style="font-size: 12px; font-weight: 700; color: #5A6B79; display: block; margin-bottom: 6px;">
+              📅 เกณฑ์แจ้งเตือนยาใกล้หมดอายุ (วัน)
+            </label>
+            <input type="number" min="1" max="365" value="{{ notifyThresholdDays }}" oninput="{{ setNotifyThresholdDays }}" placeholder="60" style="width: 140px; height: 42px; border: 1.5px solid #DBE4EB; border-radius: 10px; padding: 0 14px; font-size: 13px; color: #15242E; background: #fff; box-sizing: border-box; font-family: 'IBM Plex Mono', monospace;">
+            <div style="margin-top: 6px; font-size: 11px; color: #9AAAB8; line-height: 1.6;">
+              ยาที่เหลืออายุไม่เกินจำนวนวันนี้จะถูกนับเป็น "ใกล้หมดอายุ" ทั้งในรายงาน LINE/Email ประจำวัน และในหน้า Dashboard ของแอปนี้เอง (ค่าเริ่มต้น 60 วัน หากไม่ตั้งค่า)
+            </div>
+          </div>
+
           <!-- Send button + status -->
           <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
             <button onclick="{{ triggerGHActions }}" style="height: 46px; padding: 0 28px; background: linear-gradient(135deg, #1A6FA3, #168C84); color: #fff; border: none; border-radius: 12px; font-size: 14.5px; font-weight: 700; cursor: pointer; font-family: inherit; display: flex; align-items: center; gap: 9px; transition: all .22s cubic-bezier(.34,1.56,.64,1); white-space: nowrap; box-shadow: 0 4px 16px rgba(26,111,163,.25);" style-hover="transform: translateY(-2px); box-shadow: 0 10px 28px rgba(26,111,163,.35);" style-active="transform: scale(.96);">
@@ -1838,7 +1859,7 @@ input:focus, select:focus, textarea:focus {
         <div style="text-align: center; padding: 30px; color: #9AAAB8; font-size: 13px;">กำลังโหลดข้อมูล...</div>
         </sc-if>
 
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 14px;">
+        <div class="kpi-dash-grid">
           {{ kpiCardsEl }}
         </div>
         {{ kpiDetailEl }}
@@ -2038,6 +2059,7 @@ class Component extends DCLogic {
     submitting: false,
     ghTrigger: 'idle',
     ghPAT: '',
+    notifyThresholdDays: '',
     sidebarOpen: false,
     // detail
     selectedEB: 'EB-4',
@@ -3481,10 +3503,18 @@ class Component extends DCLogic {
       this._syncT = setTimeout(() => { if (window.EB_Sync) window.EB_Sync.syncUsers(updatedU).catch(() => console.warn('[Login] lastLogin write failed')); }, 1500);
     }
     this._loggingIn = false;
-    // load lastSentDate from Firestore so notify screen shows accurate last-sent info
+    // load lastSentDate + thresholdDays from Firestore so notify screen shows
+    // accurate last-sent info and the current near-expiry alert window
     if (window.EB_Firebase && window.EB_Firebase.db) {
       window.EB_Firebase.db.collection('app_settings').doc('notifications').get()
-        .then(doc => { if (doc.exists && doc.data().lastSentDate) this.setState({ _fsLastSentDate: doc.data().lastSentDate }); })
+        .then(doc => {
+          if (!doc.exists) return;
+          const d = doc.data();
+          const _p = {};
+          if (d.lastSentDate) _p._fsLastSentDate = d.lastSentDate;
+          if (d.thresholdDays != null && !this.state.notifyThresholdDays) _p.notifyThresholdDays = String(d.thresholdDays);
+          if (Object.keys(_p).length) this.setState(_p);
+        })
         .catch(() => {});
     }
     // restart hourly expiry check (logout clears it; must re-arm on every login)
@@ -3575,7 +3605,7 @@ class Component extends DCLogic {
       deptPinInputs: { ER: '', WARD: '', LR: '' }, deptPinMsg: '',
       nu_name: '', nu_username: '', nu_role: 'technician', nu_dept: 'ห้องยา', nu_pass: '',
       showToast: false, toastTitle: '', toastSubtitle: '', shakeCount: 0, actionMsg: '',
-      confirm: null, ghTrigger: 'idle', ghPAT: '', sidebarOpen: false, _fsLastSentDate: '',
+      confirm: null, ghTrigger: 'idle', ghPAT: '', notifyThresholdDays: '', sidebarOpen: false, _fsLastSentDate: '',
       query: '', datePreset: 'all', fiscalYear: 0, dateFrom: '', dateTo: '',
       aFilter: 'all', aQuery: '', aDatePreset: 'all', aFiscalYear: 0, aDateFrom: '', aDateTo: '',
       boxHist: {},
@@ -5134,6 +5164,25 @@ td.l{text-align:left;padding-left:4px}
         if (!window.EB_Notify) return;
         window.EB_Notify.saveToFirestore({ githubPAT: v }).then(ok => {
           if (ok === false) this.flash('⚠️ บันทึก GitHub PAT ไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่');
+        });
+      }, 800);
+    };
+    // near-expiry alert threshold (days) — shared by the daily LINE/email
+    // report (check-expiry.js) and the live in-app dashboard/alert count
+    // (notify.js's loadSettings(), Firestore-merged via a listener) so the
+    // two can no longer silently disagree; see notify.js for the read side.
+    vals.notifyThresholdDays = st.notifyThresholdDays;
+    vals.setNotifyThresholdDays = (e) => {
+      if (!this.state.currentUser || this.state.currentUser.role !== 'admin') return;
+      const v = e.target.value;
+      this.setState({ notifyThresholdDays: v });
+      clearTimeout(this._threshT);
+      this._threshT = setTimeout(() => {
+        const n = Number(v);
+        if (!v || isNaN(n) || n <= 0) return;
+        if (!window.EB_Notify) return;
+        window.EB_Notify.saveToFirestore({ thresholdDays: Math.min(Math.round(n), 365) }).then(ok => {
+          if (ok === false) this.flash('⚠️ บันทึกเกณฑ์แจ้งเตือนไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่');
         });
       }, 800);
     };
@@ -7251,17 +7300,17 @@ td.l{text-align:left;padding-left:4px}
         });
       };
       vals.kpiCards = [
-        { n: '1.1', icon: '🔴', label: 'อุบัติการณ์ยาใกล้หมดอายุ/หมดอายุแล้ว', value: String(_incidents.length), unit: 'ครั้ง', target: 'เป้า 0 ครั้ง', color: _incidents.length > 0 ? '#B42121' : '#169C7F', rows: _incidents.map(_fmtIncident), series: _series(_incidents, 'count') },
-        { n: 'HA-1', icon: '⚠️', label: '% ยา HAD ผ่านการตรวจสอบสองครั้งก่อนจ่ายออก', value: _hadPct === null ? '—' : _hadPct.toFixed(1), unit: _hadPct === null ? '' : '%', target: _hadPct === null ? 'ยังไม่มีกล่องที่มียา HAD ในช่วงนี้' : 'เป้า 100%', color: _hadPct === null ? '#9AAAB8' : (_hadPct >= 99.9 ? '#169C7F' : '#B42121'), rows: _hadChecks.map(_fmtHad), series: _series(_hadChecks, 'pct', null, e => e.hadConfirmed) },
-        { n: 'HA-2', icon: '📦', label: '% ความพร้อมใช้งานของกล่องยาฉุกเฉิน (เฉลี่ยรายวัน)', value: _avgReadyPct === null ? '—' : _avgReadyPct.toFixed(1), unit: _avgReadyPct === null ? '' : '%', target: _avgReadyPct === null ? 'ยังไม่มีข้อมูลในช่วงนี้' : 'เป้า 100% ทุกวัน', color: _avgReadyPct === null ? '#9AAAB8' : (_avgReadyPct >= 99.9 ? '#169C7F' : '#B5740F'), rows: _readinessSnaps.map(_fmtReadiness), series: _readinessSnaps.map(r => ({ date: r.date, value: r.readyPct || 0 })) },
+        { n: '1.1', icon: '🔴', label: 'อุบัติการณ์ยาใกล้หมดอายุ/หมดอายุแล้ว', value: String(_incidents.length), unit: 'ครั้ง', target: 'เป้า 0 ครั้ง', color: _incidents.length > 0 ? '#B42121' : '#169C7F', status: _incidents.length > 0 ? 'alert' : 'ok', rows: _incidents.map(_fmtIncident), series: _series(_incidents, 'count') },
+        { n: 'HA-1', icon: '⚠️', label: '% ยา HAD ผ่านการตรวจสอบสองครั้งก่อนจ่ายออก', value: _hadPct === null ? '—' : _hadPct.toFixed(1), unit: _hadPct === null ? '' : '%', target: _hadPct === null ? 'ยังไม่มีกล่องที่มียา HAD ในช่วงนี้' : 'เป้า 100%', color: _hadPct === null ? '#9AAAB8' : (_hadPct >= 99.9 ? '#169C7F' : '#B42121'), status: _hadPct === null ? null : (_hadPct >= 99.9 ? 'ok' : 'alert'), rows: _hadChecks.map(_fmtHad), series: _series(_hadChecks, 'pct', null, e => e.hadConfirmed) },
+        { n: 'HA-2', icon: '📦', label: '% ความพร้อมใช้งานของกล่องยาฉุกเฉิน (เฉลี่ยรายวัน)', value: _avgReadyPct === null ? '—' : _avgReadyPct.toFixed(1), unit: _avgReadyPct === null ? '' : '%', target: _avgReadyPct === null ? 'ยังไม่มีข้อมูลในช่วงนี้' : 'เป้า 100% ทุกวัน', color: _avgReadyPct === null ? '#9AAAB8' : (_avgReadyPct >= 99.9 ? '#169C7F' : '#B5740F'), status: _avgReadyPct === null ? null : (_avgReadyPct >= 99.9 ? 'ok' : 'alert'), rows: _readinessSnaps.map(_fmtReadiness), series: _readinessSnaps.map(r => ({ date: r.date, value: r.readyPct || 0 })) },
         { n: '1.1ก', icon: '⏱️', label: 'เวลาเฉลี่ยรอตรวจสอบ Stage 2 (จัดเตรียม→ยืนยัน)', value: _avgWaitDays === null ? '—' : _avgWaitDays.toFixed(1), unit: _avgWaitDays === null ? '' : 'วัน', target: _avgWaitDays === null ? 'ยังไม่มีข้อมูลในช่วงนี้' : 'ยิ่งน้อยยิ่งดี', color: '#1A6FA3', rows: _stage2Waits.map(_fmtWait), series: _series(_stage2Waits, 'avg', w => w.waitDays) },
-        { n: '1.1ข', icon: '📋', label: 'กล่องค้างสถานะจัดเตรียมเกิน 1 วัน (ขณะนี้)', value: String(_stuckPrepared.length), unit: 'กล่อง', target: 'เป้า 0 กล่อง', color: _stuckPrepared.length > 0 ? '#B5740F' : '#169C7F', rows: _stuckPrepared.map(_fmtStuck) },
+        { n: '1.1ข', icon: '📋', label: 'กล่องค้างสถานะจัดเตรียมเกิน 1 วัน (ขณะนี้)', value: String(_stuckPrepared.length), unit: 'กล่อง', target: 'เป้า 0 กล่อง', color: _stuckPrepared.length > 0 ? '#B5740F' : '#169C7F', status: _stuckPrepared.length > 0 ? 'alert' : 'ok', rows: _stuckPrepared.map(_fmtStuck) },
         { n: '1.2', icon: '↩️', label: 'กล่องถูกตีกลับ Stage 2', value: String((st.kpiRejects || []).length), unit: 'ครั้ง', target: 'ตัวเลขติดตาม (ไม่มีเป้าทิศทาง)', color: '#B5740F', rows: (st.kpiRejects || []).map(_fmtReject), series: _series(st.kpiRejects || [], 'count') },
-        { n: '1.3', icon: '📅', label: 'กล่องส่งคืนช้ากว่ากำหนด', value: String(_lateCount), unit: `/${_lateReturns.length} ครั้ง`, target: 'เป้า 0 ครั้ง', color: _lateCount > 0 ? '#B42121' : '#169C7F', rows: _lateReturns.map(_fmtLate), series: _series(_lateReturns, 'pct', null, e => e.wasLate) },
-        { n: '2.1', icon: '📱', label: 'กล่องมี QR Code ใช้งานได้จริง', value: '100', unit: '%', target: `เป้า 100% (${this.BOXES.length}/${this.BOXES.length} กล่อง)`, color: '#169C7F', rows: this.BOXES.map(b => _fmtBoxId(b.id)) },
+        { n: '1.3', icon: '📅', label: 'กล่องส่งคืนช้ากว่ากำหนด', value: String(_lateCount), unit: `/${_lateReturns.length} ครั้ง`, target: 'เป้า 0 ครั้ง', color: _lateCount > 0 ? '#B42121' : '#169C7F', status: _lateCount > 0 ? 'alert' : 'ok', rows: _lateReturns.map(_fmtLate), series: _series(_lateReturns, 'pct', null, e => e.wasLate) },
+        { n: '2.1', icon: '📱', label: 'กล่องมี QR Code ใช้งานได้จริง', value: '100', unit: '%', target: `เป้า 100% (${this.BOXES.length}/${this.BOXES.length} กล่อง)`, color: '#169C7F', status: 'ok', rows: this.BOXES.map(b => _fmtBoxId(b.id)) },
         { n: '2.2', icon: '👁️', label: 'จำนวนครั้งสแกน/เปิดดูหน้า QR', value: String(_qrViews.length), unit: 'ครั้ง', target: 'ตัวชี้วัดการยอมรับของผู้ใช้', color: '#1A6FA3', rows: _qrViews.map(_fmtQr), series: _series(_qrViews, 'count') },
         { n: '3.1', icon: '⏳', label: 'เวลาเฉลี่ยลงทะเบียน/ตรวจนับ 1 กล่อง', value: _avgMin === null ? '—' : _avgMin.toFixed(1), unit: _avgMin === null ? '' : 'นาที', target: _avgMin === null ? 'ยังไม่มีข้อมูลในช่วงนี้' : 'เทียบ baseline ก่อนใช้ระบบ', color: '#1A6FA3', rows: _timings.map(_fmtTiming), series: _series(_timings, 'avg', t => (t.durationSec || 0) / 60) },
-        { n: '4.1', icon: '🛡️', label: 'บันทึก audit_log สำเร็จ', value: _auditPct.toFixed(1), unit: '%', target: 'เป้า 100%', color: _auditPct >= 99.9 ? '#169C7F' : '#B42121', rows: _failures.map(_fmtFailure) },
+        { n: '4.1', icon: '🛡️', label: 'บันทึก audit_log สำเร็จ', value: _auditPct.toFixed(1), unit: '%', target: 'เป้า 100%', color: _auditPct >= 99.9 ? '#169C7F' : '#B42121', status: _auditPct >= 99.9 ? 'ok' : 'alert', rows: _failures.map(_fmtFailure) },
         { n: '4.2', icon: '🔍', label: 'ใช้ audit trail สืบสวนสำเร็จ', value: String((st.kpiInvestigations || []).length), unit: 'ครั้ง', target: 'บันทึกเชิงคุณภาพ (มือแอดมิน)', color: '#7C5CD6', rows: (st.kpiInvestigations || []).map(_fmtInv) },
         { n: '4.2ก', icon: '⬇️', label: 'จำนวนครั้ง export CSV (หลักฐานว่ามีการตรวจสอบ)', value: String(_csvExports.length), unit: 'ครั้ง', target: 'ตัวชี้วัดการใช้งาน audit trail จริง', color: '#7C5CD6', rows: _csvExports.map(_fmtCsv), series: _series(_csvExports, 'count') },
       ];
@@ -7325,17 +7374,24 @@ td.l{text-align:left;padding-left:4px}
           key: c.n, onClick: () => vals.toggleKpiExpand(c.n),
           onMouseEnter: (e) => { if (!on) { e.currentTarget.style.boxShadow = `0 8px 22px ${_hexToRgba(c.color, .16)}`; e.currentTarget.style.transform = 'translateY(-2px)'; } },
           onMouseLeave: (e) => { if (!on) { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.transform = 'none'; } },
-          style: { background: '#fff', border: on ? `1.5px solid ${c.color}` : '1.5px solid #E7EEF3', borderRadius: 16, padding: '18px 20px', cursor: 'pointer', boxShadow: on ? `0 6px 20px ${_hexToRgba(c.color, .13)}` : 'none', transform: 'none', transition: 'transform .18s cubic-bezier(.34,1.56,.64,1), box-shadow .18s ease, border-color .15s ease' },
+          style: { background: '#fff', border: on ? `1.5px solid ${c.color}` : '1.5px solid #E7EEF3', borderRadius: 16, padding: '18px 20px', cursor: 'pointer', boxShadow: on ? `0 6px 20px ${_hexToRgba(c.color, .13)}` : 'none', transform: 'none', transition: 'transform .18s cubic-bezier(.34,1.56,.64,1), box-shadow .18s ease, border-color .15s ease', minWidth: 0, boxSizing: 'border-box', overflow: 'hidden' },
         },
-          h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 } },
             h('div', { style: { width: 26, height: 26, borderRadius: '50%', background: _hexToRgba(c.color, .12), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0 } }, c.icon || '📊'),
-            h('div', { style: { fontSize: 11.5, fontWeight: 700, color: '#9AAAB8', flex: 1 } }, c.n),
-            h('div', { style: { fontSize: 10.5, color: c.color, fontWeight: 700, whiteSpace: 'nowrap' } }, on ? '▲ ซ่อนรายละเอียด' : `▾ ดูรายละเอียด (${c.rows.length})`)),
+            h('div', { style: { fontSize: 11.5, fontWeight: 700, color: '#9AAAB8', flex: 1, minWidth: 0 } }, c.n),
+            h('div', { style: { fontSize: 10.5, color: c.color, fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '55%' } }, on ? '▲ ซ่อนรายละเอียด' : `▾ ดูรายละเอียด (${c.rows.length})`)),
           h('div', { style: { fontSize: 13, fontWeight: 600, color: '#4A5C6A', margin: '8px 0 10px', minHeight: 34, lineHeight: 1.4 } }, c.label),
           h('div', { style: { display: 'flex', alignItems: 'baseline', gap: 6 } },
             h('div', { style: { fontSize: 32, fontWeight: 700, color: c.color } }, c.value),
             c.unit ? h('div', { style: { fontSize: 13, color: '#9AAAB8', fontWeight: 600 } }, c.unit) : null),
           h('div', { style: { fontSize: 11.5, color: '#9AAAB8', marginTop: 6 } }, c.target),
+          // on-target status badge — only rendered for cards with a real
+          // pass/fail target (status !== null/undefined); cards that are
+          // pure tracking metrics with no directional target (1.1ก, 1.2,
+          // 2.2, 3.1, 4.2, 4.2ก) intentionally show no badge, matching their
+          // own target text ("ไม่มีเป้าทิศทาง" / "ตัวเลขติดตาม" / etc.) — a
+          // badge there would imply a pass/fail verdict that doesn't exist.
+          c.status ? h('div', { style: { display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 8, padding: '3px 9px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: c.status === 'ok' ? '#E4F4EF' : '#FBE7E7', color: c.status === 'ok' ? '#169C7F' : '#B42121' } }, c.status === 'ok' ? '✅ ตามเป้า' : '⚠️ ไม่ตามเป้า') : null,
           _sparkline(c.series, c.color)
         );
       }));

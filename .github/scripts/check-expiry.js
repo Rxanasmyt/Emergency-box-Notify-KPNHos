@@ -29,9 +29,13 @@ try {
 admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
 const db = admin.firestore();
 
-// แจ้งเตือนยาที่หมดอายุภายใน NOTIFY_DAYS_AHEAD วัน (default 60 วัน)
+// แจ้งเตือนยาที่หมดอายุภายใน NOTIFY_DAYS_AHEAD วัน (default 60 วัน) — this is
+// only the fallback default for a fresh install; main() below overrides it
+// with app_settings/notifications.thresholdDays when an admin has set one
+// via the app's Notify screen, so the daily report and the live in-app
+// dashboard count can no longer silently disagree about the alert window.
 const _rawDays = parseInt(process.env.NOTIFY_DAYS_AHEAD || '60', 10);
-const THRESHOLD_DAYS = isNaN(_rawDays) || _rawDays <= 0 ? 60 : Math.min(_rawDays, 365);
+let THRESHOLD_DAYS = isNaN(_rawDays) || _rawDays <= 0 ? 60 : Math.min(_rawDays, 365);
 // Use Bangkok time (UTC+7) so expiry comparisons match Thai calendar day
 // Use Intl.DateTimeFormat with en-CA (yields ISO YYYY-MM-DD) to avoid unreliable
 // locale-string parsing which is implementation-defined in Node.js on Linux
@@ -41,11 +45,14 @@ const TODAY_ISO = `${TODAY.getFullYear()}-${String(TODAY.getMonth()+1).padStart(
 // workflow_dispatch = user pressed button → always send; schedule = cron → dedup
 const IS_MANUAL = process.env.GITHUB_EVENT_NAME === 'workflow_dispatch';
 
-async function getLastSentDate() {
+// Single read of app_settings/notifications — feeds both the dedup check
+// (lastSentDate) and the THRESHOLD_DAYS override below, instead of two
+// separate reads of the same doc.
+async function loadNotifySettingsDoc() {
   try {
     const doc = await db.collection('app_settings').doc('notifications').get();
-    return doc.exists ? (doc.data().lastSentDate || '') : '';
-  } catch { return ''; }
+    return doc.exists ? doc.data() : {};
+  } catch { return {}; }
 }
 
 async function markSentToday() {
@@ -988,13 +995,20 @@ async function sendAllClearEmail(boxCount, needsAttnCount) {
 // ── Main ───────────────────────────────────────────────────────
 async function main() {
   const isMonday = new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: 'Asia/Bangkok' }).format(new Date()) === 'Mon';
+
+  const _notifSettings = await loadNotifySettingsDoc();
+  const _thresholdOverride = Number(_notifSettings.thresholdDays);
+  if (!isNaN(_thresholdOverride) && _thresholdOverride > 0) {
+    THRESHOLD_DAYS = Math.min(Math.round(_thresholdOverride), 365);
+  }
+
   console.log(`\n🔍 ตรวจสอบยาใกล้หมดอายุ (ภายใน ${THRESHOLD_DAYS} วัน)...`);
   console.log(`📅 วันที่: ${TODAY.toLocaleDateString('th-TH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`);
   console.log(`📋 โหมด: ${IS_MANUAL ? 'ส่งทันที (กดปุ่มจากแอป)' : isMonday ? 'รายงานประจำสัปดาห์ (วันจันทร์)' : 'ตรวจเฉพาะยาวิกฤต (อังคาร–อาทิตย์)'}\n`);
 
   // dedup: cron เช็คว่าส่งวันนี้ไปแล้วหรือยัง — กดปุ่มเองข้ามการเช็ค
   if (!IS_MANUAL) {
-    const lastSent = await getLastSentDate();
+    const lastSent = _notifSettings.lastSentDate || '';
     if (lastSent === TODAY_ISO) {
       console.log(`⏭  ส่งแจ้งเตือนไปแล้วในวันนี้ (${TODAY_ISO}) — ข้ามการส่งซ้ำ`);
       process.exit(0);

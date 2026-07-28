@@ -21,11 +21,36 @@
     lineWebhookUrl: '',
   };
 
+  // Kept fresh by a lightweight onSnapshot listener (started below) so
+  // loadSettings() can stay synchronous everywhere it's already called (both
+  // listenBoxes()/listenBoxDrugs() in firebase-sync.js call it from inside a
+  // synchronous onSnapshot callback) while still reflecting the admin's
+  // Notify-screen thresholdDays setting — previously the live dashboard's
+  // near-expiry alert count only ever read the hardcoded 60-day DEFAULTS
+  // (no UI ever wrote a different value anywhere reachable), so an admin
+  // changing the threshold in the Notify screen updated the daily LINE/email
+  // report but left the in-app dashboard silently using 60 forever. Defaults
+  // to null (no override) until the first snapshot arrives, same as every
+  // other listener-fed value in this app.
+  let _fsSettingsCache = null;
+  function _startFsSettingsListener() {
+    if (!window.EB_Firebase || !window.EB_Firebase.db) return;
+    window.EB_Firebase.db.collection('app_settings').doc('notifications')
+      .onSnapshot(doc => { _fsSettingsCache = doc.exists ? doc.data() : null; }, () => {});
+  }
+  _startFsSettingsListener();
+
   function loadSettings() {
+    let s;
     try {
       const raw = localStorage.getItem(SETTINGS_KEY);
-      return raw ? { ...DEFAULTS, ...JSON.parse(raw) } : { ...DEFAULTS };
-    } catch { return { ...DEFAULTS }; }
+      s = raw ? { ...DEFAULTS, ...JSON.parse(raw) } : { ...DEFAULTS };
+    } catch { s = { ...DEFAULTS }; }
+    if (_fsSettingsCache && _fsSettingsCache.thresholdDays != null) {
+      const n = Number(_fsSettingsCache.thresholdDays);
+      if (!isNaN(n) && n > 0) s.thresholdDays = Math.min(n, 365);
+    }
+    return s;
   }
 
   function saveSettings(s) {
