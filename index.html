@@ -1853,7 +1853,10 @@ input:focus, select:focus, textarea:focus {
           </sc-if>
           <button onclick="{{ refreshKpiData }}" style="height: 36px; padding: 0 14px; border: 1.5px solid #DBE4EB; background: #fff; color: #4A5C6A; border-radius: 9px; font-size: 12.5px; font-weight: 600; cursor: pointer; font-family: inherit;">↻ รีเฟรช</button>
           <button onclick="{{ exportKpiCSV }}" style="margin-left: auto; height: 36px; padding: 0 14px; border: 1.5px solid #DBE4EB; background: #fff; color: #4A5C6A; border-radius: 9px; font-size: 12.5px; font-weight: 600; cursor: pointer; font-family: inherit;">⬇ ส่งออก CSV</button>
+          <button onclick="{{ exportKpiPDF }}" style="height: 36px; padding: 0 14px; border: 1.5px solid #1A6FA3; background: #1A6FA3; color: #fff; border-radius: 9px; font-size: 12.5px; font-weight: 600; cursor: pointer; font-family: inherit;">📄 รายงาน PDF</button>
         </div>
+
+        {{ kpiSummaryEl }}
 
         <sc-if value="{{ kpiLoading }}" hint-placeholder-val="{{ false }}">
         <div style="text-align: center; padding: 30px; color: #9AAAB8; font-size: 13px;">กำลังโหลดข้อมูล...</div>
@@ -3035,10 +3038,197 @@ class Component extends DCLogic {
       ['3.1 เวลาเฉลี่ยลงทะเบียน/ตรวจนับ 1 กล่อง (นาที)', avgMin.toFixed(1)].map(esc).join('\t'),
       ['4.1 จำนวนครั้งบันทึก audit_log ไม่สำเร็จ', failures.length].map(esc).join('\t'),
       ['4.2 จำนวนครั้งใช้ audit trail สืบสวน', (st.kpiInvestigations || []).length].map(esc).join('\t'),
-      ['4.2ก จำนวนครั้ง export CSV', csvExports.length].map(esc).join('\t'),
+      ['4.2ก จำนวนครั้ง export CSV/PDF', csvExports.length].map(esc).join('\t'),
     ];
     this._downloadExcelText(lines.join('\r\n'), `EB_KPI_${this.isoOf(this.TODAY)}.csv`);
     this._logKpiCsvExport('kpi_dashboard');
+  }
+  // Recomputes the same aggregates as exportKpiCSV/renderVals's KPI section
+  // (a 3rd independent copy — this method runs from a button click, not
+  // render, so it has no access to renderVals' local closure variables; this
+  // mirrors the same "recompute independently" pattern exportKpiCSV already
+  // uses for the same reason) plus a per-indicator `series` (daily trend,
+  // same bucketing as the in-app sparklines) used to draw a small vector
+  // trend line directly into the PDF table — jsPDF draws real vector lines
+  // (doc.line), so no image/canvas rasterization is needed.
+  _kpiIndicatorsForExport(st) {
+    const incidents = (st.kpiEvents || []).filter(e => e.type === 'expiry_incident');
+    const timings = (st.kpiEvents || []).filter(e => e.type === 'reg_timing');
+    const failures = (st.kpiEvents || []).filter(e => e.type === 'audit_write_failure');
+    const avgMin = timings.length ? (timings.reduce((s, t) => s + (t.durationSec || 0), 0) / timings.length / 60) : null;
+    const auditTotal = st.kpiAuditTotal || 0;
+    const auditPct = (auditTotal + failures.length) > 0 ? (auditTotal / (auditTotal + failures.length) * 100) : 100;
+    const stage2Waits = (st.kpiEvents || []).filter(e => e.type === 'stage2_wait');
+    const avgWaitDays = stage2Waits.length ? (stage2Waits.reduce((s, w) => s + (w.waitDays || 0), 0) / stage2Waits.length) : null;
+    const stuckPrepared = this.BOXES.filter(b => b.preparedAt && !b.registeredAt && this.daysBetween(this.parse(b.preparedAt)) <= -1);
+    const lateReturns = (st.kpiEvents || []).filter(e => e.type === 'return_lateness');
+    const lateCount = lateReturns.filter(e => e.wasLate).length;
+    const csvExports = (st.kpiEvents || []).filter(e => e.type === 'csv_export');
+    const qrViews = (st.kpiEvents || []).filter(e => e.type === 'qr_pageview');
+    const hadChecks = (st.kpiEvents || []).filter(e => e.type === 'had_check');
+    const hadConfirmedCount = hadChecks.filter(e => e.hadConfirmed).length;
+    const hadPct = hadChecks.length ? (hadConfirmedCount / hadChecks.length * 100) : null;
+    const readinessSnaps = (st.kpiEvents || []).filter(e => e.type === 'readiness_snapshot');
+    const avgReadyPct = readinessSnaps.length ? (readinessSnaps.reduce((s, r) => s + (r.readyPct || 0), 0) / readinessSnaps.length) : null;
+    const series = (items, mode, valueFn, predFn) => {
+      const byDate = {};
+      items.forEach(it => { const d = it.date; if (!d) return; (byDate[d] = byDate[d] || []).push(it); });
+      return Object.keys(byDate).sort().map(d => {
+        const bucket = byDate[d];
+        let v;
+        if (mode === 'count') v = bucket.length;
+        else if (mode === 'avg') v = bucket.reduce((s, it) => s + (valueFn(it) || 0), 0) / bucket.length;
+        else if (mode === 'pct') v = bucket.filter(predFn).length / bucket.length * 100;
+        else v = 0;
+        return { date: d, value: v };
+      });
+    };
+    return [
+      { n: '1.1', label: 'อุบัติการณ์ยาใกล้หมดอายุ/หมดอายุแล้ว', value: String(incidents.length), unit: 'ครั้ง', target: 'เป้า 0 ครั้ง', color: incidents.length > 0 ? '#B42121' : '#169C7F', status: incidents.length > 0 ? 'alert' : 'ok', series: series(incidents, 'count') },
+      { n: 'HA-1', label: '% ยา HAD ผ่านการตรวจสอบสองครั้งก่อนจ่ายออก', value: hadPct === null ? '—' : hadPct.toFixed(1), unit: hadPct === null ? '' : '%', target: hadPct === null ? 'ยังไม่มีกล่องที่มียา HAD ในช่วงนี้' : 'เป้า 100%', color: hadPct === null ? '#9AAAB8' : (hadPct >= 99.9 ? '#169C7F' : '#B42121'), status: hadPct === null ? null : (hadPct >= 99.9 ? 'ok' : 'alert'), series: series(hadChecks, 'pct', null, e => e.hadConfirmed) },
+      { n: 'HA-2', label: '% ความพร้อมใช้งานของกล่องยาฉุกเฉิน (เฉลี่ยรายวัน)', value: avgReadyPct === null ? '—' : avgReadyPct.toFixed(1), unit: avgReadyPct === null ? '' : '%', target: avgReadyPct === null ? 'ยังไม่มีข้อมูลในช่วงนี้' : 'เป้า 100% ทุกวัน', color: avgReadyPct === null ? '#9AAAB8' : (avgReadyPct >= 99.9 ? '#169C7F' : '#B5740F'), status: avgReadyPct === null ? null : (avgReadyPct >= 99.9 ? 'ok' : 'alert'), series: readinessSnaps.map(r => ({ date: r.date, value: r.readyPct || 0 })) },
+      { n: '1.1ก', label: 'เวลาเฉลี่ยรอตรวจสอบ Stage 2 (จัดเตรียม→ยืนยัน)', value: avgWaitDays === null ? '—' : avgWaitDays.toFixed(1), unit: avgWaitDays === null ? '' : 'วัน', target: avgWaitDays === null ? 'ยังไม่มีข้อมูลในช่วงนี้' : 'ยิ่งน้อยยิ่งดี', color: '#1A6FA3', status: null, series: series(stage2Waits, 'avg', w => w.waitDays) },
+      { n: '1.1ข', label: 'กล่องค้างสถานะจัดเตรียมเกิน 1 วัน (ขณะนี้)', value: String(stuckPrepared.length), unit: 'กล่อง', target: 'เป้า 0 กล่อง', color: stuckPrepared.length > 0 ? '#B5740F' : '#169C7F', status: stuckPrepared.length > 0 ? 'alert' : 'ok', series: null },
+      { n: '1.2', label: 'กล่องถูกตีกลับ Stage 2', value: String((st.kpiRejects || []).length), unit: 'ครั้ง', target: 'ตัวเลขติดตาม (ไม่มีเป้าทิศทาง)', color: '#B5740F', status: null, series: series(st.kpiRejects || [], 'count') },
+      { n: '1.3', label: 'กล่องส่งคืนช้ากว่ากำหนด', value: `${lateCount}/${lateReturns.length}`, unit: 'ครั้ง', target: 'เป้า 0 ครั้ง', color: lateCount > 0 ? '#B42121' : '#169C7F', status: lateCount > 0 ? 'alert' : 'ok', series: series(lateReturns, 'pct', null, e => e.wasLate) },
+      { n: '2.1', label: 'กล่องมี QR Code ใช้งานได้จริง', value: '100', unit: '%', target: `เป้า 100% (${this.BOXES.length}/${this.BOXES.length} กล่อง)`, color: '#169C7F', status: 'ok', series: null },
+      { n: '2.2', label: 'จำนวนครั้งสแกน/เปิดดูหน้า QR', value: String(qrViews.length), unit: 'ครั้ง', target: 'ตัวชี้วัดการยอมรับของผู้ใช้', color: '#1A6FA3', status: null, series: series(qrViews, 'count') },
+      { n: '3.1', label: 'เวลาเฉลี่ยลงทะเบียน/ตรวจนับ 1 กล่อง', value: avgMin === null ? '—' : avgMin.toFixed(1), unit: avgMin === null ? '' : 'นาที', target: avgMin === null ? 'ยังไม่มีข้อมูลในช่วงนี้' : 'เทียบ baseline ก่อนใช้ระบบ', color: '#1A6FA3', status: null, series: series(timings, 'avg', t => (t.durationSec || 0) / 60) },
+      { n: '4.1', label: 'บันทึก audit_log สำเร็จ', value: auditPct.toFixed(1), unit: '%', target: 'เป้า 100%', color: auditPct >= 99.9 ? '#169C7F' : '#B42121', status: auditPct >= 99.9 ? 'ok' : 'alert', series: null },
+      { n: '4.2', label: 'ใช้ audit trail สืบสวนสำเร็จ', value: String((st.kpiInvestigations || []).length), unit: 'ครั้ง', target: 'บันทึกเชิงคุณภาพ (มือแอดมิน)', color: '#7C5CD6', status: null, series: null },
+      { n: '4.2ก', label: 'จำนวนครั้ง export CSV/PDF (หลักฐานว่ามีการตรวจสอบ)', value: String(csvExports.length), unit: 'ครั้ง', target: 'ตัวชี้วัดการใช้งาน audit trail จริง', color: '#7C5CD6', status: null, series: series(csvExports, 'count') },
+    ];
+  }
+  // Human-readable label for whichever date-range preset is currently
+  // selected — shown in the PDF header so a printed report is self-
+  // describing about what period it covers, matching _kpiDateRange()'s own
+  // preset switch.
+  _kpiRangeLabel(st) {
+    const { from, to } = this._kpiDateRange();
+    const presetLabels = { today: 'วันนี้', '7days': '7 วันล่าสุด', month: 'เดือนนี้', fiscal: `ปีงบประมาณ ${st.kpiFiscalYear || ''}`.trim(), custom: 'กำหนดเอง' };
+    const label = presetLabels[st.kpiDatePreset] || st.kpiDatePreset;
+    return from && to ? `${label} (${from} ถึง ${to})` : label;
+  }
+  async exportKpiPDF() {
+    const st = this.state;
+    if (!(st.currentUser && st.currentUser.role === 'admin')) return; // defense in depth — button is already hidden for non-admin
+    this.flash('⏳ กำลังสร้าง PDF...');
+    try {
+      await this._ensurePdfLibs();
+      const indicators = this._kpiIndicatorsForExport(st);
+      const doc = await this._buildKpiPDF(indicators, st);
+      const url = doc.output('bloburl');
+      const win = window.open(url, '_blank');
+      if (!win) { alert('กรุณาอนุญาต Pop-up เพื่อใช้งานรายงาน'); return; }
+      this._logKpiCsvExport('kpi_pdf');
+    } catch (err) {
+      console.error('[KPI PDF] error:', err);
+      this.flash('⚠️ สร้าง PDF ไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่');
+    }
+  }
+  async _buildKpiPDF(indicators, st) {
+    const fonts = await this._getPdfFonts();
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    doc.addFileToVFS('Sarabun-Regular.ttf', fonts.regular);
+    doc.addFont('Sarabun-Regular.ttf', 'Sarabun', 'normal');
+    doc.addFileToVFS('Sarabun-Bold.ttf', fonts.bold);
+    doc.addFont('Sarabun-Bold.ttf', 'Sarabun', 'bold');
+    doc.setFont('Sarabun', 'normal');
+    doc.setTextColor(0, 0, 0);
+
+    const ML = 14, MR = 196; // A4 portrait, 210mm wide, ~14mm margins
+    let y = 16;
+    doc.setFont('Sarabun', 'bold'); doc.setFontSize(15);
+    doc.text('รายงานตัวชี้วัด KPI · ผลงานนวัตกรรม', ML, y);
+    y += 6.5;
+    doc.setFont('Sarabun', 'normal'); doc.setFontSize(10.5);
+    doc.setTextColor(90, 107, 121);
+    doc.text('โรงพยาบาลกรงปินัง — Emergency Box Notify', ML, y);
+    y += 5.5;
+    doc.text(`ช่วงเวลา: ${this._kpiRangeLabel(st)}`, ML, y);
+    y += 5;
+    doc.text(`พิมพ์เมื่อ: ${this.isoOf(this.TODAY)} ${this.nowTime()} โดย ${st.currentUser ? st.currentUser.name : '—'}`, ML, y);
+    doc.setTextColor(0, 0, 0);
+
+    const targeted = indicators.filter(c => c.status);
+    const okCount = targeted.filter(c => c.status === 'ok').length;
+    y += 8;
+    const allOk = targeted.length > 0 && okCount === targeted.length;
+    doc.setFillColor(...(allOk ? [228, 244, 239] : [255, 248, 237]));
+    doc.roundedRect(ML, y - 5, MR - ML, 9, 1.5, 1.5, 'F');
+    doc.setFont('Sarabun', 'bold'); doc.setFontSize(11.5);
+    doc.setTextColor(...(allOk ? [22, 156, 127] : [181, 116, 15]));
+    doc.text(`${allOk ? '✓' : '!'} ผ่านเป้าหมาย ${okCount}/${targeted.length} ตัวชี้วัด`, ML + 4, y + 1);
+    doc.setTextColor(0, 0, 0);
+    y += 9;
+
+    // hex color -> RGB triplet for doc.setDrawColor
+    const hexToRgb = (hex) => { const h2 = hex.replace('#', ''); return [parseInt(h2.slice(0, 2), 16), parseInt(h2.slice(2, 4), 16), parseInt(h2.slice(4, 6), 16)]; };
+
+    doc.autoTable({
+      startY: y,
+      margin: { left: ML, right: 210 - MR },
+      tableWidth: MR - ML,
+      styles: { font: 'Sarabun', fontSize: 9, cellPadding: 2.2, lineColor: [180, 180, 180], lineWidth: 0.15, valign: 'middle' },
+      headStyles: { fillColor: [26, 111, 163], textColor: 255, fontStyle: 'bold', fontSize: 9, halign: 'center' },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+      head: [['รหัส', 'ตัวชี้วัด', 'ค่า', 'เป้าหมาย', 'สถานะ', 'แนวโน้ม']],
+      body: indicators.map(c => [c.n, c.label, `${c.value}${c.unit ? ' ' + c.unit : ''}`, c.target, c.status === 'ok' ? 'ผ่านเป้า' : c.status === 'alert' ? 'ไม่ผ่านเป้า' : '—', '']),
+      columnStyles: {
+        0: { cellWidth: 14, halign: 'center', fontStyle: 'bold' },
+        1: { cellWidth: 62, halign: 'left' },
+        2: { cellWidth: 20, halign: 'center', fontStyle: 'bold' },
+        3: { cellWidth: 44, halign: 'left', fontSize: 8 },
+        4: { cellWidth: 20, halign: 'center', fontStyle: 'bold' },
+        5: { cellWidth: 22, halign: 'center' },
+      },
+      didParseCell: (data) => {
+        if (data.section !== 'body') return;
+        const c = indicators[data.row.index];
+        if (data.column.index === 4 && c.status) {
+          data.cell.styles.textColor = c.status === 'ok' ? [22, 156, 127] : [180, 33, 33];
+        }
+        if (data.column.index === 2) {
+          data.cell.styles.textColor = hexToRgb(c.color);
+        }
+      },
+      // Draws each indicator's daily trend as a real vector line directly
+      // into the "แนวโน้ม" cell — no image/canvas rasterization, since
+      // jsPDF can draw lines natively. Skipped (cell stays blank) for a
+      // series with fewer than 2 points, same rule the in-app sparkline
+      // uses (a trend needs ≥2 points to mean anything).
+      didDrawCell: (data) => {
+        if (data.section !== 'body' || data.column.index !== 5) return;
+        const c = indicators[data.row.index];
+        const s = c.series;
+        if (!s || s.length < 2) return;
+        const pad = 1.2;
+        const x = data.cell.x + pad, y0 = data.cell.y + pad;
+        const w = data.cell.width - pad * 2, h = data.cell.height - pad * 2;
+        const values = s.map(p => p.value);
+        const min = Math.min(...values), max = Math.max(...values);
+        const range = (max - min) || 1;
+        const stepX = w / (s.length - 1);
+        const rgb = hexToRgb(c.color);
+        doc.setDrawColor(...rgb);
+        doc.setLineWidth(0.35);
+        for (let i = 0; i < s.length - 1; i++) {
+          const x1 = x + i * stepX, x2 = x + (i + 1) * stepX;
+          const y1 = y0 + h - ((s[i].value - min) / range) * h;
+          const y2 = y0 + h - ((s[i + 1].value - min) / range) * h;
+          doc.line(x1, y1, x2, y2);
+        }
+        doc.setDrawColor(0, 0, 0);
+      },
+    });
+
+    y = doc.lastAutoTable.finalY + 8;
+    doc.setFont('Sarabun', 'normal'); doc.setFontSize(8.5);
+    doc.setTextColor(154, 170, 184);
+    doc.text('รายงานนี้สร้างจากข้อมูลที่บันทึกอัตโนมัติในระบบ Emergency Box Notify — ดูรายละเอียดรายการย่อยได้ในหน้า "ตัวชี้วัด KPI" ของแอปพลิเคชัน', ML, y, { maxWidth: MR - ML });
+    doc.setTextColor(0, 0, 0);
+    return doc;
   }
 
   // ---------- confirm dialog ----------
@@ -7312,8 +7502,21 @@ td.l{text-align:left;padding-left:4px}
         { n: '3.1', icon: '⏳', label: 'เวลาเฉลี่ยลงทะเบียน/ตรวจนับ 1 กล่อง', value: _avgMin === null ? '—' : _avgMin.toFixed(1), unit: _avgMin === null ? '' : 'นาที', target: _avgMin === null ? 'ยังไม่มีข้อมูลในช่วงนี้' : 'เทียบ baseline ก่อนใช้ระบบ', color: '#1A6FA3', rows: _timings.map(_fmtTiming), series: _series(_timings, 'avg', t => (t.durationSec || 0) / 60) },
         { n: '4.1', icon: '🛡️', label: 'บันทึก audit_log สำเร็จ', value: _auditPct.toFixed(1), unit: '%', target: 'เป้า 100%', color: _auditPct >= 99.9 ? '#169C7F' : '#B42121', status: _auditPct >= 99.9 ? 'ok' : 'alert', rows: _failures.map(_fmtFailure) },
         { n: '4.2', icon: '🔍', label: 'ใช้ audit trail สืบสวนสำเร็จ', value: String((st.kpiInvestigations || []).length), unit: 'ครั้ง', target: 'บันทึกเชิงคุณภาพ (มือแอดมิน)', color: '#7C5CD6', rows: (st.kpiInvestigations || []).map(_fmtInv) },
-        { n: '4.2ก', icon: '⬇️', label: 'จำนวนครั้ง export CSV (หลักฐานว่ามีการตรวจสอบ)', value: String(_csvExports.length), unit: 'ครั้ง', target: 'ตัวชี้วัดการใช้งาน audit trail จริง', color: '#7C5CD6', rows: _csvExports.map(_fmtCsv), series: _series(_csvExports, 'count') },
+        { n: '4.2ก', icon: '⬇️', label: 'จำนวนครั้ง export CSV/PDF (หลักฐานว่ามีการตรวจสอบ)', value: String(_csvExports.length), unit: 'ครั้ง', target: 'ตัวชี้วัดการใช้งาน audit trail จริง', color: '#7C5CD6', rows: _csvExports.map(_fmtCsv), series: _series(_csvExports, 'count') },
       ];
+      // Summary strip — "X/Y ตัวชี้วัดผ่านเป้าหมาย" at a glance, computed
+      // straight off the already-built vals.kpiCards (zero duplicate
+      // aggregation — every card's `status` is already resolved above).
+      // Cards with no directional target (status left unset) are excluded
+      // from both the numerator and denominator, same as their own
+      // per-card badge logic.
+      const _kpiTargeted = vals.kpiCards.filter(c => c.status);
+      const _kpiOkCount = _kpiTargeted.filter(c => c.status === 'ok').length;
+      const _kpiAllOk = _kpiTargeted.length > 0 && _kpiOkCount === _kpiTargeted.length;
+      vals.kpiSummaryEl = _kpiTargeted.length ? h('div', {
+        style: { display: 'flex', alignItems: 'center', gap: 8, background: _kpiAllOk ? '#E4F4EF' : '#FFF8ED', border: `1.5px solid ${_kpiAllOk ? '#169C7F' : '#D9810F'}`, borderRadius: 12, padding: '11px 18px', marginBottom: 14, fontSize: 13.5, fontWeight: 700, color: _kpiAllOk ? '#169C7F' : '#B5740F' }
+      }, _kpiAllOk ? '✅' : '⚠️', ` ผ่านเป้าหมาย ${_kpiOkCount}/${_kpiTargeted.length} ตัวชี้วัด`) : null;
+      vals.exportKpiPDF = () => this.exportKpiPDF();
       vals.kpiInvDate = st.kpiInvDate;
       vals.kpiInvDesc = st.kpiInvDesc;
       vals.kpiInvOutcome = st.kpiInvOutcome;
