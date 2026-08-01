@@ -4348,6 +4348,13 @@ class Component extends DCLogic {
         const regChecker = (this.state.regChecker || '').trim();
         const meta = { ...(this.state.boxMeta || {}) };
         meta[regEB] = { mfg: box.mfg, preparer: box.preparer, checker: regChecker, registeredAt: this.isoOf(this.TODAY) };
+        // Capture the HAD double-check flag BEFORE the setState below resets it.
+        // support.js's __setLogicState mutates this.state synchronously, so the
+        // reset lands immediately — reading this.state.regHadConfirm afterwards
+        // (as _logKpiHadCheck used to) always saw false, making indicator HA-1
+        // record 0% forever even though validateForm() hard-blocks a Stage 2
+        // submit on any HAD-containing box until the box is actually ticked.
+        const hadConfirmed = !!this.state.regHadConfirm;
         this.setState({ boxMeta: meta, regHadConfirm: false });
         // await both writes before logging — see the dispense path for why:
         // logging "ยืนยันสำเร็จ" to the append-only audit_log before confirming
@@ -4362,7 +4369,7 @@ class Component extends DCLogic {
         this.logBoxHist(regEB, `ยืนยันลงทะเบียน — ผ่านการตรวจสอบ (ตรวจโดย ${regChecker || '-'})`);
         this._logKpiRegTiming(regEB, 'verified');
         this._logKpiStage2Wait(regEB, box.preparedAt, this.isoOf(this.TODAY));
-        this._logKpiHadCheck(regEB, freshDrugs.filter(d => d.had).length, this.state.regHadConfirm);
+        this._logKpiHadCheck(regEB, freshDrugs.filter(d => d.had).length, hadConfirmed);
       } else {
         // Stage 1: จพ. จัดยาเข้ากล่อง + พิมพ์ใบกล่อง — บันทึกไว้เป็น "จัดเตรียมแล้ว" รอเภสัชกรตรวจสอบ
         const regPreparer = (this.state.regPreparer || '').trim();
