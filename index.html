@@ -2871,15 +2871,15 @@ class Component extends DCLogic {
     if (!window.EB_Sync || !window.EB_Sync.logKpiEvent) return;
     window.EB_Sync.logKpiEvent({ type: 'audit_write_failure', date: this.isoOf(this.TODAY), context, ...meta }).catch(() => {});
   }
-  // KPI 3.1 — logs how long this box's Stage 1/2 form was open, from
-  // selectRegBox() (the clock start) to this successful submit. this._kpiRegTimerStart
-  // is undefined if the box was never actually re-selected in this session
-  // (e.g. resetForm() lands back on the same box id) — skip logging rather
-  // than log a bogus near-zero or negative duration in that case.
-  _logKpiRegTiming(boxId, stage) {
-    if (!this._kpiRegTimerStart || !window.EB_Sync || !window.EB_Sync.logKpiEvent) return;
-    const durationSec = Math.round((Date.now() - this._kpiRegTimerStart) / 1000);
-    this._kpiRegTimerStart = null;
+  // KPI 3.1 — logs how long this box's Stage 1 or Stage 2 form was open,
+  // from a SERVER-PERSISTED start time (box.prepStartedAt / box.verifyStartedAt,
+  // set once in selectRegBox() — see its comment for why this replaced an
+  // in-memory client timer) to this successful submit. startedAtMs is falsy
+  // if the box was somehow never opened through selectRegBox() in this
+  // cycle — skip logging rather than log a bogus near-zero/negative duration.
+  _logKpiRegTiming(boxId, stage, startedAtMs) {
+    if (!startedAtMs || !window.EB_Sync || !window.EB_Sync.logKpiEvent) return;
+    const durationSec = Math.round((Date.now() - startedAtMs) / 1000);
     if (durationSec <= 0) return;
     window.EB_Sync.logKpiEvent({ type: 'reg_timing', date: this.isoOf(this.TODAY), boxId, stage, durationSec, by: this.state.currentUser ? this.state.currentUser.name : '' }).catch(() => {});
   }
@@ -3391,14 +3391,43 @@ class Component extends DCLogic {
   selectRegBox(id, opts) {
     const st = this.state;
     if (id === st.regEB && !(opts && opts.force)) return;
-    // KPI 3.1 (admin dashboard) — starts the "time spent on this box's
-    // registration form" clock from the moment it's actually opened, stopped
-    // in submit()'s Stage 1/2 success branches. Reset on every genuine new
-    // selection (this early-return above already skips a no-op re-select of
-    // the same box), so switching boxes mid-session times each one separately
-    // rather than accumulating idle time from a box the user gave up on.
-    this._kpiRegTimerStart = Date.now();
     const _selBox = this.BOXES.find(b => b.id === id);
+    // KPI 3.1 — persists the "form opened" timestamp on the box document
+    // itself (box.prepStartedAt / box.verifyStartedAt), set once the FIRST
+    // time each stage is opened, rather than an in-memory client timer.
+    // Stage 1 (จพ. จัดเตรียม) and Stage 2 (เภสัชกร ตรวจสอบ) are almost
+    // always done by different people at different times — a plain
+    // in-memory timer is silently wiped by a page reload, an idle-timeout
+    // logout, or a device switch happening between "open the form" and
+    // "submit", dropping the log with zero indication (found via a real
+    // gap: July logged reg_timing for every submission, August logged
+    // none despite 2 real registration cycles happening). Persisting to
+    // Firestore survives all of that. Only set if not already set — a
+    // later reopen of the same still-in-progress box must not restart the
+    // clock, or a box interrupted partway through would silently lose the
+    // time already spent on it; this also makes concurrent opens by two
+    // people safe, since whichever write lands first "wins" and the
+    // second is a no-op (this.BOXES already reflects the pending value by
+    // then, since it's updated optimistically below before the network
+    // round-trip even resolves). Cleared on submit (both stages), reject,
+    // return, and admin reset — see those call sites — so a later cycle
+    // never inherits a stale start time from an earlier one and reports an
+    // absurdly long duration. Written directly via EB_Sync.syncBoxes (NOT
+    // this._syncBox) and silently swallowed on failure — merely opening a
+    // box to look at it must never surface a scary "sync failed" toast the
+    // way a real, user-initiated field edit legitimately would.
+    if (_selBox) {
+      const _stage = this._regStage(_selBox);
+      if (_stage === 'none' && !_selBox.prepStartedAt) {
+        const _t = Date.now();
+        this.BOXES = this.BOXES.map(b => b.id === id ? { ...b, prepStartedAt: _t } : b);
+        if (window.EB_Sync) window.EB_Sync.syncBoxes({ id, prepStartedAt: _t }).catch(() => {});
+      } else if (_stage === 'prepared' && !_selBox.verifyStartedAt) {
+        const _t = Date.now();
+        this.BOXES = this.BOXES.map(b => b.id === id ? { ...b, verifyStartedAt: _t } : b);
+        if (window.EB_Sync) window.EB_Sync.syncBoxes({ id, verifyStartedAt: _t }).catch(() => {});
+      }
+    }
     // Always (re)load from this.BOX_DRUGS — the synced, authoritative source —
     // never from st.boxDrugs[id]. A stale local copy CAN exist under that key
     // even though we're not currently viewing it (e.g. resetForm() blanks the
@@ -3472,7 +3501,11 @@ class Component extends DCLogic {
     // Await before logging/toasting success — same reasoning as the dispense/
     // register submit paths: a failed write must never produce a permanent
     // "ตีกลับสำเร็จ" audit_log record.
-    const ok = await this._syncBox({ ...box, preparedAt: '', registeredAt: '', checker: '', rejectedReason: reason || '', rejectedAt: this.isoOf(this.TODAY) });
+    // clear both KPI 3.1 start times — a rejected box's fix-and-retry cycle
+    // must time itself fresh from จพ.'s NEXT reopen, not from the original
+    // (now-invalidated) attempt that got rejected, which would otherwise
+    // report an absurdly inflated duration spanning the whole reject wait
+    const ok = await this._syncBox({ ...box, preparedAt: '', registeredAt: '', checker: '', rejectedReason: reason || '', rejectedAt: this.isoOf(this.TODAY), prepStartedAt: '', verifyStartedAt: '' });
     const drugsOk = await this._syncBoxDrugs(boxId, freshDrugs.map(d => ({ ...d, verified: false })));
     if (!ok || !drugsOk) { this.flash('⚠️ บันทึกไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่'); return; }
     // a successful reject IS a save — clear the dirty flag so go()/go2()/
@@ -3530,7 +3563,12 @@ class Component extends DCLogic {
         const freshBox = this.BOXES.find(b => b.id === boxId);
         if (!freshBox || this._regStage(freshBox) !== 'verified') { this.flash('⚠️ กล่องนี้เปลี่ยนสถานะไปแล้ว — กรุณารีเฟรชหน้าแล้วลองใหม่'); return; }
         const freshDrugs = (this.BOX_DRUGS || {})[boxId] || [];
-        const ok = await this._syncBox({ ...freshBox, preparedAt: '', registeredAt: '', checker: '' });
+        // defense in depth alongside preparedAt/registeredAt/checker — a
+        // 'verified' box's KPI 3.1 start times should already be cleared
+        // from its own Stage 1/2 submits, but clear explicitly here too so
+        // a re-run of Stage 1 after this reopen can never inherit a stale
+        // timestamp from before, same reasoning as rejectReg() above.
+        const ok = await this._syncBox({ ...freshBox, preparedAt: '', registeredAt: '', checker: '', prepStartedAt: '', verifyStartedAt: '' });
         const drugsOk = await this._syncBoxDrugs(boxId, freshDrugs.map(d => ({ ...d, verified: false })));
         if (!ok || !drugsOk) { this.flash('⚠️ บันทึกไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่'); return; }
         this.flash(`เปิดกล่อง ${boxId} กลับไปแก้ไขใหม่แล้ว — รอจพ.จัดเตรียม + เภสัชกรตรวจสอบอีกครั้ง`);
@@ -4073,7 +4111,7 @@ class Component extends DCLogic {
     const resetBoxes = this.BOXES.map(b => ({
       id: b.id, dept: b.dept,
       mfg: '', expiry: '', nearDrug: '', preparer: '', checker: '', preparedAt: '', registeredAt: '', rejectedReason: '', rejectedAt: '',
-      dispense: '', dispenser: '', receiver: '', retDate: '', openedAt: '',
+      dispense: '', dispenser: '', receiver: '', retDate: '', openedAt: '', prepStartedAt: '', verifyStartedAt: '',
     }));
     const resetDrugs = {};
     resetBoxes.forEach(box => {
@@ -4359,15 +4397,17 @@ class Component extends DCLogic {
         // await both writes before logging — see the dispense path for why:
         // logging "ยืนยันสำเร็จ" to the append-only audit_log before confirming
         // the write actually landed would leave a permanent false record.
+        // capture before the write below clears it on the box object we send
+        const verifyStartedAt = box.verifyStartedAt;
         const [regBoxOk, regDrugsOk] = await Promise.all([
-          this._syncBox({ ...box, expiry: nearISO || '', nearDrug: near || '', checker: regChecker, registeredAt: this.isoOf(this.TODAY) }),
+          this._syncBox({ ...box, expiry: nearISO || '', nearDrug: near || '', checker: regChecker, registeredAt: this.isoOf(this.TODAY), verifyStartedAt: '' }),
           this._syncBoxDrugs(regEB, freshDrugs.map(d => ({ ...d, verified: true }))),
         ]);
         if (!regBoxOk || !regDrugsOk) { this.setState({ submitting: false }); this.flash('⚠️ บันทึกไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่'); return; }
         msg = `ตรวจสอบและยืนยันลงทะเบียน ${regEB} สำเร็จ · ตรวจพบยาใกล้หมดอายุสุด: ${near || 'ไม่มีข้อมูล'}`;
         this.logAction({ cat: 'register', action: 'ตรวจสอบ/ยืนยันลงทะเบียน', eb: regEB, dept: '—', drug: `เภสัชกรตรวจสอบยาครบทุกรายการ · ใกล้หมดอายุสุด: ${near}` });
         this.logBoxHist(regEB, `ยืนยันลงทะเบียน — ผ่านการตรวจสอบ (ตรวจโดย ${regChecker || '-'})`);
-        this._logKpiRegTiming(regEB, 'verified');
+        this._logKpiRegTiming(regEB, 'verified', verifyStartedAt);
         this._logKpiStage2Wait(regEB, box.preparedAt, this.isoOf(this.TODAY));
         this._logKpiHadCheck(regEB, freshDrugs.filter(d => d.had).length, hadConfirmed);
       } else {
@@ -4376,15 +4416,17 @@ class Component extends DCLogic {
         const meta = { ...(this.state.boxMeta || {}) };
         meta[regEB] = { mfg: this.state.regMfg, preparer: regPreparer, preparedAt: this.isoOf(this.TODAY) };
         this.setState({ boxMeta: meta });
+        // capture before the write below clears it on the box object we send
+        const prepStartedAt = box.prepStartedAt;
         const [prepBoxOk, prepDrugsOk] = await Promise.all([
-          this._syncBox({ ...box, mfg: this.state.regMfg, preparer: regPreparer, preparedAt: this.isoOf(this.TODAY), checker: '', registeredAt: '', rejectedReason: '', rejectedAt: '', dispense: '', dispenser: '', receiver: '', retDate: '', openedAt: '' }),
+          this._syncBox({ ...box, mfg: this.state.regMfg, preparer: regPreparer, preparedAt: this.isoOf(this.TODAY), checker: '', registeredAt: '', rejectedReason: '', rejectedAt: '', dispense: '', dispenser: '', receiver: '', retDate: '', openedAt: '', prepStartedAt: '' }),
           this._syncBoxDrugs(regEB, (BD[regEB] || []).map(d => ({ ...d, verified: false }))),
         ]);
         if (!prepBoxOk || !prepDrugsOk) { this.setState({ submitting: false }); this.flash('⚠️ บันทึกไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่'); return; }
         msg = `จัดเตรียมกล่อง ${regEB} เรียบร้อย · รอเภสัชกรตรวจสอบก่อนจึงจะพร้อมจ่าย`;
         this.logAction({ cat: 'register', action: 'จัดเตรียมกล่อง', eb: regEB, dept: '—', drug: `จพ.จัดยาเข้ากล่อง รอเภสัชกรตรวจสอบ` });
         this.logBoxHist(regEB, `จัดเตรียมกล่อง (จัดโดย ${regPreparer || '-'}) — รอเภสัชกรตรวจสอบ`);
-        this._logKpiRegTiming(regEB, 'prepared');
+        this._logKpiRegTiming(regEB, 'prepared', prepStartedAt);
       }
     }
     else if (m === 'dispense') {
@@ -4462,7 +4504,7 @@ class Component extends DCLogic {
           // just out and used is no longer guaranteed full/verified, so it must go
           // through จพ. restock (Stage 1) + pharmacist re-verify (Stage 2) again
           // before _resolveDispEB()/the dispense list will allow it out a second time
-          _swResult = await window.EB_Sync.returnBoxAndDrugsTx(resolvedSwapEB, { receiver: swapReceiver, retDate: this.state.swapReturnDate, openedAt: '', preparedAt: '', registeredAt: '', checker: '' }, _swUsageCheck);
+          _swResult = await window.EB_Sync.returnBoxAndDrugsTx(resolvedSwapEB, { receiver: swapReceiver, retDate: this.state.swapReturnDate, openedAt: '', preparedAt: '', registeredAt: '', checker: '', prepStartedAt: '', verifyStartedAt: '' }, _swUsageCheck);
         } catch (err) {
           this.setState({ submitting: false });
           // the dispense above is already logged and real — tell the user
@@ -4473,7 +4515,7 @@ class Component extends DCLogic {
             : '⚠️ บันทึกรับคืนไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต') + ` (จ่าย ${dispEB} → ${formDept} บันทึกสำเร็จแล้ว)`);
           return;
         }
-        this.BOXES = this.BOXES.map(b => b.id === resolvedSwapEB ? { ...b, receiver: swapReceiver, retDate: this.state.swapReturnDate, openedAt: '', preparedAt: '', registeredAt: '', checker: '' } : b);
+        this.BOXES = this.BOXES.map(b => b.id === resolvedSwapEB ? { ...b, receiver: swapReceiver, retDate: this.state.swapReturnDate, openedAt: '', preparedAt: '', registeredAt: '', checker: '', prepStartedAt: '', verifyStartedAt: '' } : b);
         if (_swResult.drugs) this.BOX_DRUGS = { ...(this.BOX_DRUGS || {}), [resolvedSwapEB]: _swResult.drugs };
         const _swSummary = _swPrevDrugsCheck.map((drug, di) => {
           const _used = Object.values((_swUsageCheck[di] || {})).reduce((s, q) => s + q, 0);
@@ -4523,7 +4565,7 @@ class Component extends DCLogic {
       // dispensed a second time (see _resolveDispEB()'s registeredAt requirement).
       let _retResult;
       try {
-        _retResult = await window.EB_Sync.returnBoxAndDrugsTx(retEB, { receiver: retReceiver, retDate, openedAt: '', preparedAt: '', registeredAt: '', checker: '' }, retDrugUsage);
+        _retResult = await window.EB_Sync.returnBoxAndDrugsTx(retEB, { receiver: retReceiver, retDate, openedAt: '', preparedAt: '', registeredAt: '', checker: '', prepStartedAt: '', verifyStartedAt: '' }, retDrugUsage);
       } catch (err) {
         this.setState({ submitting: false });
         this.flash(err.code === 'NOT_OUT'
@@ -4531,7 +4573,7 @@ class Component extends DCLogic {
           : '⚠️ บันทึกไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
         return;
       }
-      this.BOXES = this.BOXES.map(b => b.id === retEB ? { ...b, receiver: retReceiver, retDate, openedAt: '', preparedAt: '', registeredAt: '', checker: '' } : b);
+      this.BOXES = this.BOXES.map(b => b.id === retEB ? { ...b, receiver: retReceiver, retDate, openedAt: '', preparedAt: '', registeredAt: '', checker: '', prepStartedAt: '', verifyStartedAt: '' } : b);
       if (_retResult.drugs) this.BOX_DRUGS = { ...(this.BOX_DRUGS || {}), [retEB]: _retResult.drugs };
       // log drug usage summary
       const _usageSummary = _prevDrugsCheck.map((drug, di) => {
