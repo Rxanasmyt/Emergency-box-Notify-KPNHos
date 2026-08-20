@@ -199,16 +199,31 @@ async function logKpiIncidents(alerts) {
 }
 
 // ── KPI instrumentation — emergency-box readiness (HA indicator 2) ─────────
-// Logs one snapshot per run: how many boxes are 'verified' AND currently in
-// stock (สถานะ "พร้อมใช้งาน" ตามความหมายของ HA — ยืนยันแล้วและไม่ได้ถูกเบิกออก
-// อยู่) vs the total box count, at the moment this daily check runs. A daily
-// snapshot (piggy-backing on the existing once-a-day cron) gives a real
-// historical trend without needing to reconstruct box-state history from
-// audit_log events, which this app doesn't store in a form that supports it.
+// Logs one snapshot per run: how many boxes are 'verified' (สถานะ "พร้อมใช้
+// งาน" ตามความหมายของ HA) vs the total box count, at the moment this daily
+// check runs. A daily snapshot (piggy-backing on the existing once-a-day
+// cron) gives a real historical trend without needing to reconstruct
+// box-state history from audit_log events, which this app doesn't store in
+// a form that supports it.
+//
+// Deliberately does NOT require `!s.isOut` (an earlier version did) — a box
+// currently dispensed out to ER/Ward/LR is not "unready"; it's doing exactly
+// what it's for, stocked and staffed at the point of care. `stage ===
+// 'verified'` alone already carries the real readiness guarantee here: a
+// box only reaches/keeps that stage after passing Stage 2 pharmacist
+// sign-off, and dispensing a box does NOT clear registeredAt (only RETURN
+// does, which is what correctly forces a re-verify before the box can be
+// dispensed a second time — see the 2-stage registration invariants
+// elsewhere in this repo). Counting only in-pharmacy boxes as "ready" would
+// make this indicator read WORST exactly when the system is working as
+// intended (boxes correctly deployed and in active use at a department),
+// which is backwards for a metric meant to answer "would this hospital's
+// emergency boxes work if needed right now" — confirmed with the admin
+// directly after they flagged the mismatch.
 async function logKpiReadiness(summaries) {
   const total = summaries.length;
   if (!total) return;
-  const ready = summaries.filter(s => s.stage === 'verified' && !s.isOut).length;
+  const ready = summaries.filter(s => s.stage === 'verified').length;
   const readyPct = Math.round((ready / total) * 1000) / 10;
   await db.collection('kpi_events').add({
     type: 'readiness_snapshot',
