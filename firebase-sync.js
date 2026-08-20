@@ -395,12 +395,34 @@ function listenAllUsageLog(cb){
 // anything was cut off. Used specifically by exportCSV() so the compliance-
 // critical export path is always guaranteed complete regardless of the live
 // window's size, even though the on-screen live view still honors the cap.
+//
+// {source:'server'} on every .get() below (this one, fetchUsageLogRange,
+// fetchKpiEvents, fetchKpiInvestigations, fetchBoxHistory) is deliberate and
+// load-bearing, not cosmetic — the SDK's default .get() silently falls back
+// to whatever's in the local IndexedDB cache when the server is unreachable
+// (a network blip, a restrictive hospital firewall/proxy — see the anon-auth
+// trust-model notes elsewhere in this app for why that's a real, expected
+// risk here) and RESOLVES successfully with an empty snapshot rather than
+// rejecting, if that cache happens to be empty (e.g. a browser profile that
+// has never synced this collection before, or cleared storage). Confirmed
+// directly against the real SDK: default .get() on an unreachable backend
+// returned `{size:0, fromCache:true}` with no error at all, while
+// .get({source:'server'}) on the same query correctly rejected with
+// `unavailable`. Every one of these five functions feeds a completeness-
+// critical admin view (KPI dashboard drill-down, CSV/PDF exports, box
+// history) that CLAUDE.md already documents as "must never silently show
+// incomplete data" — without forcing source:'server', a KPI card or export
+// hitting this exact condition reads as "0 events / no data recorded",
+// indistinguishable from genuinely-zero, instead of the actual truth ("the
+// fetch never reached the server"). Forcing server-only trades silent wrong
+// answers for a loud, retryable error — every caller's existing .catch()
+// already surfaces one.
 function fetchAuditRange(fromISO,toISO){
   if(!db)return Promise.resolve([]);
   let q=db.collection(C.audit);
   if(fromISO)q=q.where('date','>=',fromISO);
   if(toISO)q=q.where('date','<=',toISO);
-  return q.get().then(snap=>{
+  return q.get({source:'server'}).then(snap=>{
     const logs=[];
     snap.forEach(doc=>{const d=doc.data();const cat=d.cat||(d.action==='จ่าย'?'dispense':d.action==='รับคืน'?'return':'other');logs.push({...d,cat});});
     return logs;
@@ -416,7 +438,8 @@ function fetchUsageLogRange(fromISO,toISO){
   let q=db.collection(C.usageLog);
   if(fromISO)q=q.where('recordedAt','>=',fromISO);
   if(toISO)q=q.where('recordedAt','<=',toISO);
-  return q.get().then(snap=>{
+  // source:'server' — see fetchAuditRange's comment above for why
+  return q.get({source:'server'}).then(snap=>{
     const rows=[];snap.forEach(doc=>rows.push({id:doc.id,...doc.data()}));
     return rows;
   }).catch(err=>{console.warn('[Sync] fetchUsageLogRange failed:',err.message);throw err;});
@@ -439,7 +462,8 @@ function fetchKpiEvents(fromISO,toISO){
   let q=db.collection(C.kpiEvents);
   if(fromISO)q=q.where('date','>=',fromISO);
   if(toISO)q=q.where('date','<=',toISO);
-  return q.get().then(snap=>{
+  // source:'server' — see fetchAuditRange's comment above for why
+  return q.get({source:'server'}).then(snap=>{
     const rows=[];snap.forEach(doc=>rows.push({id:doc.id,...doc.data()}));
     return rows;
   }).catch(err=>{console.warn('[Sync] fetchKpiEvents failed:',err.message);throw err;});
@@ -456,7 +480,8 @@ function fetchKpiInvestigations(fromISO,toISO){
   let q=db.collection(C.kpiInvestigations);
   if(fromISO)q=q.where('date','>=',fromISO);
   if(toISO)q=q.where('date','<=',toISO);
-  return q.get().then(snap=>{
+  // source:'server' — see fetchAuditRange's comment above for why
+  return q.get({source:'server'}).then(snap=>{
     const rows=[];snap.forEach(doc=>rows.push({id:doc.id,...doc.data()}));
     return rows;
   }).catch(err=>{console.warn('[Sync] fetchKpiInvestigations failed:',err.message);throw err;});
@@ -469,7 +494,11 @@ function fetchKpiInvestigations(fromISO,toISO){
 // need a composite index, unlike an added orderBy would.
 function fetchBoxHistory(boxId){
   if(!db)return Promise.resolve([]);
-  return db.collection(C.audit).where('eb','==',boxId).where('cat','==','boxhist').get()
+  // source:'server' — see fetchAuditRange's comment above for why. Still
+  // resolves to [] on failure (not a throw) same as before — the Detail
+  // screen's own fallback chain (state.boxHist → the live/capped audit
+  // array) already handles that gracefully and no caller attaches a .catch.
+  return db.collection(C.audit).where('eb','==',boxId).where('cat','==','boxhist').get({source:'server'})
     .then(snap=>{
       const rows=[];
       snap.forEach(doc=>{const d=doc.data();rows.push({text:d.action||'',who:d.person||'—',stamp:`${d.date||''} · ${d.time||''}`,date:d.date||'',time:d.time||''});});
