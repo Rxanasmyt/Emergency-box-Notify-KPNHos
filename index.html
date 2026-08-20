@@ -63,7 +63,28 @@
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('./sw.js')
-        .then(r => console.log('[SW] Registered:', r.scope))
+        .then(r => {
+          console.log('[SW] Registered:', r.scope);
+          // Browsers only spontaneously re-check a registered SW for updates
+          // on navigation, or roughly every ~24h for a page left open — and
+          // this SW's own file (sw.js) doesn't change on most deploys (only
+          // the files IT caches do), so a tab left open for days on a
+          // hospital workstation that's never fully closed/reloaded can keep
+          // running JS from before a real fix landed, with nothing ever
+          // prompting it to check again. Found directly from real data: a
+          // client-side bug fix (KPI 3.1 registration-timing capture) that
+          // deployed successfully server-side still wasn't reaching several
+          // already-open devices days later — box documents showed the new
+          // timer fields never being written at all for cycles that
+          // happened well after the fix shipped, consistent with those
+          // sessions still running pre-fix code. Polling registration.update()
+          // periodically makes the browser re-check regardless of navigation;
+          // the actual reload still only happens through the existing
+          // controllerchange handler below, which already safely waits out
+          // any in-progress unsaved work — this only makes the CHECK happen
+          // sooner, it doesn't change when it's safe to actually reload.
+          setInterval(() => r.update().catch(() => {}), 15 * 60 * 1000);
+        })
         .catch(e => console.warn('[SW] Registration failed:', e));
     });
     const _hadSWController = !!navigator.serviceWorker.controller;
