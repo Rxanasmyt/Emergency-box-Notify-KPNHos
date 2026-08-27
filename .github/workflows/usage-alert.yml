@@ -1,0 +1,72 @@
+name: Emergency Box Opened Alert
+
+# Fired via workflow_dispatch from the public QR page (submitPubUsage() in
+# index.html) the moment a box's FIRST paperless usage-log entry of a
+# dispense cycle is recorded — see .github/scripts/usage-alert.js for why
+# this exists and why it's a plain text message, not a Flex report.
+# Deliberately workflow_dispatch (not repository_dispatch) so it reuses the
+# exact same GitHub PAT + permission scope ("Actions: Read and write") the
+# admin has already configured for the existing manual daily-notify
+# trigger — no new PAT scope to set up.
+on:
+  workflow_dispatch:
+    inputs:
+      boxId:
+        description: 'Box ID (e.g. EB-1)'
+        required: true
+        type: string
+      dept:
+        description: 'Department the box is dispensed to'
+        required: true
+        type: string
+      drugName:
+        description: 'Drug name just recorded as used'
+        required: true
+        type: string
+      qty:
+        description: 'Quantity used'
+        required: true
+        type: string
+      time:
+        description: 'Time recorded (HH:MM, Bangkok)'
+        required: true
+        type: string
+
+# Each invocation is independent (a different box/event) and has no shared
+# mutable state to corrupt if two run concurrently — unlike reset-data.yml/
+# test-lifecycle.yml/firebase-deploy.yml, which serialize because they DO
+# share state, this deliberately does NOT set a concurrency group: two
+# boxes legitimately opening around the same time (a busy ER) should both
+# alert promptly, not queue behind each other.
+
+jobs:
+  notify:
+    name: Send box-opened LINE alert
+    runs-on: ubuntu-latest
+    # only talks to the MOPH Notify API via its own secrets — never needs
+    # any GITHUB_TOKEN scope, so pin it to read-only like the app's other
+    # workflows that don't need write access.
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+        # no `npm ci` step — usage-alert.js only uses Node's built-in
+        # `https` module, nothing from .github/scripts/package.json
+
+      - name: Send LINE alert via MOPH Notify
+        run: node .github/scripts/usage-alert.js
+        env:
+          MOPH_NOTIFY_CLIENT_KEY: ${{ secrets.MOPH_NOTIFY_CLIENT_KEY }}
+          MOPH_NOTIFY_SECRET_KEY: ${{ secrets.MOPH_NOTIFY_SECRET_KEY }}
+          BOX_ID:    ${{ inputs.boxId }}
+          DEPT:      ${{ inputs.dept }}
+          DRUG_NAME: ${{ inputs.drugName }}
+          QTY:       ${{ inputs.qty }}
+          TIME:      ${{ inputs.time }}

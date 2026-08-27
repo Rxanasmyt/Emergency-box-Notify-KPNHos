@@ -2451,11 +2451,49 @@ class Component extends DCLogic {
       const usageDrugDesc = `${result.drugName} จำนวน ${qty} · HN ${pubUsageHN.trim()}${(pubUsagePatient || '').trim() ? ' · ผู้ป่วย ' + pubUsagePatient.trim() : ''}`;
       this.logAction({ cat: 'usage', action: 'เปิดใช้งาน/บันทึกใช้ยา (QR)', eb: publicBoxId, dept: dept || '—', drug: usageDrugDesc, person: pinPerson });
       this.logBoxHist(publicBoxId, `บันทึกใช้ยาผ่าน QR: ${usageDrugDesc}`, pinPerson);
+      // real-time "box opened" alert to the pharmacy — only on the FIRST
+      // usage entry of this dispense cycle (result.openedNow, set inside
+      // logDrugUsageTx's transaction), never on every subsequent lot logged
+      // within the same cycle, or the pharmacy would get spammed with one
+      // LINE message per drug instead of one per box-opening event. See
+      // .github/scripts/usage-alert.js for why this is a separate GitHub
+      // Actions workflow (the MOPH Notify secret keys are never sent to
+      // this public, unauthenticated page) and why it deliberately omits
+      // HN/patient name. Fire-and-forget, same as every other KPI/notify
+      // side-effect in this app — a failed alert must never block or
+      // roll back the real usage-log write it's reporting on.
+      if (result.openedNow) this._triggerUsageAlert(publicBoxId, dept, result.drugName, qty, nowT);
     } catch (err) {
       this.setState({ pubUsageBusy: false, pubUsageMsg: err.message || 'บันทึกไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต', pubUsageMsgOk: false });
     }
     clearTimeout(this._pubUsageMsgT);
     this._pubUsageMsgT = setTimeout(() => this.setState({ pubUsageMsg: '' }), 4000);
+  }
+  // Fires the "box opened" GitHub Actions workflow (usage-alert.yml —
+  // see .github/scripts/usage-alert.js) so the pharmacy gets a real-time
+  // LINE ping the moment a box's first paperless usage entry is recorded,
+  // instead of finding out only when the box eventually comes back for
+  // return. Reuses the same workflow_dispatch + PAT pattern as the Notify
+  // screen's triggerGHActions(), but this runs from the public QR page
+  // (no logged-in currentUser, so no state.ghPAT to read) — the PAT is
+  // loaded fresh from Firestore via EB_Notify.loadGithubPAT(), the same
+  // app_settings/notifications doc already documented elsewhere as
+  // readable by anyone with the site URL under this app's anon-auth trust
+  // model, so reading it from this unauthenticated page is not a new
+  // exposure. Fire-and-forget: a missed real-time alert is inconvenient,
+  // not data-integrity-critical, and must never surface an error on the
+  // public page or delay the success message the ward actually needs to see.
+  async _triggerUsageAlert(boxId, dept, drugName, qty, time) {
+    if (!window.EB_Notify || !window.EB_Notify.loadGithubPAT) return;
+    try {
+      const pat = await window.EB_Notify.loadGithubPAT();
+      if (!pat) return;
+      await fetch('https://api.github.com/repos/Rxanasmyt/Emergency-box-Notify-KPNHos/actions/workflows/usage-alert.yml/dispatches', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${pat}`, 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ref: 'claude/eloquent-heisenberg-vqrypu', inputs: { boxId, dept: dept || '-', drugName, qty: String(qty), time } }),
+      });
+    } catch (_) { /* fire-and-forget, see comment above */ }
   }
 
   // par quantities now live in DRUGS[].par
