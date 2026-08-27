@@ -11,10 +11,14 @@
  * force-re-verify-on-return invariant elsewhere in this app), so the sooner
  * the pharmacy knows, the sooner a fresh verified box can take its place.
  *
- * Deliberately a plain LINE text message, not a Flex card like the daily
- * report — this is a one-line operational ping meant to be read in a
- * glance, not a report to review, and should visually read as a different
- * *kind* of notification from the daily near-expiry summary.
+ * Sent as a LINE Flex card (not a plain text bubble) so "which box, which
+ * department, what was used, how much" reads at a glance instead of as a
+ * run-on sentence — the pharmacist receiving this needs to grab the right
+ * replacement box fast, not parse a paragraph. Uses the same rounded-card/
+ * pill-badge visual language as buildFlexMessages()'s near-expiry cards in
+ * check-expiry.js (a distinct amber header color keeps it visually
+ * distinguishable from that daily report's own cards at a glance, even
+ * though the shapes are the same family).
  *
  * Deliberately excludes HN/patient name — this message may be seen by
  * anyone in the LINE group MOPH Notify posts into, and the only thing
@@ -61,6 +65,61 @@ function sendMOPHNotify(clientKey, secretKey, messages) {
   });
 }
 
+// One row: a muted label on the left, the real value bold on the right —
+// same "label : value" row shape used throughout this app's other Flex
+// messages, kept here as its own helper since this file has no shared
+// module to import it from (see the file header for why that's fine at
+// this size).
+function row(label, value) {
+  return {
+    type: 'box', layout: 'horizontal', margin: 'md',
+    contents: [
+      { type: 'text', text: label, size: 'sm', color: '#78909C', flex: 2 },
+      { type: 'text', text: value, size: 'sm', weight: 'bold', color: '#1A1A2E', flex: 3, wrap: true },
+    ],
+  };
+}
+
+function buildUsageAlertFlex({ boxId, dept, drugName, qty, time }) {
+  return {
+    type: 'bubble',
+    size: 'mega',
+    header: {
+      type: 'box', layout: 'vertical', backgroundColor: '#D97706', paddingAll: '16px',
+      contents: [
+        { type: 'text', text: '🔔 กล่องยาฉุกเฉินถูกเปิดใช้งาน', color: '#FFFFFF', weight: 'bold', size: 'md' },
+      ],
+    },
+    body: {
+      type: 'box', layout: 'vertical', paddingAll: '18px', spacing: 'sm',
+      contents: [
+        // box ID front and center, large — the single most important thing
+        // to see in under a second — with the department as a pill beside it
+        {
+          type: 'box', layout: 'horizontal', alignItems: 'center',
+          contents: [
+            { type: 'text', text: boxId, size: 'xxl', weight: 'bold', color: '#1A1A2E', flex: 0 },
+            {
+              type: 'box', layout: 'vertical', backgroundColor: '#1A6FA3', cornerRadius: '20px',
+              paddingTop: '4px', paddingBottom: '4px', paddingStart: '12px', paddingEnd: '12px', margin: 'md',
+              contents: [{ type: 'text', text: dept, color: '#FFFFFF', size: 'sm', weight: 'bold' }],
+            },
+          ],
+        },
+        { type: 'separator', margin: 'lg' },
+        row('💊  ยาที่ใช้', drugName),
+        row('🔢  จำนวน', String(qty)),
+        row('🕐  เวลา', `${time} น.`),
+        { type: 'separator', margin: 'lg' },
+        {
+          type: 'text', margin: 'lg', wrap: true, size: 'sm', weight: 'bold', color: '#B45F06',
+          text: '⚠️ กรุณาเตรียมกล่องสำรองเปลี่ยนให้พร้อมใช้งานโดยเร็ว',
+        },
+      ],
+    },
+  };
+}
+
 async function main() {
   const clientKey = process.env.MOPH_NOTIFY_CLIENT_KEY;
   const secretKey = process.env.MOPH_NOTIFY_SECRET_KEY;
@@ -77,12 +136,10 @@ async function main() {
   const qty = process.env.QTY || '—';
   const time = process.env.TIME || '—';
 
-  const text = `🔔 กล่องยาฉุกเฉิน ${boxId} (${dept}) ถูกเปิดใช้งานแล้ว\n` +
-    `ยาที่ใช้: ${drugName} จำนวน ${qty}\n` +
-    `เวลา ${time} น.\n` +
-    `กรุณาเตรียมกล่องสำรองเปลี่ยนให้พร้อมใช้งานโดยเร็ว`;
-
-  const ok = await sendMOPHNotify(clientKey, secretKey, [{ type: 'text', text }]);
+  const flex = buildUsageAlertFlex({ boxId, dept, drugName, qty, time });
+  const ok = await sendMOPHNotify(clientKey, secretKey, [
+    { type: 'flex', altText: `🔔 กล่อง ${boxId} (${dept}) ถูกเปิดใช้งานแล้ว — ${drugName} × ${qty}`, contents: flex },
+  ]);
   if (!ok) process.exitCode = 1;
 }
 

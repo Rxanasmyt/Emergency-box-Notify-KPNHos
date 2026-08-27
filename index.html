@@ -2488,11 +2488,18 @@ class Component extends DCLogic {
     try {
       const pat = await window.EB_Notify.loadGithubPAT();
       if (!pat) return;
-      await fetch('https://api.github.com/repos/Rxanasmyt/Emergency-box-Notify-KPNHos/actions/workflows/usage-alert.yml/dispatches', {
+      const res = await fetch('https://api.github.com/repos/Rxanasmyt/Emergency-box-Notify-KPNHos/actions/workflows/usage-alert.yml/dispatches', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${pat}`, 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'Content-Type': 'application/json' },
         body: JSON.stringify({ ref: 'claude/eloquent-heisenberg-vqrypu', inputs: { boxId, dept: dept || '-', drugName, qty: String(qty), time } }),
       });
+      // a workflow_dispatch that's accepted returns 204 with no body — fetch()
+      // only rejects on a network-level failure, never on a non-2xx response,
+      // so without this check a bad/expired PAT or a typo'd workflow filename
+      // would silently "succeed" here with zero indication in devtools that
+      // the pharmacy never actually got alerted (same class of silent-failure
+      // this app already had to fix once for Firestore's default .get()).
+      if (!res.ok) console.warn('[UsageAlert] dispatch failed:', res.status, await res.text().catch(() => ''));
     } catch (_) { /* fire-and-forget, see comment above */ }
   }
 
