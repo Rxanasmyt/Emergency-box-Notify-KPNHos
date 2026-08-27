@@ -47,6 +47,12 @@ jobs:
   notify:
     name: Send box-opened LINE alert
     runs-on: ubuntu-latest
+    # usage-alert.js's own retry logic already caps at ~65s worst case (30s
+    # timeout + one 3s-delayed retry) — 5 minutes leaves generous headroom
+    # while still failing fast instead of running until GitHub's 6-hour
+    # default if something outside that logic ever hangs (e.g. npm/checkout
+    # itself stalling).
+    timeout-minutes: 5
     # only talks to the MOPH Notify API via its own secrets — never needs
     # any GITHUB_TOKEN scope, so pin it to read-only like the app's other
     # workflows that don't need write access.

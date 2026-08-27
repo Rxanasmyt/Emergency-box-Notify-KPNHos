@@ -24,6 +24,13 @@ jobs:
   deploy:
     name: Firebase Hosting + Firestore Rules Deploy
     runs-on: ubuntu-latest
+    # This job serializes behind the shared `firebase-deploy` concurrency
+    # group above (cancel-in-progress: false) — without a timeout, a single
+    # hung step (a stuck registry fetch, an auth call that never resolves)
+    # would block every subsequent legitimate deploy behind it for up to
+    # GitHub's 6-hour default, with no indication why. 15 minutes is
+    # generously above this job's normal ~1 minute runtime.
+    timeout-minutes: 15
     permissions:
       contents: read
 
@@ -61,5 +68,13 @@ jobs:
         with:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
 
+      # Pinned to an exact version, not @latest — this app committed a
+      # package-lock.json + switched to `npm ci` for .github/scripts
+      # specifically to close this exact class of gap (an unreviewed
+      # version bump silently pulling a compromised/buggy release); this
+      # `npx @latest` line was the one place that discipline didn't reach,
+      # and it runs immediately after Application Default Credentials for a
+      # real GCP service account (Firebase Rules Admin + Service Usage
+      # Consumer) are already in scope. Bump deliberately, not silently.
       - name: Deploy Firestore security rules
-        run: npx firebase-tools@latest deploy --only firestore:rules --project emergencyboxnotyfykpnhos --non-interactive
+        run: npx firebase-tools@15.28.1 deploy --only firestore:rules --project emergencyboxnotyfykpnhos --non-interactive

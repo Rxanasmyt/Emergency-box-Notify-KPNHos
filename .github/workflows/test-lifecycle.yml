@@ -16,6 +16,12 @@ jobs:
   test:
     name: Register/Dispense/Return smoke test against a throwaway TEST-1 box
     runs-on: ubuntu-latest
+    # This job serializes behind the shared `test-lifecycle` concurrency
+    # group above — without a timeout, a single hung step would block every
+    # subsequent legitimate run for up to GitHub's 6-hour default. A
+    # timeout-triggered cancellation still runs the `if: always()`
+    # guaranteed-cleanup step below, same as a manual cancellation does.
+    timeout-minutes: 10
     # only reads the repo + talks to Firestore via the Admin/client SDKs —
     # no GITHUB_TOKEN scope is ever needed
     permissions:

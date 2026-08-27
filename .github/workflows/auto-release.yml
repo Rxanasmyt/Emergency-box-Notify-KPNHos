@@ -9,6 +9,10 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
+    # No job in any workflow in this repo previously set a timeout, so a
+    # single hung step (e.g. a stuck `git push` of the new tag) would run
+    # until GitHub's 6-hour default kicks in.
+    timeout-minutes: 10
     permissions:
       contents: write
 

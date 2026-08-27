@@ -20,6 +20,12 @@ jobs:
   reset:
     name: Clear Firestore Test Data
     runs-on: ubuntu-latest
+    # This job serializes behind the shared `reset-firestore` concurrency
+    # group above — without a timeout, a single hung step would block every
+    # subsequent legitimate run behind it (including a real deploy sharing
+    # no group with this one, but any other reset attempt) for up to
+    # GitHub's 6-hour default.
+    timeout-minutes: 10
     # only reads the repo + talks to Firestore via the Admin SDK service
     # account — no GITHUB_TOKEN scope is ever needed
     permissions:

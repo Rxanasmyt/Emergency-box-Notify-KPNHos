@@ -719,6 +719,31 @@ input:focus, select:focus, textarea:focus {
 </style>
 </helmet>
 
+<!-- ===================== CRASH FALLBACK ===================== -->
+<!-- No error boundary existed anywhere in this app before this — if
+     renderVals() ever throws (a malformed Firestore doc from a manual
+     Console edit, an unanticipated data shape, a future bug), React
+     unmounts the whole tree and the entire hospital app white-screens for
+     every user with zero recovery UI. renderVals() now wraps its own body
+     in try/catch and, on error, returns the LAST successful vals object
+     (this._lastGoodVals) with appCrashed/appCrashedMessage overlaid on top
+     — every other {{ }} binding in this template still resolves against a
+     real, previously-valid vals shape (just frozen/stale) instead of
+     mostly-undefined, and this fixed full-screen overlay (highest z-index
+     in the app) visually covers whatever stale content sits behind it
+     regardless of what it looks like. -->
+<sc-if value="{{ appCrashed }}" hint-placeholder-val="{{ false }}">
+<div style="position: fixed; inset: 0; z-index: 99999; background: #0E2A3C; display: flex; align-items: center; justify-content: center; padding: 24px; font-family: 'IBM Plex Sans Thai', sans-serif;">
+  <div style="max-width: 440px; background: #fff; border-radius: 20px; padding: 36px 32px; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,.4);">
+    <div style="font-size: 48px; margin-bottom: 14px;">⚠️</div>
+    <div style="font-size: 18px; font-weight: 700; color: #15242E; margin-bottom: 10px;">เกิดข้อผิดพลาดบางอย่าง</div>
+    <div style="font-size: 13.5px; color: #5A6B79; line-height: 1.6; margin-bottom: 22px;">ระบบพบปัญหาที่ไม่คาดคิดและไม่สามารถแสดงหน้านี้ต่อได้ กรุณาโหลดหน้าใหม่ — ข้อมูลที่บันทึกไปแล้วก่อนหน้านี้ปลอดภัยดี</div>
+    <button onclick="{{ reloadApp }}" style="width: 100%; height: 48px; border: none; border-radius: 12px; background: linear-gradient(135deg,#1A6FA3,#1259A0); color: #fff; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer; margin-bottom: 14px;">↻ โหลดหน้าใหม่</button>
+    <div style="font-size: 11px; color: #9AAAB8; font-family: 'IBM Plex Mono', monospace; word-break: break-all;">{{ appCrashedMessage }}</div>
+  </div>
+</div>
+</sc-if>
+
 <!-- ===================== LOGIN ===================== -->
 <sc-if value="{{ notAuthed }}" hint-placeholder-val="{{ true }}">
 <div class="login-wrap" style="display: flex; height: 100vh; min-height: 720px; background: #0E2A3C; color: #15242E; overflow: hidden; font-family: 'IBM Plex Sans Thai', sans-serif;">
@@ -5394,6 +5419,28 @@ td.l{text-align:left;padding-left:4px}
   }
 
   renderVals() {
+    // See the "CRASH FALLBACK" block near the top of the <x-dc> template
+    // for why this whole function is wrapped — no error boundary existed
+    // anywhere in this app before this, so any uncaught throw here used to
+    // unmount the entire React tree and white-screen the app for every
+    // user with zero recovery UI. On error, _lastGoodVals (the last
+    // successful return, cached below) is returned instead, with a crash
+    // overlay flag on top — every other {{ }} binding in the template
+    // still resolves against a real, previously-valid vals shape (stale
+    // but never undefined/wrong-shaped) rather than risking a second crash
+    // from rendering an under-specified fallback object.
+    try {
+      return this._renderValsInner();
+    } catch (err) {
+      console.error('[renderVals] CRASH — showing fallback screen:', err);
+      const fallback = this._lastGoodVals ? { ...this._lastGoodVals } : {};
+      fallback.appCrashed = true;
+      fallback.appCrashedMessage = (err && err.message) || String(err);
+      fallback.reloadApp = () => window.location.reload();
+      return fallback;
+    }
+  }
+  _renderValsInner() {
     const st = this.state;
     const screen = st.screen;
     // Exposed for the SW-update auto-reload guard in <head> (see the
@@ -6508,7 +6555,11 @@ td.l{text-align:left;padding-left:4px}
       }, d.verified ? ic(checkSmallSVG, 14) : null) : null;
       return h('div', { key: d.name, className: 'drug-row' + (d.had ? ' drug-row-had' : ''), style: { padding: '12px 16px', borderBottom: i < regList.length - 1 ? '1px solid #F0F4F7' : 'none', background: isNear ? '#FFF7F1' : (d.had ? undefined : (vals.regIsVerifyStep && d.verified ? '#F2FBF7' : '#fff')), animation: `rowIn .3s cubic-bezier(.34,1.56,.64,1) ${i * 40}ms both` } },
         // drug header row
-        h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: d.lots.length > 0 ? 8 : 0 } },
+        // (d.lots || []) — a manually-edited box_drugs doc (e.g. via Firebase
+        // Console) missing the nested lots array must not crash this whole
+        // screen; every other d.lots access in this file is already guarded
+        // this way except this one and its Detail-screen counterpart below.
+        h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: (d.lots || []).length > 0 ? 8 : 0 } },
           verifyCheckbox,
           h('span', { style: { fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, color: isNear ? '#C2410C' : '#B6C2CC', width: 22, textAlign: 'center', flexShrink: 0 } },
             isNear ? h('span', { title: 'ใกล้หมดอายุที่สุด', style: { display: 'flex' }, dangerouslySetInnerHTML: { __html: warnIco } }) : String(i + 1).padStart(2, '0')),
@@ -6982,6 +7033,7 @@ td.l{text-align:left;padding-left:4px}
       vals.expiryRingEl = null; vals.detailQuickActionsEl = null;
       vals.editToggleEl = null; vals.drugTableEl = null; vals.drugFooterEl = null;
       vals.boxHistEl = null; vals.usageLogEl = null;
+      this._lastGoodVals = vals;
       return vals;
     }
     if (!_foundBox) Promise.resolve().then(() => this.setState({ selectedEB: box.id }));
@@ -7081,7 +7133,8 @@ td.l{text-align:left;padding-left:4px}
         );
       });
       return h('div', { key: i + '_' + d.name, className: 'drug-row', style: { padding: '11px 4px', borderBottom: '1px solid #F4F7F9', background: isNearDrug ? '#FFF8F2' : 'transparent' } },
-        h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: d.lots.length > 0 ? 6 : 0 } },
+        // (d.lots || []) — see the register-screen's identical fix above
+        h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: (d.lots || []).length > 0 ? 6 : 0 } },
           h('span', { style: { fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, color: '#B6C2CC', width: 22, textAlign: 'center', flexShrink: 0 } }, String(i+1).padStart(2,'0')),
           h('div', { style: { flex: 1, minWidth: 0, display: 'flex', alignItems: 'baseline', gap: 7, flexWrap: 'wrap' } },
             h('span', { style: { fontSize: 13.5, fontWeight: 500 } }, d.name),
@@ -8069,6 +8122,7 @@ td.l{text-align:left;padding-left:4px}
         : h('div', { style: { fontSize: 12.5, color: '#9AAAB8', padding: '10px 0' } }, 'ยังไม่มีบันทึกในช่วงเวลานี้');
     }
 
+    this._lastGoodVals = vals;
     return vals;
   }
 }

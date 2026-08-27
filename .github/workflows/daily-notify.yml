@@ -9,6 +9,12 @@ jobs:
   notify:
     name: Check Expiry & Send Alerts
     runs-on: ubuntu-latest
+    # No job in any workflow in this repo previously set a timeout, so a
+    # single hung step (a stuck npm registry fetch, a Firestore/SMTP call
+    # that never resolves) would run until GitHub's 6-hour default kicks in.
+    # This one runs daily on a cron — a stuck run could also delay/skip the
+    # next scheduled trigger.
+    timeout-minutes: 10
     # this job only reads the repo and talks to Firestore/LINE/email via its
     # own secrets — it never needs any GITHUB_TOKEN scope, so pin it to
     # read-only instead of inheriting the org/repo's default token permissions
