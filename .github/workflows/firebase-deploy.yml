@@ -31,6 +31,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # This app has no build step, so nothing catches a syntax error in
+      # index.html's inline <script> (the entire app) before it goes out to
+      # the real production hospital site — until now, a bad edit would
+      # deploy straight through with zero warning, only discovered when
+      # someone opened a blank/broken page. Blocks the deploy steps below if
+      # this fails.
+      - name: Verify index.html syntax
+        run: node .github/scripts/check-syntax.js
+
       - name: Deploy to Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
@@ -46,11 +60,6 @@ jobs:
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
 
       - name: Deploy Firestore security rules
         run: npx firebase-tools@latest deploy --only firestore:rules --project emergencyboxnotyfykpnhos --non-interactive

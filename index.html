@@ -2165,7 +2165,7 @@ class Component extends DCLogic {
     // paperless: public QR "open box / log usage" flow
     pubOpenFlow: false, pubPinInput: '', pubPinVerified: false, pubPinError: '', pubPinLocked: false, pubPinAttempts: 0, pubPinLockCountdown: 0,
     pubUsageDrugIdx: null, pubUsageLotIdx: null, pubUsageSelDrugName: '', pubUsageSelLotExpiry: '', pubUsageQty: '', pubUsageHN: '', pubUsagePatient: '',
-    pubUsageBusy: false, pubUsageMsg: '', pubUsageMsgOk: true, pubUsageLog: [],
+    pubUsageBusy: false, pubUsageConfirmOpen: false, pubUsageMsg: '', pubUsageMsgOk: true, pubUsageLog: [], pubOffline: false,
     // paperless: pharmacist detail-screen usage log for the selected box
     detailUsageLog: [],
     // paperless: admin-wide usage log report (users screen)
@@ -2353,7 +2353,7 @@ class Component extends DCLogic {
   }
   closePubUsageFlow() {
     clearTimeout(this._pubPinLockT); clearInterval(this._pubPinLockCountI);
-    this.setState({ pubOpenFlow: false });
+    this.setState({ pubOpenFlow: false, pubUsageConfirmOpen: false });
   }
   setPubPinInput(v) { this.setState({ pubPinInput: String(v).replace(/\D/g, ''), pubPinError: '' }); }
   // A 4-8 digit numeric PIN (saveDeptPins()'s own validation range) has as
@@ -2436,13 +2436,37 @@ class Component extends DCLogic {
   setPubUsageQty(v) { this.setState({ pubUsageQty: String(v).replace(/\D/g, '') }); }
   setPubUsageHN(v) { this.setState({ pubUsageHN: v }); }
   setPubUsagePatient(v) { this.setState({ pubUsagePatient: v }); }
+  // Basic form-completeness checks, shared by openPubUsageConfirm() (gates
+  // whether the confirm step even opens) and submitPubUsage() itself
+  // (re-checked as defense in depth right before the real write — the same
+  // pattern this app uses everywhere else: a gate at the UI entry point is
+  // never trusted as the only check before a real Firestore write).
+  _pubUsageBasicValid() {
+    const { pubUsageDrugIdx, pubUsageLotIdx, pubUsageQty, pubUsageHN } = this.state;
+    if (pubUsageDrugIdx === null || pubUsageLotIdx === null) { this.setState({ pubUsageMsg: 'กรุณาเลือกยาที่ใช้', pubUsageMsgOk: false }); return false; }
+    const qty = parseInt(pubUsageQty, 10);
+    if (!qty || qty <= 0) { this.setState({ pubUsageMsg: 'กรุณากรอกจำนวนที่ใช้', pubUsageMsgOk: false }); return false; }
+    if (!(pubUsageHN || '').trim()) { this.setState({ pubUsageMsg: 'กรุณากรอก HN ผู้ป่วย', pubUsageMsgOk: false }); return false; }
+    return true;
+  }
+  // Opens a review step showing exactly what's about to be recorded before
+  // it's actually written — requested directly: a fat-fingered qty/drug on
+  // this one-tap form previously decremented real stock immediately with no
+  // way to undo short of an admin manually correcting it afterward on the
+  // Detail screen. Does not touch Firestore itself, just gates the button
+  // the form already had behind one extra confirm tap.
+  openPubUsageConfirm() {
+    if (!this._pubUsageBasicValid()) return;
+    this.setState({ pubUsageConfirmOpen: true, pubUsageMsg: '' });
+  }
+  cancelPubUsageConfirm() {
+    this.setState({ pubUsageConfirmOpen: false });
+  }
   async submitPubUsage() {
     if (this.state.pubUsageBusy) return;
     const { publicBoxId, pubUsageDrugIdx, pubUsageLotIdx, pubUsageSelDrugName, pubUsageSelLotExpiry, pubUsageQty, pubUsageHN, pubUsagePatient } = this.state;
-    if (pubUsageDrugIdx === null || pubUsageLotIdx === null) { this.setState({ pubUsageMsg: 'กรุณาเลือกยาที่ใช้', pubUsageMsgOk: false }); return; }
+    if (!this._pubUsageBasicValid()) { this.setState({ pubUsageConfirmOpen: false }); return; }
     const qty = parseInt(pubUsageQty, 10);
-    if (!qty || qty <= 0) { this.setState({ pubUsageMsg: 'กรุณากรอกจำนวนที่ใช้', pubUsageMsgOk: false }); return; }
-    if (!(pubUsageHN || '').trim()) { this.setState({ pubUsageMsg: 'กรุณากรอก HN ผู้ป่วย', pubUsageMsgOk: false }); return; }
     if (!window.EB_Sync) { this.setState({ pubUsageMsg: '⚠️ ระบบซิงค์ยังไม่พร้อม', pubUsageMsgOk: false }); return; }
     // re-validate the selected drug/lot against the LIVE box_drugs array right before
     // submitting — logDrugUsageTx addresses a lot purely by array position, and a
@@ -2456,7 +2480,7 @@ class Component extends DCLogic {
     const _liveLot = _liveDrug && (_liveDrug.lots || [])[pubUsageLotIdx];
     if (!_liveDrug || !_liveLot || _liveDrug.name !== pubUsageSelDrugName || _liveLot.expiry !== pubUsageSelLotExpiry) {
       this.setState({
-        pubUsageDrugIdx: null, pubUsageLotIdx: null, pubUsageSelDrugName: '', pubUsageSelLotExpiry: '',
+        pubUsageDrugIdx: null, pubUsageLotIdx: null, pubUsageSelDrugName: '', pubUsageSelLotExpiry: '', pubUsageConfirmOpen: false,
         pubUsageMsg: '⚠️ ข้อมูลยาในกล่องมีการเปลี่ยนแปลง กรุณาเลือกยาที่ใช้ใหม่อีกครั้ง', pubUsageMsgOk: false,
       });
       return;
@@ -2471,7 +2495,7 @@ class Component extends DCLogic {
       this.BOX_DRUGS = { ...(this.BOX_DRUGS || {}), [publicBoxId]: result.drugs };
       this.setState(s => ({
         boxDrugs: { ...(s.boxDrugs || {}), [publicBoxId]: result.drugs },
-        pubUsageBusy: false, pubUsageQty: '', pubUsageHN: '', pubUsagePatient: '', pubUsageDrugIdx: null, pubUsageLotIdx: null, pubUsageSelDrugName: '', pubUsageSelLotExpiry: '',
+        pubUsageBusy: false, pubUsageConfirmOpen: false, pubUsageQty: '', pubUsageHN: '', pubUsagePatient: '', pubUsageDrugIdx: null, pubUsageLotIdx: null, pubUsageSelDrugName: '', pubUsageSelLotExpiry: '',
         pubUsageMsg: `บันทึกการใช้ ${result.drugName} จำนวน ${qty} เรียบร้อย`, pubUsageMsgOk: true,
       }));
       // A drug-administration event is exactly the kind of thing an admin needs to
@@ -2800,6 +2824,17 @@ class Component extends DCLogic {
     this._onVisibility = () => { if (!document.hidden) this.bumpIdle(); };
     document.addEventListener('visibilitychange', this._onVisibility);
     this.bumpIdle();
+    // Offline banner (public QR page's paperless usage form especially —
+    // ward wifi is realistically flaky) — navigator.onLine/'online'/
+    // 'offline' are a heuristic, not a guarantee (a device can report
+    // "online" while actually unable to reach Firestore), but they catch
+    // the common case of a dropped wifi/airplane-mode connection BEFORE the
+    // user finishes filling in a form and only finds out on submit.
+    this._onOffline = () => this.setState({ pubOffline: true });
+    this._onOnline = () => this.setState({ pubOffline: false });
+    window.addEventListener('offline', this._onOffline);
+    window.addEventListener('online', this._onOnline);
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) this.setState({ pubOffline: true });
     // PWA install prompt
     this._onBeforeInstallPrompt = (e) => {
       e.preventDefault();
@@ -2870,6 +2905,8 @@ class Component extends DCLogic {
   componentWillUnmount() {
     (this._idleEvents || []).forEach(ev => window.removeEventListener(ev, this._resetIdle, true));
     if (this._onVisibility) document.removeEventListener('visibilitychange', this._onVisibility);
+    if (this._onOffline) window.removeEventListener('offline', this._onOffline);
+    if (this._onOnline) window.removeEventListener('online', this._onOnline);
     if (this._ripple) document.removeEventListener('click', this._ripple);
     if (this._onBeforeInstallPrompt) window.removeEventListener('beforeinstallprompt', this._onBeforeInstallPrompt);
     if (this._onAppInstalled) window.removeEventListener('appinstalled', this._onAppInstalled);
@@ -5814,6 +5851,11 @@ td.l{text-align:left;padding-left:4px}
               h('div', { style: { fontSize: 16, fontWeight: 700 } }, `เปิดใช้งานกล่อง ${pubBox.id}`),
               h('button', { onClick: () => this.closePubUsageFlow(), style: { marginLeft: 'auto', width: 32, height: 32, border: 'none', background: '#F1F5F8', borderRadius: 9, fontSize: 18, cursor: 'pointer', color: '#7B8D9C' } }, '×')
             ),
+            // Offline banner — a dropped ward wifi connection is a real,
+            // common failure mode for this exact form; better to warn
+            // before the user fills it in than to let them discover it only
+            // after tapping "บันทึกการใช้ยา" and getting a generic error.
+            st.pubOffline ? h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, background: '#FBE7E7', border: '1.5px solid #E0A0A0', borderRadius: 10, padding: '9px 12px', marginBottom: 14, fontSize: 12.5, fontWeight: 600, color: '#B42121' } }, '📡 ไม่มีสัญญาณอินเทอร์เน็ต — กรอกข้อมูลได้ตามปกติ แต่จะบันทึกไม่ได้จนกว่าสัญญาณจะกลับมา') : null,
             !st.pubPinVerified ? h('div', null,
               h('div', { style: { fontSize: 13, color: '#5A6B79', marginBottom: 12 } }, `กรุณากรอกรหัส PIN ของหน่วยงาน ${pubBox.dept || ''} เพื่อยืนยันตัวตน`),
               h('input', {
@@ -5825,6 +5867,24 @@ td.l{text-align:left;padding-left:4px}
               }),
               st.pubPinError ? h('div', { style: { fontSize: 12.5, color: '#E03E3E', marginBottom: 10, fontWeight: 600 } }, st.pubPinLocked ? `${st.pubPinError} (${Math.floor(st.pubPinLockCountdown / 60)}:${String(st.pubPinLockCountdown % 60).padStart(2, '0')})` : st.pubPinError) : null,
               h('button', { onClick: () => this.verifyPubPin(), disabled: st.pubPinLocked, style: { width: '100%', height: 48, border: 'none', borderRadius: 12, background: st.pubPinLocked ? '#B8C4CC' : 'linear-gradient(135deg,#1E4FD8,#2B7FE0)', color: '#fff', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, cursor: st.pubPinLocked ? 'not-allowed' : 'pointer' } }, 'ยืนยัน')
+            ) : st.pubUsageConfirmOpen ? h('div', null,
+              // Review step — shows exactly what's about to be recorded
+              // before the real write happens. Requested directly: a
+              // mis-typed qty/drug on this one-tap form previously
+              // decremented real stock immediately with no way to undo
+              // short of an admin manually correcting it afterward.
+              h('div', { style: { fontSize: 13, color: '#5A6B79', marginBottom: 14 } }, 'กรุณาตรวจสอบข้อมูลก่อนบันทึก'),
+              h('div', { style: { background: '#F5F9FB', borderRadius: 12, padding: '14px 16px', marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 10 } },
+                h('div', { style: { display: 'flex', justifyContent: 'space-between', gap: 10 } }, h('span', { style: { color: '#7B8D9C', fontSize: 12.5, flexShrink: 0 } }, '💊 ยาที่ใช้'), h('span', { style: { fontWeight: 700, fontSize: 13, textAlign: 'right' } }, st.pubUsageSelDrugName)),
+                h('div', { style: { display: 'flex', justifyContent: 'space-between', gap: 10 } }, h('span', { style: { color: '#7B8D9C', fontSize: 12.5, flexShrink: 0 } }, '🔢 จำนวน'), h('span', { style: { fontWeight: 700, fontSize: 13 } }, st.pubUsageQty)),
+                h('div', { style: { display: 'flex', justifyContent: 'space-between', gap: 10 } }, h('span', { style: { color: '#7B8D9C', fontSize: 12.5, flexShrink: 0 } }, '🆔 HN ผู้ป่วย'), h('span', { style: { fontWeight: 700, fontSize: 13 } }, st.pubUsageHN)),
+                st.pubUsagePatient ? h('div', { style: { display: 'flex', justifyContent: 'space-between', gap: 10 } }, h('span', { style: { color: '#7B8D9C', fontSize: 12.5, flexShrink: 0 } }, '👤 ชื่อผู้ป่วย'), h('span', { style: { fontWeight: 700, fontSize: 13, textAlign: 'right' } }, st.pubUsagePatient)) : null,
+              ),
+              st.pubUsageMsg ? h('div', { style: { fontSize: 12.5, fontWeight: 600, color: st.pubUsageMsgOk ? '#169C7F' : '#E03E3E', marginBottom: 10 } }, st.pubUsageMsg) : null,
+              h('div', { style: { display: 'flex', gap: 10 } },
+                h('button', { onClick: () => this.cancelPubUsageConfirm(), disabled: st.pubUsageBusy, style: { flex: 1, height: 48, border: '1.5px solid #DBE4EB', borderRadius: 12, background: '#fff', color: '#4A5C6A', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, cursor: st.pubUsageBusy ? 'default' : 'pointer' } }, '← แก้ไข'),
+                h('button', { onClick: () => this.submitPubUsage(), disabled: st.pubUsageBusy, style: { flex: 1, height: 48, border: 'none', borderRadius: 12, background: st.pubUsageBusy ? '#B0BEC5' : 'linear-gradient(135deg,#059669,#0DB9A0)', color: '#fff', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, cursor: st.pubUsageBusy ? 'default' : 'pointer' } }, st.pubUsageBusy ? 'กำลังบันทึก...' : '✅ ยืนยันบันทึก')
+              )
             ) : h('div', null,
               h('div', { style: { fontSize: 12.5, fontWeight: 600, color: '#4A5C6A', marginBottom: 8 } }, 'เลือกยาที่ใช้'),
               h('div', { style: { display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14, maxHeight: 160, overflowY: 'auto' } },
@@ -5851,9 +5911,9 @@ td.l{text-align:left;padding-left:4px}
                 h('input', { type: 'text', value: st.pubUsagePatient, onChange: (e) => this.setPubUsagePatient(e.target.value), placeholder: 'ชื่อ-สกุล', style: { width: '100%', height: 42, border: '1.5px solid #DBE4EB', borderRadius: 9, padding: '0 12px', fontSize: 13.5, boxSizing: 'border-box' } })),
               st.pubUsageMsg ? h('div', { style: { fontSize: 12.5, fontWeight: 600, color: st.pubUsageMsgOk ? '#169C7F' : '#E03E3E', marginBottom: 10 } }, st.pubUsageMsg) : null,
               h('button', {
-                onClick: () => this.submitPubUsage(), disabled: st.pubUsageBusy,
+                onClick: () => this.openPubUsageConfirm(), disabled: st.pubUsageBusy,
                 style: { width: '100%', height: 48, border: 'none', borderRadius: 12, background: st.pubUsageBusy ? '#B0BEC5' : 'linear-gradient(135deg,#059669,#0DB9A0)', color: '#fff', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, cursor: st.pubUsageBusy ? 'default' : 'pointer', marginBottom: 16 },
-              }, st.pubUsageBusy ? 'กำลังบันทึก...' : 'บันทึกการใช้ยา'),
+              }, 'บันทึกการใช้ยา'),
               (st.pubUsageLog || []).length ? h('div', null,
                 h('div', { style: { fontSize: 12, fontWeight: 700, color: '#7B8D9C', marginBottom: 8, borderTop: '1px solid #F0F4F7', paddingTop: 12 } }, 'ประวัติการใช้ล่าสุด'),
                 ...st.pubUsageLog.slice(0, 10).map(u => h('div', { key: u.id, style: { display: 'flex', justifyContent: 'space-between', fontSize: 12, padding: '6px 0', borderBottom: '1px solid #F5F7F9' } },
