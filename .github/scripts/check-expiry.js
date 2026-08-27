@@ -420,7 +420,63 @@ function buildAllClearFlexMessages(summaries) {
 }
 
 // ── Build Flex Messages (premium carousel) ─────────────────────
-function buildFlexMessages(alerts) {
+// ── Compact "other boxes" bubble — appended to the near-expiry alert
+// carousel so a reader isn't left guessing whether a box missing from the
+// alert list is genuinely fine or simply wasn't checked. Deliberately a
+// single dense list (icon + location + registration stage per row), NOT
+// the full boxCard() detail used in the all-clear message — this is
+// supplementary context alongside real alerts, not the main content, so it
+// must stay short. Registration stage (via the same stageIconLabel() the
+// all-clear message uses) is shown alongside location because "no
+// near-expiry drug" and "not yet verified/dispensable" are independent
+// facts this app's own all-clear message already takes care never to
+// conflate — the same caution applies here.
+function buildOtherBoxesBubble(list) {
+  const rows = list.map(s => {
+    const { icon, label } = stageIconLabel(s.stage);
+    const locText = s.isOut ? `📤 จ่ายออก → ${s.dept || 'หน่วยงาน'}` : '💊 อยู่ห้องยา';
+    return {
+      type: 'box', layout: 'horizontal', margin: 'md', alignItems: 'center',
+      contents: [
+        { type: 'text', text: s.boxId.toUpperCase(), size: 'sm', weight: 'bold', color: '#1A1A2E', flex: 2 },
+        { type: 'text', text: locText, size: 'xs', color: '#607D8B', flex: 3, wrap: true },
+        { type: 'text', text: `${icon} ${label}`, size: 'xs', color: '#455A64', flex: 3, align: 'end', wrap: true },
+      ],
+    };
+  });
+  return {
+    type: 'bubble', size: 'mega',
+    header: {
+      type: 'box', layout: 'horizontal', backgroundColor: '#37474F', paddingAll: '16px', alignItems: 'center',
+      contents: [
+        { type: 'text', text: '📦', size: 'xxl', flex: 0 },
+        { type: 'box', layout: 'vertical', margin: 'md', flex: 1, contents: [
+          { type: 'text', text: 'กล่องอื่นๆ (ไม่มียาใกล้หมดอายุ)', color: '#FFFFFF', weight: 'bold', size: 'md', wrap: true },
+          { type: 'text', text: `${list.length} กล่อง`, color: '#CFD8DC', size: 'xs', margin: 'xs' },
+        ] },
+      ],
+    },
+    body: {
+      type: 'box', layout: 'vertical', backgroundColor: '#FAFAFA', paddingAll: '14px', spacing: 'none',
+      contents: rows,
+    },
+    footer: {
+      type: 'box', layout: 'vertical', paddingAll: '12px',
+      contents: [{
+        type: 'button', style: 'secondary', height: 'sm',
+        action: { type: 'uri', label: '🔗  เปิดแอป EB Notify', uri: 'https://emergencyboxnotyfykpnhos.web.app' },
+      }],
+    },
+  };
+}
+
+// boxSummaries (from fetchBoxSummaries(), same source the all-clear message
+// uses) is optional — main() already fetches it unconditionally every run
+// (for the HA-2 readiness snapshot), so it costs nothing extra to pass in
+// here too. Falls back to omitting the "other boxes" bubble if not given,
+// rather than throwing, so this function still works if ever called
+// without it.
+function buildFlexMessages(alerts, boxSummaries) {
   const expired  = alerts.filter(a => a.status === 'expired');
   const critical = alerts.filter(a => a.status === 'critical');
   const warning  = alerts.filter(a => a.status === 'warning');
@@ -585,7 +641,15 @@ function buildFlexMessages(alerts) {
     }
   });
 
-  const MAX_SEVERITY_BUBBLES = 11;
+  // "Other boxes" bubble (see buildOtherBoxesBubble's own comment) is built
+  // BEFORE deciding the severity cap so its slot is always reserved when
+  // there's something to show in it — never silently squeezed out by a
+  // large severity list, matching this file's "no silent caps" rule.
+  const alertedBoxIds = new Set(alerts.map(a => a.boxId));
+  const otherBoxSummaries = (boxSummaries || []).filter(s => !alertedBoxIds.has(s.boxId));
+  const otherBoxesBubble = otherBoxSummaries.length ? buildOtherBoxesBubble(otherBoxSummaries) : null;
+
+  const MAX_SEVERITY_BUBBLES = otherBoxesBubble ? 10 : 11;
   if (severityBubbles.length > MAX_SEVERITY_BUBBLES) {
     const kept = severityBubbles.slice(0, MAX_SEVERITY_BUBBLES - 1);
     const keptDrugCount = kept.reduce((n, b) => n + b.body.contents.length, 0);
@@ -612,6 +676,7 @@ function buildFlexMessages(alerts) {
   } else {
     bubbles.push(...severityBubbles);
   }
+  if (otherBoxesBubble) bubbles.push(otherBoxesBubble);
 
   return [{
     type: 'flex',
@@ -1100,7 +1165,7 @@ async function main() {
   }
 
   const lineResult = (process.env.MOPH_NOTIFY_CLIENT_KEY && process.env.MOPH_NOTIFY_SECRET_KEY)
-    ? await sendMOPHNotify(process.env.MOPH_NOTIFY_CLIENT_KEY, process.env.MOPH_NOTIFY_SECRET_KEY, buildFlexMessages(alertsToSend)).catch(err => { console.error('❌ MOPH Notify exception:', err.message); return false; })
+    ? await sendMOPHNotify(process.env.MOPH_NOTIFY_CLIENT_KEY, process.env.MOPH_NOTIFY_SECRET_KEY, buildFlexMessages(alertsToSend, kpiSummaries)).catch(err => { console.error('❌ MOPH Notify exception:', err.message); return false; })
     : (console.log('⚠️  MOPH Notify: ไม่ได้ตั้งค่า MOPH_NOTIFY_CLIENT_KEY / MOPH_NOTIFY_SECRET_KEY'), false);
 
   const emailResult = await sendEmail(alertsToSend).catch(err => { console.error('❌ Email exception:', err.message); return false; });
