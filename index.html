@@ -321,9 +321,15 @@ input[type="date"] { min-height: 46px; }
 @keyframes kpiCardIn { 0% { opacity: 0; transform: translateY(14px) scale(.96); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
 @keyframes kpiRingIn { from { stroke-dashoffset: 100.5; } }
 @keyframes kpiBadgePop { 0% { transform: scale(.85); opacity: 0; } 60% { transform: scale(1.06); opacity: 1; } 100% { transform: scale(1); } }
+@keyframes kpiPulseDot { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .35; transform: scale(.72); } }
 .kpi-card { animation: kpiCardIn .5s cubic-bezier(.22,1,.36,1) both; will-change: transform; }
 .kpi-card:hover .kpi-card-icon { transform: scale(1.08) rotate(-4deg); }
 .kpi-card-icon { transition: transform .25s cubic-bezier(.34,1.56,.64,1); }
+/* Soft color-matched glow blob tucked in the corner — a subtle "aurora"
+   accent behind the content, not a decorative stripe. z-index:-1 keeps it
+   under the card's real (non-positioned, normal-flow) content per standard
+   stacking order, while sitting above the card's own white background. */
+.kpi-card::before { content: ''; position: absolute; z-index: -1; top: -38px; right: -38px; width: 120px; height: 120px; border-radius: 50%; background: var(--kpi-c, #1A6FA3); opacity: .07; }
 .kpi-seg { display: inline-flex; gap: 3px; background: #EEF3F7; border-radius: 11px; padding: 3px; }
 .kpi-seg-btn { border: none; background: transparent; cursor: pointer; font-family: inherit; height: 32px; padding: 0 13px; border-radius: 8px; font-size: 12.5px; font-weight: 600; color: #5A6B79; transition: background .2s ease, color .2s ease, box-shadow .2s ease; white-space: nowrap; }
 .kpi-seg-btn.on { background: #fff; color: #1A6FA3; box-shadow: 0 2px 8px rgba(26,111,163,.18); }
@@ -7713,17 +7719,28 @@ td.l{text-align:left;padding-left:4px}
       // "how much of the whole" visual language already established elsewhere
       // in this app, just at summary-strip scale.
       vals.kpiSummaryEl = _kpiTargeted.length ? h('div', {
-        style: { display: 'flex', alignItems: 'center', gap: 16, background: _kpiAllOk ? 'linear-gradient(135deg,#E4F4EF,#EFFAF6)' : 'linear-gradient(135deg,#FFF8ED,#FFF3E0)', border: `1.5px solid ${_kpiAllOk ? '#B9E4D6' : '#F0D2A0'}`, borderRadius: 16, padding: '14px 20px', marginBottom: 16, boxShadow: `0 4px 16px ${_hexToRgba(_kpiAccent, .1)}`, animation: 'kpiCardIn .45s cubic-bezier(.22,1,.36,1) both' }
+        style: { display: 'flex', alignItems: 'center', gap: 18, background: _kpiAllOk ? 'linear-gradient(135deg,#E4F4EF,#EFFAF6)' : 'linear-gradient(135deg,#FFF8ED,#FFF3E0)', border: `1.5px solid ${_kpiAllOk ? '#B9E4D6' : '#F0D2A0'}`, borderRadius: 18, padding: '16px 22px', marginBottom: 16, boxShadow: `0 6px 20px ${_hexToRgba(_kpiAccent, .12)}`, animation: 'kpiCardIn .45s cubic-bezier(.22,1,.36,1) both' }
       },
-        h('div', {
-          style: { width: 52, height: 52, borderRadius: '50%', flexShrink: 0, background: `conic-gradient(${_kpiAccent} 0 ${_kpiOkPct * 3.6}deg, #FFFFFF ${_kpiOkPct * 3.6}deg 360deg)`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `inset 0 0 0 1.5px ${_hexToRgba(_kpiAccent, .25)}` }
-        },
-          h('div', { style: { width: 40, height: 40, borderRadius: '50%', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 } }, _kpiAllOk ? '✅' : '⚠️')
+        h('div', { style: { position: 'relative', width: 56, height: 56, flexShrink: 0 } },
+          // a soft expanding ring behind the badge, only while something still
+          // needs attention — a quiet "this is live, still open" cue rather
+          // than a static icon, without being as urgent/attention-grabbing as
+          // the pulseRed treatment reserved for an overdue physical box.
+          !_kpiAllOk ? h('div', { style: { position: 'absolute', inset: 0, borderRadius: '50%', background: _kpiAccent, animation: 'pulseRing 2.2s ease-out infinite' } }) : null,
+          h('div', {
+            style: { position: 'relative', width: 56, height: 56, borderRadius: '50%', background: `conic-gradient(${_kpiAccent} 0 ${_kpiOkPct * 3.6}deg, #FFFFFF ${_kpiOkPct * 3.6}deg 360deg)`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `inset 0 0 0 1.5px ${_hexToRgba(_kpiAccent, .25)}` }
+          },
+            h('div', { style: { width: 43, height: 43, borderRadius: '50%', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 19 } }, _kpiAllOk ? '✅' : '⚠️')
+          )
         ),
         h('div', { style: { flex: 1, minWidth: 0 } },
           h('div', { style: { fontSize: 15, fontWeight: 700, color: _kpiAllOk ? '#0F6E4F' : '#9A5B0A' } }, `ผ่านเป้าหมาย ${_kpiOkCount}/${_kpiTargeted.length} ตัวชี้วัด`),
           h('div', { style: { fontSize: 11.5, color: _kpiAllOk ? '#3FA787' : '#B5740F', marginTop: 2 } }, _kpiAllOk ? 'ทุกตัวชี้วัดที่มีเป้าหมายอยู่ในเกณฑ์' : `เหลืออีก ${_kpiTargeted.length - _kpiOkCount} ตัวชี้วัดที่ยังไม่ถึงเป้า — คลิกการ์ดสีแดง/ส้มด้านล่างเพื่อดูรายละเอียด`)
-        )
+        ),
+        // the raw pass-rate as a big number — restates the same fact as the
+        // ring visually, in the "here's the headline number" language the
+        // rest of the dashboard uses (large tabular-nums figure).
+        h('div', { style: { fontSize: 30, fontWeight: 800, color: _kpiAccent, fontVariantNumeric: 'tabular-nums', flexShrink: 0 } }, `${Math.round(_kpiOkPct)}%`)
       ) : null;
       vals.exportKpiPDF = () => this.exportKpiPDF();
       vals.kpiInvDate = st.kpiInvDate;
@@ -7783,12 +7800,24 @@ td.l{text-align:left;padding-left:4px}
           h('circle', { cx: lastPt[0], cy: lastPt[1], r: 2, fill: color })
         );
       };
+      // Small ring gauge for %-valued cards — a compact visual "how full"
+      // read next to the big number, using the same conic-gradient trick as
+      // the summary badge/dashboard donut. Kept deliberately undecorated
+      // (no text inside) since the actual number is already shown large
+      // right next to it — this is a glance-able shape, not a duplicate label.
+      const _miniRing = (pct, color) => {
+        const clamped = Math.max(0, Math.min(100, pct));
+        return h('div', { style: { width: 46, height: 46, borderRadius: '50%', flexShrink: 0, background: `conic-gradient(${color} 0 ${clamped * 3.6}deg, #EEF2F5 ${clamped * 3.6}deg 360deg)`, display: 'flex', alignItems: 'center', justifyContent: 'center' } },
+          h('div', { style: { width: 34, height: 34, borderRadius: '50%', background: '#fff' } })
+        );
+      };
       vals.kpiCardsEl = h(React.Fragment, null, ...vals.kpiCards.map((c, ci) => {
         const on = st.kpiExpanded === c.n;
         const isEmpty = c.value === '—';
+        const isPct = c.unit === '%' && !isEmpty;
         return h('div', {
           key: c.n, onClick: () => vals.toggleKpiExpand(c.n), className: 'kpi-card',
-          onMouseEnter: (e) => { if (!on) { e.currentTarget.style.boxShadow = `0 10px 26px ${_hexToRgba(c.color, .18)}`; e.currentTarget.style.transform = 'translateY(-3px)'; } },
+          onMouseEnter: (e) => { if (!on) { e.currentTarget.style.boxShadow = `0 12px 28px ${_hexToRgba(c.color, .2)}`; e.currentTarget.style.transform = 'translateY(-4px)'; } },
           onMouseLeave: (e) => { if (!on) { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.transform = 'none'; } },
           // staggered entrance — each card starts its kpiCardIn animation a
           // little later than the one before it, so the grid visibly builds
@@ -7796,17 +7825,31 @@ td.l{text-align:left;padding-left:4px}
           // every card popping in at once. Inline animationDelay wins over
           // the class's own shorthand animation-delay (0s) per normal CSS
           // cascade rules for a longhand vs. shorthand on the same element.
-          style: { background: '#fff', border: on ? `1.5px solid ${c.color}` : '1.5px solid #E7EEF3', borderRadius: 16, padding: '18px 20px', cursor: 'pointer', boxShadow: on ? `0 6px 20px ${_hexToRgba(c.color, .13)}` : 'none', transform: 'none', transition: 'transform .18s cubic-bezier(.34,1.56,.64,1), box-shadow .18s ease, border-color .15s ease', minWidth: 0, boxSizing: 'border-box', overflow: 'hidden', animationDelay: `${Math.min(ci, 11) * 45}ms` },
+          // '--kpi-c' feeds the card's own ::before decorative glow blob
+          // (see the .kpi-card::before rule) — a CSS custom property set via
+          // inline style IS visible to that pseudo-element's stylesheet rule,
+          // unlike a plain camelCase style prop, which pseudo-elements can't
+          // read at all.
+          style: { '--kpi-c': c.color, position: 'relative', background: '#fff', border: on ? `1.5px solid ${c.color}` : '1.5px solid #E7EEF3', borderRadius: 18, padding: '19px 20px', cursor: 'pointer', boxShadow: on ? `0 8px 24px ${_hexToRgba(c.color, .16)}` : 'none', transform: 'none', transition: 'transform .2s cubic-bezier(.34,1.56,.64,1), box-shadow .2s ease, border-color .15s ease', minWidth: 0, boxSizing: 'border-box', overflow: 'hidden', animationDelay: `${Math.min(ci, 11) * 45}ms` },
         },
-          h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 } },
-            h('div', { className: 'kpi-card-icon', style: { width: 32, height: 32, borderRadius: 10, background: _hexToRgba(c.color, .13), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, flexShrink: 0 } }, c.icon || '📊'),
-            h('div', { style: { fontSize: 11.5, fontWeight: 700, color: '#9AAAB8', flex: 1, minWidth: 0, letterSpacing: '.2px' } }, c.n),
-            h('div', { style: { fontSize: 10.5, color: c.color, fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '55%' } }, on ? '▲ ซ่อนรายละเอียด' : `▾ ดูรายละเอียด (${c.rows.length})`)),
-          h('div', { style: { fontSize: 13, fontWeight: 600, color: '#4A5C6A', margin: '10px 0 12px', minHeight: 34, lineHeight: 1.4 } }, c.label),
-          h('div', { style: { display: 'flex', alignItems: 'baseline', gap: 6 } },
-            h('div', { style: { fontSize: 34, fontWeight: 700, color: isEmpty ? '#C3CFD8' : c.color, fontVariantNumeric: 'tabular-nums', letterSpacing: '-.5px' } }, c.value),
-            c.unit ? h('div', { style: { fontSize: 13, color: '#9AAAB8', fontWeight: 600 } }, c.unit) : null),
-          h('div', { style: { fontSize: 11.5, color: '#9AAAB8', marginTop: 7 } }, c.target),
+          // header: descriptive label leads (bold, dark) — this is what a
+          // reader actually needs to identify at a glance; the "1.1"/"HA-1"
+          // code is now a small secondary tag, not the first thing read.
+          h('div', { style: { display: 'flex', alignItems: 'flex-start', gap: 10, minWidth: 0 } },
+            h('div', { className: 'kpi-card-icon', style: { width: 36, height: 36, borderRadius: 11, background: _hexToRgba(c.color, .13), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 } }, c.icon || '📊'),
+            h('div', { style: { flex: 1, minWidth: 0 } },
+              h('div', { style: { fontSize: 13.5, fontWeight: 700, color: '#1D2B36', lineHeight: 1.35 } }, c.label),
+            ),
+            h('div', { style: { fontSize: 10, fontWeight: 800, color: c.color, background: _hexToRgba(c.color, .1), borderRadius: 7, padding: '3px 7px', flexShrink: 0, whiteSpace: 'nowrap', letterSpacing: '.2px' } }, c.n)),
+          // hero value row — the actual result, made unmistakably the focal
+          // point of the card: bigger number, and (for %-valued cards) a
+          // small ring gauge giving an instant "how full" read beside it.
+          h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, margin: '14px 0 4px' } },
+            h('div', { style: { display: 'flex', alignItems: 'baseline', gap: 6, minWidth: 0 } },
+              h('div', { style: { fontSize: 38, fontWeight: 800, color: isEmpty ? '#C3CFD8' : c.color, fontVariantNumeric: 'tabular-nums', letterSpacing: '-1px', lineHeight: 1 } }, c.value),
+              c.unit ? h('div', { style: { fontSize: 13.5, color: '#9AAAB8', fontWeight: 700 } }, c.unit) : null),
+            isPct ? _miniRing(parseFloat(c.value) || 0, c.color) : null),
+          h('div', { style: { fontSize: 11.5, color: '#9AAAB8', marginTop: 4 } }, c.target),
           // the "N จาก M" breakdown behind a %/average value — see the
           // vals.kpiCards comment above for why this exists. Rendered as its
           // own line (distinct styling from `target`) so it reads as "here's
@@ -7818,8 +7861,19 @@ td.l{text-align:left;padding-left:4px}
           // 2.2, 3.1, 4.2, 4.2ก) intentionally show no badge, matching their
           // own target text ("ไม่มีเป้าทิศทาง" / "ตัวเลขติดตาม" / etc.) — a
           // badge there would imply a pass/fail verdict that doesn't exist.
-          c.status ? h('div', { style: { display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 9, padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: c.status === 'ok' ? '#E4F4EF' : '#FBE7E7', color: c.status === 'ok' ? '#169C7F' : '#B42121', animation: 'kpiBadgePop .3s cubic-bezier(.34,1.56,.64,1) both' } }, c.status === 'ok' ? '✅ ตามเป้า' : '⚠️ ไม่ตามเป้า') : null,
-          _sparkline(c.series, c.color)
+          // An 'alert' badge also carries a small pulsing dot — a soft,
+          // color-matched breathing pulse (not the urgent pulseRed used
+          // elsewhere for a physical box overdue for return), just enough to
+          // draw the eye toward cards that need attention across a grid of 12.
+          c.status ? h('div', { style: { display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 10, padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: c.status === 'ok' ? '#E4F4EF' : '#FBE7E7', color: c.status === 'ok' ? '#169C7F' : '#B42121', animation: 'kpiBadgePop .3s cubic-bezier(.34,1.56,.64,1) both' } },
+            c.status === 'alert' ? h('span', { style: { width: 6, height: 6, borderRadius: '50%', background: '#B42121', animation: 'kpiPulseDot 1.6s ease-in-out infinite' } }) : null,
+            c.status === 'ok' ? '✅ ตามเป้า' : '⚠️ ไม่ตามเป้า') : null,
+          _sparkline(c.series, c.color),
+          // footer link — moved out of the cramped header row into its own
+          // full-width line so it reads as a clear call-to-action ("see
+          // more") rather than a truncated label competing with the code tag.
+          h('div', { style: { fontSize: 11.5, color: c.color, fontWeight: 700, marginTop: 12, paddingTop: 10, borderTop: '1px solid #F0F4F7', display: 'flex', alignItems: 'center', gap: 4 } },
+            on ? '▲  ซ่อนรายละเอียด' : `▾  ดูรายละเอียด (${c.rows.length})`)
         );
       }));
       const _expandedCard = vals.kpiCards.find(c => c.n === st.kpiExpanded);
