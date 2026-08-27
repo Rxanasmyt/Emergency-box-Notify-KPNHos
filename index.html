@@ -316,6 +316,28 @@ input[type="date"] { min-height: 46px; }
    Dashboard's 4-tile summary, an unrelated pre-existing feature with the
    same-sounding name) so responsive rules for one never affect the other. */
 .kpi-dash-grid { display: grid; gap: 14px; grid-template-columns: repeat(3,1fr); margin-bottom: 14px; }
+
+/* ===== KPI Dashboard visual redesign ===== */
+@keyframes kpiCardIn { 0% { opacity: 0; transform: translateY(14px) scale(.96); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes kpiRingIn { from { stroke-dashoffset: 100.5; } }
+@keyframes kpiBadgePop { 0% { transform: scale(.85); opacity: 0; } 60% { transform: scale(1.06); opacity: 1; } 100% { transform: scale(1); } }
+.kpi-card { animation: kpiCardIn .5s cubic-bezier(.22,1,.36,1) both; will-change: transform; }
+.kpi-card:hover .kpi-card-icon { transform: scale(1.08) rotate(-4deg); }
+.kpi-card-icon { transition: transform .25s cubic-bezier(.34,1.56,.64,1); }
+.kpi-seg { display: inline-flex; gap: 3px; background: #EEF3F7; border-radius: 11px; padding: 3px; }
+.kpi-seg-btn { border: none; background: transparent; cursor: pointer; font-family: inherit; height: 32px; padding: 0 13px; border-radius: 8px; font-size: 12.5px; font-weight: 600; color: #5A6B79; transition: background .2s ease, color .2s ease, box-shadow .2s ease; white-space: nowrap; }
+.kpi-seg-btn.on { background: #fff; color: #1A6FA3; box-shadow: 0 2px 8px rgba(26,111,163,.18); }
+.kpi-seg-btn:not(.on):hover { color: #1A6FA3; }
+.kpi-toolbar { background: #fff; border: 1.5px solid #E7EEF3; border-radius: 14px; padding: 12px 16px; box-shadow: 0 2px 10px rgba(21,36,46,.03); }
+.kpi-detail-in { animation: kpiCardIn .32s cubic-bezier(.22,1,.36,1) both; }
+.kpi-btn-ghost { height: 36px; padding: 0 14px; border: 1.5px solid #DBE4EB; background: #fff; color: #4A5C6A; border-radius: 9px; font-size: 12.5px; font-weight: 600; cursor: pointer; font-family: inherit; transition: border-color .18s ease, color .18s ease, box-shadow .18s ease, transform .12s ease; }
+.kpi-btn-ghost:hover { border-color: #1A6FA3; color: #1A6FA3; box-shadow: 0 3px 10px rgba(26,111,163,.12); }
+.kpi-btn-ghost:active { transform: scale(.96); }
+.kpi-btn-solid { height: 36px; padding: 0 14px; border: none; background: linear-gradient(135deg,#1A6FA3,#1259A0); color: #fff; border-radius: 9px; font-size: 12.5px; font-weight: 700; cursor: pointer; font-family: inherit; box-shadow: 0 3px 12px rgba(26,111,163,.28); transition: transform .18s cubic-bezier(.34,1.56,.64,1), box-shadow .18s ease; }
+.kpi-btn-solid:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(26,111,163,.35); }
+.kpi-btn-solid:active { transform: scale(.96); }
+.kpi-row-hover { transition: background .15s ease; border-radius: 8px; }
+.kpi-row-hover:hover { background: #F5F9FB; }
 .dash-mid-grid { display: grid; gap: 16px; grid-template-columns: 1.55fr 1fr; }
 .dash-bot-grid { display: grid; gap: 16px; grid-template-columns: 1fr 1.4fr; }
 .form-grid-2 { display: grid; gap: 18px; grid-template-columns: 1fr 1fr; }
@@ -1864,23 +1886,28 @@ input:focus, select:focus, textarea:focus {
       <sc-if value="{{ isKpi }}" hint-placeholder-val="{{ false }}">
       <div class="page-enter" style="max-width: 1100px; margin: 0 auto; animation: fadeUp .45s ease both;">
 
-        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 18px;">
-          <div style="font-size: 13px; font-weight: 600; color: #4A5C6A;">ช่วงเวลา:</div>
+        <div class="kpi-toolbar" style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 18px;">
+          <div style="font-size: 12.5px; font-weight: 700; color: #9AAAB8; text-transform: uppercase; letter-spacing: .4px;">ช่วงเวลา</div>
           {{ kpiPresetEl }}
           <sc-if value="{{ kpiShowCustomDate }}" hint-placeholder-val="{{ false }}">
-          <input type="date" value="{{ kpiDateFrom }}" onInput="{{ setKpiDateFrom }}" style="height: 36px; border: 1.5px solid #DBE4EB; border-radius: 9px; padding: 0 10px; font-size: 12.5px; font-family: inherit;">
+          <input type="date" value="{{ kpiDateFrom }}" onInput="{{ setKpiDateFrom }}" style="height: 34px; border: 1.5px solid #DBE4EB; border-radius: 9px; padding: 0 10px; font-size: 12.5px; font-family: inherit;">
           <span style="color: #9AAAB8;">–</span>
-          <input type="date" value="{{ kpiDateTo }}" onInput="{{ setKpiDateTo }}" style="height: 36px; border: 1.5px solid #DBE4EB; border-radius: 9px; padding: 0 10px; font-size: 12.5px; font-family: inherit;">
+          <input type="date" value="{{ kpiDateTo }}" onInput="{{ setKpiDateTo }}" style="height: 34px; border: 1.5px solid #DBE4EB; border-radius: 9px; padding: 0 10px; font-size: 12.5px; font-family: inherit;">
           </sc-if>
-          <button onclick="{{ refreshKpiData }}" style="height: 36px; padding: 0 14px; border: 1.5px solid #DBE4EB; background: #fff; color: #4A5C6A; border-radius: 9px; font-size: 12.5px; font-weight: 600; cursor: pointer; font-family: inherit;">↻ รีเฟรช</button>
-          <button onclick="{{ exportKpiCSV }}" style="margin-left: auto; height: 36px; padding: 0 14px; border: 1.5px solid #DBE4EB; background: #fff; color: #4A5C6A; border-radius: 9px; font-size: 12.5px; font-weight: 600; cursor: pointer; font-family: inherit;">⬇ ส่งออก CSV</button>
-          <button onclick="{{ exportKpiPDF }}" style="height: 36px; padding: 0 14px; border: 1.5px solid #1A6FA3; background: #1A6FA3; color: #fff; border-radius: 9px; font-size: 12.5px; font-weight: 600; cursor: pointer; font-family: inherit;">📄 รายงาน PDF</button>
+          <button onclick="{{ refreshKpiData }}" class="kpi-btn-ghost">↻ รีเฟรช</button>
+          <div style="margin-left: auto; display: flex; gap: 10px;">
+            <button onclick="{{ exportKpiCSV }}" class="kpi-btn-ghost">⬇ ส่งออก CSV</button>
+            <button onclick="{{ exportKpiPDF }}" class="kpi-btn-solid">📄 รายงาน PDF</button>
+          </div>
         </div>
 
         {{ kpiSummaryEl }}
 
         <sc-if value="{{ kpiLoading }}" hint-placeholder-val="{{ false }}">
-        <div style="text-align: center; padding: 30px; color: #9AAAB8; font-size: 13px;">กำลังโหลดข้อมูล...</div>
+        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 48px 0;">
+          <div style="width: 34px; height: 34px; border: 3.5px solid #D1E3F0; border-top: 3.5px solid #1A6FA3; border-radius: 50%; animation: sweep .8s linear infinite;"></div>
+          <div style="font-size: 13px; color: #9AAAB8; font-weight: 600;">กำลังโหลดข้อมูล KPI...</div>
+        </div>
         </sc-if>
 
         <sc-if value="{{ kpiLoadFailed }}" hint-placeholder-val="{{ false }}">
@@ -7649,6 +7676,12 @@ td.l{text-align:left;padding-left:4px}
       // reads exactly like the silent-fetch-failure bug this dashboard
       // already had to fix once, which is precisely the confusion this is
       // trying to eliminate).
+      // small helper local to sharpen a hex color into a translucent rgba —
+      // mirrors the same hexToRgba trick the landing-card hover tint uses
+      // elsewhere in this app, kept local here rather than shared since it's
+      // a one-line pure function with no state. Defined here (before
+      // vals.kpiCards) since the summary-strip ring badge below also needs it.
+      const _hexToRgba = (hex, a) => { const h2 = hex.replace('#', ''); const r = parseInt(h2.slice(0,2),16), g = parseInt(h2.slice(2,4),16), b = parseInt(h2.slice(4,6),16); return `rgba(${r},${g},${b},${a})`; };
       vals.kpiCards = [
         { n: '1.1', icon: '🔴', label: 'อุบัติการณ์ยาใกล้หมดอายุ/หมดอายุแล้ว', value: String(_incidents.length), unit: 'ครั้ง', target: 'เป้า 0 ครั้ง', color: _incidents.length > 0 ? '#B42121' : '#169C7F', status: _incidents.length > 0 ? 'alert' : 'ok', rows: _incidents.map(_fmtIncident), series: _series(_incidents, 'count'), emptyNote: '✅ ไม่พบยาหมดอายุ/ใกล้หมดอายุตกค้างในช่วงเวลานี้ (0 ครั้ง)' },
         { n: 'HA-1', icon: '⚠️', label: '% ยา HAD ผ่านการตรวจสอบสองครั้งก่อนจ่ายออก', value: _hadPct === null ? '—' : _hadPct.toFixed(1), unit: _hadPct === null ? '' : '%', target: _hadPct === null ? 'ยังไม่มีกล่องที่มียา HAD ในช่วงนี้' : 'เป้า 100%', sub: _hadChecks.length ? `${_hadConfirmedCount} จาก ${_hadChecks.length} กล่องที่มียา HAD` : '', color: _hadPct === null ? '#9AAAB8' : (_hadPct >= 99.9 ? '#169C7F' : '#B42121'), status: _hadPct === null ? null : (_hadPct >= 99.9 ? 'ok' : 'alert'), rows: _hadChecks.map(_fmtHad), series: _series(_hadChecks, 'pct', null, e => e.hadConfirmed) },
@@ -7673,9 +7706,25 @@ td.l{text-align:left;padding-left:4px}
       const _kpiTargeted = vals.kpiCards.filter(c => c.status);
       const _kpiOkCount = _kpiTargeted.filter(c => c.status === 'ok').length;
       const _kpiAllOk = _kpiTargeted.length > 0 && _kpiOkCount === _kpiTargeted.length;
+      const _kpiOkPct = _kpiTargeted.length ? (_kpiOkCount / _kpiTargeted.length) * 100 : 0;
+      const _kpiAccent = _kpiAllOk ? '#169C7F' : '#D9810F';
+      // Ring badge reuses the dashboard's own conic-gradient donut technique
+      // (see vals.donutGradient above) instead of a fresh SVG approach — same
+      // "how much of the whole" visual language already established elsewhere
+      // in this app, just at summary-strip scale.
       vals.kpiSummaryEl = _kpiTargeted.length ? h('div', {
-        style: { display: 'flex', alignItems: 'center', gap: 8, background: _kpiAllOk ? '#E4F4EF' : '#FFF8ED', border: `1.5px solid ${_kpiAllOk ? '#169C7F' : '#D9810F'}`, borderRadius: 12, padding: '11px 18px', marginBottom: 14, fontSize: 13.5, fontWeight: 700, color: _kpiAllOk ? '#169C7F' : '#B5740F' }
-      }, _kpiAllOk ? '✅' : '⚠️', ` ผ่านเป้าหมาย ${_kpiOkCount}/${_kpiTargeted.length} ตัวชี้วัด`) : null;
+        style: { display: 'flex', alignItems: 'center', gap: 16, background: _kpiAllOk ? 'linear-gradient(135deg,#E4F4EF,#EFFAF6)' : 'linear-gradient(135deg,#FFF8ED,#FFF3E0)', border: `1.5px solid ${_kpiAllOk ? '#B9E4D6' : '#F0D2A0'}`, borderRadius: 16, padding: '14px 20px', marginBottom: 16, boxShadow: `0 4px 16px ${_hexToRgba(_kpiAccent, .1)}`, animation: 'kpiCardIn .45s cubic-bezier(.22,1,.36,1) both' }
+      },
+        h('div', {
+          style: { width: 52, height: 52, borderRadius: '50%', flexShrink: 0, background: `conic-gradient(${_kpiAccent} 0 ${_kpiOkPct * 3.6}deg, #FFFFFF ${_kpiOkPct * 3.6}deg 360deg)`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `inset 0 0 0 1.5px ${_hexToRgba(_kpiAccent, .25)}` }
+        },
+          h('div', { style: { width: 40, height: 40, borderRadius: '50%', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 } }, _kpiAllOk ? '✅' : '⚠️')
+        ),
+        h('div', { style: { flex: 1, minWidth: 0 } },
+          h('div', { style: { fontSize: 15, fontWeight: 700, color: _kpiAllOk ? '#0F6E4F' : '#9A5B0A' } }, `ผ่านเป้าหมาย ${_kpiOkCount}/${_kpiTargeted.length} ตัวชี้วัด`),
+          h('div', { style: { fontSize: 11.5, color: _kpiAllOk ? '#3FA787' : '#B5740F', marginTop: 2 } }, _kpiAllOk ? 'ทุกตัวชี้วัดที่มีเป้าหมายอยู่ในเกณฑ์' : `เหลืออีก ${_kpiTargeted.length - _kpiOkCount} ตัวชี้วัดที่ยังไม่ถึงเป้า — คลิกการ์ดสีแดง/ส้มด้านล่างเพื่อดูรายละเอียด`)
+        )
+      ) : null;
       vals.exportKpiPDF = () => this.exportKpiPDF();
       vals.kpiInvDate = st.kpiInvDate;
       vals.kpiInvDesc = st.kpiInvDesc;
@@ -7697,18 +7746,15 @@ td.l{text-align:left;padding-left:4px}
       vals.setKpiDateFrom = (e) => { const v = e.target.value; this.setState(s => (s.kpiDateTo && v > s.kpiDateTo) ? { kpiDateFrom: s.kpiDateTo, kpiDateTo: v } : { kpiDateFrom: v }); };
       vals.setKpiDateTo = (e) => { const v = e.target.value; this.setState(s => (s.kpiDateFrom && v < s.kpiDateFrom) ? { kpiDateFrom: v, kpiDateTo: s.kpiDateFrom } : { kpiDateTo: v }); };
       const _kpiPresets = [{ k: 'today', l: 'วันนี้' }, { k: '7days', l: '7 วัน' }, { k: 'month', l: 'เดือนนี้' }, { k: 'fiscal', l: 'ปีงบฯ' }, { k: 'custom', l: 'กำหนดเอง' }];
-      vals.kpiPresetEl = h(React.Fragment, null, ..._kpiPresets.map(d => {
+      // Segmented-control look (light pill track, active segment lifted on a
+      // white chip with its own shadow) instead of flat solid/outline
+      // buttons — reads as one connected control for "pick one time range"
+      // rather than a row of independent buttons.
+      vals.kpiPresetEl = h('div', { className: 'kpi-seg' }, ..._kpiPresets.map(d => {
         const on = st.kpiDatePreset === d.k;
-        return h('button', { key: d.k, onClick: () => vals.setKpiDatePreset(d.k),
-          style: { height: 36, padding: '0 13px', borderRadius: 9, fontFamily: 'inherit', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', background: on ? '#1A6FA3' : '#fff', color: on ? '#fff' : '#5A6B79', border: on ? '1.5px solid #1A6FA3' : '1.5px solid #DBE4EB' },
-        }, d.l);
+        return h('button', { key: d.k, onClick: () => vals.setKpiDatePreset(d.k), className: `kpi-seg-btn${on ? ' on' : ''}` }, d.l);
       }));
       vals.toggleKpiExpand = (n) => this.setState(s => ({ kpiExpanded: s.kpiExpanded === n ? null : n }));
-      // small helper local to sharpen a hex color into a translucent rgba —
-      // mirrors the same hexToRgba trick the landing-card hover tint uses
-      // elsewhere in this app, kept local here rather than shared since it's
-      // a one-line pure function with no state
-      const _hexToRgba = (hex, a) => { const h2 = hex.replace('#', ''); const r = parseInt(h2.slice(0,2),16), g = parseInt(h2.slice(2,4),16), b = parseInt(h2.slice(4,6),16); return `rgba(${r},${g},${b},${a})`; };
       // Sparkline: a plain inline SVG polyline, no charting library — same
       // hand-rolled-SVG approach the dashboard's own donut chart already
       // uses. Flat/near-flat series get a visible mid-line rather than a
@@ -7727,60 +7773,75 @@ td.l{text-align:left;padding-left:4px}
           return `${x.toFixed(1)},${y.toFixed(1)}`;
         });
         const areaPts = `${pad},${h2 - pad} ${pts.join(' ')} ${(pad + (series.length - 1) * stepX).toFixed(1)},${h2 - pad}`;
+        const lastPt = pts[pts.length - 1].split(',').map(Number);
         return h('svg', { width: '100%', height: h2, viewBox: `0 0 ${w} ${h2}`, preserveAspectRatio: 'none', style: { display: 'block', marginTop: 8 } },
           h('polygon', { points: areaPts, fill: _hexToRgba(color, .12), stroke: 'none' }),
-          h('polyline', { points: pts.join(' '), fill: 'none', stroke: color, strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round' })
+          h('polyline', { points: pts.join(' '), fill: 'none', stroke: color, strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round' }),
+          // small endpoint marker on the most recent data point — makes "where
+          // are we now" readable at a glance instead of having to trace the
+          // line to its right edge.
+          h('circle', { cx: lastPt[0], cy: lastPt[1], r: 2, fill: color })
         );
       };
       vals.kpiCardsEl = h(React.Fragment, null, ...vals.kpiCards.map((c, ci) => {
         const on = st.kpiExpanded === c.n;
+        const isEmpty = c.value === '—';
         return h('div', {
-          key: c.n, onClick: () => vals.toggleKpiExpand(c.n),
-          onMouseEnter: (e) => { if (!on) { e.currentTarget.style.boxShadow = `0 8px 22px ${_hexToRgba(c.color, .16)}`; e.currentTarget.style.transform = 'translateY(-2px)'; } },
+          key: c.n, onClick: () => vals.toggleKpiExpand(c.n), className: 'kpi-card',
+          onMouseEnter: (e) => { if (!on) { e.currentTarget.style.boxShadow = `0 10px 26px ${_hexToRgba(c.color, .18)}`; e.currentTarget.style.transform = 'translateY(-3px)'; } },
           onMouseLeave: (e) => { if (!on) { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.transform = 'none'; } },
-          style: { background: '#fff', border: on ? `1.5px solid ${c.color}` : '1.5px solid #E7EEF3', borderRadius: 16, padding: '18px 20px', cursor: 'pointer', boxShadow: on ? `0 6px 20px ${_hexToRgba(c.color, .13)}` : 'none', transform: 'none', transition: 'transform .18s cubic-bezier(.34,1.56,.64,1), box-shadow .18s ease, border-color .15s ease', minWidth: 0, boxSizing: 'border-box', overflow: 'hidden' },
+          // staggered entrance — each card starts its kpiCardIn animation a
+          // little later than the one before it, so the grid visibly builds
+          // itself in reading order (left-to-right, top-to-bottom) instead of
+          // every card popping in at once. Inline animationDelay wins over
+          // the class's own shorthand animation-delay (0s) per normal CSS
+          // cascade rules for a longhand vs. shorthand on the same element.
+          style: { background: '#fff', border: on ? `1.5px solid ${c.color}` : '1.5px solid #E7EEF3', borderRadius: 16, padding: '18px 20px', cursor: 'pointer', boxShadow: on ? `0 6px 20px ${_hexToRgba(c.color, .13)}` : 'none', transform: 'none', transition: 'transform .18s cubic-bezier(.34,1.56,.64,1), box-shadow .18s ease, border-color .15s ease', minWidth: 0, boxSizing: 'border-box', overflow: 'hidden', animationDelay: `${Math.min(ci, 11) * 45}ms` },
         },
-          h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 } },
-            h('div', { style: { width: 26, height: 26, borderRadius: '50%', background: _hexToRgba(c.color, .12), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0 } }, c.icon || '📊'),
-            h('div', { style: { fontSize: 11.5, fontWeight: 700, color: '#9AAAB8', flex: 1, minWidth: 0 } }, c.n),
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 } },
+            h('div', { className: 'kpi-card-icon', style: { width: 32, height: 32, borderRadius: 10, background: _hexToRgba(c.color, .13), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, flexShrink: 0 } }, c.icon || '📊'),
+            h('div', { style: { fontSize: 11.5, fontWeight: 700, color: '#9AAAB8', flex: 1, minWidth: 0, letterSpacing: '.2px' } }, c.n),
             h('div', { style: { fontSize: 10.5, color: c.color, fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '55%' } }, on ? '▲ ซ่อนรายละเอียด' : `▾ ดูรายละเอียด (${c.rows.length})`)),
-          h('div', { style: { fontSize: 13, fontWeight: 600, color: '#4A5C6A', margin: '8px 0 10px', minHeight: 34, lineHeight: 1.4 } }, c.label),
+          h('div', { style: { fontSize: 13, fontWeight: 600, color: '#4A5C6A', margin: '10px 0 12px', minHeight: 34, lineHeight: 1.4 } }, c.label),
           h('div', { style: { display: 'flex', alignItems: 'baseline', gap: 6 } },
-            h('div', { style: { fontSize: 32, fontWeight: 700, color: c.color } }, c.value),
+            h('div', { style: { fontSize: 34, fontWeight: 700, color: isEmpty ? '#C3CFD8' : c.color, fontVariantNumeric: 'tabular-nums', letterSpacing: '-.5px' } }, c.value),
             c.unit ? h('div', { style: { fontSize: 13, color: '#9AAAB8', fontWeight: 600 } }, c.unit) : null),
-          h('div', { style: { fontSize: 11.5, color: '#9AAAB8', marginTop: 6 } }, c.target),
+          h('div', { style: { fontSize: 11.5, color: '#9AAAB8', marginTop: 7 } }, c.target),
           // the "N จาก M" breakdown behind a %/average value — see the
           // vals.kpiCards comment above for why this exists. Rendered as its
           // own line (distinct styling from `target`) so it reads as "here's
           // the math" rather than blending into the target/goal text.
-          c.sub ? h('div', { style: { fontSize: 11, color: c.color, fontWeight: 600, marginTop: 3 } }, c.sub) : null,
+          c.sub ? h('div', { style: { fontSize: 11, color: c.color, fontWeight: 600, marginTop: 4 } }, c.sub) : null,
           // on-target status badge — only rendered for cards with a real
           // pass/fail target (status !== null/undefined); cards that are
           // pure tracking metrics with no directional target (1.1ก, 1.2,
           // 2.2, 3.1, 4.2, 4.2ก) intentionally show no badge, matching their
           // own target text ("ไม่มีเป้าทิศทาง" / "ตัวเลขติดตาม" / etc.) — a
           // badge there would imply a pass/fail verdict that doesn't exist.
-          c.status ? h('div', { style: { display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 8, padding: '3px 9px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: c.status === 'ok' ? '#E4F4EF' : '#FBE7E7', color: c.status === 'ok' ? '#169C7F' : '#B42121' } }, c.status === 'ok' ? '✅ ตามเป้า' : '⚠️ ไม่ตามเป้า') : null,
+          c.status ? h('div', { style: { display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 9, padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: c.status === 'ok' ? '#E4F4EF' : '#FBE7E7', color: c.status === 'ok' ? '#169C7F' : '#B42121', animation: 'kpiBadgePop .3s cubic-bezier(.34,1.56,.64,1) both' } }, c.status === 'ok' ? '✅ ตามเป้า' : '⚠️ ไม่ตามเป้า') : null,
           _sparkline(c.series, c.color)
         );
       }));
       const _expandedCard = vals.kpiCards.find(c => c.n === st.kpiExpanded);
-      vals.kpiDetailEl = _expandedCard ? h('div', { style: { background: '#fff', border: `1.5px solid ${_expandedCard.color}`, borderRadius: 16, padding: '18px 22px', marginTop: -6, marginBottom: 24 } },
-        h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 } },
-          h('div', { style: { fontSize: 14, fontWeight: 700, color: '#15242E', flex: 1 } }, `รายละเอียด — ${_expandedCard.n} ${_expandedCard.label}`),
-          h('button', { onClick: () => vals.toggleKpiExpand(_expandedCard.n), style: { border: 'none', background: 'none', cursor: 'pointer', fontSize: 18, color: '#9AAAB8', lineHeight: 1 } }, '×')),
+      vals.kpiDetailEl = _expandedCard ? h('div', { key: _expandedCard.n, className: 'kpi-detail-in', style: { background: '#fff', border: `1.5px solid ${_expandedCard.color}`, borderRadius: 16, padding: '20px 22px', marginTop: -6, marginBottom: 24, boxShadow: `0 8px 24px ${_hexToRgba(_expandedCard.color, .12)}` } },
+        h('div', { style: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 } },
+          h('div', { style: { width: 34, height: 34, borderRadius: 10, background: _hexToRgba(_expandedCard.color, .13), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 } }, _expandedCard.icon || '📊'),
+          h('div', { style: { flex: 1, minWidth: 0 } },
+            h('div', { style: { fontSize: 11, fontWeight: 700, color: _expandedCard.color } }, _expandedCard.n),
+            h('div', { style: { fontSize: 14, fontWeight: 700, color: '#15242E' } }, _expandedCard.label)),
+          h('button', { onClick: () => vals.toggleKpiExpand(_expandedCard.n), style: { border: 'none', background: '#F5F8FA', width: 28, height: 28, borderRadius: '50%', cursor: 'pointer', fontSize: 16, color: '#78909C', lineHeight: 1, transition: 'background .15s ease' }, onMouseEnter: (e) => e.currentTarget.style.background = '#E7EEF3', onMouseLeave: (e) => e.currentTarget.style.background = '#F5F8FA' }, '×')),
         // repeats the card's own "N จาก M" breakdown at the top of the
         // detail panel too — someone can open this panel directly (e.g. from
         // a re-render after navigating back) without having re-read the
         // card face a moment ago, and the math should never live in only
         // one of the two places that claim to explain the same number.
-        _expandedCard.sub ? h('div', { style: { fontSize: 12.5, fontWeight: 600, color: _expandedCard.color, marginBottom: 10 } }, _expandedCard.sub) : null,
+        _expandedCard.sub ? h('div', { style: { fontSize: 12.5, fontWeight: 600, color: _expandedCard.color, background: _hexToRgba(_expandedCard.color, .08), borderRadius: 9, padding: '7px 12px', marginBottom: 12, display: 'inline-block' } }, _expandedCard.sub) : null,
         _expandedCard.rows.length
-          ? h('div', { style: { maxHeight: 320, overflowY: 'auto' } }, ..._expandedCard.rows.map((r, i) => h('div', { key: i, style: { padding: '8px 0', borderBottom: i < _expandedCard.rows.length - 1 ? '1px solid #F0F4F7' : 'none' } },
+          ? h('div', { style: { maxHeight: 320, overflowY: 'auto' } }, ..._expandedCard.rows.map((r, i) => h('div', { key: i, className: 'kpi-row-hover', style: { padding: '9px 8px', borderBottom: i < _expandedCard.rows.length - 1 ? '1px solid #F0F4F7' : 'none' } },
               h('div', { style: { fontSize: 12.5, fontWeight: 600, color: '#15242E' } }, r.primary),
               r.secondary ? h('div', { style: { fontSize: 11.5, color: '#9AAAB8', marginTop: 2 } }, r.secondary) : null
             )))
-          : h('div', { style: { fontSize: 12.5, color: '#9AAAB8', padding: '10px 0' } }, _expandedCard.emptyNote || 'ไม่มีรายการในช่วงเวลานี้')
+          : h('div', { style: { fontSize: 12.5, color: '#7B8D9C', padding: '16px 14px', background: '#F5F9FB', borderRadius: 10, textAlign: 'center' } }, _expandedCard.emptyNote || 'ไม่มีรายการในช่วงเวลานี้')
       ) : null;
       vals.kpiInvListEl = (st.kpiInvestigations || []).length
         ? h(React.Fragment, null, ...(st.kpiInvestigations || []).slice(0, 20).map((inv, i) => h('div', { key: i, style: { padding: '10px 0', borderBottom: '1px solid #F0F4F7' } },
