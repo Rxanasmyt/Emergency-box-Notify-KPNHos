@@ -1926,7 +1926,6 @@ input:focus, select:focus, textarea:focus {
         <div class="kpi-dash-grid">
           {{ kpiCardsEl }}
         </div>
-        {{ kpiDetailEl }}
 
         <div style="background: #fff; border: 1.5px solid #E7EEF3; border-radius: 16px; padding: 20px 22px;">
           <div style="font-size: 15px; font-weight: 700; color: #15242E; margin-bottom: 4px;">บันทึกการสืบสวนด้วย Audit Trail (ตัวชี้วัด 4.2)</div>
@@ -7811,11 +7810,48 @@ td.l{text-align:left;padding-left:4px}
           h('div', { style: { width: 34, height: 34, borderRadius: '50%', background: '#fff' } })
         );
       };
-      vals.kpiCardsEl = h(React.Fragment, null, ...vals.kpiCards.map((c, ci) => {
+      // Detail panel — now rendered as a full-width grid item inserted
+      // directly after whichever card is expanded (see vals.kpiCardsEl's
+      // flatMap below), not appended once after the entire grid. It used to
+      // always render at the very bottom of the page regardless of which
+      // card (possibly the very first one) was clicked, forcing the admin
+      // to scroll away from the card they just clicked to find its own
+      // detail — reported directly ("ทำให้เห็นข้อมูลยาก"). CSS Grid's
+      // auto-flow naturally pushes every card after this point onto a new
+      // row once a `gridColumn: '1 / -1'` (full-width) item is inserted
+      // mid-sequence, at any current column count (3/2/1 across the
+      // existing responsive breakpoints) — no extra layout code needed.
+      const _renderKpiDetail = (c) => h('div', { key: `${c.n}-detail`, className: 'kpi-detail-in', style: { gridColumn: '1 / -1', background: '#fff', border: `1.5px solid ${c.color}`, borderRadius: 16, overflow: 'hidden', boxShadow: `0 10px 28px ${_hexToRgba(c.color, .16)}` } },
+        // colored top accent bar that draws itself in left-to-right on open —
+        // a small, deliberate cue that this panel just appeared as a direct
+        // result of the click, tying it visually back to the card above it.
+        h('div', { style: { height: 3, background: c.color, transformOrigin: 'left', animation: 'barIn .45s cubic-bezier(.34,1.56,.64,1) .05s both' } }),
+        h('div', { style: { padding: '18px 22px 20px' } },
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 } },
+            h('div', { style: { width: 34, height: 34, borderRadius: 10, background: _hexToRgba(c.color, .13), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 } }, c.icon || '📊'),
+            h('div', { style: { flex: 1, minWidth: 0 } },
+              h('div', { style: { fontSize: 11, fontWeight: 700, color: c.color } }, c.n),
+              h('div', { style: { fontSize: 14, fontWeight: 700, color: '#15242E' } }, c.label)),
+            h('button', { onClick: () => vals.toggleKpiExpand(c.n), style: { border: 'none', background: '#F5F8FA', width: 28, height: 28, borderRadius: '50%', cursor: 'pointer', fontSize: 16, color: '#78909C', lineHeight: 1, transition: 'background .15s ease' }, onMouseEnter: (e) => e.currentTarget.style.background = '#E7EEF3', onMouseLeave: (e) => e.currentTarget.style.background = '#F5F8FA' }, '×')),
+          // repeats the card's own "N จาก M" breakdown at the top of the
+          // detail panel too — someone can open this panel directly (e.g. from
+          // a re-render after navigating back) without having re-read the
+          // card face a moment ago, and the math should never live in only
+          // one of the two places that claim to explain the same number.
+          c.sub ? h('div', { style: { fontSize: 12.5, fontWeight: 600, color: c.color, background: _hexToRgba(c.color, .08), borderRadius: 9, padding: '7px 12px', marginBottom: 12, display: 'inline-block' } }, c.sub) : null,
+          c.rows.length
+            ? h('div', { style: { maxHeight: 320, overflowY: 'auto' } }, ...c.rows.map((r, i) => h('div', { key: i, className: 'kpi-row-hover', style: { padding: '9px 8px', borderBottom: i < c.rows.length - 1 ? '1px solid #F0F4F7' : 'none' } },
+                h('div', { style: { fontSize: 12.5, fontWeight: 600, color: '#15242E' } }, r.primary),
+                r.secondary ? h('div', { style: { fontSize: 11.5, color: '#9AAAB8', marginTop: 2 } }, r.secondary) : null
+              )))
+            : h('div', { style: { fontSize: 12.5, color: '#7B8D9C', padding: '16px 14px', background: '#F5F9FB', borderRadius: 10, textAlign: 'center' } }, c.emptyNote || 'ไม่มีรายการในช่วงเวลานี้')
+        )
+      );
+      vals.kpiCardsEl = h(React.Fragment, null, ...vals.kpiCards.flatMap((c, ci) => {
         const on = st.kpiExpanded === c.n;
         const isEmpty = c.value === '—';
         const isPct = c.unit === '%' && !isEmpty;
-        return h('div', {
+        const cardEl = h('div', {
           key: c.n, onClick: () => vals.toggleKpiExpand(c.n), className: 'kpi-card',
           onMouseEnter: (e) => { if (!on) { e.currentTarget.style.boxShadow = `0 12px 28px ${_hexToRgba(c.color, .2)}`; e.currentTarget.style.transform = 'translateY(-4px)'; } },
           onMouseLeave: (e) => { if (!on) { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.transform = 'none'; } },
@@ -7875,28 +7911,10 @@ td.l{text-align:left;padding-left:4px}
           h('div', { style: { fontSize: 11.5, color: c.color, fontWeight: 700, marginTop: 12, paddingTop: 10, borderTop: '1px solid #F0F4F7', display: 'flex', alignItems: 'center', gap: 4 } },
             on ? '▲  ซ่อนรายละเอียด' : `▾  ดูรายละเอียด (${c.rows.length})`)
         );
+        // insert the detail panel as its own full-width grid item directly
+        // after the card that owns it — see _renderKpiDetail's comment above.
+        return on ? [cardEl, _renderKpiDetail(c)] : [cardEl];
       }));
-      const _expandedCard = vals.kpiCards.find(c => c.n === st.kpiExpanded);
-      vals.kpiDetailEl = _expandedCard ? h('div', { key: _expandedCard.n, className: 'kpi-detail-in', style: { background: '#fff', border: `1.5px solid ${_expandedCard.color}`, borderRadius: 16, padding: '20px 22px', marginTop: -6, marginBottom: 24, boxShadow: `0 8px 24px ${_hexToRgba(_expandedCard.color, .12)}` } },
-        h('div', { style: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 } },
-          h('div', { style: { width: 34, height: 34, borderRadius: 10, background: _hexToRgba(_expandedCard.color, .13), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 } }, _expandedCard.icon || '📊'),
-          h('div', { style: { flex: 1, minWidth: 0 } },
-            h('div', { style: { fontSize: 11, fontWeight: 700, color: _expandedCard.color } }, _expandedCard.n),
-            h('div', { style: { fontSize: 14, fontWeight: 700, color: '#15242E' } }, _expandedCard.label)),
-          h('button', { onClick: () => vals.toggleKpiExpand(_expandedCard.n), style: { border: 'none', background: '#F5F8FA', width: 28, height: 28, borderRadius: '50%', cursor: 'pointer', fontSize: 16, color: '#78909C', lineHeight: 1, transition: 'background .15s ease' }, onMouseEnter: (e) => e.currentTarget.style.background = '#E7EEF3', onMouseLeave: (e) => e.currentTarget.style.background = '#F5F8FA' }, '×')),
-        // repeats the card's own "N จาก M" breakdown at the top of the
-        // detail panel too — someone can open this panel directly (e.g. from
-        // a re-render after navigating back) without having re-read the
-        // card face a moment ago, and the math should never live in only
-        // one of the two places that claim to explain the same number.
-        _expandedCard.sub ? h('div', { style: { fontSize: 12.5, fontWeight: 600, color: _expandedCard.color, background: _hexToRgba(_expandedCard.color, .08), borderRadius: 9, padding: '7px 12px', marginBottom: 12, display: 'inline-block' } }, _expandedCard.sub) : null,
-        _expandedCard.rows.length
-          ? h('div', { style: { maxHeight: 320, overflowY: 'auto' } }, ..._expandedCard.rows.map((r, i) => h('div', { key: i, className: 'kpi-row-hover', style: { padding: '9px 8px', borderBottom: i < _expandedCard.rows.length - 1 ? '1px solid #F0F4F7' : 'none' } },
-              h('div', { style: { fontSize: 12.5, fontWeight: 600, color: '#15242E' } }, r.primary),
-              r.secondary ? h('div', { style: { fontSize: 11.5, color: '#9AAAB8', marginTop: 2 } }, r.secondary) : null
-            )))
-          : h('div', { style: { fontSize: 12.5, color: '#7B8D9C', padding: '16px 14px', background: '#F5F9FB', borderRadius: 10, textAlign: 'center' } }, _expandedCard.emptyNote || 'ไม่มีรายการในช่วงเวลานี้')
-      ) : null;
       vals.kpiInvListEl = (st.kpiInvestigations || []).length
         ? h(React.Fragment, null, ...(st.kpiInvestigations || []).slice(0, 20).map((inv, i) => h('div', { key: i, style: { padding: '10px 0', borderBottom: '1px solid #F0F4F7' } },
             h('div', { style: { fontSize: 12.5, fontWeight: 600, color: '#15242E' } }, `${inv.date || ''} — ${inv.description || ''}`),
