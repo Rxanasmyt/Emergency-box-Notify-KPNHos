@@ -454,9 +454,10 @@ function logKpiEvent(entry){
   if(!db)return Promise.reject(new Error('no-db'));
   return db.collection(C.kpiEvents).add({...entry,createdAt:firebase.firestore.FieldValue.serverTimestamp()}).catch(err=>{console.warn('[Sync] KPI event write failed:',err.message);throw err;});
 }
-// One-time range query against `date` (ISO, no composite index needed) — the
-// KPI dashboard fetches on demand rather than keeping a live listener, since
-// admin-only trend/report viewing doesn't need sub-second realtime updates.
+// One-time range query against `date` (ISO, no composite index needed) —
+// kept for CSV/PDF export and any one-off read; the live KPI dashboard
+// itself now uses listenKpiEvents() below instead (see that function's own
+// comment for why this changed from the original "fetch on demand" design).
 function fetchKpiEvents(fromISO,toISO){
   if(!db)return Promise.resolve([]);
   let q=db.collection(C.kpiEvents);
@@ -467,6 +468,27 @@ function fetchKpiEvents(fromISO,toISO){
     const rows=[];snap.forEach(doc=>rows.push({id:doc.id,...doc.data()}));
     return rows;
   }).catch(err=>{console.warn('[Sync] fetchKpiEvents failed:',err.message);throw err;});
+}
+// Real-time counterpart of fetchKpiEvents — the KPI dashboard now updates
+// live the moment a new instrumentation event is recorded (had_check,
+// stage2_wait, reg_timing, csv_export, qr_pageview, etc.) instead of only
+// refreshing on manual "รีเฟรช" or a date-range change, per direct admin
+// request ("นำมาเชื่อกับตัวชี้วัดอย่าง real time"). Kept as a genuine
+// onSnapshot listener (not a one-time complete fetch, unlike audit_log's
+// KPI usage) because kpi_events volume is far lower than audit_log — every
+// write here is a deliberate, sparse instrumentation event, not a
+// general-purpose log, so there's no equivalent 500-doc-cap concern.
+// Callback receives (rows, null) on each snapshot, or (null, err) on a
+// terminal listener error — caller decides how to surface that.
+function listenKpiEvents(fromISO,toISO,cb){
+  if(!db)return ()=>{};
+  let q=db.collection(C.kpiEvents);
+  if(fromISO)q=q.where('date','>=',fromISO);
+  if(toISO)q=q.where('date','<=',toISO);
+  return q.onSnapshot(snap=>{
+    const rows=[];snap.forEach(doc=>rows.push({id:doc.id,...doc.data()}));
+    cb(rows,null);
+  },err=>{console.warn('[Sync] listenKpiEvents error:',err.message);cb(null,err);});
 }
 // Admin's manual log of audit-trail investigations (KPI 4.2 — a system
 // cannot auto-detect whether an investigation was "successful", so this is a
@@ -485,6 +507,19 @@ function fetchKpiInvestigations(fromISO,toISO){
     const rows=[];snap.forEach(doc=>rows.push({id:doc.id,...doc.data()}));
     return rows;
   }).catch(err=>{console.warn('[Sync] fetchKpiInvestigations failed:',err.message);throw err;});
+}
+// Real-time counterpart of fetchKpiInvestigations — see listenKpiEvents's
+// comment above for why this collection gets a genuine live listener
+// instead of the one-time-complete-fetch pattern audit_log uses.
+function listenKpiInvestigations(fromISO,toISO,cb){
+  if(!db)return ()=>{};
+  let q=db.collection(C.kpiInvestigations);
+  if(fromISO)q=q.where('date','>=',fromISO);
+  if(toISO)q=q.where('date','<=',toISO);
+  return q.onSnapshot(snap=>{
+    const rows=[];snap.forEach(doc=>rows.push({id:doc.id,...doc.data()}));
+    cb(rows,null);
+  },err=>{console.warn('[Sync] listenKpiInvestigations error:',err.message);cb(null,err);});
 }
 // One-time (non-realtime) per-box fetch — the Detail screen's box-history
 // panel reads from the live listenAudit() array (capped at 500 most-recent
@@ -517,5 +552,5 @@ function syncDeptPins(pins){
   return db.collection(C.appSettings).doc('dept_pins').set(pins,{merge:true})
     .catch(err=>{console.error('[Sync] syncDeptPins failed:',err.message);throw err;});
 }
-window.EB_Sync={initUsersOnly,initFirebaseSync,startPublicSync,stopSync,stopAll,logAudit,syncBoxes,syncUsers,deleteUser,syncBoxDrugs,returnBoxAndDrugsTx,logDrugUsageTx,listenUsageLog,listenAllUsageLog,getDeptPins,syncDeptPins,fetchAuditRange,fetchUsageLogRange,fetchBoxHistory,logKpiEvent,fetchKpiEvents,logKpiInvestigation,fetchKpiInvestigations};
+window.EB_Sync={initUsersOnly,initFirebaseSync,startPublicSync,stopSync,stopAll,logAudit,syncBoxes,syncUsers,deleteUser,syncBoxDrugs,returnBoxAndDrugsTx,logDrugUsageTx,listenUsageLog,listenAllUsageLog,getDeptPins,syncDeptPins,fetchAuditRange,fetchUsageLogRange,fetchBoxHistory,logKpiEvent,fetchKpiEvents,listenKpiEvents,logKpiInvestigation,fetchKpiInvestigations,listenKpiInvestigations};
 })();

@@ -2173,7 +2173,7 @@ class Component extends DCLogic {
     // KPI dashboard (admin-only) — innovation-project indicators, computed
     // on demand from kpi_events/kpi_investigations + existing audit_log
     kpiDatePreset: 'month', kpiFiscalYear: '', kpiDateFrom: '', kpiDateTo: '',
-    kpiLoading: false, kpiLoaded: false, kpiLoadError: false, kpiEvents: [], kpiRejects: [], kpiInvestigations: [], kpiAuditTotal: 0,
+    kpiLoading: false, kpiLoaded: false, kpiLoadError: false, kpiEvents: [], kpiInvestigations: [], _kpiAuditComplete: null,
     kpiInvDate: '', kpiInvDesc: '', kpiInvOutcome: '', kpiInvMsg: '', kpiExpanded: null,
     // session
     idleWarn: false,
@@ -2884,6 +2884,7 @@ class Component extends DCLogic {
     if (this._usageLogUnsub) this._usageLogUnsub();
     if (this._detailUsageLogUnsub) this._detailUsageLogUnsub();
     if (this._allUsageLogUnsub) this._allUsageLogUnsub();
+    this._stopKpiListeners();
     if (window.EB_Sync) window.EB_Sync.stopAll();
   }
 
@@ -3092,30 +3093,70 @@ class Component extends DCLogic {
       default: return { from: null, to: null };
     }
   }
-  async fetchKpiData() {
-    if (!window.EB_Sync || !window.EB_Sync.fetchKpiEvents) return;
-    const { from, to } = this._kpiDateRange();
-    this.setState({ kpiLoading: true, kpiLoadError: false });
-    try {
-      const [events, investigations, auditRows] = await Promise.all([
-        window.EB_Sync.fetchKpiEvents(from, to),
-        window.EB_Sync.fetchKpiInvestigations(from, to),
-        window.EB_Sync.fetchAuditRange ? window.EB_Sync.fetchAuditRange(from, to) : Promise.resolve(this.state.auditLog || this.AUDIT || []),
-      ]);
-      const rejects = auditRows.filter(r => r.action === 'ตีกลับให้แก้ไข');
-      this.setState({ kpiEvents: events, kpiInvestigations: investigations, kpiRejects: rejects, kpiAuditTotal: auditRows.length, kpiLoading: false, kpiLoaded: true, kpiLoadError: false });
-    } catch (err) {
-      // kpiLoadError (persistent banner) is deliberately separate from the
-      // flash() toast below — a toast auto-dismisses in a few seconds, but
-      // an admin reading KPI cards that still show stale/zero numbers needs
-      // a standing reminder that what's on screen didn't actually refresh,
-      // not just a message they may have missed. See firebase-sync.js's
-      // fetchAuditRange comment for why this can genuinely happen with zero
-      // indication otherwise (a failed fetch silently resolving empty from
-      // an empty local cache, indistinguishable from real zero data).
-      this.setState({ kpiLoading: false, kpiLoadError: true });
-      this.flash('⚠️ โหลดข้อมูล KPI ไม่สำเร็จ — ' + ((err && err.message) || 'ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต'));
+  // audit_log rows for KPI 1.2 (rejects) / 4.1 (success rate) — shared by
+  // the live card render, CSV export, and PDF export so all three always
+  // agree. today/7days/month are always well within listenAudit()'s
+  // 500-most-recent-doc cap, so these read directly from the already-live
+  // st.auditLog (filtered to the exact range client-side) — genuinely
+  // real-time, no extra fetch. fiscal/custom can reach further back than
+  // that cap, so they use _startKpiListeners()'s one-time complete fetch
+  // (st._kpiAuditComplete) instead — the same completeness trade-off
+  // _fetchCompleteAuditRows already documents for the History/Users
+  // screens' own CSV exports; falls back to the live capped array (possibly
+  // incomplete for a far-back range) only while that fetch is still pending.
+  _kpiAuditRows(st) {
+    if (st.kpiDatePreset === 'fiscal' || st.kpiDatePreset === 'custom') {
+      return st._kpiAuditComplete || st.auditLog || this.AUDIT || [];
     }
+    const { from, to } = this._kpiDateRange();
+    return (st.auditLog || this.AUDIT || []).filter(r => (!from || (r.date || '') >= from) && (!to || (r.date || '') <= to));
+  }
+  // Starts (or restarts, on a date-range change) the KPI dashboard's two
+  // live listeners — kpi_events and kpi_investigations — replacing the
+  // previous one-time fetch-on-demand design, per direct admin request
+  // ("นำมาเชื่อกับตัวชี้วัดอย่าง real time"). audit_log-derived numbers
+  // (KPI 1.2 rejects, 4.1 success rate) are NOT fetched here at all for the
+  // small presets (today/7days/month) — renderVals() derives them directly,
+  // synchronously, from the already-live st.auditLog for those, which is
+  // genuinely real-time with zero extra listener. Only the fiscal/custom
+  // presets — potentially reaching further back than listenAudit()'s
+  // 500-most-recent-doc cap — still need a one-time complete fetch here,
+  // the same trade-off _fetchCompleteAuditRows already documents for the
+  // History/Users screens' CSV exports.
+  _startKpiListeners(from, to, preset) {
+    this._stopKpiListeners();
+    if (!window.EB_Sync || !window.EB_Sync.listenKpiEvents) return;
+    this.setState({ kpiLoading: true, kpiLoadError: false, _kpiAuditComplete: null });
+    let gotEvents = false, gotInv = false;
+    const maybeLoaded = () => { if (gotEvents && gotInv) this.setState({ kpiLoading: false, kpiLoaded: true }); };
+    this._kpiEventsUnsub = window.EB_Sync.listenKpiEvents(from, to, (rows, err) => {
+      if (err) { this.setState({ kpiLoading: false, kpiLoadError: true }); return; }
+      gotEvents = true;
+      this.setState({ kpiEvents: rows || [] });
+      maybeLoaded();
+    });
+    this._kpiInvUnsub = window.EB_Sync.listenKpiInvestigations(from, to, (rows, err) => {
+      if (err) { this.setState({ kpiLoading: false, kpiLoadError: true }); return; }
+      gotInv = true;
+      this.setState({ kpiInvestigations: rows || [] });
+      maybeLoaded();
+    });
+    if ((preset === 'fiscal' || preset === 'custom') && window.EB_Sync.fetchAuditRange) {
+      window.EB_Sync.fetchAuditRange(from, to).then(rows => {
+        this.setState({ _kpiAuditComplete: rows });
+      }).catch(() => {
+        // kpiLoadError (persistent banner) is deliberately separate from the
+        // flash() toast — a toast auto-dismisses in a few seconds, but an
+        // admin reading KPI cards that still show stale/zero numbers needs a
+        // standing reminder that what's on screen didn't actually refresh.
+        this.setState({ kpiLoadError: true });
+        this.flash('⚠️ ดึงข้อมูล audit_log ย้อนหลังไม่สำเร็จ — ตัวเลขของตัวชี้วัด 1.2/4.1 อาจไม่ครบสำหรับช่วงเวลานี้');
+      });
+    }
+  }
+  _stopKpiListeners() {
+    if (this._kpiEventsUnsub) { this._kpiEventsUnsub(); this._kpiEventsUnsub = null; }
+    if (this._kpiInvUnsub) { this._kpiInvUnsub(); this._kpiInvUnsub = null; }
   }
   async addKpiInvestigation() {
     const st = this.state;
@@ -3150,6 +3191,7 @@ class Component extends DCLogic {
     const hadPct = hadChecks.length ? (hadChecks.filter(e => e.hadConfirmed).length / hadChecks.length * 100) : null;
     const readinessSnaps = (st.kpiEvents || []).filter(e => e.type === 'readiness_snapshot');
     const avgReadyPct = readinessSnaps.length ? (readinessSnaps.reduce((s, r) => s + (r.readyPct || 0), 0) / readinessSnaps.length) : null;
+    const kpiRejects = this._kpiAuditRows(st).filter(r => r.action === 'ตีกลับให้แก้ไข');
     const esc = (v) => { let s = String(v == null ? '' : v); if (s.length > 0 && '=+-@\t\r'.includes(s[0])) s = "'" + s; return '"' + s.replace(/"/g, '""') + '"'; };
     const lines = [
       ['ตัวชี้วัด', 'ค่า'].map(esc).join('\t'),
@@ -3158,7 +3200,7 @@ class Component extends DCLogic {
       ['1.1ข กล่องค้างสถานะจัดเตรียมเกิน 1 วัน (ขณะนี้)', stuckPrepared.length].map(esc).join('\t'),
       ['HA-1 % ยา HAD ผ่านการตรวจสอบสองครั้งก่อนจ่ายออก', hadPct === null ? 'N/A' : hadPct.toFixed(1)].map(esc).join('\t'),
       ['HA-2 % ความพร้อมใช้งานของกล่องยาฉุกเฉิน (เฉลี่ยรายวัน)', avgReadyPct === null ? 'N/A' : avgReadyPct.toFixed(1)].map(esc).join('\t'),
-      ['1.2 จำนวนครั้งกล่องถูกตีกลับ Stage 2', (st.kpiRejects || []).length].map(esc).join('\t'),
+      ['1.2 จำนวนครั้งกล่องถูกตีกลับ Stage 2', kpiRejects.length].map(esc).join('\t'),
       ['1.3 กล่องส่งคืนช้ากว่ากำหนด', `${lateCount}/${lateReturns.length}`].map(esc).join('\t'),
       ['2.1 % กล่องมี QR Code ใช้งานได้ (10/10)', '100'].map(esc).join('\t'),
       ['2.2 จำนวนครั้งสแกน/เปิดดูหน้า QR', qrViews.length].map(esc).join('\t'),
@@ -3183,7 +3225,8 @@ class Component extends DCLogic {
     const timings = (st.kpiEvents || []).filter(e => e.type === 'reg_timing');
     const failures = (st.kpiEvents || []).filter(e => e.type === 'audit_write_failure');
     const avgMin = timings.length ? (timings.reduce((s, t) => s + (t.durationSec || 0), 0) / timings.length / 60) : null;
-    const auditTotal = st.kpiAuditTotal || 0;
+    const kpiRejects = this._kpiAuditRows(st).filter(r => r.action === 'ตีกลับให้แก้ไข');
+    const auditTotal = this._kpiAuditRows(st).length;
     const auditPct = (auditTotal + failures.length) > 0 ? (auditTotal / (auditTotal + failures.length) * 100) : 100;
     const stage2Waits = (st.kpiEvents || []).filter(e => e.type === 'stage2_wait');
     const avgWaitDays = stage2Waits.length ? (stage2Waits.reduce((s, w) => s + (w.waitDays || 0), 0) / stage2Waits.length) : null;
@@ -3216,13 +3259,13 @@ class Component extends DCLogic {
       { n: 'HA-2', label: '% ความพร้อมใช้งานของกล่องยาฉุกเฉิน (เฉลี่ยรายวัน)', value: avgReadyPct === null ? '—' : avgReadyPct.toFixed(1), unit: avgReadyPct === null ? '' : '%', target: avgReadyPct === null ? 'ยังไม่มีข้อมูลในช่วงนี้' : 'เป้า 100% ทุกวัน', color: avgReadyPct === null ? '#9AAAB8' : (avgReadyPct >= 99.9 ? '#169C7F' : '#B5740F'), status: avgReadyPct === null ? null : (avgReadyPct >= 99.9 ? 'ok' : 'alert'), series: readinessSnaps.map(r => ({ date: r.date, value: r.readyPct || 0 })) },
       { n: '1.1ก', label: 'เวลาเฉลี่ยรอตรวจสอบ Stage 2 (จัดเตรียม→ยืนยัน)', value: avgWaitDays === null ? '—' : avgWaitDays.toFixed(1), unit: avgWaitDays === null ? '' : 'วัน', target: avgWaitDays === null ? 'ยังไม่มีข้อมูลในช่วงนี้' : 'ยิ่งน้อยยิ่งดี', color: '#1A6FA3', status: null, series: series(stage2Waits, 'avg', w => w.waitDays) },
       { n: '1.1ข', label: 'กล่องค้างสถานะจัดเตรียมเกิน 1 วัน (ขณะนี้)', value: String(stuckPrepared.length), unit: 'กล่อง', target: 'เป้า 0 กล่อง', color: stuckPrepared.length > 0 ? '#B5740F' : '#169C7F', status: stuckPrepared.length > 0 ? 'alert' : 'ok', series: null },
-      { n: '1.2', label: 'กล่องถูกตีกลับ Stage 2', value: String((st.kpiRejects || []).length), unit: 'ครั้ง', target: 'ตัวเลขติดตาม (ไม่มีเป้าทิศทาง)', color: '#B5740F', status: null, series: series(st.kpiRejects || [], 'count') },
+      { n: '1.2', label: 'กล่องถูกตีกลับ Stage 2', value: String(kpiRejects.length), unit: 'ครั้ง', target: 'ตัวเลขติดตาม (ไม่มีเป้าทิศทาง)', color: '#B5740F', status: null, series: series(kpiRejects, 'count') },
       { n: '1.3', label: 'กล่องส่งคืนช้ากว่ากำหนด', value: `${lateCount}/${lateReturns.length}`, unit: 'ครั้ง', target: 'เป้า 0 ครั้ง', color: lateCount > 0 ? '#B42121' : '#169C7F', status: lateCount > 0 ? 'alert' : 'ok', series: series(lateReturns, 'pct', null, e => e.wasLate) },
       { n: '2.1', label: 'กล่องมี QR Code ใช้งานได้จริง', value: '100', unit: '%', target: `เป้า 100% (${this.BOXES.length}/${this.BOXES.length} กล่อง)`, color: '#169C7F', status: 'ok', series: null },
       { n: '2.2', label: 'จำนวนครั้งสแกน/เปิดดูหน้า QR', value: String(qrViews.length), unit: 'ครั้ง', target: 'ตัวชี้วัดการยอมรับของผู้ใช้', color: '#1A6FA3', status: null, series: series(qrViews, 'count') },
       { n: '3.1', label: 'เวลาเฉลี่ยลงทะเบียน/ตรวจนับ 1 กล่อง', value: avgMin === null ? '—' : avgMin.toFixed(1), unit: avgMin === null ? '' : 'นาที', target: avgMin === null ? 'ยังไม่มีข้อมูลในช่วงนี้' : 'เทียบ baseline ก่อนใช้ระบบ', color: '#1A6FA3', status: null, series: series(timings, 'avg', t => (t.durationSec || 0) / 60) },
       { n: '4.1', label: 'บันทึก audit_log สำเร็จ', value: auditPct.toFixed(1), unit: '%', target: 'เป้า 100%', color: auditPct >= 99.9 ? '#169C7F' : '#B42121', status: auditPct >= 99.9 ? 'ok' : 'alert', series: null },
-      { n: '4.2', label: 'ใช้ audit trail สืบสวนสำเร็จ', value: String((st.kpiInvestigations || []).length), unit: 'ครั้ง', target: 'บันทึกเชิงคุณภาพ (มือแอดมิน)', color: '#7C5CD6', status: null, series: null },
+      { n: '4.2', label: 'ใช้ audit trail สืบสวนสำเร็จ', value: String((st.kpiInvestigations || []).length), unit: 'ครั้ง', target: 'บันทึกเชิงคุณภาพ (มือแอดมิน)', color: '#7C5CD6', status: null, series: series(st.kpiInvestigations || [], 'count') },
       { n: '4.2ก', label: 'จำนวนครั้ง export CSV/PDF (หลักฐานว่ามีการตรวจสอบ)', value: String(csvExports.length), unit: 'ครั้ง', target: 'ตัวชี้วัดการใช้งาน audit trail จริง', color: '#7C5CD6', status: null, series: series(csvExports, 'count') },
     ];
   }
@@ -3939,6 +3982,7 @@ class Component extends DCLogic {
     clearTimeout(this._saveSuccessT); clearTimeout(this._ghT);
     clearInterval(this._idleCountI); clearInterval(this._notifyInterval); clearInterval(this._lockCountI);
     if (window.EB_Sync) window.EB_Sync.stopSync();
+    this._stopKpiListeners();
     this.BOXES = [];
     this.BOX_DRUGS = {};
     this.AUDIT = [];
@@ -7602,14 +7646,29 @@ td.l{text-align:left;padding-left:4px}
       h('div', { style: { fontSize: 11.5, color: '#9AAAB8', marginTop: 4 } }, 'บันทึกผ่านการสแกน QR Code จะแสดงที่นี่'));
 
     // ===== KPI dashboard (admin-only) =====
-    if (vals.isKpi) {
+    if (!vals.isKpi) {
+      // leaving the KPI screen (or never on it) — stop both live listeners
+      // so they don't keep updating state.kpiEvents/kpiInvestigations (and
+      // billing read quota) for a screen no longer visible. Checked on
+      // every render rather than only inside go()/go2(), so it correctly
+      // covers every path away from the KPI screen, not just one nav
+      // function — mirrors the Detail screen's own _detailUsageLogUnsub
+      // cleanup pattern above.
+      if (this._kpiEventsUnsub || this._kpiInvUnsub) { this._stopKpiListeners(); this._kpiListenSig = null; }
+    } else {
       const _kpiSig = `${st.kpiDatePreset}|${st.kpiFiscalYear}|${st.kpiDateFrom}|${st.kpiDateTo}`;
-      if (this._kpiFetchSig !== _kpiSig && !st.kpiLoading) { this._kpiFetchSig = _kpiSig; this.fetchKpiData(); }
+      if (this._kpiListenSig !== _kpiSig) {
+        this._kpiListenSig = _kpiSig;
+        const _kpiRange = this._kpiDateRange();
+        this._startKpiListeners(_kpiRange.from, _kpiRange.to, st.kpiDatePreset);
+      }
       const _incidents = (st.kpiEvents || []).filter(e => e.type === 'expiry_incident');
       const _timings = (st.kpiEvents || []).filter(e => e.type === 'reg_timing');
       const _failures = (st.kpiEvents || []).filter(e => e.type === 'audit_write_failure');
       const _avgMin = _timings.length ? (_timings.reduce((s, t) => s + (t.durationSec || 0), 0) / _timings.length / 60) : null;
-      const _auditTotal = st.kpiAuditTotal || 0;
+      const _kpiAuditRows = this._kpiAuditRows(st);
+      const _auditTotal = _kpiAuditRows.length;
+      const _kpiRejects = _kpiAuditRows.filter(r => r.action === 'ตีกลับให้แก้ไข');
       const _auditPct = (_auditTotal + _failures.length) > 0 ? (_auditTotal / (_auditTotal + _failures.length) * 100) : 100;
       const _stage2Waits = (st.kpiEvents || []).filter(e => e.type === 'stage2_wait');
       const _avgWaitDays = _stage2Waits.length ? (_stage2Waits.reduce((s, w) => s + (w.waitDays || 0), 0) / _stage2Waits.length) : null;
@@ -7689,17 +7748,17 @@ td.l{text-align:left;padding-left:4px}
       const _hexToRgba = (hex, a) => { const h2 = hex.replace('#', ''); const r = parseInt(h2.slice(0,2),16), g = parseInt(h2.slice(2,4),16), b = parseInt(h2.slice(4,6),16); return `rgba(${r},${g},${b},${a})`; };
       vals.kpiCards = [
         { n: '1.1', icon: '🔴', label: 'อุบัติการณ์ยาใกล้หมดอายุ/หมดอายุแล้ว', value: String(_incidents.length), unit: 'ครั้ง', target: 'เป้า 0 ครั้ง', color: _incidents.length > 0 ? '#B42121' : '#169C7F', status: _incidents.length > 0 ? 'alert' : 'ok', rows: _incidents.map(_fmtIncident), series: _series(_incidents, 'count'), emptyNote: '✅ ไม่พบยาหมดอายุ/ใกล้หมดอายุตกค้างในช่วงเวลานี้ (0 ครั้ง)' },
-        { n: 'HA-1', icon: '⚠️', label: '% ยา HAD ผ่านการตรวจสอบสองครั้งก่อนจ่ายออก', value: _hadPct === null ? '—' : _hadPct.toFixed(1), unit: _hadPct === null ? '' : '%', target: _hadPct === null ? 'ยังไม่มีกล่องที่มียา HAD ในช่วงนี้' : 'เป้า 100%', sub: _hadChecks.length ? `${_hadConfirmedCount} จาก ${_hadChecks.length} กล่องที่มียา HAD` : '', color: _hadPct === null ? '#9AAAB8' : (_hadPct >= 99.9 ? '#169C7F' : '#B42121'), status: _hadPct === null ? null : (_hadPct >= 99.9 ? 'ok' : 'alert'), rows: _hadChecks.map(_fmtHad), series: _series(_hadChecks, 'pct', null, e => e.hadConfirmed) },
+        { n: 'HA-1', icon: '⚠️', label: '% ยา HAD ผ่านการตรวจสอบสองครั้งก่อนจ่ายออก', value: _hadPct === null ? '—' : _hadPct.toFixed(1), unit: _hadPct === null ? '' : '%', target: _hadPct === null ? 'ยังไม่มีกล่องที่มียา HAD ในช่วงนี้' : 'เป้า 100%', sub: _hadChecks.length ? `${_hadConfirmedCount} จาก ${_hadChecks.length} กล่องที่มียา HAD` : '', color: _hadPct === null ? '#9AAAB8' : (_hadPct >= 99.9 ? '#169C7F' : '#B42121'), status: _hadPct === null ? null : (_hadPct >= 99.9 ? 'ok' : 'alert'), rows: _hadChecks.map(_fmtHad), series: _series(_hadChecks, 'pct', null, e => e.hadConfirmed), split: _hadChecks.length ? { pass: _hadConfirmedCount, fail: _hadChecks.length - _hadConfirmedCount } : null },
         { n: 'HA-2', icon: '📦', label: '% ความพร้อมใช้งานของกล่องยาฉุกเฉิน (เฉลี่ยรายวัน)', value: _avgReadyPct === null ? '—' : _avgReadyPct.toFixed(1), unit: _avgReadyPct === null ? '' : '%', target: _avgReadyPct === null ? 'ยังไม่มีข้อมูลในช่วงนี้' : 'เป้า 100% ทุกวัน', sub: _readinessSnaps.length ? `เฉลี่ยจากข้อมูล ${_readinessSnaps.length} วัน` : '', color: _avgReadyPct === null ? '#9AAAB8' : (_avgReadyPct >= 99.9 ? '#169C7F' : '#B5740F'), status: _avgReadyPct === null ? null : (_avgReadyPct >= 99.9 ? 'ok' : 'alert'), rows: _readinessSnaps.map(_fmtReadiness), series: _readinessSnaps.map(r => ({ date: r.date, value: r.readyPct || 0 })) },
         { n: '1.1ก', icon: '⏱️', label: 'เวลาเฉลี่ยรอตรวจสอบ Stage 2 (จัดเตรียม→ยืนยัน)', value: _avgWaitDays === null ? '—' : _avgWaitDays.toFixed(1), unit: _avgWaitDays === null ? '' : 'วัน', target: _avgWaitDays === null ? 'ยังไม่มีข้อมูลในช่วงนี้' : 'ยิ่งน้อยยิ่งดี', sub: _stage2Waits.length ? `เฉลี่ยจาก ${_stage2Waits.length} ครั้ง` : '', color: '#1A6FA3', rows: _stage2Waits.map(_fmtWait), series: _series(_stage2Waits, 'avg', w => w.waitDays) },
         { n: '1.1ข', icon: '📋', label: 'กล่องค้างสถานะจัดเตรียมเกิน 1 วัน (ขณะนี้)', value: String(_stuckPrepared.length), unit: 'กล่อง', target: 'เป้า 0 กล่อง', color: _stuckPrepared.length > 0 ? '#B5740F' : '#169C7F', status: _stuckPrepared.length > 0 ? 'alert' : 'ok', rows: _stuckPrepared.map(_fmtStuck), emptyNote: '✅ ไม่มีกล่องค้างสถานะจัดเตรียมขณะนี้' },
-        { n: '1.2', icon: '↩️', label: 'กล่องถูกตีกลับ Stage 2', value: String((st.kpiRejects || []).length), unit: 'ครั้ง', target: 'ตัวเลขติดตาม (ไม่มีเป้าทิศทาง)', color: '#B5740F', rows: (st.kpiRejects || []).map(_fmtReject), series: _series(st.kpiRejects || [], 'count'), emptyNote: 'ไม่มีกล่องถูกตีกลับในช่วงเวลานี้' },
+        { n: '1.2', icon: '↩️', label: 'กล่องถูกตีกลับ Stage 2', value: String(_kpiRejects.length), unit: 'ครั้ง', target: 'ตัวเลขติดตาม (ไม่มีเป้าทิศทาง)', color: '#B5740F', rows: _kpiRejects.map(_fmtReject), series: _series(_kpiRejects, 'count'), emptyNote: 'ไม่มีกล่องถูกตีกลับในช่วงเวลานี้' },
         { n: '1.3', icon: '📅', label: 'กล่องส่งคืนช้ากว่ากำหนด', value: String(_lateCount), unit: `/${_lateReturns.length} ครั้ง`, target: 'เป้า 0 ครั้ง', color: _lateCount > 0 ? '#B42121' : '#169C7F', status: _lateCount > 0 ? 'alert' : 'ok', rows: _lateReturns.map(_fmtLate), series: _series(_lateReturns, 'pct', null, e => e.wasLate), emptyNote: 'ยังไม่มีการรับคืนในช่วงเวลานี้' },
         { n: '2.1', icon: '📱', label: 'กล่องมี QR Code ใช้งานได้จริง', value: '100', unit: '%', target: `เป้า 100% (${this.BOXES.length}/${this.BOXES.length} กล่อง)`, color: '#169C7F', status: 'ok', rows: this.BOXES.map(b => _fmtBoxId(b.id)) },
         { n: '2.2', icon: '👁️', label: 'จำนวนครั้งสแกน/เปิดดูหน้า QR', value: String(_qrViews.length), unit: 'ครั้ง', target: 'ตัวชี้วัดการยอมรับของผู้ใช้', color: '#1A6FA3', rows: _qrViews.map(_fmtQr), series: _series(_qrViews, 'count'), emptyNote: 'ยังไม่มีการสแกน/เปิดดูหน้า QR ในช่วงเวลานี้' },
         { n: '3.1', icon: '⏳', label: 'เวลาเฉลี่ยลงทะเบียน/ตรวจนับ 1 กล่อง', value: _avgMin === null ? '—' : _avgMin.toFixed(1), unit: _avgMin === null ? '' : 'นาที', target: _avgMin === null ? 'ยังไม่มีข้อมูลในช่วงนี้' : 'เทียบ baseline ก่อนใช้ระบบ', sub: _timings.length ? `เฉลี่ยจาก ${_timings.length} ครั้ง` : '', color: '#1A6FA3', rows: _timings.map(_fmtTiming), series: _series(_timings, 'avg', t => (t.durationSec || 0) / 60) },
-        { n: '4.1', icon: '🛡️', label: 'บันทึก audit_log สำเร็จ', value: _auditPct.toFixed(1), unit: '%', target: 'เป้า 100%', sub: `${_auditTotal} จาก ${_auditTotal + _failures.length} ธุรกรรมในช่วงนี้`, color: _auditPct >= 99.9 ? '#169C7F' : '#B42121', status: _auditPct >= 99.9 ? 'ok' : 'alert', rows: _failures.map(_fmtFailure), emptyNote: `✅ ธุรกรรมทั้งหมด ${_auditTotal} รายการในช่วงนี้บันทึกลง audit_log สำเร็จครบทุกรายการ ไม่มีรายการที่ล้มเหลว (รายการด้านล่างจะแสดงเฉพาะรายการที่บันทึกไม่สำเร็จ)` },
-        { n: '4.2', icon: '🔍', label: 'ใช้ audit trail สืบสวนสำเร็จ', value: String((st.kpiInvestigations || []).length), unit: 'ครั้ง', target: 'บันทึกเชิงคุณภาพ (มือแอดมิน)', color: '#7C5CD6', rows: (st.kpiInvestigations || []).map(_fmtInv), emptyNote: 'ยังไม่มีการบันทึกการสืบสวนในช่วงเวลานี้ — เพิ่มได้จากแบบฟอร์มด้านล่างของหน้านี้' },
+        { n: '4.1', icon: '🛡️', label: 'บันทึก audit_log สำเร็จ', value: _auditPct.toFixed(1), unit: '%', target: 'เป้า 100%', sub: `${_auditTotal} จาก ${_auditTotal + _failures.length} ธุรกรรมในช่วงนี้`, color: _auditPct >= 99.9 ? '#169C7F' : '#B42121', status: _auditPct >= 99.9 ? 'ok' : 'alert', rows: _failures.map(_fmtFailure), emptyNote: `✅ ธุรกรรมทั้งหมด ${_auditTotal} รายการในช่วงนี้บันทึกลง audit_log สำเร็จครบทุกรายการ ไม่มีรายการที่ล้มเหลว (รายการด้านล่างจะแสดงเฉพาะรายการที่บันทึกไม่สำเร็จ)`, split: (_auditTotal + _failures.length) > 0 ? { pass: _auditTotal, fail: _failures.length } : null },
+        { n: '4.2', icon: '🔍', label: 'ใช้ audit trail สืบสวนสำเร็จ', value: String((st.kpiInvestigations || []).length), unit: 'ครั้ง', target: 'บันทึกเชิงคุณภาพ (มือแอดมิน)', color: '#7C5CD6', rows: (st.kpiInvestigations || []).map(_fmtInv), series: _series(st.kpiInvestigations || [], 'count'), emptyNote: 'ยังไม่มีการบันทึกการสืบสวนในช่วงเวลานี้ — เพิ่มได้จากแบบฟอร์มด้านล่างของหน้านี้' },
         { n: '4.2ก', icon: '⬇️', label: 'จำนวนครั้ง export CSV/PDF (หลักฐานว่ามีการตรวจสอบ)', value: String(_csvExports.length), unit: 'ครั้ง', target: 'ตัวชี้วัดการใช้งาน audit trail จริง', color: '#7C5CD6', rows: _csvExports.map(_fmtCsv), series: _series(_csvExports, 'count'), emptyNote: 'ยังไม่มีการ export CSV/PDF ในช่วงเวลานี้' },
       ];
       // Summary strip — "X/Y ตัวชี้วัดผ่านเป้าหมาย" at a glance, computed
@@ -7751,7 +7810,10 @@ td.l{text-align:left;padding-left:4px}
       vals.setKpiInvOutcome = (e) => this.setState({ kpiInvOutcome: e.target.value });
       vals.addKpiInvestigation = () => this.addKpiInvestigation();
       vals.exportKpiCSV = () => this.exportKpiCSV();
-      vals.refreshKpiData = () => { this._kpiFetchSig = null; this.fetchKpiData(); };
+      // "รีเฟรช" now mainly re-runs the fiscal/custom one-time complete
+      // fetch (today/7days/month are already live, nothing to refresh) and
+      // gives a way to force-restart both listeners if one ever gets stuck.
+      vals.refreshKpiData = () => { const r = this._kpiDateRange(); this._startKpiListeners(r.from, r.to, st.kpiDatePreset); };
       vals.kpiLoading = st.kpiLoading;
       vals.kpiLoadFailed = !!st.kpiLoadError && !st.kpiLoading;
       vals.kpiDatePreset = st.kpiDatePreset;
@@ -7808,6 +7870,28 @@ td.l{text-align:left;padding-left:4px}
         const clamped = Math.max(0, Math.min(100, pct));
         return h('div', { style: { width: 46, height: 46, borderRadius: '50%', flexShrink: 0, background: `conic-gradient(${color} 0 ${clamped * 3.6}deg, #EEF2F5 ${clamped * 3.6}deg 360deg)`, display: 'flex', alignItems: 'center', justifyContent: 'center' } },
           h('div', { style: { width: 34, height: 34, borderRadius: '50%', background: '#fff' } })
+        );
+      };
+      // Split bar — for a binary pass/fail COUNT (HA-1's HAD-confirmed vs
+      // not, 4.1's successful vs failed audit_log writes), a segmented bar
+      // showing the actual composition is a better fit than a trend line:
+      // the sparkline above already answers "how has the % moved over
+      // time", this answers "of everything counted, what's the split right
+      // now" — a different question, so both are kept side by side rather
+      // than one replacing the other.
+      const _splitBar = (pass, fail, passColor, failColor) => {
+        const total = pass + fail;
+        if (!total) return null;
+        const passPct = (pass / total) * 100;
+        return h('div', { style: { marginTop: 10 } },
+          h('div', { style: { display: 'flex', height: 7, borderRadius: 5, overflow: 'hidden', background: '#EEF2F5' } },
+            pass ? h('div', { style: { width: `${passPct}%`, background: passColor } }) : null,
+            fail ? h('div', { style: { width: `${100 - passPct}%`, background: failColor } }) : null
+          ),
+          h('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: 10.5, color: '#9AAAB8', marginTop: 4, fontWeight: 600 } },
+            h('span', { style: { color: passColor } }, `✅ ผ่าน ${pass}`),
+            fail ? h('span', { style: { color: failColor } }, `⚠️ ไม่ผ่าน ${fail}`) : null
+          )
         );
       };
       // Detail panel — now rendered as a full-width grid item inserted
@@ -7905,6 +7989,7 @@ td.l{text-align:left;padding-left:4px}
             c.status === 'alert' ? h('span', { style: { width: 6, height: 6, borderRadius: '50%', background: '#B42121', animation: 'kpiPulseDot 1.6s ease-in-out infinite' } }) : null,
             c.status === 'ok' ? '✅ ตามเป้า' : '⚠️ ไม่ตามเป้า') : null,
           _sparkline(c.series, c.color),
+          c.split ? _splitBar(c.split.pass, c.split.fail, '#169C7F', '#B42121') : null,
           // footer link — moved out of the cramped header row into its own
           // full-width line so it reads as a clear call-to-action ("see
           // more") rather than a truncated label competing with the code tag.
