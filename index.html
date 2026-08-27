@@ -2462,7 +2462,7 @@ class Component extends DCLogic {
       // HN/patient name. Fire-and-forget, same as every other KPI/notify
       // side-effect in this app — a failed alert must never block or
       // roll back the real usage-log write it's reporting on.
-      if (result.openedNow) this._triggerUsageAlert(publicBoxId, dept, result.drugName, qty, nowT);
+      if (result.openedNow) this._triggerUsageAlert(publicBoxId, dept, result.drugName, qty, today, nowT);
     } catch (err) {
       this.setState({ pubUsageBusy: false, pubUsageMsg: err.message || 'บันทึกไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต', pubUsageMsgOk: false });
     }
@@ -2470,12 +2470,12 @@ class Component extends DCLogic {
     this._pubUsageMsgT = setTimeout(() => this.setState({ pubUsageMsg: '' }), 4000);
   }
   // One dispatch attempt — returns true only on a real 204 accepted.
-  async _dispatchUsageAlertOnce(pat, boxId, dept, drugName, qty, time) {
+  async _dispatchUsageAlertOnce(pat, boxId, dept, drugName, qty, date, time) {
     try {
       const res = await fetch('https://api.github.com/repos/Rxanasmyt/Emergency-box-Notify-KPNHos/actions/workflows/usage-alert.yml/dispatches', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${pat}`, 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ref: 'claude/eloquent-heisenberg-vqrypu', inputs: { boxId, dept: dept || '-', drugName, qty: String(qty), time } }),
+        body: JSON.stringify({ ref: 'claude/eloquent-heisenberg-vqrypu', inputs: { boxId, dept: dept || '-', drugName, qty: String(qty), date, time } }),
       });
       // a workflow_dispatch that's accepted returns 204 with no body — fetch()
       // only rejects on a network-level failure, never on a non-2xx response,
@@ -2506,14 +2506,14 @@ class Component extends DCLogic {
   // just be clicked again) — so both the PAT read and the dispatch call get
   // one retry on failure before this gives up silently, rather than a
   // single unretried attempt on a real-time, one-shot patient-safety ping.
-  async _triggerUsageAlert(boxId, dept, drugName, qty, time) {
+  async _triggerUsageAlert(boxId, dept, drugName, qty, date, time) {
     if (!window.EB_Notify || !window.EB_Notify.loadGithubPAT) return;
     try {
       let pat = await window.EB_Notify.loadGithubPAT();
       if (!pat) pat = await window.EB_Notify.loadGithubPAT(); // one retry — a transient Firestore read failure looks identical to "no PAT set", worth a second try before giving up
       if (!pat) return;
-      const ok = await this._dispatchUsageAlertOnce(pat, boxId, dept, drugName, qty, time);
-      if (!ok) await this._dispatchUsageAlertOnce(pat, boxId, dept, drugName, qty, time);
+      const ok = await this._dispatchUsageAlertOnce(pat, boxId, dept, drugName, qty, date, time);
+      if (!ok) await this._dispatchUsageAlertOnce(pat, boxId, dept, drugName, qty, date, time);
     } catch (_) { /* fire-and-forget, see comment above */ }
   }
 

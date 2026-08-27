@@ -27,6 +27,10 @@ on:
         description: 'Quantity used'
         required: true
         type: string
+      date:
+        description: 'Date recorded (YYYY-MM-DD, Bangkok)'
+        required: true
+        type: string
       time:
         description: 'Time recorded (HH:MM, Bangkok)'
         required: true
@@ -69,4 +73,5 @@ jobs:
           DEPT:      ${{ inputs.dept }}
           DRUG_NAME: ${{ inputs.drugName }}
           QTY:       ${{ inputs.qty }}
+          DATE:      ${{ inputs.date }}
           TIME:      ${{ inputs.time }}

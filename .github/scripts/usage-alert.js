@@ -103,7 +103,20 @@ function row(label, value) {
   };
 }
 
-function buildUsageAlertFlex({ boxId, dept, drugName, qty, time }) {
+// Same short Thai-date format (Buddhist calendar) as check-expiry.js's own
+// thaiDate() helper — kept as a local copy rather than a shared import, same
+// reasoning as row() above (this file has no shared module to pull from).
+// isoDate is expected to already be a plain YYYY-MM-DD string (the app's
+// own this.isoOf(this.TODAY), Bangkok-anchored — see index.html's `TODAY`
+// getter comment for why this app never uses a raw device-local date here).
+function thaiDate(isoDate) {
+  const months = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  const d = new Date(isoDate + 'T00:00:00');
+  if (isNaN(d.getTime())) return isoDate || '—'; // malformed/missing date input — show raw rather than crash
+  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear() + 543}`;
+}
+
+function buildUsageAlertFlex({ boxId, dept, drugName, qty, date, time }) {
   return {
     type: 'bubble',
     size: 'mega',
@@ -132,11 +145,29 @@ function buildUsageAlertFlex({ boxId, dept, drugName, qty, time }) {
         { type: 'separator', margin: 'lg' },
         row('💊  ยาที่ใช้', drugName),
         row('🔢  จำนวน', String(qty)),
-        row('🕐  เวลา', `${time} น.`),
+        row('📅  วันเวลา', `${thaiDate(date)} · ${time} น.`),
         { type: 'separator', margin: 'lg' },
         {
           type: 'text', margin: 'lg', wrap: true, size: 'sm', weight: 'bold', color: '#B45F06',
           text: '⚠️ กรุณาเตรียมกล่องสำรองเปลี่ยนให้พร้อมใช้งานโดยเร็ว',
+        },
+      ],
+    },
+    // "ดูรายละเอียดกล่อง" deep-links straight to this box's own real-time QR
+    // status page (no login needed — see the Paperless Usage Logging section
+    // of CLAUDE.md) so the pharmacist can check the box's current drug/lot
+    // data immediately from the alert, instead of only reading this
+    // snapshot-in-time card. Hardcoding the production Hosting URL here
+    // (rather than deriving it, the way showDrugQR() does client-side) is
+    // fine specifically because this workflow only ever runs against the
+    // one deployed production app — there's no "current origin" concept for
+    // a GitHub Actions job the way there is for a page loaded in a browser.
+    footer: {
+      type: 'box', layout: 'vertical', paddingAll: '12px', spacing: 'sm',
+      contents: [
+        {
+          type: 'button', style: 'primary', color: '#1A6FA3', height: 'sm',
+          action: { type: 'uri', label: '📋 ดูรายละเอียดกล่อง', uri: `https://emergencyboxnotyfykpnhos.web.app/?view=box&id=${encodeURIComponent(boxId)}` },
         },
       ],
     },
@@ -157,9 +188,10 @@ async function main() {
   const dept = process.env.DEPT || '—';
   const drugName = process.env.DRUG_NAME || '—';
   const qty = process.env.QTY || '—';
+  const date = process.env.DATE || '—';
   const time = process.env.TIME || '—';
 
-  const flex = buildUsageAlertFlex({ boxId, dept, drugName, qty, time });
+  const flex = buildUsageAlertFlex({ boxId, dept, drugName, qty, date, time });
   const ok = await sendMOPHNotify(clientKey, secretKey, [
     { type: 'flex', altText: `🔔 กล่อง ${boxId} (${dept}) ถูกเปิดใช้งานแล้ว — ${drugName} × ${qty}`, contents: flex },
   ]);
