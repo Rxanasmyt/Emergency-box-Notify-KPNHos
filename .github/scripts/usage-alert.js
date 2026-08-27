@@ -32,7 +32,7 @@
  */
 const https = require('https');
 
-function sendMOPHNotify(clientKey, secretKey, messages) {
+function sendMOPHNotifyOnce(clientKey, secretKey, messages) {
   return new Promise((resolve) => {
     const payload = JSON.stringify({ messages });
     const req = https.request({
@@ -50,7 +50,6 @@ function sendMOPHNotify(clientKey, secretKey, messages) {
       res.on('data', chunk => { data += chunk; });
       res.on('end', () => {
         if (res.statusCode >= 200 && res.statusCode < 300) {
-          console.log('✅ MOPH Notify: ส่งเข้ากลุ่ม LINE สำเร็จ');
           resolve(true);
         } else {
           console.error(`❌ MOPH Notify: ${res.statusCode} — ${data}`);
@@ -63,6 +62,30 @@ function sendMOPHNotify(clientKey, secretKey, messages) {
     req.write(payload);
     req.end();
   });
+}
+
+// This alert fires exactly once per dispense cycle with no other retry path
+// anywhere in the app if it fails silently — unlike daily-notify.yml (which
+// gets another chance tomorrow) or the in-app manual trigger (which the
+// admin can just click again), a missed box-opened alert is gone for good;
+// the pharmacy simply never finds out the box was opened until someone
+// happens to check the dashboard. A single transient blip talking to a
+// government API (morpromt2f.moph.go.th) — a momentary DNS hiccup, a 5xx,
+// the 30s timeout above — must not be the difference between "pharmacy
+// notified" and "pharmacy never knows", so retry once after a short delay
+// before giving up. Real duplicate delivery from this retry is not a
+// practical concern: it only re-fires when the FIRST attempt was already
+// confirmed to have failed (non-2xx/timeout/network error), never after an
+// ambiguous outcome.
+async function sendMOPHNotify(clientKey, secretKey, messages) {
+  const first = await sendMOPHNotifyOnce(clientKey, secretKey, messages);
+  if (first) { console.log('✅ MOPH Notify: ส่งเข้ากลุ่ม LINE สำเร็จ'); return true; }
+  console.warn('⚠️  MOPH Notify: ครั้งแรกไม่สำเร็จ กำลังลองอีกครั้ง...');
+  await new Promise(r => setTimeout(r, 3000));
+  const second = await sendMOPHNotifyOnce(clientKey, secretKey, messages);
+  if (second) { console.log('✅ MOPH Notify: ส่งเข้ากลุ่ม LINE สำเร็จ (ลองครั้งที่ 2)'); return true; }
+  console.error('❌ MOPH Notify: ล้มเหลวทั้ง 2 ครั้ง — ไม่สามารถแจ้งเตือนห้องยาได้');
+  return false;
 }
 
 // One row: a muted label on the left, the real value bold on the right —

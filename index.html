@@ -2469,25 +2469,9 @@ class Component extends DCLogic {
     clearTimeout(this._pubUsageMsgT);
     this._pubUsageMsgT = setTimeout(() => this.setState({ pubUsageMsg: '' }), 4000);
   }
-  // Fires the "box opened" GitHub Actions workflow (usage-alert.yml —
-  // see .github/scripts/usage-alert.js) so the pharmacy gets a real-time
-  // LINE ping the moment a box's first paperless usage entry is recorded,
-  // instead of finding out only when the box eventually comes back for
-  // return. Reuses the same workflow_dispatch + PAT pattern as the Notify
-  // screen's triggerGHActions(), but this runs from the public QR page
-  // (no logged-in currentUser, so no state.ghPAT to read) — the PAT is
-  // loaded fresh from Firestore via EB_Notify.loadGithubPAT(), the same
-  // app_settings/notifications doc already documented elsewhere as
-  // readable by anyone with the site URL under this app's anon-auth trust
-  // model, so reading it from this unauthenticated page is not a new
-  // exposure. Fire-and-forget: a missed real-time alert is inconvenient,
-  // not data-integrity-critical, and must never surface an error on the
-  // public page or delay the success message the ward actually needs to see.
-  async _triggerUsageAlert(boxId, dept, drugName, qty, time) {
-    if (!window.EB_Notify || !window.EB_Notify.loadGithubPAT) return;
+  // One dispatch attempt — returns true only on a real 204 accepted.
+  async _dispatchUsageAlertOnce(pat, boxId, dept, drugName, qty, time) {
     try {
-      const pat = await window.EB_Notify.loadGithubPAT();
-      if (!pat) return;
       const res = await fetch('https://api.github.com/repos/Rxanasmyt/Emergency-box-Notify-KPNHos/actions/workflows/usage-alert.yml/dispatches', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${pat}`, 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'Content-Type': 'application/json' },
@@ -2499,7 +2483,37 @@ class Component extends DCLogic {
       // would silently "succeed" here with zero indication in devtools that
       // the pharmacy never actually got alerted (same class of silent-failure
       // this app already had to fix once for Firestore's default .get()).
-      if (!res.ok) console.warn('[UsageAlert] dispatch failed:', res.status, await res.text().catch(() => ''));
+      if (!res.ok) { console.warn('[UsageAlert] dispatch failed:', res.status, await res.text().catch(() => '')); return false; }
+      return true;
+    } catch (e) { console.warn('[UsageAlert] dispatch error:', e.message); return false; }
+  }
+  // Fires the "box opened" GitHub Actions workflow (usage-alert.yml —
+  // see .github/scripts/usage-alert.js) so the pharmacy gets a real-time
+  // LINE ping the moment a box's first paperless usage entry is recorded,
+  // instead of finding out only when the box eventually comes back for
+  // return. Reuses the same workflow_dispatch + PAT pattern as the Notify
+  // screen's triggerGHActions(), but this runs from the public QR page
+  // (no logged-in currentUser, so no state.ghPAT to read) — the PAT is
+  // loaded fresh from Firestore via EB_Notify.loadGithubPAT(), the same
+  // app_settings/notifications doc already documented elsewhere as
+  // readable by anyone with the site URL under this app's anon-auth trust
+  // model, so reading it from this unauthenticated page is not a new
+  // exposure. Fire-and-forget: this must never surface an error on the
+  // public page or delay the success message the ward actually needs to
+  // see — BUT unlike most other fire-and-forget side-effects in this app,
+  // a missed box-opened alert has no other chance to happen (the daily
+  // expiry notify gets tomorrow; the admin's manual GH Actions trigger can
+  // just be clicked again) — so both the PAT read and the dispatch call get
+  // one retry on failure before this gives up silently, rather than a
+  // single unretried attempt on a real-time, one-shot patient-safety ping.
+  async _triggerUsageAlert(boxId, dept, drugName, qty, time) {
+    if (!window.EB_Notify || !window.EB_Notify.loadGithubPAT) return;
+    try {
+      let pat = await window.EB_Notify.loadGithubPAT();
+      if (!pat) pat = await window.EB_Notify.loadGithubPAT(); // one retry — a transient Firestore read failure looks identical to "no PAT set", worth a second try before giving up
+      if (!pat) return;
+      const ok = await this._dispatchUsageAlertOnce(pat, boxId, dept, drugName, qty, time);
+      if (!ok) await this._dispatchUsageAlertOnce(pat, boxId, dept, drugName, qty, time);
     } catch (_) { /* fire-and-forget, see comment above */ }
   }
 
