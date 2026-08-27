@@ -2860,6 +2860,21 @@ class Component extends DCLogic {
     window.addEventListener('offline', this._onOffline);
     window.addEventListener('online', this._onOnline);
     if (typeof navigator !== 'undefined' && navigator.onLine === false) this.setState({ pubOffline: true });
+    // Closing the tab, hitting browser back, or refreshing mid-form used to
+    // silently discard whatever was typed with ZERO warning — every
+    // in-app navigation path (switching screens, switching modes, the
+    // SW-update reload guard) already checks window.__ebHasUnsavedWork
+    // before discarding anything, but leaving the page entirely bypassed
+    // all of that. The browser's own native "leave site?" confirmation is
+    // the only mechanism that can intercept this; modern browsers ignore
+    // any custom message and show their own generic text, so returnValue's
+    // actual content doesn't matter — only that it's set at all.
+    this._onBeforeUnload = (e) => {
+      if (!window.__ebHasUnsavedWork) return;
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', this._onBeforeUnload);
     // PWA install prompt
     this._onBeforeInstallPrompt = (e) => {
       e.preventDefault();
@@ -2932,6 +2947,7 @@ class Component extends DCLogic {
     if (this._onVisibility) document.removeEventListener('visibilitychange', this._onVisibility);
     if (this._onOffline) window.removeEventListener('offline', this._onOffline);
     if (this._onOnline) window.removeEventListener('online', this._onOnline);
+    if (this._onBeforeUnload) window.removeEventListener('beforeunload', this._onBeforeUnload);
     if (this._ripple) document.removeEventListener('click', this._ripple);
     if (this._onBeforeInstallPrompt) window.removeEventListener('beforeinstallprompt', this._onBeforeInstallPrompt);
     if (this._onAppInstalled) window.removeEventListener('appinstalled', this._onAppInstalled);
@@ -5444,10 +5460,18 @@ td.l{text-align:left;padding-left:4px}
     const st = this.state;
     const screen = st.screen;
     // Exposed for the SW-update auto-reload guard in <head> (see the
-    // `controllerchange` handler) — a background deploy landing while a
-    // pharmacist has an unsaved register/dispense/return/drug-edit form open
-    // must not silently reload and discard it out from under them.
-    window.__ebHasUnsavedWork = !!st.editDrugs || (screen === 'entry' && !!st.formMode && this._isFormDirty(st.formMode));
+    // `controllerchange` handler) and the `beforeunload` guard registered in
+    // componentDidMount below — a background deploy landing (or the user
+    // accidentally closing the tab/hitting back/refreshing) while a
+    // pharmacist has an unsaved register/dispense/return/drug-edit form
+    // open, OR a ward staff member has a paperless usage entry half-typed
+    // on the public QR page, must not silently discard it with zero
+    // warning. The public-page half wasn't covered here at all before —
+    // that form has no `formMode`/`_isFormDirty` concept of its own, so a
+    // closed tab mid-entry lost whatever was typed with no prompt, unlike
+    // every authenticated-app form which already had this protection.
+    const _pubUsageDirty = !!st.publicView && (st.pubUsageDrugIdx !== null || !!(st.pubUsageQty || '').trim() || !!(st.pubUsageHN || '').trim() || !!(st.pubUsagePatient || '').trim());
+    window.__ebHasUnsavedWork = !!st.editDrugs || (screen === 'entry' && !!st.formMode && this._isFormDirty(st.formMode)) || _pubUsageDirty;
     const h = React.createElement;
     const ic = (svg, sz) => h('span', { style: { display: 'flex', alignItems: 'center', width: sz || 19, height: sz || 19, flexShrink: 0 }, dangerouslySetInnerHTML: { __html: svg } });
     // Several clickable dashboard/history rows are plain <div onClick> with
