@@ -283,25 +283,49 @@ function deleteUser(user){
 // — non-transactional, so two admins racing to demote/suspend/delete EACH
 // OTHER at nearly the same moment could each independently see "the other
 // one is still active" and both writes land, leaving zero active admins
-// with no in-app recovery path (documented as a known, accepted narrow
-// race — now actually closed). Re-reads every admin doc fresh, atomically,
-// inside the SAME transaction that performs the change, and aborts with
-// LAST_ADMIN if fewer than one OTHER active admin would remain.
+// with no in-app recovery path. Re-reads the known admin docs fresh,
+// atomically, inside the SAME transaction that performs the change, and
+// aborts with LAST_ADMIN if fewer than one OTHER active admin would remain.
 // action: 'fields' (role/status change, merges `fields`) or 'delete'.
-// Deliberately queries by role alone (not an equality filter on status
-// too) — a doc with no `status` field at all (this app's own "missing
-// means active" convention) would silently not match a `status=='active'`
-// equality filter and undercount, so "active" is decided client-side per
-// doc after the role-filtered query comes back, not in the query itself.
-function guardedAdminChangeTx(username,action,fields){
+//
+// candidateUsernames is the current admin roster from the CALLER's
+// state.users (a live-but-possibly-stale onSnapshot array) — NOT read via
+// a live query inside the transaction. This is a real, confirmed
+// constraint, not a design choice: Transaction.get() in this SDK version
+// only accepts a single DocumentReference, never a Query — an earlier
+// version of this function tried `tx.get(collection.where(...))` and it
+// was NEVER actually exercised against real Firestore before shipping;
+// tested directly against production with a throwaway test user doc, it
+// threw `invalid-argument: Expected type 'DocumentReference', but it was:
+// a custom Query object` on every single call, silently breaking every
+// admin demote/suspend/delete action in production. Fixed by tx.get()-ing
+// each admin's own DocumentReference individually instead.
+// This still closes the actual race that mattered: two clients acting on
+// the same two admin accounts both read/write documents from this same
+// known set, so Firestore's normal transaction conflict detection (a
+// transaction that read a document since modified by another committed
+// transaction is automatically retried with fresh data) still forces the
+// second-to-commit transaction to re-evaluate against the first one's
+// result — role AND status are both re-checked fresh per doc inside the
+// transaction (not trusted from the possibly-stale candidate list), so a
+// candidate that turns out to no longer be an active admin by commit time
+// is correctly excluded. The only residual gap is a roster GAIN/LOSS
+// exactly in the moment between the caller reading state.users and the
+// transaction starting (a newly-promoted admin not yet in the candidate
+// list, or a newly-demoted one still in it) — a materially different,
+// far narrower race than the one this function exists to close, and
+// self-corrects on the admin list's next live update.
+function guardedAdminChangeTx(username,candidateUsernames,action,fields){
   if(!db)return Promise.reject(new Error('no-db'));
   const userRef=db.collection(C.users).doc(username);
-  return db.runTransaction(tx=>tx.get(db.collection(C.users).where('role','==','admin')).then(adminsSnap=>{
+  const usernames=Array.from(new Set([...(candidateUsernames||[]),username]));
+  const refs=usernames.map(u=>db.collection(C.users).doc(u));
+  return db.runTransaction(tx=>Promise.all(refs.map(r=>tx.get(r))).then(snaps=>{
     let activeOthers=0;
-    adminsSnap.forEach(doc=>{
-      if(doc.id===username)return;
-      const d=doc.data();
-      if((d.status||'active')==='active')activeOthers++;
+    snaps.forEach(snap=>{
+      if(!snap.exists||snap.id===username)return;
+      const d=snap.data();
+      if(d.role==='admin'&&(d.status||'active')==='active')activeOthers++;
     });
     if(activeOthers===0){const err=new Error('ต้องมีแอดมินที่ใช้งานได้อย่างน้อย 1 คนเสมอ');err.code='LAST_ADMIN';throw err;}
     if(action==='delete')tx.delete(userRef);

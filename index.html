@@ -4209,7 +4209,7 @@ class Component extends DCLogic {
         // await + check before updating local state/logging — a failed write
         // must never claim success in the UI or the append-only audit_log
         try {
-          if (isDemotingAdmin) await window.EB_Sync.guardedAdminChangeTx(username, 'fields', { role });
+          if (isDemotingAdmin) await window.EB_Sync.guardedAdminChangeTx(username, this.state.users.filter(x => x.role === 'admin').map(x => x.username), 'fields', { role });
           else await window.EB_Sync.syncUsers({ ...freshU, role });
         } catch (err) {
           if (err && err.code === 'LAST_ADMIN') this.flash('⚠️ ไม่สามารถลดบทบาทได้ — ต้องมีแอดมินที่ใช้งานได้อย่างน้อย 1 คนเสมอ');
@@ -4244,7 +4244,7 @@ class Component extends DCLogic {
     const changed = { ...targetUser, status: newStatus };
     const label = newStatus === 'active' ? 'เปิดใช้งานบัญชีแล้ว' : 'ระงับบัญชีแล้ว';
     try {
-      if (isSuspendingAdmin) await window.EB_Sync.guardedAdminChangeTx(username, 'fields', { status: newStatus });
+      if (isSuspendingAdmin) await window.EB_Sync.guardedAdminChangeTx(username, this.state.users.filter(x => x.role === 'admin').map(x => x.username), 'fields', { status: newStatus });
       else await window.EB_Sync.syncUsers(changed);
     } catch (err) {
       if (err && err.code === 'LAST_ADMIN') this.flash('⚠️ ไม่สามารถระงับบัญชีนี้ได้ — ต้องมีแอดมินที่ใช้งานได้อย่างน้อย 1 คนเสมอ');
@@ -4304,7 +4304,7 @@ class Component extends DCLogic {
     }
     if (!window.EB_Sync) { this.flash('⚠️ ระบบซิงค์ยังไม่พร้อม — กรุณารีเฟรชหน้าแล้วลองใหม่'); return; }
     try {
-      if (isDeletingAdmin) await window.EB_Sync.guardedAdminChangeTx(username, 'delete', null);
+      if (isDeletingAdmin) await window.EB_Sync.guardedAdminChangeTx(username, this.state.users.filter(x => x.role === 'admin').map(x => x.username), 'delete', null);
       else await window.EB_Sync.deleteUser(u);
     } catch (err) {
       if (err && err.code === 'LAST_ADMIN') this.flash('⚠️ ไม่สามารถลบบัญชีนี้ได้ — ต้องมีแอดมินที่ใช้งานได้อย่างน้อย 1 คนเสมอ');
