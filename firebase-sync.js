@@ -277,6 +277,37 @@ function deleteUser(user){
   if(!docId)return Promise.reject(new Error('deleteUser: missing uid and username'));
   return db.collection(C.users).doc(docId).delete().catch(err=>{console.error('[Sync] User delete failed:',err.message);throw err;});
 }
+// setUserRole/toggleUserStatus/deleteUser's "keep at least 1 active admin"
+// guard was previously a plain client-side count against state.users (a
+// live-but-possibly-stale onSnapshot array) checked BEFORE the actual write
+// — non-transactional, so two admins racing to demote/suspend/delete EACH
+// OTHER at nearly the same moment could each independently see "the other
+// one is still active" and both writes land, leaving zero active admins
+// with no in-app recovery path (documented as a known, accepted narrow
+// race — now actually closed). Re-reads every admin doc fresh, atomically,
+// inside the SAME transaction that performs the change, and aborts with
+// LAST_ADMIN if fewer than one OTHER active admin would remain.
+// action: 'fields' (role/status change, merges `fields`) or 'delete'.
+// Deliberately queries by role alone (not an equality filter on status
+// too) — a doc with no `status` field at all (this app's own "missing
+// means active" convention) would silently not match a `status=='active'`
+// equality filter and undercount, so "active" is decided client-side per
+// doc after the role-filtered query comes back, not in the query itself.
+function guardedAdminChangeTx(username,action,fields){
+  if(!db)return Promise.reject(new Error('no-db'));
+  const userRef=db.collection(C.users).doc(username);
+  return db.runTransaction(tx=>tx.get(db.collection(C.users).where('role','==','admin')).then(adminsSnap=>{
+    let activeOthers=0;
+    adminsSnap.forEach(doc=>{
+      if(doc.id===username)return;
+      const d=doc.data();
+      if((d.status||'active')==='active')activeOthers++;
+    });
+    if(activeOthers===0){const err=new Error('ต้องมีแอดมินที่ใช้งานได้อย่างน้อย 1 คนเสมอ');err.code='LAST_ADMIN';throw err;}
+    if(action==='delete')tx.delete(userRef);
+    else tx.set(userRef,fields,{merge:true});
+  })).catch(err=>{if(err.code!=='LAST_ADMIN')console.error('[Sync] guardedAdminChangeTx failed:',err.message);throw err;});
+}
 // Atomically marks a box returned AND decrements its box_drugs quantities in one
 // Firestore transaction, reading both docs fresh at commit time (never the
 // client's local cache). This closes two races the plain set()/merge() writes
@@ -315,6 +346,32 @@ function returnBoxAndDrugsTx(boxId,boxFields,usageMap){
     }
     return {drugs:updatedDrugs};
   })).catch(err=>{if(err.code!=='NOT_OUT')console.error('[Sync] returnBoxAndDrugsTx failed:',err.message);throw err;});
+}
+// Detail screen's drug/lot editor (saveEditDrugs() in index.html) — was
+// previously a plain overwrite of the whole box_drugs.drugs[] array, with a
+// client-side "did the data change since I started editing" check performed
+// BEFORE that write (comparing against a snapshot taken when editing
+// started). A real concurrent write (a return, a paperless usage-log entry)
+// landing in the sub-second gap between that check and the write itself was
+// never caught, letting the editor silently overwrite a real quantity
+// decrement that happened in that gap. Now a genuine transaction: re-reads
+// box_drugs fresh at commit time and compares against the same
+// editing-started snapshot (expectedDrugs) ATOMICALLY inside the
+// transaction, closing that race the same way returnBoxAndDrugsTx/
+// logDrugUsageTx already close theirs. boxFields (expiry/nearDrug) is
+// optional and applied to the boxes doc in the same transaction.
+function saveEditDrugsTx(boxId,expectedDrugs,newDrugs,boxFields){
+  if(!db)return Promise.reject(new Error('no-db'));
+  const boxRef=db.collection(C.boxes).doc(boxId);
+  const drugsRef=db.collection(C.boxDrugs).doc(boxId);
+  return db.runTransaction(tx=>tx.get(drugsRef).then(drugsSnap=>{
+    const liveDrugs=(drugsSnap.exists?drugsSnap.data().drugs:null)||[];
+    if(JSON.stringify(liveDrugs)!==JSON.stringify(expectedDrugs)){
+      const err=new Error('ข้อมูลยาของกล่องนี้เปลี่ยนไประหว่างที่คุณแก้ไข');err.code='CONCURRENT_CHANGE';throw err;
+    }
+    tx.set(drugsRef,{boxId,drugs:newDrugs,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
+    if(boxFields)tx.update(boxRef,boxFields);
+  })).catch(err=>{if(err.code!=='CONCURRENT_CHANGE')console.error('[Sync] saveEditDrugsTx failed:',err.message);throw err;});
 }
 // Paperless usage logging — a ward/dept scans the box QR and records a single
 // drug-use event (no login required, gated by a department PIN checked in the
@@ -552,5 +609,5 @@ function syncDeptPins(pins){
   return db.collection(C.appSettings).doc('dept_pins').set(pins,{merge:true})
     .catch(err=>{console.error('[Sync] syncDeptPins failed:',err.message);throw err;});
 }
-window.EB_Sync={initUsersOnly,initFirebaseSync,startPublicSync,stopSync,stopAll,logAudit,syncBoxes,syncUsers,deleteUser,syncBoxDrugs,returnBoxAndDrugsTx,logDrugUsageTx,listenUsageLog,listenAllUsageLog,getDeptPins,syncDeptPins,fetchAuditRange,fetchUsageLogRange,fetchBoxHistory,logKpiEvent,fetchKpiEvents,listenKpiEvents,logKpiInvestigation,fetchKpiInvestigations,listenKpiInvestigations};
+window.EB_Sync={initUsersOnly,initFirebaseSync,startPublicSync,stopSync,stopAll,logAudit,syncBoxes,syncUsers,deleteUser,guardedAdminChangeTx,syncBoxDrugs,returnBoxAndDrugsTx,saveEditDrugsTx,logDrugUsageTx,listenUsageLog,listenAllUsageLog,getDeptPins,syncDeptPins,fetchAuditRange,fetchUsageLogRange,fetchBoxHistory,logKpiEvent,fetchKpiEvents,listenKpiEvents,logKpiInvestigation,fetchKpiInvestigations,listenKpiInvestigations};
 })();

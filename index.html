@@ -2467,11 +2467,20 @@ class Component extends DCLogic {
   // pattern this app uses everywhere else: a gate at the UI entry point is
   // never trusted as the only check before a real Firestore write).
   _pubUsageBasicValid() {
-    const { pubUsageDrugIdx, pubUsageLotIdx, pubUsageQty, pubUsageHN } = this.state;
+    const { publicBoxId, pubUsageDrugIdx, pubUsageLotIdx, pubUsageQty, pubUsageHN } = this.state;
     if (pubUsageDrugIdx === null || pubUsageLotIdx === null) { this.setState({ pubUsageMsg: 'กรุณาเลือกยาที่ใช้', pubUsageMsgOk: false }); return false; }
     const qty = parseInt(pubUsageQty, 10);
     if (!qty || qty <= 0) { this.setState({ pubUsageMsg: 'กรุณากรอกจำนวนที่ใช้', pubUsageMsgOk: false }); return false; }
     if (!(pubUsageHN || '').trim()) { this.setState({ pubUsageMsg: 'กรุณากรอก HN ผู้ป่วย', pubUsageMsgOk: false }); return false; }
+    // Client-side pre-check against the live selected lot — saves an
+    // avoidable round trip for the obvious case; logDrugUsageTx's
+    // server-side INSUFFICIENT_QTY check is still the real authority and
+    // stays in place regardless (a concurrent decrement between this check
+    // and the actual submit is still possible and still correctly caught
+    // there).
+    const liveLots = (((this.BOX_DRUGS || {})[publicBoxId] || {})[pubUsageDrugIdx] || {}).lots || [];
+    const lot = liveLots[pubUsageLotIdx];
+    if (lot && qty > (lot.qty || 0)) { this.setState({ pubUsageMsg: `จำนวนที่กรอกมากกว่าที่มีอยู่จริง (เหลือ ${lot.qty || 0} หน่วย)`, pubUsageMsgOk: false }); return false; }
     return true;
   }
   // Opens a review step showing exactly what's about to be recorded before
@@ -3535,35 +3544,44 @@ class Component extends DCLogic {
       const _implausible = (drug.lots || []).filter(l => l.expiry && l.expiry > _maxPlausibleExpEdit).length;
       if (_implausible > 0) { this.flash(`วันหมดอายุไกลเกินไป (เกิน 10 ปีจากวันนี้) — ตรวจสอบอีกครั้ง ${_implausible} lot`); return; }
     }
-    // Detect a concurrent change (e.g. a return or paperless usage-log entry
-    // decrementing quantities) made by someone else while this edit was open —
-    // this write is a plain overwrite of the whole drugs[] array, not a
-    // transaction, so saving now would silently discard that change. Compare
-    // against the snapshot taken when editing started (this._bdBackup).
-    const liveNow = (this.BOX_DRUGS || {})[id] || [];
-    const backupSnapshot = (this._bdBackup || {})[id] || [];
-    if (JSON.stringify(liveNow) !== JSON.stringify(backupSnapshot)) {
-      this.flash('⚠️ ข้อมูลยาของกล่องนี้เปลี่ยนไประหว่างที่คุณแก้ไข (อาจมีการรับคืน/บันทึกใช้ยาเข้ามาใหม่) — กด "ยกเลิก" แล้วแก้ไขใหม่อีกครั้ง เพื่อไม่ให้ข้อมูลล่าสุดหาย');
+    // Concurrent-change detection (e.g. a return or paperless usage-log
+    // entry decrementing quantities while this editor was open) now happens
+    // ATOMICALLY inside saveEditDrugsTx's own transaction, not as a
+    // check-then-write here — closes the narrow race where a concurrent
+    // write could land in the gap between a client-side pre-check and the
+    // write itself. expectedDrugs is still the snapshot from when editing
+    // started (this._bdBackup); the transaction re-reads live data fresh
+    // at commit time and compares there.
+    if (!window.EB_Sync) {
+      this.flash('⚠️ ระบบซิงค์ยังไม่พร้อม — กรุณารีเฟรชหน้าแล้วลองใหม่');
       return;
     }
     this._savingDrugs = true;
-    // await + check both writes before exiting edit mode/flashing success/logging —
+    // await + check before exiting edit mode/flashing success/logging —
     // same reasoning as dispense/register/reject: a failed write must never claim
     // success in the UI or leave a false "แก้ไขยา" record in the append-only audit_log.
     // Stay in edit mode on failure so the user's typed changes aren't lost.
     const near = this.nearDrugOf(id);
     const nearISO = this.regNearISOof(id);
     const boxToSync = this.BOXES.find(b => b.id === id);
-    let boxOk = true;
-    const drugsOk = await this._syncBoxDrugs(id, drugs);
-    if (boxToSync && window.EB_Sync) {
-      boxOk = await this._syncBox({ ...boxToSync, expiry: nearISO || '', nearDrug: near || '' });
-    }
-    this._savingDrugs = false;
-    if (!drugsOk || !boxOk) {
-      this.flash('⚠️ บันทึกไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่');
+    const boxFields = boxToSync ? { expiry: nearISO || '', nearDrug: near || '' } : null;
+    const expectedDrugs = (this._bdBackup || {})[id] || [];
+    try {
+      await window.EB_Sync.saveEditDrugsTx(id, expectedDrugs, drugs, boxFields);
+    } catch (err) {
+      this._savingDrugs = false;
+      if (err && err.code === 'CONCURRENT_CHANGE') {
+        this.flash('⚠️ ข้อมูลยาของกล่องนี้เปลี่ยนไประหว่างที่คุณแก้ไข (อาจมีการรับคืน/บันทึกใช้ยาเข้ามาใหม่) — กด "ยกเลิก" แล้วแก้ไขใหม่อีกครั้ง เพื่อไม่ให้ข้อมูลล่าสุดหาย');
+      } else {
+        this.flash('⚠️ บันทึกไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่');
+      }
       return;
     }
+    this._savingDrugs = false;
+    // both writes are already committed server-side (atomically) at this
+    // point — update the local caches to match, no rollback needed.
+    this.BOX_DRUGS = { ...(this.BOX_DRUGS || {}), [id]: drugs };
+    if (boxToSync && boxFields) this.BOXES = this.BOXES.map(b => b.id === id ? { ...b, ...boxFields } : b);
     this._bdBackup = null;
     this.setState({ editDrugs: false, saveSuccess: Date.now(), boxDrugs: null });
     clearTimeout(this._saveSuccessT);
@@ -4136,7 +4154,12 @@ class Component extends DCLogic {
     if (username === this.state.currentUser.username && role !== 'admin') { this.flash('ไม่สามารถเปลี่ยนบทบาทของตัวเองลงได้'); return; }
     const u = this.state.users.find(x => x.username === username);
     if (!u || u.role === role) return;
-    if (u.role === 'admin' && role !== 'admin' && this._activeAdminCount(username) === 0) {
+    const isDemotingAdmin = u.role === 'admin' && role !== 'admin';
+    // Client-side pre-check stays as a fast, cheap first gate (avoids
+    // opening the confirm dialog at all for the common case) — the real
+    // guarantee now lives in guardedAdminChangeTx's transaction below,
+    // which re-checks atomically at commit time and cannot be raced.
+    if (isDemotingAdmin && this._activeAdminCount(username) === 0) {
       this.flash('⚠️ ไม่สามารถลดบทบาทได้ — ต้องมีแอดมินที่ใช้งานได้อย่างน้อย 1 คนเสมอ');
       return;
     }
@@ -4159,9 +4182,11 @@ class Component extends DCLogic {
         // await + check before updating local state/logging — a failed write
         // must never claim success in the UI or the append-only audit_log
         try {
-          await window.EB_Sync.syncUsers({ ...freshU, role });
+          if (isDemotingAdmin) await window.EB_Sync.guardedAdminChangeTx(username, 'fields', { role });
+          else await window.EB_Sync.syncUsers({ ...freshU, role });
         } catch (err) {
-          this.flash('⚠️ เปลี่ยนบทบาทไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
+          if (err && err.code === 'LAST_ADMIN') this.flash('⚠️ ไม่สามารถลดบทบาทได้ — ต้องมีแอดมินที่ใช้งานได้อย่างน้อย 1 คนเสมอ');
+          else this.flash('⚠️ เปลี่ยนบทบาทไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
           return;
         }
         this.setState(s => ({ users: s.users.map(x => x.username === username ? { ...x, role } : x) }));
@@ -4181,7 +4206,10 @@ class Component extends DCLogic {
       return;
     }
     const newStatus = liveStatus === 'active' ? 'suspended' : 'active';
-    if (targetUser.role === 'admin' && newStatus === 'suspended' && this._activeAdminCount(username) === 0) {
+    const isSuspendingAdmin = targetUser.role === 'admin' && newStatus === 'suspended';
+    // Cheap client-side pre-check for the common case — guardedAdminChangeTx's
+    // transaction below is the real, race-proof guarantee (see its own comment).
+    if (isSuspendingAdmin && this._activeAdminCount(username) === 0) {
       this.flash('⚠️ ไม่สามารถระงับบัญชีนี้ได้ — ต้องมีแอดมินที่ใช้งานได้อย่างน้อย 1 คนเสมอ');
       return;
     }
@@ -4189,9 +4217,11 @@ class Component extends DCLogic {
     const changed = { ...targetUser, status: newStatus };
     const label = newStatus === 'active' ? 'เปิดใช้งานบัญชีแล้ว' : 'ระงับบัญชีแล้ว';
     try {
-      await window.EB_Sync.syncUsers(changed);
+      if (isSuspendingAdmin) await window.EB_Sync.guardedAdminChangeTx(username, 'fields', { status: newStatus });
+      else await window.EB_Sync.syncUsers(changed);
     } catch (err) {
-      this.flash('⚠️ บันทึกไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
+      if (err && err.code === 'LAST_ADMIN') this.flash('⚠️ ไม่สามารถระงับบัญชีนี้ได้ — ต้องมีแอดมินที่ใช้งานได้อย่างน้อย 1 คนเสมอ');
+      else this.flash('⚠️ บันทึกไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
       return;
     }
     this.setState(s => ({ users: s.users.map(u => u.username === username ? changed : u) }));
@@ -4238,15 +4268,20 @@ class Component extends DCLogic {
     if (username === this.state.currentUser.username) { this.flash('ไม่สามารถลบบัญชีของตัวเองได้'); return; }
     const u = this.state.users.find(x => x.username === username);
     if (!u) { this.flash('ไม่พบบัญชีผู้ใช้'); return; }
-    if (u.role === 'admin' && this._activeAdminCount(username) === 0) {
+    const isDeletingAdmin = u.role === 'admin';
+    // Cheap client-side pre-check for the common case — guardedAdminChangeTx's
+    // transaction below is the real, race-proof guarantee (see its own comment).
+    if (isDeletingAdmin && this._activeAdminCount(username) === 0) {
       this.flash('⚠️ ไม่สามารถลบบัญชีนี้ได้ — ต้องมีแอดมินที่ใช้งานได้อย่างน้อย 1 คนเสมอ');
       return;
     }
     if (!window.EB_Sync) { this.flash('⚠️ ระบบซิงค์ยังไม่พร้อม — กรุณารีเฟรชหน้าแล้วลองใหม่'); return; }
     try {
-      await window.EB_Sync.deleteUser(u);
+      if (isDeletingAdmin) await window.EB_Sync.guardedAdminChangeTx(username, 'delete', null);
+      else await window.EB_Sync.deleteUser(u);
     } catch (err) {
-      this.flash('⚠️ ลบบัญชีไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
+      if (err && err.code === 'LAST_ADMIN') this.flash('⚠️ ไม่สามารถลบบัญชีนี้ได้ — ต้องมีแอดมินที่ใช้งานได้อย่างน้อย 1 คนเสมอ');
+      else this.flash('⚠️ ลบบัญชีไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
       return;
     }
     this.setState(s => ({ users: s.users.filter(x => x.username !== username) }));
@@ -5969,7 +6004,10 @@ td.l{text-align:left;padding-left:4px}
                 ) : null).filter(Boolean))
               ),
               pubBD.every(d => (d.lots || []).every(l => !(l.qty > 0))) ? h('div', { style: { fontSize: 12.5, color: '#9AAAB8', marginBottom: 14 } }, 'ไม่มียาคงเหลือในกล่องนี้') : null,
-              h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 } },
+              h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: (() => {
+                const _pubSelLot = (st.pubUsageDrugIdx !== null && st.pubUsageLotIdx !== null) ? ((pubBD[st.pubUsageDrugIdx] || {}).lots || [])[st.pubUsageLotIdx] : null;
+                return (_pubSelLot && (parseInt(st.pubUsageQty, 10) || 0) > (_pubSelLot.qty || 0)) ? 4 : 10;
+              })() } },
                 h('div', null,
                   h('label', { style: { fontSize: 11.5, fontWeight: 600, color: '#4A5C6A', display: 'block', marginBottom: 4 } }, 'จำนวนที่ใช้'),
                   h('input', { type: 'text', inputMode: 'numeric', value: st.pubUsageQty, onChange: (e) => this.setPubUsageQty(e.target.value), placeholder: '0', style: { width: '100%', height: 42, border: '1.5px solid #DBE4EB', borderRadius: 9, padding: '0 12px', fontSize: 13.5, boxSizing: 'border-box' } })),
@@ -5977,6 +6015,16 @@ td.l{text-align:left;padding-left:4px}
                   h('label', { style: { fontSize: 11.5, fontWeight: 600, color: '#4A5C6A', display: 'block', marginBottom: 4 } }, 'HN ผู้ป่วย'),
                   h('input', { type: 'text', value: st.pubUsageHN, onChange: (e) => this.setPubUsageHN(e.target.value), placeholder: 'HN', style: { width: '100%', height: 42, border: '1.5px solid #DBE4EB', borderRadius: 9, padding: '0 12px', fontSize: 13.5, boxSizing: 'border-box' } }))
               ),
+              // Client-side pre-check against the live selected lot's remaining
+              // quantity — logDrugUsageTx's server-side INSUFFICIENT_QTY check
+              // already rejects an over-limit submit correctly; this just saves
+              // ward staff an avoidable round trip by catching the obvious case
+              // immediately, before they even tap submit.
+              (() => {
+                const _pubSelLot = (st.pubUsageDrugIdx !== null && st.pubUsageLotIdx !== null) ? ((pubBD[st.pubUsageDrugIdx] || {}).lots || [])[st.pubUsageLotIdx] : null;
+                const _pubQtyExceeds = !!(_pubSelLot && (parseInt(st.pubUsageQty, 10) || 0) > (_pubSelLot.qty || 0));
+                return _pubQtyExceeds ? h('div', { style: { fontSize: 12, fontWeight: 600, color: '#E03E3E', marginBottom: 12 } }, `⚠️ จำนวนที่กรอกมากกว่าที่มีอยู่จริง (เหลือ ${_pubSelLot.qty || 0} หน่วย)`) : null;
+              })(),
               h('div', { style: { marginBottom: 14 } },
                 h('label', { style: { fontSize: 11.5, fontWeight: 600, color: '#4A5C6A', display: 'block', marginBottom: 4 } }, 'ชื่อผู้ป่วย (ถ้ามี)'),
                 h('input', { type: 'text', value: st.pubUsagePatient, onChange: (e) => this.setPubUsagePatient(e.target.value), placeholder: 'ชื่อ-สกุล', style: { width: '100%', height: 42, border: '1.5px solid #DBE4EB', borderRadius: 9, padding: '0 12px', fontSize: 13.5, boxSizing: 'border-box' } })),
