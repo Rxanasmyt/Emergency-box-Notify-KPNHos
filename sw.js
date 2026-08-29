@@ -1,5 +1,5 @@
-const CACHE_NAME = 'eb-notify-v2.55.0';
-const PRECACHE_URLS = ['./index.html','./support.js','./manifest.json','./icons/icon-192.svg','./icons/icon-512.svg','./firebase-init.js','./firebase-sync.js','./notify.js'];
+const CACHE_NAME = 'eb-notify-v2.56.0';
+const PRECACHE_URLS = ['./index.html','./support.js','./manifest.json','./icons/icon-192.svg','./icons/icon-512.svg','./icons/icon-192-maskable.svg','./icons/icon-512-maskable.svg','./firebase-init.js','./firebase-sync.js','./notify.js'];
 const CDN_PATTERNS = ['fonts.gstatic.com','unpkg.com/react','unpkg.com/react-dom','cdnjs.cloudflare.com','gstatic.com/firebasejs'];
 
 self.addEventListener('install', event => {

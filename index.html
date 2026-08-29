@@ -34,6 +34,33 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="EB Notify">
 <link rel="manifest" href="./manifest.json">
+<script>
+// Only the public QR box-view page (?view=box&id=...) needs a per-box
+// start_url — the normal app URL keeps the static manifest.json exactly
+// as-is (default, cacheable, zero extra work). Without this, "Add to Home
+// Screen" from a box's QR page always relaunched the installed icon at the
+// plain start_url with no query string, silently losing the specific box
+// the shortcut was created from (manifest.json's scope: "./" already lets
+// the QR page be navigated to WITHIN the installed PWA once launched —
+// this only affects what URL the home-screen icon itself opens to).
+// Synchronous, non-deferred, placed immediately after the real manifest
+// <link> so it runs as early as possible, before the browser's own
+// installability/beforeinstallprompt evaluation reads the manifest.
+(function () {
+  try {
+    var p = new URLSearchParams(location.search);
+    if (p.get('view') !== 'box' || !p.get('id')) return;
+    fetch('./manifest.json').then(function (r) { return r.json(); }).then(function (m) {
+      var startUrl = location.pathname + location.search;
+      m.start_url = startUrl;
+      m.id = startUrl;
+      var blob = new Blob([JSON.stringify(m)], { type: 'application/json' });
+      var link = document.querySelector('link[rel="manifest"]');
+      if (link) link.href = URL.createObjectURL(blob);
+    }).catch(function () {});
+  } catch (e) {}
+})();
+</script>
 <link rel="apple-touch-icon" href="./icons/icon-192.svg">
 <!-- preconnect to CDN/API origins so the TLS handshake overlaps HTML parsing
      instead of starting only once each <script> tag is reached -->
@@ -7699,7 +7726,15 @@ td.l{text-align:left;padding-left:4px}
     }
     const ulFilterDept = st.ulFilterDept || 'all';
     const ulQ = (st.ulQuery || '').trim().toLowerCase();
-    const _ulFiltered = (st.allUsageLog || []).filter(u => {
+    // Gated the same way the listener two lines above already is — this
+    // filter+map only feeds the Users screen's usage-log report table, but
+    // used to recompute on EVERY render app-wide (state.allUsageLog can hold
+    // up to 1000 rows and stays populated for the rest of the session once
+    // an admin has visited this screen once), wasted work for every
+    // keystroke/interaction anywhere else in the app. Purely a performance
+    // cleanup — vals.usageLogReportRows/Count are only ever read by this
+    // screen's own template section.
+    const _ulFiltered = (screen === 'users' && _isAdminNow) ? (st.allUsageLog || []).filter(u => {
       if (ulFilterDept !== 'all' && u.dept !== ulFilterDept) return false;
       if (st.ulDateFrom && (u.recordedAt || '') < st.ulDateFrom) return false;
       if (st.ulDateTo && (u.recordedAt || '') > st.ulDateTo) return false;
@@ -7708,7 +7743,7 @@ td.l{text-align:left;padding-left:4px}
         if (!hay.includes(ulQ)) return false;
       }
       return true;
-    });
+    }) : [];
     vals.usageLogReportRows = _ulFiltered.map((u, i) => ({
       key: u.id || i,
       seq: _ulFiltered.length - i,
