@@ -691,6 +691,17 @@ function buildFlexMessages(alerts, boxSummaries) {
 // messages = array of LINE message objects (text, flex, etc.)
 function sendMOPHNotify(clientKey, secretKey, messages) {
   return new Promise((resolve) => {
+    // settled guards against a double-resolve AND is the real fix for the
+    // timeout path below — req.destroy() with no error argument does not
+    // reliably emit an 'error' event when the socket hasn't finished
+    // connecting yet (DNS stall, dropped SYN, unreachable network), so a
+    // version of this function that only ever resolved from req.on('error')
+    // could hang the whole process forever on exactly the transient network
+    // blip this timeout exists to guard against. Resolving directly from the
+    // timeout callback (not relying on destroy() to trigger 'error') closes
+    // that gap; destroy() is still called to actually free the socket.
+    let settled = false;
+    const finish = (val) => { if (settled) return; settled = true; resolve(val); };
     const payload = JSON.stringify({ messages });
 
     const req = https.request({
@@ -709,15 +720,15 @@ function sendMOPHNotify(clientKey, secretKey, messages) {
       res.on('end', () => {
         if (res.statusCode >= 200 && res.statusCode < 300) {
           console.log('✅ MOPH Notify: ส่งเข้ากลุ่ม LINE สำเร็จ');
-          resolve(true);
+          finish(true);
         } else {
           console.error(`❌ MOPH Notify: ${res.statusCode} — ${data}`);
-          resolve(false);
+          finish(false);
         }
       });
     });
-    req.setTimeout(30000, () => { console.error('❌ MOPH Notify timeout (30s)'); req.destroy(); });
-    req.on('error', err => { if (err.code !== 'ERR_SOCKET_DESTROYED') console.error('❌ MOPH Notify error:', err.message); resolve(false); });
+    req.setTimeout(30000, () => { console.error('❌ MOPH Notify timeout (30s)'); req.destroy(); finish(false); });
+    req.on('error', err => { if (err.code !== 'ERR_SOCKET_DESTROYED') console.error('❌ MOPH Notify error:', err.message); finish(false); });
     req.write(payload);
     req.end();
   });

@@ -34,6 +34,17 @@ const https = require('https');
 
 function sendMOPHNotifyOnce(clientKey, secretKey, messages) {
   return new Promise((resolve) => {
+    // settled/finish: req.destroy() with no error argument does not reliably
+    // emit an 'error' event when the socket hasn't finished connecting yet
+    // (DNS stall, dropped SYN, unreachable network) — relying on req.on('error')
+    // alone to resolve on a timeout could hang this promise forever on exactly
+    // the transient network blip the 30s timeout exists to guard against. That
+    // hang would also silently defeat sendMOPHNotify's one-retry reliability
+    // wrapper below: if attempt 1 never resolves, attempt 2 never even starts.
+    // Resolving directly from the timeout callback closes that gap; destroy()
+    // is still called to actually free the socket.
+    let settled = false;
+    const finish = (val) => { if (settled) return; settled = true; resolve(val); };
     const payload = JSON.stringify({ messages });
     const req = https.request({
       hostname: 'morpromt2f.moph.go.th',
@@ -50,15 +61,15 @@ function sendMOPHNotifyOnce(clientKey, secretKey, messages) {
       res.on('data', chunk => { data += chunk; });
       res.on('end', () => {
         if (res.statusCode >= 200 && res.statusCode < 300) {
-          resolve(true);
+          finish(true);
         } else {
           console.error(`❌ MOPH Notify: ${res.statusCode} — ${data}`);
-          resolve(false);
+          finish(false);
         }
       });
     });
-    req.setTimeout(30000, () => { console.error('❌ MOPH Notify timeout (30s)'); req.destroy(); });
-    req.on('error', err => { if (err.code !== 'ERR_SOCKET_DESTROYED') console.error('❌ MOPH Notify error:', err.message); resolve(false); });
+    req.setTimeout(30000, () => { console.error('❌ MOPH Notify timeout (30s)'); req.destroy(); finish(false); });
+    req.on('error', err => { if (err.code !== 'ERR_SOCKET_DESTROYED') console.error('❌ MOPH Notify error:', err.message); finish(false); });
     req.write(payload);
     req.end();
   });
