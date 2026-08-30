@@ -743,6 +743,421 @@ input:focus, select:focus, textarea:focus {
   box-shadow: 0 0 0 4px rgba(43,127,224,.13), 0 2px 10px rgba(43,127,224,.1) !important;
   transform: translateY(-1px) !important;
 }
+
+/* ===================================================================== */
+/* ===== DESIGN SYSTEM v3 — "Refined Clinical" ========================= */
+/* Presentation layer only. This section deliberately sits LAST in the    */
+/* stylesheet so it is the authoritative source for tokens, elevation,    */
+/* motion and surface treatment — the two earlier :root blocks above      */
+/* declared several of the same custom properties with conflicting        */
+/* values (--c-bg, --radius-card, --shadow-card, --transition-spring),    */
+/* which meant "which value wins" depended on read order rather than on   */
+/* intent. Everything below is CSS only: no markup, no data, no logic.    */
+/* ===================================================================== */
+
+:root {
+  /* --- Brand --- */
+  --ds-brand-900: #0A2440;
+  --ds-brand-800: #103459;
+  --ds-brand-700: #14507F;
+  --ds-brand-600: #1A6FA3;
+  --ds-brand-500: #2B7FE0;
+  --ds-brand-300: #7FB4E8;
+  --ds-brand-100: #DCEAF8;
+  --ds-brand-50:  #F2F7FC;
+
+  /* --- Supporting --- */
+  --ds-teal-600:  #0A8C79;
+  --ds-teal-500:  #0DB9A0;
+  --ds-emerald:   #0E9F6E;
+  --ds-amber:     #D97706;
+  --ds-rose:      #DC2F45;
+  --ds-violet:    #6D5BD0;
+
+  /* --- Neutrals (cool, clinical) --- */
+  --ds-ink:       #0F1E2B;
+  --ds-ink-2:     #2A3F52;
+  --ds-muted:     #64798C;
+  --ds-muted-2:   #8A9CAC;
+  --ds-line:      #E3EBF2;
+  --ds-line-soft: #EEF3F8;
+  --ds-surface:   #FFFFFF;
+  --ds-surface-2: #F7FAFC;
+  --ds-canvas:    #EFF4F9;
+
+  /* --- Elevation: 4 consistent tiers, cool-tinted --- */
+  --ds-e1: 0 1px 2px rgba(15,30,43,.05), 0 1px 1px rgba(15,30,43,.03);
+  --ds-e2: 0 2px 6px rgba(15,30,43,.06), 0 1px 2px rgba(15,30,43,.04);
+  --ds-e3: 0 8px 22px -6px rgba(15,30,43,.11), 0 2px 6px rgba(15,30,43,.05);
+  --ds-e4: 0 20px 48px -12px rgba(15,30,43,.20), 0 6px 16px rgba(15,30,43,.07);
+  --ds-hairline: inset 0 0 0 1px rgba(255,255,255,.55);
+
+  /* --- Radii --- */
+  --ds-r-sm: 9px;
+  --ds-r-md: 12px;
+  --ds-r-lg: 16px;
+  --ds-r-xl: 20px;
+  --ds-r-pill: 999px;
+
+  /* --- Motion: measured, confident. Formal software does not bounce. --- */
+  --ds-ease:      cubic-bezier(.2,.6,.25,1);
+  --ds-ease-out:  cubic-bezier(.16,1,.3,1);
+  --ds-ease-in:   cubic-bezier(.5,0,.75,0);
+  --ds-t-fast:    .14s;
+  --ds-t-base:    .22s;
+  --ds-t-slow:    .36s;
+
+  /* --- Reconcile the earlier duplicate declarations onto one intent --- */
+  --c-bg: var(--ds-canvas);
+  --c-surface: var(--ds-surface);
+  --c-border: var(--ds-line);
+  --c-text: var(--ds-ink);
+  --c-muted: var(--ds-muted);
+  --radius-card: var(--ds-r-lg);
+  --radius-input: var(--ds-r-md);
+  --shadow-card: var(--ds-e2);
+  --shadow-card-hover: var(--ds-e3);
+  --transition-ease: var(--ds-t-base) var(--ds-ease);
+  --transition-spring: var(--ds-t-base) var(--ds-ease-out);
+}
+
+/* ===== Typography ==================================================== */
+/* A medical record is read as a document, not a feed: numbers must line   */
+/* up column-to-column and must not re-flow width as a live value ticks.   */
+body { color: var(--ds-ink); letter-spacing: -.002em; }
+body, input, select, textarea, button, table {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1, "lnum" 1;
+}
+h1, h2, h3, h4 { letter-spacing: -.018em; }
+
+/* ===== Canvas ======================================================== */
+/* Was a 4-stop blue→teal→violet→pink mesh. For an official hospital     */
+/* record system that reads as decorative; this is the same idea held to  */
+/* a single cool family so content, not the background, carries the color.*/
+.app-wrap {
+  background:
+    radial-gradient(1200px 620px at 8% -8%,  rgba(43,127,224,.075), transparent 62%),
+    radial-gradient(1000px 560px at 96% 4%,  rgba(13,185,160,.055), transparent 60%),
+    linear-gradient(180deg, #F4F8FC 0%, var(--ds-canvas) 42%, #E9F0F7 100%) !important;
+}
+/* Ambient depth, dialled back: previously 3 saturated 500px blobs at .18  */
+/* opacity on a 12s loop — closer to a screensaver than to ambience, and   */
+/* three permanently-animating 80px-blur layers is real compositor work on */
+/* the ward tablets this runs on all day. */
+.bg-blob { opacity: .085 !important; filter: blur(96px) !important; animation-duration: 34s !important; }
+.bg-blob-1 { background: radial-gradient(circle, #2B7FE0, #14507F) !important; }
+.bg-blob-2 { background: radial-gradient(circle, #0DB9A0, #0A8C79) !important; }
+.bg-blob-3 { width: 260px !important; height: 260px !important; background: radial-gradient(circle, #7FB4E8, #6D5BD0) !important; opacity: .06 !important; }
+
+/* ===== Surfaces ====================================================== */
+.card-glass,
+[style*="background: #fff; border: 1px solid #E7EEF3"] {
+  background: rgba(255,255,255,.92) !important;
+  backdrop-filter: blur(14px) saturate(1.25) !important;
+  -webkit-backdrop-filter: blur(14px) saturate(1.25) !important;
+  border: 1px solid var(--ds-line) !important;
+  box-shadow: var(--ds-e2), var(--ds-hairline) !important;
+}
+.card-hover { transition: transform var(--ds-t-base) var(--ds-ease-out), box-shadow var(--ds-t-base) var(--ds-ease); }
+.card-hover:hover { transform: translateY(-2px); box-shadow: var(--ds-e3), var(--ds-hairline); }
+
+/* ===== Header ======================================================== */
+.app-header {
+  background: rgba(252,253,255,.82) !important;
+  backdrop-filter: blur(22px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(22px) saturate(180%) !important;
+  border-bottom: 1px solid rgba(210,224,238,.75) !important;
+  box-shadow: 0 1px 0 rgba(255,255,255,.9), 0 6px 20px -12px rgba(15,30,43,.16) !important;
+}
+.header-date-chip { letter-spacing: .01em; }
+
+/* ===== Sidebar ======================================================= */
+.sidebar {
+  background: linear-gradient(178deg, #08203C 0%, #0C2E4E 46%, #0A2E3E 100%) !important;
+  border-right: 1px solid rgba(255,255,255,.07) !important;
+  box-shadow: 1px 0 0 rgba(255,255,255,.04), 8px 0 44px -18px rgba(4,16,30,.55) !important;
+}
+.sidebar-section-label { color: rgba(255,255,255,.32) !important; font-weight: 600 !important; }
+/* Active row: a lit surface with an edge highlight rather than a flat
+   block of brand color — reads as "selected", not as a button. */
+.nav-item { border-radius: var(--ds-r-md) !important; transition: background var(--ds-t-fast) var(--ds-ease), color var(--ds-t-fast) var(--ds-ease); }
+.nav-item-active::before { background: linear-gradient(180deg, var(--ds-brand-300), var(--ds-teal-500)) !important; width: 3px !important; box-shadow: 0 0 12px rgba(127,180,232,.55); }
+.sidebar-bottom > div:first-child,
+.sidebar-bottom > div:nth-child(2) {
+  border-radius: var(--ds-r-md) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06) !important;
+}
+
+/* ===== KPI summary tiles ============================================= */
+/* Kept as colour-coded tiles (they are the fastest read on the board),   */
+/* but pulled back from full-saturation candy gradients to deeper,        */
+/* two-stop ramps with a light sheen and a defined edge — the difference  */
+/* between a consumer widget and an instrument panel.                     */
+.kpi-card-blue, .kpi-card-teal, .kpi-card-rose, .kpi-card-amber {
+  position: relative;
+  border-radius: var(--ds-r-lg) !important;
+  overflow: hidden;
+  isolation: isolate;
+  transition: transform var(--ds-t-base) var(--ds-ease-out), box-shadow var(--ds-t-base) var(--ds-ease) !important;
+}
+/* The top-left sheen is layered into `background` rather than drawn as a
+   pseudo-element: an ::after at z-index:-1 would sit BEHIND the tile's own
+   opaque gradient (invisible), and above it would cover the tile's text,
+   since that content is not itself positioned. */
+.kpi-card-blue  { background: radial-gradient(125% 95% at 4% -14%, rgba(255,255,255,.30), transparent 56%), linear-gradient(152deg, #14507F 0%, #1E6FC2 58%, #2E8BDD 100%) !important; box-shadow: 0 12px 30px -12px rgba(20,80,127,.55), inset 0 1px 0 rgba(255,255,255,.24) !important; }
+.kpi-card-teal  { background: radial-gradient(125% 95% at 4% -14%, rgba(255,255,255,.30), transparent 56%), linear-gradient(152deg, #076253 0%, #0AA089 58%, #16C4A8 100%) !important; box-shadow: 0 12px 30px -12px rgba(7,98,83,.5),  inset 0 1px 0 rgba(255,255,255,.24) !important; }
+.kpi-card-rose  { background: radial-gradient(125% 95% at 4% -14%, rgba(255,255,255,.30), transparent 56%), linear-gradient(152deg, #96122F 0%, #C82945 58%, #E8455C 100%) !important; box-shadow: 0 12px 30px -12px rgba(150,18,47,.5),  inset 0 1px 0 rgba(255,255,255,.24) !important; }
+.kpi-card-amber { background: radial-gradient(125% 95% at 4% -14%, rgba(255,255,255,.30), transparent 56%), linear-gradient(152deg, #9A5006 0%, #D07C09 58%, #F2A310 100%) !important; box-shadow: 0 12px 30px -12px rgba(154,80,6,.5),   inset 0 1px 0 rgba(255,255,255,.24) !important; }
+.kpi-card-blue:hover, .kpi-card-teal:hover, .kpi-card-rose:hover, .kpi-card-amber:hover {
+  transform: translateY(-3px) !important;
+  filter: none !important;
+  box-shadow: 0 22px 44px -16px rgba(15,30,43,.42), inset 0 1px 0 rgba(255,255,255,.26) !important;
+}
+.kpi-num { letter-spacing: -.035em !important; font-variant-numeric: tabular-nums; line-height: 1.02 !important; }
+
+/* ===== Admin KPI dashboard =========================================== */
+.kpi-card { border-radius: var(--ds-r-lg) !important; }
+.kpi-card::before { opacity: .06 !important; }
+.kpi-toolbar { border-radius: var(--ds-r-lg) !important; border-color: var(--ds-line) !important; box-shadow: var(--ds-e1) !important; }
+.kpi-seg { background: var(--ds-surface-2); box-shadow: inset 0 0 0 1px var(--ds-line); }
+.kpi-seg-btn.on { box-shadow: var(--ds-e2) !important; }
+.kpi-btn-solid { background: linear-gradient(135deg, var(--ds-brand-700), var(--ds-brand-500)) !important; box-shadow: 0 6px 18px -6px rgba(20,80,127,.5) !important; }
+.kpi-btn-solid:hover { box-shadow: 0 12px 26px -8px rgba(20,80,127,.55) !important; }
+
+/* ===== Controls ====================================================== */
+input[type="text"], input[type="email"], input[type="password"], input[type="date"],
+input[type="number"], input[type="url"], select, textarea {
+  background: rgba(255,255,255,.96) !important;
+  border: 1px solid #D6E2EC !important;
+  border-radius: var(--ds-r-md) !important;
+  box-shadow: var(--ds-e1) !important;
+  transition: border-color var(--ds-t-fast) var(--ds-ease), box-shadow var(--ds-t-fast) var(--ds-ease), background var(--ds-t-fast) var(--ds-ease) !important;
+}
+input:hover:not(:focus), select:hover:not(:focus), textarea:hover:not(:focus) { border-color: #B9CEDF !important; }
+/* No lift on focus: a text field that moves under the cursor as it gains
+   focus is a nuisance while typing into a dense form. */
+input:focus, select:focus, textarea:focus {
+  background: #fff !important;
+  border-color: var(--ds-brand-500) !important;
+  box-shadow: 0 0 0 3px rgba(43,127,224,.16), var(--ds-e2) !important;
+  transform: none !important;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--ds-brand-700) 0%, var(--ds-brand-500) 55%, var(--ds-teal-600) 130%) !important;
+  border-radius: var(--ds-r-md) !important;
+  box-shadow: 0 6px 18px -6px rgba(20,80,127,.48), inset 0 1px 0 rgba(255,255,255,.2) !important;
+  transition: transform var(--ds-t-fast) var(--ds-ease-out), box-shadow var(--ds-t-base) var(--ds-ease), filter var(--ds-t-fast) var(--ds-ease) !important;
+  letter-spacing: .005em;
+}
+.btn-primary:hover { transform: translateY(-1px) !important; box-shadow: 0 12px 28px -8px rgba(20,80,127,.55), inset 0 1px 0 rgba(255,255,255,.24) !important; filter: saturate(1.06); }
+.btn-primary:active { transform: translateY(0) scale(.985) !important; }
+.btn-success { background: linear-gradient(135deg, #077A56, var(--ds-emerald)) !important; box-shadow: 0 6px 18px -6px rgba(7,122,86,.5), inset 0 1px 0 rgba(255,255,255,.2) !important; }
+.btn-danger  { background: linear-gradient(135deg, #A5162C, var(--ds-rose)) !important; box-shadow: 0 6px 18px -6px rgba(165,22,44,.5), inset 0 1px 0 rgba(255,255,255,.2) !important; }
+button:active { transform: scale(.985) !important; }
+.quick-act-btn { transition: filter var(--ds-t-fast) var(--ds-ease), transform var(--ds-t-fast) var(--ds-ease-out); }
+.quick-act-btn:hover { filter: brightness(1.06) saturate(1.04); }
+
+/* ===== Status pills ================================================== */
+.status-expired  { background: linear-gradient(135deg, #A5162C, var(--ds-rose)) !important;    box-shadow: 0 3px 10px -3px rgba(165,22,44,.5) !important; }
+.status-critical { background: linear-gradient(135deg, #A8590A, var(--ds-amber)) !important;   box-shadow: 0 3px 10px -3px rgba(168,89,10,.45) !important; }
+.status-warning  { background: linear-gradient(135deg, var(--ds-brand-700), #0B78B8) !important; box-shadow: 0 3px 10px -3px rgba(20,80,127,.4) !important; }
+.status-ok       { background: linear-gradient(135deg, #077A56, var(--ds-emerald)) !important; box-shadow: 0 3px 10px -3px rgba(7,122,86,.4) !important; }
+.status-expired, .status-critical, .status-warning, .status-ok { letter-spacing: .012em; }
+
+/* ===== Rows / tables ================================================= */
+.drug-row:hover { background: rgba(43,127,224,.045) !important; transform: none; box-shadow: inset 2px 0 0 var(--ds-brand-500); }
+.audit-row:hover { background: rgba(43,127,224,.04) !important; transform: none; box-shadow: inset 2px 0 0 var(--ds-brand-300); }
+.kpi-row-hover:hover { background: var(--ds-brand-50); }
+
+/* ===== Toasts ======================================================== */
+.app-toast {
+  background: linear-gradient(140deg, #08203C, #123A5C) !important;
+  border: 1px solid rgba(127,180,232,.22) !important;
+  border-radius: var(--ds-r-md) !important;
+  box-shadow: var(--ds-e4), inset 0 1px 0 rgba(255,255,255,.09) !important;
+  letter-spacing: .004em;
+}
+
+/* ===== Mobile bottom nav ============================================= */
+.mobile-bottomnav {
+  background: rgba(8,32,60,.92) !important;
+  backdrop-filter: blur(22px) saturate(1.5) !important;
+  -webkit-backdrop-filter: blur(22px) saturate(1.5) !important;
+  border-top: 1px solid rgba(255,255,255,.09) !important;
+  box-shadow: 0 -6px 28px -10px rgba(4,16,30,.5) !important;
+}
+.mobile-bottomnav-btn.active { background: rgba(127,180,232,.16) !important; }
+.mobile-hamburger { border-radius: var(--ds-r-md); border-color: var(--ds-line) !important; }
+
+/* ===== Scrollbar ===================================================== */
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(43,127,224,.42), rgba(13,185,160,.42)) !important;
+  border-radius: var(--ds-r-pill) !important;
+}
+::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg, rgba(43,127,224,.68), rgba(13,185,160,.68)) !important; }
+::selection { background: rgba(43,127,224,.2); }
+
+/* ===== Focus ========================================================= */
+/* Two-layer ring so it stays visible on both light cards and the dark
+   sidebar/bottom-nav, where a single brand-blue ring nearly disappears. */
+button:focus-visible, a:focus-visible, input:focus-visible,
+select:focus-visible, textarea:focus-visible, [role="button"]:focus-visible {
+  outline: 2px solid var(--ds-brand-500);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(43,127,224,.18);
+  border-radius: var(--ds-r-sm);
+}
+
+/* ===== Page transition =============================================== */
+/* Was a spring with visible overshoot on every screen change. A decisive
+   settle reads as responsive; an overshoot reads as a toy. */
+@keyframes dsPageEnter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.page-enter { animation: dsPageEnter var(--ds-t-slow) var(--ds-ease-out) both !important; }
+
+/* ===== Reduced motion ================================================ */
+/* Previously absent entirely, while the app runs several indefinite
+   animations at once (ambient blobs, alert pulses, KPI dots, bell wiggle).
+   Honouring the OS setting is both an accessibility requirement and, for
+   anyone susceptible to motion sensitivity, a usability one. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .bg-blob { animation: none !important; }
+}
+
+/* ===== Print ========================================================= */
+/* This screen is routinely printed as a ward record. Chrome-only elements
+   waste a page and ink; the card scaffolding needs real borders once the
+   shadows that separated them are gone. */
+@media print {
+  .sidebar, .sidebar-overlay, .mobile-bottomnav, .mobile-hamburger,
+  .app-toast, .flash-toast, .bg-blob { display: none !important; }
+  .app-wrap { background: #fff !important; }
+  .app-header { position: static !important; background: #fff !important; box-shadow: none !important; border-bottom: 1px solid #C7D4E0 !important; backdrop-filter: none !important; }
+  .app-main { width: 100% !important; margin: 0 !important; }
+  .page-content { padding: 0 !important; overflow: visible !important; }
+  .card-glass, [style*="background: #fff; border: 1px solid #E7EEF3"] {
+    background: #fff !important; box-shadow: none !important;
+    border: 1px solid #C7D4E0 !important; backdrop-filter: none !important;
+    break-inside: avoid;
+  }
+  .kpi-card-blue, .kpi-card-teal, .kpi-card-rose, .kpi-card-amber {
+    background: #fff !important; color: var(--ds-ink) !important;
+    border: 1px solid #C7D4E0 !important; box-shadow: none !important;
+  }
+  .kpi-card-blue *, .kpi-card-teal *, .kpi-card-rose *, .kpi-card-amber * { color: var(--ds-ink) !important; }
+  .page-enter, .kpi-card { animation: none !important; }
+  a[href]::after { content: ''; }
+}
+
+/* ===== Dashboard notice bands ======================================== */
+/* Three of these stack directly under the KPI row. As full-bleed pastel
+   panels they out-weighed the tiles above them and pushed the real content
+   below the fold. Re-cast as a white card with a coloured status rail: the
+   colour still identifies the severity at a glance, but the page keeps one
+   clear visual hierarchy instead of three competing blocks. */
+.ds-notice {
+  position: relative;
+  background: rgba(255,255,255,.94) !important;
+  border: 1px solid var(--ds-line) !important;
+  border-radius: var(--ds-r-lg) !important;
+  padding: 16px 20px 16px 26px !important;
+  margin-bottom: 14px !important;
+  box-shadow: var(--ds-e2), var(--ds-hairline) !important;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  overflow: hidden;
+}
+.ds-notice::before {
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+  background: var(--ds-notice-c, var(--ds-brand-500));
+}
+/* A very low-opacity wash of the same hue keeps the severity readable in
+   peripheral vision without the panel reading as a solid colour block. */
+.ds-notice::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(100deg, var(--ds-notice-c) 0%, transparent 42%);
+  opacity: .055;
+}
+.ds-notice-amber { --ds-notice-c: #D97706; }
+.ds-notice-gold  { --ds-notice-c: #B5740F; }
+.ds-notice-rose  { --ds-notice-c: #C42742; }
+.ds-notice > * { position: relative; z-index: 1; }
+
+/* The masthead alert gets the same rail treatment as the notice bands below
+   it, so the dashboard reads as one system rather than one loud pink panel
+   followed by three quieter cards in a different visual language. */
+.alert-banner-critical {
+  position: relative;
+  background: rgba(255,255,255,.94) !important;
+  border: 1px solid var(--ds-line) !important;
+  border-radius: var(--ds-r-lg) !important;
+  padding: 16px 20px 16px 26px !important;
+  box-shadow: var(--ds-e2), var(--ds-hairline) !important;
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  overflow: hidden;
+}
+.alert-banner-critical::before {
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+  background: var(--ds-rose);
+}
+.alert-banner-critical::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(100deg, var(--ds-rose) 0%, transparent 40%); opacity: .06;
+}
+.alert-banner-critical > * { position: relative; z-index: 1; }
+
+/* ===== Mobile refinements ============================================ */
+@media (max-width: 768px) {
+  /* The masthead alert is a flex row of [icon][message][action]. On a phone
+     the fixed-width action button squeezed the message into a 3-4 line
+     ragged column beside it; stacking gives the text the full width and the
+     action a full-width tap target. */
+  .alert-banner-critical {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+    padding: 14px 16px 14px 20px !important;
+  }
+  .alert-banner-critical > button,
+  .alert-banner-critical > a { width: 100% !important; }
+  .ds-notice { padding: 14px 16px 14px 20px !important; margin-bottom: 12px !important; }
+  /* Hairline borders and 20px radii both read heavier at phone scale. */
+  .ds-notice, .alert-banner-critical { border-radius: var(--ds-r-md) !important; }
+}
+
+/* ===== Audit / history log table ===================================== */
+/* Grid items do not clip by default, so any cell whose content is wider
+   than its fixed track prints straight over the next column. The "ประเภท"
+   pill (108px track) did exactly that to the "EB" value beside it, leaving
+   both unreadable. min-width:0 lets each cell shrink to its own track, and
+   the pill ellipsizes rather than escaping it. */
+/* Widened from 108px: the real action strings this column carries
+   ("เปิดใช้งาน/บันทึกใช้ยา (QR)", "แก้ไขลงทะเบียนใหม่", "ตีกลับให้แก้ไข") never
+   fit it. Header and rows take the identical override so the two stay
+   aligned, and the row's own min-width grows by the same amount so the
+   horizontal scroll container still bounds the full table. */
+.ds-log-head, .ds-log-row {
+  grid-template-columns: 44px 148px 168px 68px minmax(110px,1fr) minmax(140px,1fr) minmax(160px,1fr) !important;
+  min-width: 920px !important;
+}
+.ds-log-head > *, .ds-log-row > * { min-width: 0; }
+.ds-log-row > * { overflow: hidden; }
+/* The pill is an inline-flex box, so text-overflow on it does nothing; a
+   short mask fade at the cell edge signals "clipped" instead of chopping a
+   glyph in half, for the rare string still longer than the widened track. */
+.ds-log-row > span:nth-child(3) {
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 18px), transparent 100%);
+  mask-image: linear-gradient(90deg, #000 calc(100% - 18px), transparent 100%);
+}
+.ds-log-row { transition: background var(--ds-t-fast) var(--ds-ease); }
+.ds-log-row:hover { background: rgba(43,127,224,.045) !important; box-shadow: inset 2px 0 0 var(--ds-brand-300); }
 </style>
 </helmet>
 
@@ -1032,7 +1447,7 @@ input:focus, select:focus, textarea:focus {
 
         <!-- Overdue boxes warning -->
         <sc-if value="{{ hasOverdueBoxes }}" hint-placeholder-val="{{ false }}">
-        <div style="background: linear-gradient(135deg, #FFF7ED, #FEF3C7); border: 1.5px solid #FCD34D; border-radius: 16px; padding: 18px 22px; margin-bottom: 22px; animation: fadeUp .4s ease both;">
+        <div class="ds-notice ds-notice-amber" style="background: linear-gradient(135deg, #FFF7ED, #FEF3C7); border: 1.5px solid #FCD34D; border-radius: 16px; padding: 18px 22px; margin-bottom: 22px; animation: fadeUp .4s ease both;">
           <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
             <span style="width: 34px; height: 34px; border-radius: 10px; background: #FDE68A; color: #D97706; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 7v5l3 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.8"/></svg>
@@ -1058,7 +1473,7 @@ input:focus, select:focus, textarea:focus {
 
         <!-- Boxes จพ. จัดเตรียมเสร็จแล้ว รอเภสัชกร/แอดมินตรวจสอบ -->
         <sc-if value="{{ hasPendingVerifyBoxes }}" hint-placeholder-val="{{ false }}">
-        <div style="background: linear-gradient(135deg, #FBF1E0, #FDF4EC); border: 1.5px solid #F0DDB8; border-radius: 16px; padding: 18px 22px; margin-bottom: 22px; animation: fadeUp .4s ease both;">
+        <div class="ds-notice ds-notice-gold" style="background: linear-gradient(135deg, #FBF1E0, #FDF4EC); border: 1.5px solid #F0DDB8; border-radius: 16px; padding: 18px 22px; margin-bottom: 22px; animation: fadeUp .4s ease both;">
           <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
             <span style="width: 34px; height: 34px; border-radius: 10px; background: #F0DDB8; color: #B5740F; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.8"/></svg>
@@ -1084,7 +1499,7 @@ input:focus, select:focus, textarea:focus {
 
         <!-- Boxes rejected back to จพ. for correction -->
         <sc-if value="{{ hasRejectedRegBoxes }}" hint-placeholder-val="{{ false }}">
-        <div style="background: linear-gradient(135deg, #FCEDED, #FDF4F4); border: 1.5px solid #F4C9C9; border-radius: 16px; padding: 18px 22px; margin-bottom: 22px; animation: fadeUp .4s ease both;">
+        <div class="ds-notice ds-notice-rose" style="background: linear-gradient(135deg, #FCEDED, #FDF4F4); border: 1.5px solid #F4C9C9; border-radius: 16px; padding: 18px 22px; margin-bottom: 22px; animation: fadeUp .4s ease both;">
           <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
             <span style="width: 34px; height: 34px; border-radius: 10px; background: #F4C9C9; color: #B42121; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 3.5l9 16H3l9-16z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 10v4.5M12 17.3v.2" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/></svg>
@@ -1571,7 +1986,7 @@ input:focus, select:focus, textarea:focus {
         <div style="background: #fff; border: 1px solid #E7EEF3; border-radius: 18px; overflow: hidden; box-shadow: 0 2px 12px rgba(20,40,55,.04);">
           <div style="overflow-x: auto;">
             <!-- Column header -->
-            <div style="display: grid; grid-template-columns: 44px 148px 108px 68px minmax(110px,1fr) minmax(140px,1fr) minmax(160px,1fr); gap: 0; min-width: 860px; background: #F3F6F9; border-bottom: 2px solid #E0E8EF; padding: 12px 20px; font-size: 11px; font-weight: 700; color: #7B8D9C; letter-spacing: .5px; text-transform: uppercase;">
+            <div class="ds-log-head" style="display: grid; grid-template-columns: 44px 148px 108px 68px minmax(110px,1fr) minmax(140px,1fr) minmax(160px,1fr); gap: 0; min-width: 860px; background: #F3F6F9; border-bottom: 2px solid #E0E8EF; padding: 12px 20px; font-size: 11px; font-weight: 700; color: #7B8D9C; letter-spacing: .5px; text-transform: uppercase;">
               <span style="text-align:center;">#</span><span>วันที่ · เวลา</span><span>ประเภท</span><span>EB</span><span>หน่วยงาน</span><span>ผู้ทำรายการ</span><span>ยาที่ใกล้หมดอายุ</span>
             </div>
             <!-- Rows -->
@@ -1583,7 +1998,7 @@ input:focus, select:focus, textarea:focus {
                     {{ r.dateHeaderText }}
                   </div>
                 </sc-if>
-                <div class="drug-row" style="display: grid; grid-template-columns: 44px 148px 108px 68px minmax(110px,1fr) minmax(140px,1fr) minmax(160px,1fr); gap: 0; min-width: 860px; align-items: center; padding: 12px 20px; border-bottom: 1px solid #F4F7F9; font-size: 13px; background: {{ r.rowBg }};">
+                <div class="drug-row ds-log-row" style="display: grid; grid-template-columns: 44px 148px 108px 68px minmax(110px,1fr) minmax(140px,1fr) minmax(160px,1fr); gap: 0; min-width: 860px; align-items: center; padding: 12px 20px; border-bottom: 1px solid #F4F7F9; font-size: 13px; background: {{ r.rowBg }};">
                   <span style="font-size: 10.5px; color: #B0BCCA; font-family: 'IBM Plex Mono', monospace; text-align: center;">{{ r.seq }}</span>
                   <span style="color: #4A5C6A; font-family: 'IBM Plex Mono', monospace; font-size: 12px; white-space: nowrap;">{{ r.dateTime }}</span>
                   <span><span style="display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; color: {{ r.color }}; background: {{ r.soft }}; border-radius: 20px; padding: 4px 11px; white-space: nowrap;">{{ r.icon }} {{ r.action }}</span></span>
@@ -1718,7 +2133,7 @@ input:focus, select:focus, textarea:focus {
           <!-- Table -->
           <div style="background: #fff; border: 1px solid #E7EEF3; border-radius: 16px; overflow: hidden;">
             <div style="overflow-x: auto;">
-              <div style="display: grid; grid-template-columns: 44px 148px 108px 68px minmax(110px,1fr) minmax(140px,1fr) minmax(160px,1fr); gap: 0; min-width: 860px; background: #F3F6F9; border-bottom: 2px solid #E0E8EF; padding: 11px 18px; font-size: 11px; font-weight: 700; color: #7B8D9C; letter-spacing: .5px; text-transform: uppercase;">
+              <div class="ds-log-head" style="display: grid; grid-template-columns: 44px 148px 108px 68px minmax(110px,1fr) minmax(140px,1fr) minmax(160px,1fr); gap: 0; min-width: 860px; background: #F3F6F9; border-bottom: 2px solid #E0E8EF; padding: 11px 18px; font-size: 11px; font-weight: 700; color: #7B8D9C; letter-spacing: .5px; text-transform: uppercase;">
                 <span style="text-align:center;">#</span><span>วันที่ · เวลา</span><span>ประเภท</span><span>EB</span><span>หน่วยงาน</span><span>ผู้ทำรายการ</span><span>รายละเอียด</span>
               </div>
               <div>
@@ -1729,7 +2144,7 @@ input:focus, select:focus, textarea:focus {
                       {{ r.dateHeaderText }}
                     </div>
                   </sc-if>
-                  <div class="drug-row" onClick="{{ r.goDetail }}" onKeyDown="{{ r.goDetailOnKey }}" tabindex="{{ r.hasDetail ? '0' : '-1' }}" role="button" style="display: grid; grid-template-columns: 44px 148px 108px 68px minmax(110px,1fr) minmax(140px,1fr) minmax(160px,1fr); gap: 0; min-width: 860px; align-items: center; padding: 11px 18px; border-bottom: 1px solid #F4F7F9; font-size: 12.5px; background: {{ r.rowBg }}; cursor: {{ r.hasDetail ? 'pointer' : 'default' }};">
+                  <div class="drug-row ds-log-row" onClick="{{ r.goDetail }}" onKeyDown="{{ r.goDetailOnKey }}" tabindex="{{ r.hasDetail ? '0' : '-1' }}" role="button" style="display: grid; grid-template-columns: 44px 148px 108px 68px minmax(110px,1fr) minmax(140px,1fr) minmax(160px,1fr); gap: 0; min-width: 860px; align-items: center; padding: 11px 18px; border-bottom: 1px solid #F4F7F9; font-size: 12.5px; background: {{ r.rowBg }}; cursor: {{ r.hasDetail ? 'pointer' : 'default' }};">
                     <span style="font-size: 10px; color: #B0BCCA; font-family: 'IBM Plex Mono', monospace; text-align: center;">{{ r.seq }}</span>
                     <span style="color: #4A5C6A; font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; white-space: nowrap;">{{ r.dateTime }}</span>
                     <span><span style="display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700; color: {{ r.color }}; background: {{ r.soft }}; border-radius: 20px; padding: 3px 10px; white-space: nowrap;">{{ r.icon }} {{ r.action }}</span></span>
@@ -7193,7 +7608,11 @@ td.l{text-align:left;padding-left:4px}
     // status buckets as statusOf()/bStatus (the badge shown right next to it) and the
     // dashboard donut, not a raw days-to-expiry count with its own separate color scale.
     const ringDays = boxExp ? this.daysBetween(this.addDays(boxExp, -15)) : null;
-    const ringPct = ringDays == null ? 0 : Math.min(1, Math.max(0, ringDays / 90));
+    // An overdue box (ringDays <= 0) fills the ring completely rather than
+    // leaving it empty: the most urgent state must not render as the least
+    // filled one, which read as "no data" instead of "past the return date".
+    // Drawing only — ringDays/bStatus themselves are untouched.
+    const ringPct = ringDays == null ? 0 : (ringDays <= 0 ? 1 : Math.min(1, Math.max(0, ringDays / 90)));
     const ringColor = ringDays == null ? '#C5D4E0' : bStatus.color;
     const circ = 226.2;
     vals.expiryRingEl = h('div', { style: { position: 'relative', width: 64, height: 64, flexShrink: 0 } },
@@ -7207,7 +7626,11 @@ td.l{text-align:left;padding-left:4px}
       ),
       h('div', { style: { position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 0 } },
         h('span', { style: { fontSize: 15, fontWeight: 800, color: ringColor, fontFamily: "'IBM Plex Mono', monospace", lineHeight: 1.1 } }, ringDays == null ? '—' : ringDays <= 0 ? '!' : ringDays > 999 ? '∞' : ringDays),
-        h('span', { style: { fontSize: 7.5, color: '#9AAAB8', fontWeight: 700, letterSpacing: .5, lineHeight: 1 } }, 'วัน')
+        // The "วัน" unit only belongs under an actual day count — under the
+        // "!" (overdue) or "—" (no expiry on file) glyphs it read as "! วัน".
+        (ringDays != null && ringDays > 0 && ringDays <= 999)
+          ? h('span', { style: { fontSize: 7.5, color: '#9AAAB8', fontWeight: 700, letterSpacing: .5, lineHeight: 1 } }, 'วัน')
+          : null
       )
     );
 
