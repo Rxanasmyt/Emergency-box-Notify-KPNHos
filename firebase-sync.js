@@ -219,7 +219,17 @@ function listenBoxDrugs(){
     const _st=component.state||{};
     const _editing=_st.editDrugs;
     if(!_editing){
-      const _patch={boxDrugs:Object.keys(bd).length?bd:{}};
+      // _patch.boxDrugs must be a SEPARATE object from `bd`/component.BOX_DRUGS —
+      // a real bug found by audit: this used to point _patch.boxDrugs straight at
+      // `bd` (the same object just assigned to component.BOX_DRUGS above), so the
+      // "preserve the in-progress local buffer" overwrite two lines below was
+      // silently ALSO mutating component.BOX_DRUGS — the one property every other
+      // screen (dashboard alerts, Detail, dispense/return, print) trusts as the
+      // authoritative, server-synced source. A จพ.'s unsaved Stage 1/2 draft could
+      // leak into component.BOX_DRUGS[regEB] and stay there — showing phantom
+      // uncommitted data as if it were real Firestore truth — until some other,
+      // unrelated box_drugs write happened to refresh that box's entry.
+      const _patch={boxDrugs:Object.keys(bd).length?{...bd}:{}};
       // The register Stage 1/2 form uses this SAME boxDrugs key as its own live edit
       // buffer (setLotField/addLot/removeLot/toggleDrugVerified) but has no editDrugs
       // flag of its own — without this, any unrelated box_drugs write anywhere (a
@@ -499,7 +509,7 @@ function listenAllUsageLog(cb){
 // answers for a loud, retryable error — every caller's existing .catch()
 // already surfaces one.
 function fetchAuditRange(fromISO,toISO){
-  if(!db)return Promise.resolve([]);
+  if(!db)return Promise.reject(new Error('no-db'));
   let q=db.collection(C.audit);
   if(fromISO)q=q.where('date','>=',fromISO);
   if(toISO)q=q.where('date','<=',toISO);
@@ -515,7 +525,7 @@ function fetchAuditRange(fromISO,toISO){
 // the cap) could otherwise silently omit older drug-administration records
 // (who gave what dose to which HN, when) with no indication anything was cut.
 function fetchUsageLogRange(fromISO,toISO){
-  if(!db)return Promise.resolve([]);
+  if(!db)return Promise.reject(new Error('no-db'));
   let q=db.collection(C.usageLog);
   if(fromISO)q=q.where('recordedAt','>=',fromISO);
   if(toISO)q=q.where('recordedAt','<=',toISO);
@@ -540,7 +550,7 @@ function logKpiEvent(entry){
 // itself now uses listenKpiEvents() below instead (see that function's own
 // comment for why this changed from the original "fetch on demand" design).
 function fetchKpiEvents(fromISO,toISO){
-  if(!db)return Promise.resolve([]);
+  if(!db)return Promise.reject(new Error('no-db'));
   let q=db.collection(C.kpiEvents);
   if(fromISO)q=q.where('date','>=',fromISO);
   if(toISO)q=q.where('date','<=',toISO);
@@ -579,7 +589,7 @@ function logKpiInvestigation(entry){
   return db.collection(C.kpiInvestigations).add({...entry,createdAt:firebase.firestore.FieldValue.serverTimestamp()}).catch(err=>{console.warn('[Sync] KPI investigation write failed:',err.message);throw err;});
 }
 function fetchKpiInvestigations(fromISO,toISO){
-  if(!db)return Promise.resolve([]);
+  if(!db)return Promise.reject(new Error('no-db'));
   let q=db.collection(C.kpiInvestigations);
   if(fromISO)q=q.where('date','>=',fromISO);
   if(toISO)q=q.where('date','<=',toISO);

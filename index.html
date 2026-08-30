@@ -3219,10 +3219,22 @@ class Component extends DCLogic {
   // screens' own CSV exports; falls back to the live capped array (possibly
   // incomplete for a far-back range) only while that fetch is still pending.
   _kpiAuditRows(st) {
-    if (st.kpiDatePreset === 'fiscal' || st.kpiDatePreset === 'custom') {
-      return st._kpiAuditComplete || st.auditLog || this.AUDIT || [];
-    }
     const { from, to } = this._kpiDateRange();
+    // fiscal/custom: prefer the one-time complete fetch once it lands — it's
+    // already scoped to this exact range so no re-filter is needed. But
+    // WHILE it's still pending (st._kpiAuditComplete is null), this used to
+    // fall back to the entire live st.auditLog completely UNFILTERED by the
+    // fiscal year/custom range — not just "possibly incomplete for a
+    // far-back range" as the comment above claimed, but actually scoped to
+    // the wrong time period entirely (today's/this week's capped live data
+    // shown as if it were e.g. last fiscal year's numbers), with nothing
+    // indicating the transition (found by audit). Always filter the
+    // fallback by the resolved range so it's a correctly-scoped subset even
+    // before the complete fetch arrives — still possibly incomplete for a
+    // range past the 500-doc live cap, but never scoped to the wrong dates.
+    if (st.kpiDatePreset === 'fiscal' || st.kpiDatePreset === 'custom') {
+      if (st._kpiAuditComplete) return st._kpiAuditComplete;
+    }
     return (st.auditLog || this.AUDIT || []).filter(r => (!from || (r.date || '') >= from) && (!to || (r.date || '') <= to));
   }
   // Starts (or restarts, on a date-range change) the KPI dashboard's two
@@ -4466,6 +4478,14 @@ class Component extends DCLogic {
         const _regBoxCheck = this.BOXES.find(b => b.id === st.regEB);
         if (_regBoxCheck && _regBoxCheck.dispense && !_regBoxCheck.receiver) errs.push('กล่องนี้กำลังจ่ายออกอยู่ — รับคืนก่อนจึงจะลงทะเบียนได้');
         const stage = this._regStage(_regBoxCheck);
+        // A 'verified' box has no valid submit path at all — the only way back
+        // to Stage 1 is the confirm-gated adminReopenReg()/rejectReg(), never a
+        // plain register-form submit. Without this check, validateForm() fell
+        // through to the "else" (Stage 1) branch below for a verified box,
+        // which could pass vacuously if the form still held prefilled data from
+        // before verification — matching submit()'s own new defense-in-depth
+        // check for the same case (found by audit).
+        if (stage === 'verified') errs.push('กล่องนี้ผ่านการตรวจสอบแล้ว ไม่สามารถบันทึกซ้ำได้');
         const list = (st.boxDrugs || this.BOX_DRUGS || {})[st.regEB] || [];
         const near = this.regNearISOof(st.regEB);
         // A box's box_drugs doc can legitimately be missing/empty (e.g. deleted
@@ -4684,6 +4704,20 @@ class Component extends DCLogic {
       const BD = this.state.boxDrugs || this.BOX_DRUGS || {};
       const box = this.BOXES.find(b => b.id === regEB) || { id: regEB };
       const stage = this._regStage(box);
+      // Defense in depth — validateForm()'s dispensed-out-box error and the
+      // regIsVerifiedLocked render gate already stop the normal button path
+      // from reaching either of these states, but submit() itself had no
+      // independent check (found by audit, same "as defense in depth, in
+      // case any of the above is bypassed" reasoning as the nurse check
+      // above). Without this, a direct call (e.g. via devtools) against a
+      // 'verified' or currently-dispensed-out box would silently fall
+      // through to the Stage 1 branch below — wiping registeredAt/checker
+      // and, for a dispensed box, dispense/receiver/openedAt too, with no
+      // return transaction, no drug-quantity reconciliation, and no
+      // confirmation, exactly what adminReopenReg()'s own confirm dialog
+      // exists to gate.
+      if (stage === 'verified') { this.setState({ submitting: false }); this.flash('กล่องนี้ผ่านการตรวจสอบแล้ว ไม่สามารถบันทึกซ้ำได้ — ใช้ปุ่ม "แก้ไขทะเบียน" หากต้องการแก้ไข'); return; }
+      if (box.dispense && !box.receiver) { this.setState({ submitting: false }); this.flash('กล่องนี้กำลังจ่ายออกอยู่ — รับคืนก่อนจึงจะลงทะเบียนได้'); return; }
       if (stage === 'prepared' && this._canVerifyReg()) {
         // Stage 2: pharmacist/admin verifies against the physical box/printed label,
         // ticks every drug, then finalizes registeredAt — box becomes dispensable.
