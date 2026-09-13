@@ -541,6 +541,27 @@ function fetchUsageLogRange(fromISO,toISO){
 // a completed Stage 1/2 registration, 'audit_write_failure' from a failed
 // logAction/logBoxHist call). Fire-and-forget from every call site — a KPI
 // write failing must never block or roll back the real action it's measuring.
+// Resolves once Firebase Auth actually has a current user. firestore.rules
+// gates every collection on isAuth(), and a write enqueued BEFORE the
+// credential exists does not merely get delayed — verified empirically
+// against the real production project: with signInAnonymously() started but
+// not awaited, an otherwise-identical write sat in the local mutation queue
+// and had STILL not reached the server 60s later, even though auth itself
+// resolved within the same second; the identical write with auth awaited
+// first landed in 960ms. In the browser, enablePersistence() means such a
+// write survives in IndexedDB and may finally flush on some later visit —
+// so it is not always lost outright, but it is unreliable, arbitrarily
+// delayed, and gone for good if that visitor never returns or clears site
+// data. Anything writing at page-boot (before a user action has given auth
+// time to settle) must gate on this.
+function whenAuthReady(){
+  const auth=window.EB_Firebase&&window.EB_Firebase.auth;
+  if(!auth)return Promise.reject(new Error('no-auth'));
+  if(auth.currentUser)return Promise.resolve(auth.currentUser);
+  return new Promise((resolve,reject)=>{
+    const unsub=auth.onAuthStateChanged(u=>{if(u){unsub();resolve(u);}},err=>{unsub();reject(err);});
+  });
+}
 function logKpiEvent(entry){
   if(!db)return Promise.reject(new Error('no-db'));
   return db.collection(C.kpiEvents).add({...entry,createdAt:firebase.firestore.FieldValue.serverTimestamp()}).catch(err=>{console.warn('[Sync] KPI event write failed:',err.message);throw err;});
@@ -643,5 +664,5 @@ function syncDeptPins(pins){
   return db.collection(C.appSettings).doc('dept_pins').set(pins,{merge:true})
     .catch(err=>{console.error('[Sync] syncDeptPins failed:',err.message);throw err;});
 }
-window.EB_Sync={initUsersOnly,initFirebaseSync,startPublicSync,stopSync,stopAll,logAudit,syncBoxes,syncUsers,deleteUser,guardedAdminChangeTx,syncBoxDrugs,returnBoxAndDrugsTx,saveEditDrugsTx,logDrugUsageTx,listenUsageLog,listenAllUsageLog,getDeptPins,syncDeptPins,fetchAuditRange,fetchUsageLogRange,fetchBoxHistory,logKpiEvent,fetchKpiEvents,listenKpiEvents,logKpiInvestigation,fetchKpiInvestigations,listenKpiInvestigations};
+window.EB_Sync={whenAuthReady,initUsersOnly,initFirebaseSync,startPublicSync,stopSync,stopAll,logAudit,syncBoxes,syncUsers,deleteUser,guardedAdminChangeTx,syncBoxDrugs,returnBoxAndDrugsTx,saveEditDrugsTx,logDrugUsageTx,listenUsageLog,listenAllUsageLog,getDeptPins,syncDeptPins,fetchAuditRange,fetchUsageLogRange,fetchBoxHistory,logKpiEvent,fetchKpiEvents,listenKpiEvents,logKpiInvestigation,fetchKpiInvestigations,listenKpiInvestigations};
 })();
