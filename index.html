@@ -8385,10 +8385,27 @@ td.l{text-align:left;padding-left:4px}
       // cleanup pattern above.
       if (this._kpiEventsUnsub || this._kpiInvUnsub) { this._stopKpiListeners(); this._kpiListenSig = null; }
     } else {
-      const _kpiSig = `${st.kpiDatePreset}|${st.kpiFiscalYear}|${st.kpiDateFrom}|${st.kpiDateTo}`;
+      // The signature includes the RESOLVED from/to bounds, not just the
+      // preset name — found by a dedicated real-time-connection audit.
+      // `today`/`7days`/`month` all resolve relative to this.TODAY, which
+      // advances every real midnight with no user action and no other state
+      // field changing — kpiDatePreset itself stays the literal string
+      // 'today' forever. A signature built only from preset/fiscalYear/
+      // dateFrom/dateTo therefore never changes across midnight, so if an
+      // admin leaves the KPI dashboard open overnight (or it's simply
+      // re-rendered by the hourly _notifyInterval tick, which touches
+      // unrelated state), the live listener would keep silently querying
+      // YESTERDAY's date window forever under a "today"/"เดือนนี้" label —
+      // a NEW event written today would never appear, and the numbers shown
+      // would quietly drift to describe an increasingly stale day without
+      // any indication anything had stopped updating. Computing the range
+      // first and folding its from/to into the signature means any actual
+      // change in what should be queried (a real calendar-day rollover, not
+      // just a preset/custom-range selection change) is caught too.
+      const _kpiRange = this._kpiDateRange();
+      const _kpiSig = `${st.kpiDatePreset}|${st.kpiFiscalYear}|${st.kpiDateFrom}|${st.kpiDateTo}|${_kpiRange.from}|${_kpiRange.to}`;
       if (this._kpiListenSig !== _kpiSig) {
         this._kpiListenSig = _kpiSig;
-        const _kpiRange = this._kpiDateRange();
         this._startKpiListeners(_kpiRange.from, _kpiRange.to, st.kpiDatePreset);
       }
       const _incidents = (st.kpiEvents || []).filter(e => e.type === 'expiry_incident');
