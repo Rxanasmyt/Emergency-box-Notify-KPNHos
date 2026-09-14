@@ -2390,9 +2390,17 @@ select:focus-visible, textarea:focus-visible, [role="button"]:focus-visible {
         </div>
         </sc-if>
 
+        <sc-if value="{{ kpiCustomRangeIncomplete }}" hint-placeholder-val="{{ false }}">
+        <div style="display: flex; align-items: center; gap: 10px; background: #E8F0F6; border: 1.5px solid #1A6FA3; border-radius: 12px; padding: 12px 16px; margin-bottom: 14px; font-size: 12.5px; color: #14507F;">
+          <div style="flex: 1;">📅 เลือก "ตั้งแต่วันที่" และ "ถึงวันที่" ให้ครบทั้งสองช่องด้านบน เพื่อดูข้อมูลตัวชี้วัดของช่วงเวลาที่กำหนดเอง</div>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ !kpiCustomRangeIncomplete }}" hint-placeholder-val="{{ true }}">
         <div class="kpi-dash-grid">
           {{ kpiCardsEl }}
         </div>
+        </sc-if>
 
         <div style="background: #fff; border: 1.5px solid #E7EEF3; border-radius: 16px; padding: 20px 22px;">
           <div style="font-size: 15px; font-weight: 700; color: #15242E; margin-bottom: 4px;">บันทึกการสืบสวนด้วย Audit Trail (ตัวชี้วัด 4.2)</div>
@@ -3718,6 +3726,25 @@ class Component extends DCLogic {
   _startKpiListeners(from, to, preset) {
     this._stopKpiListeners();
     if (!window.EB_Sync || !window.EB_Sync.listenKpiEvents) return;
+    // 'custom' with either bound still unset (the admin has clicked
+    // "กำหนดเอง" but hasn't picked both dates yet) must NOT fall through to
+    // listenKpiEvents/listenKpiInvestigations/fetchAuditRange with a null
+    // bound — found by a dedicated audit. `if(fromISO)`/`if(toISO)` in
+    // firebase-sync.js's query builders treat a falsy bound as "no filter
+    // on that side", so a null from AND a null to means completely
+    // UNBOUNDED — every kpi_events/kpi_investigations doc ever written
+    // streamed live, and (worse) a full unbounded fetchAuditRange() over
+    // the entire, ever-growing audit_log collection (1000+ docs already) —
+    // while the toolbar still reads "กำหนดเอง" as if scoped to a specific
+    // range the admin never actually chose. Skip the network entirely and
+    // show an explicit "pick both dates" state instead of silently loading
+    // and correctly-summing the wrong (all-time) data — the same "must
+    // never silently show wrong/incomplete data with no indication"
+    // standard this file's other KPI-completeness fixes hold to.
+    if (preset === 'custom' && (!from || !to)) {
+      this.setState({ kpiEvents: [], kpiInvestigations: [], _kpiAuditComplete: [], kpiLoading: false, kpiLoaded: true, kpiLoadError: false });
+      return;
+    }
     this.setState({ kpiLoading: true, kpiLoadError: false, _kpiAuditComplete: null });
     let gotEvents = false, gotInv = false;
     const maybeLoaded = () => { if (gotEvents && gotInv) this.setState({ kpiLoading: false, kpiLoaded: true }); };
@@ -8523,7 +8550,14 @@ td.l{text-align:left;padding-left:4px}
       // (see vals.donutGradient above) instead of a fresh SVG approach — same
       // "how much of the whole" visual language already established elsewhere
       // in this app, just at summary-strip scale.
-      vals.kpiSummaryEl = _kpiTargeted.length ? h('div', {
+      // vals.kpiCustomRangeIncomplete isn't set yet at this point in
+      // renderVals (computed further below) — inline the same condition
+      // here so the summary strip can't show a misleading "N/M ผ่านเป้าหมาย"
+      // (every card with no real data defaults to its 'ok'/green status,
+      // e.g. "0 incidents" reads as passing) while "กำหนดเอง" is selected
+      // but no date range has actually been queried yet.
+      const _kpiCustomIncomplete = st.kpiDatePreset === 'custom' && (!st.kpiDateFrom || !st.kpiDateTo);
+      vals.kpiSummaryEl = (_kpiTargeted.length && !_kpiCustomIncomplete) ? h('div', {
         style: { display: 'flex', alignItems: 'center', gap: 18, background: _kpiAllOk ? 'linear-gradient(135deg,#E4F4EF,#EFFAF6)' : 'linear-gradient(135deg,#FFF8ED,#FFF3E0)', border: `1.5px solid ${_kpiAllOk ? '#B9E4D6' : '#F0D2A0'}`, borderRadius: 18, padding: '16px 22px', marginBottom: 16, boxShadow: `0 6px 20px ${_hexToRgba(_kpiAccent, .12)}`, animation: 'kpiCardIn .45s cubic-bezier(.22,1,.36,1) both' }
       },
         h('div', { style: { position: 'relative', width: 56, height: 56, flexShrink: 0 } },
@@ -8563,6 +8597,11 @@ td.l{text-align:left;padding-left:4px}
       vals.refreshKpiData = () => { const r = this._kpiDateRange(); this._startKpiListeners(r.from, r.to, st.kpiDatePreset); };
       vals.kpiLoading = st.kpiLoading;
       vals.kpiLoadFailed = !!st.kpiLoadError && !st.kpiLoading;
+      // "กำหนดเอง" selected but the admin hasn't picked both dates yet —
+      // _startKpiListeners() deliberately skips the network for this case
+      // (see its own comment) rather than silently loading all-time data
+      // under a "custom range" label; this flag drives the matching notice.
+      vals.kpiCustomRangeIncomplete = st.kpiDatePreset === 'custom' && (!st.kpiDateFrom || !st.kpiDateTo);
       vals.kpiDatePreset = st.kpiDatePreset;
       vals.kpiShowCustomDate = st.kpiDatePreset === 'custom';
       vals.kpiDateFrom = st.kpiDateFrom;
