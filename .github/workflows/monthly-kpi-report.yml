@@ -1,0 +1,49 @@
+name: Monthly KPI Report (Read-Only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      from:
+        description: 'วันที่เริ่มต้น (YYYY-MM-DD)'
+        required: false
+        default: '2026-06-01'
+      to:
+        description: 'วันที่สิ้นสุด (YYYY-MM-DD)'
+        required: false
+        default: '2026-08-31'
+
+# Read-only reporting queries — no data-integrity risk from an overlapping
+# run the way reset-data.yml/test-lifecycle.yml have, so no concurrency
+# group is needed here.
+
+jobs:
+  report:
+    name: Query Firestore and print monthly breakdown
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # only reads the repo + talks to Firestore via the Admin SDK service
+    # account (read-only queries) — no GITHUB_TOKEN scope is ever needed
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: .github/scripts/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: .github/scripts
+
+      - name: Run monthly KPI report
+        run: node .github/scripts/monthly-kpi-report.js
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          REPORT_FROM: ${{ github.event.inputs.from }}
+          REPORT_TO: ${{ github.event.inputs.to }}
