@@ -548,9 +548,14 @@ function buildFlexMessages(alerts, boxSummaries) {
             ],
           },
           {
+            // Deep-links into the AUTHENTICATED app (not the public no-login
+            // QR page) straight to this alert's dashboard card — acknowledging
+            // /resolving still requires a real login, but the reader lands
+            // exactly on the right card highlighted, instead of having to
+            // hunt for it after logging in. See index.html's _armHighlightAlert.
             type: 'box', layout: 'vertical', margin: 'sm',
-            action: { type: 'uri', uri: `https://emergencyboxnotyfykpnhos.web.app/?view=box&id=${a.boxId}` },
-            contents: [{ type: 'text', text: `📦  ดูกล่อง ${a.boxId.toUpperCase()} →`, size: 'xs', color: '#1565C0', weight: 'bold', align: 'end' }],
+            action: { type: 'uri', uri: `https://emergencyboxnotyfykpnhos.web.app/?goto=expiry&boxId=${encodeURIComponent(a.boxId)}&drugName=${encodeURIComponent(a.drugName)}&expiry=${encodeURIComponent(a.expiry)}` },
+            contents: [{ type: 'text', text: `📦  ดูกล่อง/ดำเนินการ ${a.boxId.toUpperCase()} →`, size: 'xs', color: '#1565C0', weight: 'bold', align: 'end' }],
           },
         ],
       }],

@@ -164,21 +164,28 @@ function buildUsageAlertFlex({ boxId, dept, drugName, qty, date, time }) {
         },
       ],
     },
-    // "ดูรายละเอียดกล่อง" deep-links straight to this box's own real-time QR
-    // status page (no login needed — see the Paperless Usage Logging section
-    // of CLAUDE.md) so the pharmacist can check the box's current drug/lot
-    // data immediately from the alert, instead of only reading this
-    // snapshot-in-time card. Hardcoding the production Hosting URL here
-    // (rather than deriving it, the way showDrugQR() does client-side) is
-    // fine specifically because this workflow only ever runs against the
-    // one deployed production app — there's no "current origin" concept for
-    // a GitHub Actions job the way there is for a page loaded in a browser.
+    // "ดูรายละเอียด/ดำเนินการ" now deep-links into the AUTHENTICATED app
+    // (not the public no-login QR page) straight to this box's dashboard
+    // notice card, highlighted — acknowledging/recording the recall-and-
+    // replace action still requires a real login (see index.html's
+    // ackBoxOpen/saveBoxOpenResolution, both role-gated), but the reader
+    // lands exactly on the right card instead of hunting for it after
+    // logging in. `date` here is the same value logDrugUsageTx just wrote
+    // to box.openedAt (this alert only ever fires on openedNow===true, the
+    // FIRST usage entry of the cycle — see index.html's submitPubUsage),
+    // so it doubles as the (boxId, openedAt) key _armHighlightAlert needs
+    // to find this exact opening event, not just any card for this box.
+    // Hardcoding the production Hosting URL here (rather than deriving it,
+    // the way showDrugQR() does client-side) is fine specifically because
+    // this workflow only ever runs against the one deployed production
+    // app — there's no "current origin" concept for a GitHub Actions job
+    // the way there is for a page loaded in a browser.
     footer: {
       type: 'box', layout: 'vertical', paddingAll: '12px', spacing: 'sm',
       contents: [
         {
           type: 'button', style: 'primary', color: '#1A6FA3', height: 'sm',
-          action: { type: 'uri', label: '📋 ดูรายละเอียดกล่อง', uri: `https://emergencyboxnotyfykpnhos.web.app/?view=box&id=${encodeURIComponent(boxId)}` },
+          action: { type: 'uri', label: '📋 ดูรายละเอียด/ดำเนินการ', uri: `https://emergencyboxnotyfykpnhos.web.app/?goto=boxopen&boxId=${encodeURIComponent(boxId)}&openedAt=${encodeURIComponent(date)}` },
         },
       ],
     },

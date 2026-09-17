@@ -165,6 +165,13 @@
   @keyframes barIn { 0% { transform: scaleX(0); } 70% { transform: scaleX(1.03); } 100% { transform: scaleX(1); } }
   @keyframes barUp { 0% { transform: scaleY(0); } 70% { transform: scaleY(1.04); } 100% { transform: scaleY(1); } }
   @keyframes pulseRed { 0% { box-shadow: 0 0 0 0 rgba(224,62,62,.4); } 70% { box-shadow: 0 0 0 10px rgba(224,62,62,0); } 100% { box-shadow: 0 0 0 0 rgba(224,62,62,0); } }
+  /* Deep-link-from-LINE landing highlight — a calm blue pulse (not the red
+     danger pulse above) marking the exact alert card a LINE notification's
+     "ดูรายละเอียด/ดำเนินการ" button linked to, so the reader doesn't have to
+     hunt for it among every other card on the dashboard. Runs a few times
+     then stops (see highlightAlert's inline animation-iteration-count) —
+     not an indefinite animation. */
+  @keyframes highlightPulse { 0% { box-shadow: 0 0 0 0 rgba(43,127,224,.45); } 70% { box-shadow: 0 0 0 9px rgba(43,127,224,0); } 100% { box-shadow: 0 0 0 0 rgba(43,127,224,0); } }
   @keyframes blinkDot { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .3; transform: scale(.65); } }
   @keyframes sweep { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
   @keyframes toastIn { 0% { opacity: 0; transform: translate(-50%, 28px) scale(.94); } 50% { transform: translate(-50%, -4px) scale(1.01); } 100% { opacity: 1; transform: translate(-50%, 0) scale(1); } }
@@ -1523,6 +1530,29 @@ select:focus-visible, textarea:focus-visible, [role="button"]:focus-visible {
         </div>
         </sc-if>
 
+        <!-- Near-expiry alerts + acknowledge/resolve actions — reuses the
+             exact same expiryAlertListEl/expiryAlertSummary the Notify
+             screen's banner already builds. Surfaced here too (not just on
+             the admin-only Notify screen) because acknowledging/resolving
+             is gated to pharmacist/admin (_canVerifyReg), not admin-only —
+             a pharmacist could never reach 'notify' at all (go()'s adminOnly
+             nav guard), so without this the whole ack/resolve UI was
+             unreachable for exactly the role it's meant for. -->
+        <sc-if value="{{ hasExpiryAlerts }}" hint-placeholder-val="{{ false }}">
+        <div class="ds-notice ds-notice-amber" style="background: linear-gradient(135deg, #FCEDED, #FDF4EC); border: 1.5px solid #F4C9C9; border-radius: 16px; padding: 18px 22px; margin-bottom: 22px; animation: fadeUp .4s ease both;">
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+            <span style="width: 34px; height: 34px; border-radius: 10px; background: #F4C9C9; color: #B42121; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 7v5l3 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.8"/></svg>
+            </span>
+            <div>
+              <div style="font-size: 14px; font-weight: 700; color: #B42121;">พบยาที่ต้องดำเนินการ · {{ expiryAlertCount }} รายการ</div>
+              <div style="font-size: 12px; color: #9A3838; margin-top: 2px;">{{ expiryAlertSummary }}</div>
+            </div>
+          </div>
+          {{ expiryAlertListEl }}
+        </div>
+        </sc-if>
+
         <!-- Boxes opened by a ward but not yet recalled/replaced -->
         <sc-if value="{{ hasOpenedBoxes }}" hint-placeholder-val="{{ false }}">
         <div class="ds-notice ds-notice-gold" style="background: linear-gradient(135deg, #FBF1E0, #FDF4EC); border: 1.5px solid #F0DDB8; border-radius: 16px; padding: 18px 22px; margin-bottom: 22px; animation: fadeUp .4s ease both;">
@@ -2666,6 +2696,19 @@ class Component extends DCLogic {
     publicView: (() => { try { const p = new URLSearchParams(window.location.search); return p.get('view') === 'box' && !!p.get('id'); } catch (_) { return false; } })(),
     publicBoxId: (() => { try { const p = new URLSearchParams(window.location.search); return (p.get('view') === 'box' && p.get('id')) || ''; } catch (_) { return ''; } })(),
     _publicSynced: false,
+    // Deep link from a LINE alert's "ดูกล่อง"/"ดูรายละเอียดกล่อง" button —
+    // ?goto=expiry|boxopen identifies which dashboard notice card to land on
+    // and highlight after login, instead of only opening the public no-login
+    // QR page (which has no identity to act with — acknowledging/resolving
+    // still requires the real authenticated app). Read synchronously at
+    // construction, same as publicView/publicBoxId above, so it survives
+    // through the login screen unaffected by any later setState.
+    _deepLinkGoto: (() => { try { const p = new URLSearchParams(window.location.search); return p.get('goto') || ''; } catch (_) { return ''; } })(),
+    _deepLinkParams: (() => { try {
+      const p = new URLSearchParams(window.location.search);
+      return { boxId: p.get('boxId') || '', drugName: p.get('drugName') || '', expiry: p.get('expiry') || '', openedAt: p.get('openedAt') || '' };
+    } catch (_) { return {}; } })(),
+    highlightAlert: null,
     // paperless: admin dept PIN management
     deptPinInputs: { ER: '', WARD: '', LR: '' },
     deptPinsSet: { ER: false, WARD: false, LR: false },
@@ -3089,6 +3132,41 @@ class Component extends DCLogic {
       if (!ok) await this._dispatchUsageAlertOnce(pat, boxId, dept, drugName, qty, date, time);
     } catch (_) { /* fire-and-forget, see comment above */ }
   }
+  // One dispatch attempt for the resolution-confirmation workflow — mirrors
+  // _dispatchUsageAlertOnce's shape exactly, just a different workflow file
+  // and input set (resolution-alert.yml / resolution-alert.js).
+  async _dispatchResolutionAlertOnce(pat, kind, boxId, detail, action, note, resolvedBy, date, time) {
+    try {
+      const res = await fetch('https://api.github.com/repos/Rxanasmyt/Emergency-box-Notify-KPNHos/actions/workflows/resolution-alert.yml/dispatches', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${pat}`, 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ref: 'claude/eloquent-heisenberg-vqrypu', inputs: { kind, boxId, detail, action, note: note || '', resolvedBy, date, time } }),
+      });
+      if (!res.ok) { console.warn('[ResolutionAlert] dispatch failed:', res.status, await res.text().catch(() => '')); return false; }
+      return true;
+    } catch (e) { console.warn('[ResolutionAlert] dispatch error:', e.message); return false; }
+  }
+  // Fires the "resolved" confirmation LINE alert after a pharmacist/admin
+  // saves an expiry-action or box-opened-action resolution — called from
+  // saveExpiryResolution()/saveBoxOpenResolution() AFTER their own
+  // Firestore write + audit_log entry already succeeded, so a failed alert
+  // here can never leave a false record: the real resolution is already
+  // safely persisted regardless of whether this notification goes out.
+  // Unlike _triggerUsageAlert (runs on the public, unauthenticated page
+  // with no state.ghPAT), this runs from the authenticated app where the
+  // PAT is already loaded at login — no need to fetch it fresh from
+  // Firestore. Still gets one retry on the dispatch call itself, matching
+  // every other GitHub Actions trigger's fire-and-forget-but-not-fragile
+  // pattern in this app.
+  async _triggerResolutionAlert(kind, boxId, detail, action, note, resolvedBy) {
+    const pat = (this.state.ghPAT || '').trim();
+    if (!pat) return;
+    const date = this.isoOf(this.TODAY), time = this.nowTime();
+    try {
+      const ok = await this._dispatchResolutionAlertOnce(pat, kind, boxId, detail, action, note, resolvedBy, date, time);
+      if (!ok) await this._dispatchResolutionAlertOnce(pat, kind, boxId, detail, action, note, resolvedBy, date, time);
+    } catch (_) { /* fire-and-forget */ }
+  }
 
   // par quantities now live in DRUGS[].par
   buildBoxDrugs() {
@@ -3126,6 +3204,19 @@ class Component extends DCLogic {
   _boxOpenActionKey(boxId, openedAt) {
     const clean = s => String(s || '').replace(/[\/\s]+/g, '_');
     return `${clean(boxId)}__${clean(openedAt)}`;
+  }
+  // Arms the "landed here from a LINE alert" highlight — sets state so
+  // renderVals's expiryAlertListEl/boxOpenListEl can flag the one matching
+  // card, and resets the one-shot scroll-into-view flag those elements'
+  // ref callbacks check (see _scrolledToHighlight below) so a brand-new
+  // deep link always re-scrolls even if a previous one already fired this
+  // session. Auto-clears after a while so the pulse doesn't run forever if
+  // the reader just leaves the tab open.
+  _armHighlightAlert(type, params) {
+    this._scrolledToHighlight = false;
+    this.setState({ highlightAlert: { type, ...params } });
+    clearTimeout(this._highlightAlertT);
+    this._highlightAlertT = setTimeout(() => this.setState({ highlightAlert: null }), 15000);
   }
   drugNameToId(name) {
     const n = (name || '').toLowerCase();
@@ -3884,6 +3975,10 @@ class Component extends DCLogic {
       this.logAction({ cat: 'other', action: 'บันทึกการจัดการยาใกล้หมดอายุ', eb: m.boxId, dept: '—', drug: `${m.drugName}: ${action}${m.note ? ' — ' + m.note : ''}` });
       this.setState({ expiryActionModal: null, expiryActionModalError: '' });
       this.flash('บันทึกการดำเนินการแล้ว');
+      // Follow-up confirmation into the same LINE group the original alert
+      // went to — fired only after the write above is confirmed, so it can
+      // never report a resolution that didn't actually save.
+      this._triggerResolutionAlert('expiry', m.boxId, m.drugName, action, (m.note || '').trim(), this.state.currentUser.name);
     } catch (err) {
       this.setState({ expiryActionModalError: '⚠️ บันทึกไม่สำเร็จ — ' + ((err && err.message) || '') });
     }
@@ -3930,6 +4025,9 @@ class Component extends DCLogic {
       this.logAction({ cat: 'other', action: 'บันทึกการจัดการกล่องที่เปิดใช้งาน', eb: m.boxId, dept: m.dept || '—', drug: `${action}${m.note ? ' — ' + m.note : ''}` });
       this.setState({ boxOpenActionModal: null, boxOpenActionModalError: '' });
       this.flash('บันทึกการดำเนินการแล้ว');
+      // Follow-up confirmation into the same LINE group the original
+      // "box opened" alert went to — same reasoning as saveExpiryResolution.
+      this._triggerResolutionAlert('boxopen', m.boxId, m.dept || '—', action, (m.note || '').trim(), this.state.currentUser.name);
     } catch (err) {
       this.setState({ boxOpenActionModalError: '⚠️ บันทึกไม่สำเร็จ — ' + ((err && err.message) || '') });
     }
@@ -4672,6 +4770,10 @@ class Component extends DCLogic {
       this._syncT = setTimeout(() => { if (window.EB_Sync) window.EB_Sync.syncUsers(updatedU).catch(() => console.warn('[Login] lastLogin write failed')); }, 1500);
     }
     this._loggingIn = false;
+    // Arrived via a LINE alert's deep link — land already on the dashboard
+    // (already set above) with the exact matching notice card highlighted,
+    // instead of making the reader hunt for it among every other alert.
+    if (this.state._deepLinkGoto) this._armHighlightAlert(this.state._deepLinkGoto, this.state._deepLinkParams);
     // load lastSentDate + thresholdDays from Firestore so notify screen shows
     // accurate last-sent info and the current near-expiry alert window
     if (window.EB_Firebase && window.EB_Firebase.db) {
@@ -6390,8 +6492,16 @@ td.l{text-align:left;padding-left:4px}
     // box+drug, is the right incident key.
     const _expActions = st.expiryActions || {};
     const _canActOnExpiry = this._canVerifyReg();
+    // Sort the deep-link-highlighted alert (if any) to the front BEFORE the
+    // 6-item display cap below — otherwise a LINE link pointing at an alert
+    // that happens to sort past position 6 would land the reader on a
+    // dashboard with no visible match for what they just tapped.
+    const _haE = st.highlightAlert;
+    const _expAlertsOrdered = (_haE && _haE.type === 'expiry')
+      ? [...alerts].sort((a, b) => (a.boxId === _haE.boxId && a.drugName === _haE.drugName && a.expiry === _haE.expiry) ? -1 : (b.boxId === _haE.boxId && b.drugName === _haE.drugName && b.expiry === _haE.expiry) ? 1 : 0)
+      : alerts;
     vals.expiryAlertListEl = alerts.length ? h('div', { style: { marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 } },
-      ...alerts.slice(0, 6).map((a, i) => {
+      ..._expAlertsOrdered.slice(0, 6).map((a, i) => {
         const _isExpired = a.status === 'expired' || a.status === 'expired_today';
         const _isDanger = _isExpired || a.status === 'critical';
         const _col = _isExpired ? '#B42121' : a.status === 'critical' ? '#C2410C' : '#B5740F';
@@ -6400,7 +6510,15 @@ td.l{text-align:left;padding-left:4px}
         const _actId = this._expiryActionKey(a.boxId, a.drugName, a.expiry);
         const _act = _expActions[_actId];
         const _actStatus = _act ? _act.status : 'none';
-        return h('div', { key: _actId, style: { background: _bg, borderRadius: 8, padding: '6px 10px' } },
+        // Deep-link-from-LINE landing highlight — matches on the same
+        // (box, drug, lot expiry) triple the alert/incident key itself uses.
+        const _ha = st.highlightAlert;
+        const _isHighlighted = !!(_ha && _ha.type === 'expiry' && _ha.boxId === a.boxId && _ha.drugName === a.drugName && _ha.expiry === a.expiry);
+        return h('div', {
+          key: _actId,
+          ref: _isHighlighted ? (el) => { if (el && !this._scrolledToHighlight) { this._scrolledToHighlight = true; el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } } : undefined,
+          style: { background: _bg, borderRadius: 8, padding: '6px 10px', outline: _isHighlighted ? '2px solid #2B7FE0' : 'none', animation: _isHighlighted ? 'highlightPulse 1.6s ease-in-out 4' : 'none' },
+        },
           h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5 } },
             h('span', { style: { fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: _col, flexShrink: 0 } }, a.boxId),
             h('span', { style: { flex: 1, color: '#5A2A00', fontWeight: _isDanger ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, a.drugName + (a.isHAD ? ' ⚠ HAD' : '')),
@@ -6465,7 +6583,13 @@ td.l{text-align:left;padding-left:4px}
         const _actId = this._boxOpenActionKey(b.id, b.openedAt);
         const _act = _boxOpenActions[_actId];
         const _actStatus = _act ? _act.status : 'none';
-        return h('div', { key: _actId, style: { background: '#fff', border: '1px solid #F0DDB8', borderRadius: 12, padding: '10px 14px', minWidth: 240 } },
+        const _hb = st.highlightAlert;
+        const _isHighlightedB = !!(_hb && _hb.type === 'boxopen' && _hb.boxId === b.id && _hb.openedAt === b.openedAt);
+        return h('div', {
+          key: _actId,
+          ref: _isHighlightedB ? (el) => { if (el && !this._scrolledToHighlight) { this._scrolledToHighlight = true; el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } } : undefined,
+          style: { background: '#fff', border: _isHighlightedB ? '2px solid #2B7FE0' : '1px solid #F0DDB8', borderRadius: 12, padding: '10px 14px', minWidth: 240, animation: _isHighlightedB ? 'highlightPulse 1.6s ease-in-out 4' : 'none' },
+        },
           h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
             h('div', { style: { fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, fontSize: 14, color: '#B5740F', background: '#FBF1E0', border: '1px solid #F0DDB8', borderRadius: 8, padding: '5px 10px' } }, b.id),
             h('div', { style: { minWidth: 0 } },

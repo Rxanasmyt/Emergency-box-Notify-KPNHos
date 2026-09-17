@@ -1,0 +1,80 @@
+name: Alert Resolution Confirmation
+
+# Fired via workflow_dispatch from the authenticated app, right after a
+# pharmacist/admin saves an expiry-action or box-opened-action resolution
+# (index.html's saveExpiryResolution()/saveBoxOpenResolution()) — sends a
+# follow-up LINE message into the SAME group the original alert went to,
+# so the pharmacy can see the loop was closed without anyone having to open
+# the app again. See .github/scripts/resolution-alert.js.
+on:
+  workflow_dispatch:
+    inputs:
+      kind:
+        description: 'Which alert this resolves: expiry or boxopen'
+        required: true
+        type: string
+      boxId:
+        description: 'Box ID (e.g. EB-1)'
+        required: true
+        type: string
+      detail:
+        description: 'Drug name (expiry) or department (boxopen)'
+        required: true
+        type: string
+      action:
+        description: 'The concrete action taken, as recorded'
+        required: true
+        type: string
+      note:
+        description: 'Optional free-text note'
+        required: false
+        type: string
+      resolvedBy:
+        description: 'Name of the pharmacist/admin who resolved it'
+        required: true
+        type: string
+      date:
+        description: 'Date resolved (YYYY-MM-DD, Bangkok)'
+        required: true
+        type: string
+      time:
+        description: 'Time resolved (HH:MM, Bangkok)'
+        required: true
+        type: string
+
+# Each invocation is an independent confirmation for a different alert —
+# no shared mutable state, so no concurrency group needed (same reasoning
+# as usage-alert.yml).
+
+jobs:
+  notify:
+    name: Send resolution-confirmation LINE alert
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+        # no npm ci — resolution-alert.js only uses Node's built-in `https`,
+        # same as usage-alert.js
+
+      - name: Send LINE alert via MOPH Notify
+        run: node .github/scripts/resolution-alert.js
+        env:
+          MOPH_NOTIFY_CLIENT_KEY: ${{ secrets.MOPH_NOTIFY_CLIENT_KEY }}
+          MOPH_NOTIFY_SECRET_KEY: ${{ secrets.MOPH_NOTIFY_SECRET_KEY }}
+          KIND:        ${{ inputs.kind }}
+          BOX_ID:      ${{ inputs.boxId }}
+          DETAIL:      ${{ inputs.detail }}
+          ACTION:      ${{ inputs.action }}
+          NOTE:        ${{ inputs.note }}
+          RESOLVED_BY: ${{ inputs.resolvedBy }}
+          DATE:        ${{ inputs.date }}
+          TIME:        ${{ inputs.time }}
