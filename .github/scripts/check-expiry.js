@@ -282,6 +282,154 @@ function stageIconLabel(stage) {
   return { icon: '⚪', label: 'ยังไม่จัดเตรียม' };
 }
 
+// ── Daily "still unresolved" reminder ──────────────────────────
+// Direct request: an alert firing once is not enough on its own to prevent
+// the underlying risk from being forgotten — this closes that gap by
+// re-sending a reminder EVERY day this script runs (not just the day the
+// alert first appeared) for any near-expiry lot or opened box that hasn't
+// been marked 'resolved' yet in expiry_actions/box_open_actions (see those
+// two collections' own documentation in CLAUDE.md). Deliberately
+// independent of the near-expiry report's own Monday/urgent-only send
+// gating and its lastSentDate dedup below — those exist to avoid spamming
+// a NEW detection; this is the opposite concern (don't let an ALREADY-KNOWN
+// risk go quiet), so it must not inherit either restriction.
+//
+// _cleanKey/_expiryActionId/_boxOpenActionId are exact copies of
+// firebase-sync.js's own composite-doc-id derivation (same "no shared
+// module" design as this file's other local copies, e.g. thaiDate) — they
+// MUST stay byte-for-byte identical or a lookup here would silently miss
+// the real Firestore doc the app itself would find.
+function _cleanKey(s) { return String(s || '').replace(/[\/\s]+/g, '_'); }
+function _expiryActionId(boxId, drugName, expiry) { return `${_cleanKey(boxId)}__${_cleanKey(drugName)}__${_cleanKey(expiry)}`; }
+function _boxOpenActionId(boxId, openedAt) { return `${_cleanKey(boxId)}__${_cleanKey(openedAt)}`; }
+
+// alerts: the full (unfiltered by severity) list from fetchExpiringDrugs() —
+// every near-expiry/expired lot is a real risk worth reminding about, not
+// just the 'critical'/'expired' tiers the main report's own urgent-only cron
+// gating cares about.
+async function fetchUnresolvedReminders(alerts) {
+  const [expActSnap, boxOpenActSnap, boxSnap] = await Promise.all([
+    db.collection('expiry_actions').get(),
+    db.collection('box_open_actions').get(),
+    db.collection('boxes').get(),
+  ]);
+  const expActions = {};
+  expActSnap.forEach(d => { expActions[d.id] = d.data(); });
+  const boxOpenActions = {};
+  boxOpenActSnap.forEach(d => { boxOpenActions[d.id] = d.data(); });
+
+  const expiryUnresolved = alerts
+    .map(a => {
+      const act = expActions[_expiryActionId(a.boxId, a.drugName, a.expiry)];
+      return { ...a, actionStatus: act ? act.status : 'none', ackBy: act ? act.ackBy : '' };
+    })
+    .filter(a => a.actionStatus !== 'resolved');
+
+  const boxOpenUnresolved = [];
+  boxSnap.forEach(doc => {
+    const box = doc.data() || {};
+    if (box.dispense && !box.receiver && box.openedAt) {
+      const act = boxOpenActions[_boxOpenActionId(doc.id, box.openedAt)];
+      const actionStatus = act ? act.status : 'none';
+      if (actionStatus !== 'resolved') {
+        boxOpenUnresolved.push({ boxId: doc.id, dept: box.dispense, openedAt: box.openedAt, actionStatus, ackBy: act ? act.ackBy : '' });
+      }
+    }
+  });
+
+  return { expiryUnresolved, boxOpenUnresolved };
+}
+
+// Compact row: box id + description on the left, a small status pill on the
+// right — this reminder is meant to be scanned in a few seconds each
+// morning, not read line by line like the main alert cards.
+function _reminderRow(boxId, desc, actionStatus) {
+  const pillColor = actionStatus === 'acknowledged' ? '#B5740F' : '#B42121';
+  const pillLabel = actionStatus === 'acknowledged' ? '🟡 รับทราบแล้ว' : '🔴 ยังไม่รับทราบ';
+  return {
+    type: 'box', layout: 'horizontal', margin: 'md', alignItems: 'center',
+    contents: [
+      { type: 'text', text: boxId.toUpperCase(), size: 'sm', weight: 'bold', color: '#1A1A2E', flex: 0 },
+      { type: 'text', text: desc, size: 'xs', color: '#455A64', flex: 1, margin: 'sm', wrap: true },
+      {
+        type: 'box', layout: 'vertical', flex: 0, backgroundColor: pillColor === '#B5740F' ? '#FBF1E0' : '#FCEDED',
+        cornerRadius: '20px', paddingTop: '4px', paddingBottom: '4px', paddingStart: '10px', paddingEnd: '10px',
+        contents: [{ type: 'text', text: pillLabel, color: pillColor, size: 'xs', weight: 'bold' }],
+      },
+    ],
+  };
+}
+
+function buildUnresolvedReminderFlex(expiryUnresolved, boxOpenUnresolved) {
+  const bubbles = [];
+
+  bubbles.push({
+    type: 'bubble', size: 'mega',
+    header: {
+      type: 'box', layout: 'horizontal', backgroundColor: '#B45F06', paddingAll: '16px', alignItems: 'center',
+      contents: [
+        { type: 'text', text: '⏰', size: 'xxl', flex: 0 },
+        { type: 'box', layout: 'vertical', margin: 'md', flex: 1, contents: [
+          { type: 'text', text: 'แจ้งเตือนค้าง — ยังไม่ดำเนินการ', color: '#FFFFFF', weight: 'bold', size: 'lg', wrap: true },
+          { type: 'text', text: `ยาใกล้หมดอายุ ${expiryUnresolved.length} รายการ · กล่องเปิดใช้งาน ${boxOpenUnresolved.length} กล่อง`, color: '#FDE9C8', size: 'xs', margin: 'xs', wrap: true },
+        ] },
+      ],
+    },
+    body: {
+      type: 'box', layout: 'vertical', paddingAll: '16px', spacing: 'sm',
+      contents: [{
+        type: 'text', wrap: true, size: 'xs', color: '#7B4019',
+        text: 'ความเสี่ยงเหล่านี้ยังไม่ถูกรับทราบ/ดำเนินการในแอป — ระบบจะเตือนซ้ำทุกวันจนกว่าจะบันทึกการดำเนินการเรียบร้อย',
+      }],
+    },
+    footer: {
+      type: 'box', layout: 'vertical', paddingAll: '12px',
+      contents: [{
+        type: 'button', style: 'primary', color: '#B45F06', height: 'sm',
+        action: { type: 'uri', label: '🔗  เปิดแอป EB Notify', uri: 'https://emergencyboxnotyfykpnhos.web.app' },
+      }],
+    },
+  });
+
+  // Chunked 8 rows/bubble, same "no silent cap" discipline as this file's
+  // other carousels — this app's fixed ~10-box catalog makes hitting the
+  // 12-bubble LINE carousel limit practically impossible, but the pattern
+  // is kept consistent rather than assumed safe by scale alone.
+  for (let i = 0; i < expiryUnresolved.length && bubbles.length < 11; i += 8) {
+    const chunk = expiryUnresolved.slice(i, i + 8);
+    bubbles.push({
+      type: 'bubble', size: 'mega',
+      header: { type: 'box', layout: 'vertical', backgroundColor: '#B71C1C', paddingAll: '14px', contents: [
+        { type: 'text', text: '💊 ยาใกล้หมดอายุ — ยังไม่ดำเนินการ', color: '#FFFFFF', weight: 'bold', size: 'sm', wrap: true },
+      ] },
+      body: {
+        type: 'box', layout: 'vertical', paddingAll: '14px', spacing: 'none',
+        contents: chunk.map(a => _reminderRow(a.boxId, `${a.drugName} · ${a.statusLabel}`, a.actionStatus)),
+      },
+    });
+  }
+
+  for (let i = 0; i < boxOpenUnresolved.length && bubbles.length < 12; i += 8) {
+    const chunk = boxOpenUnresolved.slice(i, i + 8);
+    bubbles.push({
+      type: 'bubble', size: 'mega',
+      header: { type: 'box', layout: 'vertical', backgroundColor: '#1A6FA3', paddingAll: '14px', contents: [
+        { type: 'text', text: '🔔 กล่องเปิดใช้งาน — ยังไม่เรียกคืน/เปลี่ยนกล่อง', color: '#FFFFFF', weight: 'bold', size: 'sm', wrap: true },
+      ] },
+      body: {
+        type: 'box', layout: 'vertical', paddingAll: '14px', spacing: 'none',
+        contents: chunk.map(b => _reminderRow(b.boxId, `หน่วยงาน ${b.dept} · เปิดใช้งานเมื่อ ${thaiDate(b.openedAt)}`, b.actionStatus)),
+      },
+    });
+  }
+
+  return [{
+    type: 'flex',
+    altText: `⏰ แจ้งเตือนค้าง — ยาใกล้หมดอายุ ${expiryUnresolved.length} รายการ, กล่องเปิดใช้งาน ${boxOpenUnresolved.length} กล่อง ยังไม่ดำเนินการ`,
+    contents: { type: 'carousel', contents: bubbles },
+  }];
+}
+
 // ── Build the all-clear LINE message as a Flex carousel — mirrors
 // buildFlexMessages' premium card style (stat tiles + colored box cards)
 // instead of a wall of plain text, so the per-box breakdown is scannable
@@ -1132,6 +1280,31 @@ async function main() {
   } catch (err) {
     console.error('❌ Firestore error:', err.message);
     process.exit(1);
+  }
+
+  // Daily "still unresolved" reminder — independent of every gate below
+  // (Monday/urgent-only send logic, the all-clear branch, the lastSentDate
+  // dedup above already having exited for a same-day duplicate manual run).
+  // Runs once per real invocation of this script (once/day via cron in
+  // normal operation) so a flagged risk that's sitting un-acknowledged/
+  // un-resolved gets re-surfaced every single day, not just the day it was
+  // first detected.
+  try {
+    const { expiryUnresolved, boxOpenUnresolved } = await fetchUnresolvedReminders(alerts);
+    if (expiryUnresolved.length || boxOpenUnresolved.length) {
+      console.log(`\n⏰ แจ้งเตือนค้าง: ยาใกล้หมดอายุ ${expiryUnresolved.length} รายการยังไม่ดำเนินการ, กล่องเปิดใช้งาน ${boxOpenUnresolved.length} กล่องยังไม่เรียกคืน`);
+      if (process.env.MOPH_NOTIFY_CLIENT_KEY && process.env.MOPH_NOTIFY_SECRET_KEY) {
+        const reminderSent = await sendMOPHNotify(process.env.MOPH_NOTIFY_CLIENT_KEY, process.env.MOPH_NOTIFY_SECRET_KEY, buildUnresolvedReminderFlex(expiryUnresolved, boxOpenUnresolved))
+          .catch(err => { console.error('❌ MOPH Notify reminder error:', err.message); return false; });
+        console.log(reminderSent ? '✅ ส่งแจ้งเตือนค้างเข้ากลุ่ม LINE สำเร็จ' : '❌ ส่งแจ้งเตือนค้างไม่สำเร็จ');
+      } else {
+        console.log('⚠️  MOPH Notify: ไม่ได้ตั้งค่า client/secret key — ข้ามการส่งแจ้งเตือนค้าง');
+      }
+    } else {
+      console.log('\n✅ ไม่มีแจ้งเตือนค้าง — ทุกรายการรับทราบ/ดำเนินการแล้ว');
+    }
+  } catch (err) {
+    console.error('❌ fetchUnresolvedReminders error:', err.message);
   }
 
   if (!alerts.length) {
