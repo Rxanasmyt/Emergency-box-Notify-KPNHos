@@ -91,22 +91,37 @@ function buildResolutionFlex({ kind, boxId, detail, action, note, resolvedBy, da
     type: 'bubble',
     size: 'mega',
     header: {
-      type: 'box', layout: 'vertical', backgroundColor: '#0F6E4F', paddingAll: '16px',
+      type: 'box', layout: 'horizontal', backgroundColor: '#0F6E4F', paddingAll: '16px', alignItems: 'center',
       contents: [
-        { type: 'text', text: '✅ ดำเนินการเรียบร้อยแล้ว', color: '#FFFFFF', weight: 'bold', size: 'md' },
+        { type: 'text', text: '✅', size: 'xxl', flex: 0 },
+        { type: 'box', layout: 'vertical', margin: 'md', flex: 1, contents: [
+          { type: 'text', text: 'ดำเนินการเรียบร้อยแล้ว', color: '#FFFFFF', weight: 'bold', size: 'lg' },
+          { type: 'text', text: boxId, color: '#B9E4D0', size: 'sm', margin: 'xs', weight: 'bold' },
+        ] },
       ],
     },
     body: {
       type: 'box', layout: 'vertical', paddingAll: '18px', spacing: 'sm',
       contents: [
-        { type: 'text', text: boxId, size: 'xxl', weight: 'bold', color: '#1A1A2E' },
-        { type: 'separator', margin: 'lg' },
         row(detailLabel, detail || '—'),
         row('🛠️  การดำเนินการ', action || '—'),
         note ? row('📝  หมายเหตุ', note) : null,
         row('👤  บันทึกโดย', resolvedBy || '—'),
         row('📅  วันเวลา', `${thaiDate(date)} · ${time} น.`),
       ].filter(Boolean),
+    },
+    // Deep-links to the box's own no-login public QR status page (not the
+    // authenticated dashboard — there is no more pending action left to
+    // land on for THIS incident, it's already resolved) so a reader can
+    // still jump straight to that box's current live state from the
+    // confirmation card itself, matching every other alert card in this
+    // app having a footer button rather than being a dead end.
+    footer: {
+      type: 'box', layout: 'vertical', paddingAll: '12px',
+      contents: [{
+        type: 'button', style: 'primary', color: '#0F6E4F', height: 'sm',
+        action: { type: 'uri', label: '📋  ดูสถานะกล่องล่าสุด', uri: `https://emergencyboxnotyfykpnhos.web.app/?view=box&id=${encodeURIComponent(boxId)}` },
+      }],
     },
   };
 }

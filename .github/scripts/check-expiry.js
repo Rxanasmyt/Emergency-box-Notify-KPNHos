@@ -307,6 +307,19 @@ function _boxOpenActionId(boxId, openedAt) { return `${_cleanKey(boxId)}__${_cle
 // every near-expiry/expired lot is a real risk worth reminding about, not
 // just the 'critical'/'expired' tiers the main report's own urgent-only cron
 // gating cares about.
+//
+// Also tracks (and, for expiry alerts, persists) how many days an item has
+// been unresolved — found directly needed after the first round shipped
+// with no way to tell "flagged today" apart from "flagged 5 days ago" or to
+// prioritize the reminder's own row order. box-opened items get this for
+// free from the box's own `openedAt` field (set once per dispense cycle,
+// so it already IS the "since when" timestamp); near-expiry alerts have no
+// equivalent field anywhere, so the first time this function sees an
+// unresolved alert with no existing action doc (or a doc missing
+// `firstSeenAt`, e.g. one only ever touched by the app's own ack/resolve
+// writes before this field existed), it stamps `firstSeenAt: TODAY_ISO`
+// into expiry_actions itself — a merge write, never touching any other
+// field, so it can never clobber a concurrent ack/resolve from the app.
 async function fetchUnresolvedReminders(alerts) {
   const [expActSnap, boxOpenActSnap, boxSnap] = await Promise.all([
     db.collection('expiry_actions').get(),
@@ -318,12 +331,39 @@ async function fetchUnresolvedReminders(alerts) {
   const boxOpenActions = {};
   boxOpenActSnap.forEach(d => { boxOpenActions[d.id] = d.data(); });
 
+  const firstSeenWrites = [];
   const expiryUnresolved = alerts
     .map(a => {
-      const act = expActions[_expiryActionId(a.boxId, a.drugName, a.expiry)];
-      return { ...a, actionStatus: act ? act.status : 'none', ackBy: act ? act.ackBy : '' };
+      const id = _expiryActionId(a.boxId, a.drugName, a.expiry);
+      const act = expActions[id];
+      const actionStatus = act ? act.status : 'none';
+      let firstSeenAt = act && act.firstSeenAt ? act.firstSeenAt : null;
+      if (!firstSeenAt && actionStatus !== 'resolved') {
+        firstSeenAt = TODAY_ISO;
+        // Only stamp status:'none' when creating a BRAND NEW doc (no `act`
+        // at all) — a doc that already exists but merely predates this
+        // firstSeenAt field (e.g. already 'acknowledged') must keep its
+        // real status untouched, or this write would silently downgrade an
+        // already-acknowledged incident back to unacknowledged.
+        firstSeenWrites.push({ id, firstSeenAt, isNewDoc: !act });
+      }
+      const daysUnresolved = firstSeenAt ? Math.max(0, -daysUntil(firstSeenAt)) : 0;
+      return { ...a, actionStatus, ackBy: act ? act.ackBy : '', daysUnresolved };
     })
     .filter(a => a.actionStatus !== 'resolved');
+
+  if (firstSeenWrites.length) {
+    // status:'none' must be explicit here, not left absent — index.html's
+    // ack button is gated on a strict `actionStatus === 'none'` check, and
+    // an absent field would read as undefined, not the string 'none',
+    // silently hiding the "รับทราบ" button for every doc this creates.
+    const batch = db.batch();
+    firstSeenWrites.forEach(w => {
+      const patch = w.isNewDoc ? { status: 'none', firstSeenAt: w.firstSeenAt } : { firstSeenAt: w.firstSeenAt };
+      batch.set(db.collection('expiry_actions').doc(w.id), patch, { merge: true });
+    });
+    await batch.commit().catch(err => console.error('❌ fetchUnresolvedReminders: firstSeenAt batch failed:', err.message));
+  }
 
   const boxOpenUnresolved = [];
   boxSnap.forEach(doc => {
@@ -332,58 +372,124 @@ async function fetchUnresolvedReminders(alerts) {
       const act = boxOpenActions[_boxOpenActionId(doc.id, box.openedAt)];
       const actionStatus = act ? act.status : 'none';
       if (actionStatus !== 'resolved') {
-        boxOpenUnresolved.push({ boxId: doc.id, dept: box.dispense, openedAt: box.openedAt, actionStatus, ackBy: act ? act.ackBy : '' });
+        // openedAt IS the "since when" timestamp already — no extra write needed.
+        const daysUnresolved = Math.max(0, -daysUntil(box.openedAt));
+        boxOpenUnresolved.push({ boxId: doc.id, dept: box.dispense, openedAt: box.openedAt, actionStatus, ackBy: act ? act.ackBy : '', daysUnresolved });
       }
     }
   });
 
+  // Oldest-unresolved-first — the whole point of tracking daysUnresolved is
+  // to stop the reminder reading as an undifferentiated wall of "still
+  // pending" rows; the item that's been sitting longest is the one most at
+  // risk of being forgotten, so it belongs at the top, not wherever it
+  // happened to sort by box ID or expiry date.
+  expiryUnresolved.sort((a, b) => b.daysUnresolved - a.daysUnresolved);
+  boxOpenUnresolved.sort((a, b) => b.daysUnresolved - a.daysUnresolved);
+
   return { expiryUnresolved, boxOpenUnresolved };
+}
+
+function _daysUnresolvedText(days) {
+  return days <= 0 ? 'พบวันนี้' : `ค้างมา ${days} วัน`;
 }
 
 // Compact row: box id + description on the left, a small status pill on the
 // right — this reminder is meant to be scanned in a few seconds each
-// morning, not read line by line like the main alert cards.
-function _reminderRow(boxId, desc, actionStatus) {
+// morning, not read line by line like the main alert cards. `uri` makes the
+// WHOLE row tappable (a Flex box's own `action` property, same mechanism
+// drugCard()'s deep-link row already uses) so a reader can jump straight
+// into acting on THIS specific item instead of only a generic "open the
+// app" button on the summary bubble — the same landing+highlight flow the
+// original alert's own deep link already uses (see index.html's
+// _armHighlightAlert).
+function _reminderRow(boxId, desc, actionStatus, daysUnresolved, uri) {
   const pillColor = actionStatus === 'acknowledged' ? '#B5740F' : '#B42121';
   const pillLabel = actionStatus === 'acknowledged' ? '🟡 รับทราบแล้ว' : '🔴 ยังไม่รับทราบ';
   return {
-    type: 'box', layout: 'horizontal', margin: 'md', alignItems: 'center',
+    type: 'box', layout: 'vertical', margin: 'md', paddingAll: '10px',
+    backgroundColor: '#FFFFFF', cornerRadius: '10px',
+    action: { type: 'uri', uri },
     contents: [
-      { type: 'text', text: boxId.toUpperCase(), size: 'sm', weight: 'bold', color: '#1A1A2E', flex: 0 },
-      { type: 'text', text: desc, size: 'xs', color: '#455A64', flex: 1, margin: 'sm', wrap: true },
-      {
-        type: 'box', layout: 'vertical', flex: 0, backgroundColor: pillColor === '#B5740F' ? '#FBF1E0' : '#FCEDED',
-        cornerRadius: '20px', paddingTop: '4px', paddingBottom: '4px', paddingStart: '10px', paddingEnd: '10px',
-        contents: [{ type: 'text', text: pillLabel, color: pillColor, size: 'xs', weight: 'bold' }],
-      },
+      { type: 'box', layout: 'horizontal', alignItems: 'center', contents: [
+        { type: 'text', text: boxId.toUpperCase(), size: 'sm', weight: 'bold', color: '#1A1A2E', flex: 0 },
+        { type: 'text', text: desc, size: 'xs', color: '#455A64', flex: 1, margin: 'sm', wrap: true },
+      ] },
+      { type: 'box', layout: 'horizontal', margin: 'sm', alignItems: 'center', contents: [
+        { type: 'text', text: _daysUnresolvedText(daysUnresolved), size: 'xs', color: daysUnresolved >= 3 ? '#B42121' : '#9AAAB8', weight: daysUnresolved >= 3 ? 'bold' : 'regular', flex: 1 },
+        {
+          type: 'box', layout: 'vertical', flex: 0, backgroundColor: pillColor === '#B5740F' ? '#FBF1E0' : '#FCEDED',
+          cornerRadius: '20px', paddingTop: '4px', paddingBottom: '4px', paddingStart: '10px', paddingEnd: '10px',
+          contents: [{ type: 'text', text: pillLabel, color: pillColor, size: 'xs', weight: 'bold' }],
+        },
+      ] },
+    ],
+  };
+}
+
+function _expiryDeepLink(a) {
+  return `https://emergencyboxnotyfykpnhos.web.app/?goto=expiry&boxId=${encodeURIComponent(a.boxId)}&drugName=${encodeURIComponent(a.drugName)}&expiry=${encodeURIComponent(a.expiry)}`;
+}
+function _boxOpenDeepLink(b) {
+  return `https://emergencyboxnotyfykpnhos.web.app/?goto=boxopen&boxId=${encodeURIComponent(b.boxId)}&openedAt=${encodeURIComponent(b.openedAt)}`;
+}
+
+// statBox: same 2-column stat-tile look buildFlexMessages()'s own summary
+// bubble already established for this app's LINE cards — reused here
+// (rather than the plain text-only summary the first round of this
+// reminder shipped with) so a reader gets the same at-a-glance "how much"
+// read every other daily alert already gives them, not a visually flatter
+// message for what's arguably the more urgent one (a REPEATED, unresolved
+// risk).
+function _reminderStatBox(emoji, count, label, bg) {
+  return {
+    type: 'box', layout: 'vertical', flex: 1, margin: 'sm',
+    backgroundColor: bg, cornerRadius: '14px', paddingAll: '14px',
+    contents: [
+      { type: 'text', text: String(count), size: '3xl', weight: 'bold', color: '#FFFFFF', align: 'center' },
+      { type: 'text', text: emoji, size: 'lg', align: 'center', margin: 'xs' },
+      { type: 'text', text: label, size: 'xs', color: '#FFFFFF', align: 'center', wrap: true, margin: 'xs' },
     ],
   };
 }
 
 function buildUnresolvedReminderFlex(expiryUnresolved, boxOpenUnresolved) {
   const bubbles = [];
+  const maxDaysUnresolved = Math.max(0, ...expiryUnresolved.map(a => a.daysUnresolved), ...boxOpenUnresolved.map(b => b.daysUnresolved));
 
+  // Summary bubble — same header-image + dark-body + stat-tile family as
+  // buildFlexMessages()'s own summary bubble, instead of a flatter, plainer
+  // treatment for what is arguably the message that most needs to visually
+  // stand out (a risk that's already been flagged once and still isn't
+  // closed).
   bubbles.push({
     type: 'bubble', size: 'mega',
     header: {
-      type: 'box', layout: 'horizontal', backgroundColor: '#B45F06', paddingAll: '16px', alignItems: 'center',
-      contents: [
-        { type: 'text', text: '⏰', size: 'xxl', flex: 0 },
-        { type: 'box', layout: 'vertical', margin: 'md', flex: 1, contents: [
-          { type: 'text', text: 'แจ้งเตือนค้าง — ยังไม่ดำเนินการ', color: '#FFFFFF', weight: 'bold', size: 'lg', wrap: true },
-          { type: 'text', text: `ยาใกล้หมดอายุ ${expiryUnresolved.length} รายการ · กล่องเปิดใช้งาน ${boxOpenUnresolved.length} กล่อง`, color: '#FDE9C8', size: 'xs', margin: 'xs', wrap: true },
-        ] },
-      ],
+      type: 'box', layout: 'vertical', paddingAll: '0px',
+      contents: [{ type: 'image', url: 'https://cdns.yellow-idea.com/moph/20250602/moph-flex-header-1.png', size: 'full', aspectRatio: '3120:885', aspectMode: 'cover' }],
     },
     body: {
-      type: 'box', layout: 'vertical', paddingAll: '16px', spacing: 'sm',
-      contents: [{
-        type: 'text', wrap: true, size: 'xs', color: '#7B4019',
-        text: 'ความเสี่ยงเหล่านี้ยังไม่ถูกรับทราบ/ดำเนินการในแอป — ระบบจะเตือนซ้ำทุกวันจนกว่าจะบันทึกการดำเนินการเรียบร้อย',
-      }],
+      type: 'box', layout: 'vertical', backgroundColor: '#4A2C0A', paddingAll: '20px', spacing: 'none',
+      contents: [
+        { type: 'text', text: '⏰  แจ้งเตือนค้าง', weight: 'bold', size: 'xl', color: '#FFFFFF' },
+        { type: 'text', text: 'ยังไม่รับทราบ/ดำเนินการ — เตือนซ้ำทุกวันจนกว่าจะบันทึกเสร็จ', size: 'xs', color: '#FDE9C8', margin: 'xs', wrap: true },
+        { type: 'separator', margin: 'lg', color: '#6B4423' },
+        { type: 'box', layout: 'horizontal', margin: 'lg', contents: [
+          _reminderStatBox('💊', expiryUnresolved.length, 'ยาใกล้หมดอายุ', '#B71C1C'),
+          _reminderStatBox('🔔', boxOpenUnresolved.length, 'กล่องเปิดใช้งาน', '#1A6FA3'),
+        ] },
+        maxDaysUnresolved >= 3 ? {
+          type: 'box', layout: 'horizontal', margin: 'lg', backgroundColor: '#6B2E00',
+          cornerRadius: '10px', paddingAll: '10px', alignItems: 'center',
+          contents: [{
+            type: 'text', wrap: true, size: 'xs', color: '#FFE7C2',
+            text: `⚠️  รายการที่ค้างนานที่สุดค้างมาแล้ว ${maxDaysUnresolved} วัน — ควรดำเนินการโดยเร็ว`,
+          }],
+        } : null,
+      ].filter(Boolean),
     },
     footer: {
-      type: 'box', layout: 'vertical', paddingAll: '12px',
+      type: 'box', layout: 'vertical', backgroundColor: '#3A2208', paddingAll: '14px',
       contents: [{
         type: 'button', style: 'primary', color: '#B45F06', height: 'sm',
         action: { type: 'uri', label: '🔗  เปิดแอป EB Notify', uri: 'https://emergencyboxnotyfykpnhos.web.app' },
@@ -391,34 +497,36 @@ function buildUnresolvedReminderFlex(expiryUnresolved, boxOpenUnresolved) {
     },
   });
 
-  // Chunked 8 rows/bubble, same "no silent cap" discipline as this file's
-  // other carousels — this app's fixed ~10-box catalog makes hitting the
+  // Chunked 6 rows/bubble (each row is now taller — two lines plus a status
+  // pill — so 6 fits as comfortably as the plain 8-row layout the first
+  // round used), same "no silent cap" discipline as this file's other
+  // carousels — this app's fixed ~10-box catalog makes hitting the
   // 12-bubble LINE carousel limit practically impossible, but the pattern
   // is kept consistent rather than assumed safe by scale alone.
-  for (let i = 0; i < expiryUnresolved.length && bubbles.length < 11; i += 8) {
-    const chunk = expiryUnresolved.slice(i, i + 8);
+  for (let i = 0; i < expiryUnresolved.length && bubbles.length < 11; i += 6) {
+    const chunk = expiryUnresolved.slice(i, i + 6);
     bubbles.push({
       type: 'bubble', size: 'mega',
       header: { type: 'box', layout: 'vertical', backgroundColor: '#B71C1C', paddingAll: '14px', contents: [
         { type: 'text', text: '💊 ยาใกล้หมดอายุ — ยังไม่ดำเนินการ', color: '#FFFFFF', weight: 'bold', size: 'sm', wrap: true },
       ] },
       body: {
-        type: 'box', layout: 'vertical', paddingAll: '14px', spacing: 'none',
-        contents: chunk.map(a => _reminderRow(a.boxId, `${a.drugName} · ${a.statusLabel}`, a.actionStatus)),
+        type: 'box', layout: 'vertical', backgroundColor: '#FFF5F5', paddingAll: '12px', spacing: 'none',
+        contents: chunk.map(a => _reminderRow(a.boxId, `${a.drugName} · ${a.statusLabel}`, a.actionStatus, a.daysUnresolved, _expiryDeepLink(a))),
       },
     });
   }
 
-  for (let i = 0; i < boxOpenUnresolved.length && bubbles.length < 12; i += 8) {
-    const chunk = boxOpenUnresolved.slice(i, i + 8);
+  for (let i = 0; i < boxOpenUnresolved.length && bubbles.length < 12; i += 6) {
+    const chunk = boxOpenUnresolved.slice(i, i + 6);
     bubbles.push({
       type: 'bubble', size: 'mega',
       header: { type: 'box', layout: 'vertical', backgroundColor: '#1A6FA3', paddingAll: '14px', contents: [
         { type: 'text', text: '🔔 กล่องเปิดใช้งาน — ยังไม่เรียกคืน/เปลี่ยนกล่อง', color: '#FFFFFF', weight: 'bold', size: 'sm', wrap: true },
       ] },
       body: {
-        type: 'box', layout: 'vertical', paddingAll: '14px', spacing: 'none',
-        contents: chunk.map(b => _reminderRow(b.boxId, `หน่วยงาน ${b.dept} · เปิดใช้งานเมื่อ ${thaiDate(b.openedAt)}`, b.actionStatus)),
+        type: 'box', layout: 'vertical', backgroundColor: '#F0F8FF', paddingAll: '12px', spacing: 'none',
+        contents: chunk.map(b => _reminderRow(b.boxId, `หน่วยงาน ${b.dept} · เปิดใช้งานเมื่อ ${thaiDate(b.openedAt)}`, b.actionStatus, b.daysUnresolved, _boxOpenDeepLink(b))),
       },
     });
   }
