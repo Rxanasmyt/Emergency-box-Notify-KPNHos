@@ -79,5 +79,17 @@ service cloud.firestore {
       allow read, create, update: if isAuth();
       allow delete: if false;
     }
+    // box_open_actions: closes the loop on a "box opened" LINE alert (fired
+    // by usage-alert.yml the moment a ward's first paperless usage-log entry
+    // lands on a dispensed box) — one doc per (box, openedAt) opening event,
+    // tracking whether the pharmacy has acknowledged it and, later, whether
+    // a replacement box was actually prepared/swapped in. Same non-append-only
+    // "ticket" shape as expiry_actions, for the same reason: the status
+    // legitimately transitions none -> acknowledged -> resolved as real work
+    // happens. Delete is still blocked so a resolved record can't be wiped.
+    match /box_open_actions/{incidentId} {
+      allow read, create, update: if isAuth();
+      allow delete: if false;
+    }
   }
 }

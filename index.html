@@ -1523,6 +1523,22 @@ select:focus-visible, textarea:focus-visible, [role="button"]:focus-visible {
         </div>
         </sc-if>
 
+        <!-- Boxes opened by a ward but not yet recalled/replaced -->
+        <sc-if value="{{ hasOpenedBoxes }}" hint-placeholder-val="{{ false }}">
+        <div class="ds-notice ds-notice-gold" style="background: linear-gradient(135deg, #FBF1E0, #FDF4EC); border: 1.5px solid #F0DDB8; border-radius: 16px; padding: 18px 22px; margin-bottom: 22px; animation: fadeUp .4s ease both;">
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+            <span style="width: 34px; height: 34px; border-radius: 10px; background: #F0DDB8; color: #B5740F; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M10 20a2 2 0 0 0 4 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            </span>
+            <div>
+              <div style="font-size: 14px; font-weight: 700; color: #92590E;">กล่องถูกเปิดใช้งานแล้ว · {{ openedBoxesCount }} กล่อง</div>
+              <div style="font-size: 12px; color: #A16207; margin-top: 2px;">หน่วยงานเปิดใช้งานกล่อง — ควรเรียกคืนและเปลี่ยนกล่องใหม่ให้พร้อมใช้งาน</div>
+            </div>
+          </div>
+          {{ boxOpenListEl }}
+        </div>
+        </sc-if>
+
         <!-- Mid row: critical list + status donut -->
         <div class="dash-mid-grid" style="margin-bottom: 22px;">
           <!-- Critical alerts list -->
@@ -2451,6 +2467,9 @@ select:focus-visible, textarea:focus-visible, [role="button"]:focus-visible {
   <!-- Expiry-alert resolve modal (React-rendered) -->
   {{ expiryActionModalEl }}
 
+  <!-- Box-opened resolve modal (React-rendered) -->
+  {{ boxOpenActionModalEl }}
+
   <!-- Add-user modal -->
   <sc-if value="{{ showAddUser }}" hint-placeholder-val="{{ false }}">
     <div style="position: fixed; inset: 0; background: rgba(14,42,60,.5); backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; z-index: 200; animation: overlayIn .2s ease both;" onClick="{{ closeAddUser }}">
@@ -2636,6 +2655,12 @@ class Component extends DCLogic {
     // as the Firestore doc id (see firebase-sync.js's _expiryActionId).
     expiryActions: {},
     expiryActionModal: null,
+    // box_open_actions — closes the loop on the real-time "box opened" LINE
+    // alert (usage-alert.yml): acknowledge -> record whether a replacement
+    // box was actually prepared/swapped in. Keyed by boxId+openedAt, same as
+    // the Firestore doc id (see firebase-sync.js's _boxOpenActionId).
+    boxOpenActions: {},
+    boxOpenActionModal: null,
     canInstall: false,
     // QR public view — read URL synchronously at construction so no login-screen flash on scan
     publicView: (() => { try { const p = new URLSearchParams(window.location.search); return p.get('view') === 'box' && !!p.get('id'); } catch (_) { return false; } })(),
@@ -3095,6 +3120,12 @@ class Component extends DCLogic {
   _expiryActionKey(boxId, drugName, expiry) {
     const clean = s => String(s || '').replace(/[\/\s]+/g, '_');
     return `${clean(boxId)}__${clean(drugName)}__${clean(expiry)}`;
+  }
+  // Must match firebase-sync.js's _boxOpenActionId exactly — both derive the
+  // same Firestore doc id from the same (box, openedAt) pair.
+  _boxOpenActionKey(boxId, openedAt) {
+    const clean = s => String(s || '').replace(/[\/\s]+/g, '_');
+    return `${clean(boxId)}__${clean(openedAt)}`;
   }
   drugNameToId(name) {
     const n = (name || '').toLowerCase();
@@ -3855,6 +3886,52 @@ class Component extends DCLogic {
       this.flash('บันทึกการดำเนินการแล้ว');
     } catch (err) {
       this.setState({ expiryActionModalError: '⚠️ บันทึกไม่สำเร็จ — ' + ((err && err.message) || '') });
+    }
+  }
+  // Closes the loop on the real-time "box opened" LINE alert (usage-alert.yml,
+  // fired the moment a ward's first paperless usage-log entry lands on a
+  // dispensed box): acknowledge the pharmacy saw it, then record whether a
+  // replacement box was actually prepared/swapped in. Same role gate and
+  // write-then-log pattern as ackExpiryAlert/saveExpiryResolution above —
+  // this is the pharmacy-side decision of whether/when to send a fresh
+  // verified box to the ward, not a routine data-entry task.
+  async ackBoxOpen(box) {
+    if (!this._canVerifyReg()) return;
+    if (!window.EB_Sync || !window.EB_Sync.syncBoxOpenAction) return;
+    try {
+      await window.EB_Sync.syncBoxOpenAction(box.id, box.openedAt, {
+        status: 'acknowledged', dept: box.dispense || '',
+        ackBy: this.state.currentUser.name, ackAt: `${this.isoOf(this.TODAY)} ${this.nowTime()}`,
+      });
+      this.flash(`รับทราบการเปิดใช้งาน ${box.id} แล้ว`);
+    } catch (err) {
+      this.flash('⚠️ บันทึกการรับทราบไม่สำเร็จ — ' + ((err && err.message) || ''));
+    }
+  }
+  openResolveBoxOpenModal(box) {
+    if (!this._canVerifyReg()) return;
+    this.setState({ boxOpenActionModal: { boxId: box.id, openedAt: box.openedAt, dept: box.dispense || '', action: '', note: '' }, boxOpenActionModalError: '' });
+  }
+  closeBoxOpenActionModal() { this.setState({ boxOpenActionModal: null, boxOpenActionModalError: '' }); }
+  setBoxOpenActionField(field) {
+    return (e) => { const v = e.target.value; this.setState(s => ({ boxOpenActionModal: s.boxOpenActionModal ? { ...s.boxOpenActionModal, [field]: v } : null })); };
+  }
+  async saveBoxOpenResolution() {
+    const m = this.state.boxOpenActionModal;
+    if (!m || !this._canVerifyReg()) return;
+    const action = (m.action || '').trim();
+    if (!action) { this.setState({ boxOpenActionModalError: 'กรุณาเลือกการดำเนินการ' }); return; }
+    if (!window.EB_Sync || !window.EB_Sync.syncBoxOpenAction) return;
+    try {
+      await window.EB_Sync.syncBoxOpenAction(m.boxId, m.openedAt, {
+        status: 'resolved', dept: m.dept, action, note: (m.note || '').trim(),
+        resolvedBy: this.state.currentUser.name, resolvedAt: `${this.isoOf(this.TODAY)} ${this.nowTime()}`,
+      });
+      this.logAction({ cat: 'other', action: 'บันทึกการจัดการกล่องที่เปิดใช้งาน', eb: m.boxId, dept: m.dept || '—', drug: `${action}${m.note ? ' — ' + m.note : ''}` });
+      this.setState({ boxOpenActionModal: null, boxOpenActionModalError: '' });
+      this.flash('บันทึกการดำเนินการแล้ว');
+    } catch (err) {
+      this.setState({ boxOpenActionModalError: '⚠️ บันทึกไม่สำเร็จ — ' + ((err && err.message) || '') });
     }
   }
   exportKpiCSV() {
@@ -4704,6 +4781,7 @@ class Component extends DCLogic {
       boxHist: {},
       expiryAlerts: [], showExpiryBanner: false, _dismissedAlertKeys: [],
       expiryActions: {}, expiryActionModal: null,
+      boxOpenActions: {}, boxOpenActionModal: null,
       auditLog: null,
     });
     this._syncChipStates();
@@ -6367,6 +6445,67 @@ td.l{text-align:left;padding-left:4px}
           h('div', { style: { display: 'flex', gap: 10, marginTop: 8 } },
             h('button', { onClick: () => this.closeExpiryActionModal(), style: { flex: 1, padding: '10px', borderRadius: 8, border: '1px solid #E3EBF2', background: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 13 } }, 'ยกเลิก'),
             h('button', { onClick: () => this.saveExpiryResolution(), style: { flex: 1, padding: '10px', borderRadius: 8, border: 'none', background: '#0A8C79', color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 13 } }, 'บันทึก'),
+          ),
+        ),
+      ) : null;
+    }
+    // Closes the loop on the real-time "box opened" LINE alert: any box
+    // currently dispensed-out AND opened this cycle (openedAt set — see
+    // logDrugUsageTx's openedNow/openedAt invariant) is a candidate the
+    // pharmacy should be tracking toward a recall/replacement. Shown on the
+    // Dashboard (every role can see it — same view-open/act-gated split as
+    // the expiry alert list), not gated to the admin-only Notify screen,
+    // since it's operational work every role benefits from seeing.
+    const _openedBoxes = this.BOXES.filter(b => b.dispense && !b.receiver && b.openedAt);
+    vals.hasOpenedBoxes = _openedBoxes.length > 0;
+    vals.openedBoxesCount = _openedBoxes.length;
+    const _boxOpenActions = st.boxOpenActions || {};
+    vals.boxOpenListEl = _openedBoxes.length ? h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 10 } },
+      ..._openedBoxes.map(b => {
+        const _actId = this._boxOpenActionKey(b.id, b.openedAt);
+        const _act = _boxOpenActions[_actId];
+        const _actStatus = _act ? _act.status : 'none';
+        return h('div', { key: _actId, style: { background: '#fff', border: '1px solid #F0DDB8', borderRadius: 12, padding: '10px 14px', minWidth: 240 } },
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
+            h('div', { style: { fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, fontSize: 14, color: '#B5740F', background: '#FBF1E0', border: '1px solid #F0DDB8', borderRadius: 8, padding: '5px 10px' } }, b.id),
+            h('div', { style: { minWidth: 0 } },
+              h('div', { style: { fontSize: 13, fontWeight: 600, color: '#1B2A34' } }, `หน่วยงาน ${b.dispense || '—'}`),
+              h('div', { style: { fontSize: 11.5, color: '#7B8D9C', marginTop: 2 } }, `เปิดใช้งานเมื่อ ${this.fmtISO(b.openedAt)}`),
+            ),
+          ),
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, fontSize: 11 } },
+            _actStatus === 'resolved'
+              ? h('span', { style: { color: '#0A8C79', fontWeight: 700 } }, `✅ ${_act.action}${_act.note ? ' — ' + _act.note : ''} (${_act.resolvedBy || '—'})`)
+              : _actStatus === 'acknowledged'
+                ? h('span', { style: { color: '#B5740F', fontWeight: 700 } }, `🟡 รับทราบแล้ว โดย ${_act.ackBy || '—'} — รอเรียกคืน/เปลี่ยนกล่อง`)
+                : h('span', { style: { color: '#9AAAB8', fontWeight: 600 } }, '🔴 ยังไม่รับทราบ'),
+          ),
+          this._canVerifyReg() ? h('div', { style: { display: 'flex', gap: 6, marginTop: 8 } },
+            _actStatus === 'none' && h('button', { onClick: () => this.ackBoxOpen(b), style: { fontSize: 10.5, padding: '3px 9px', borderRadius: 6, border: '1px solid #B5740F', background: '#fff', color: '#B5740F', cursor: 'pointer', fontWeight: 700 } }, 'รับทราบ'),
+            _actStatus !== 'resolved' && h('button', { onClick: () => this.openResolveBoxOpenModal(b), style: { fontSize: 10.5, padding: '3px 9px', borderRadius: 6, border: '1px solid #0A8C79', background: '#fff', color: '#0A8C79', cursor: 'pointer', fontWeight: 700 } }, 'บันทึกการดำเนินการ'),
+          ) : null,
+        );
+      }),
+    ) : null;
+    {
+      const _bom = st.boxOpenActionModal;
+      vals.boxOpenActionModalEl = _bom ? h('div', { style: { position: 'fixed', inset: 0, background: 'rgba(15,30,43,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400, padding: 16 }, onClick: (e) => { if (e.target === e.currentTarget) this.closeBoxOpenActionModal(); } },
+        h('div', { style: { background: '#fff', borderRadius: 14, padding: 22, width: 420, maxWidth: '100%', maxHeight: '90vh', overflowY: 'auto' } },
+          h('div', { style: { fontWeight: 700, fontSize: 15, marginBottom: 4 } }, 'บันทึกการดำเนินการ'),
+          h('div', { style: { fontSize: 12.5, color: '#64798C', marginBottom: 14 } }, `${_bom.boxId} · หน่วยงาน ${_bom.dept || '—'}`),
+          h('div', { style: { fontSize: 12, fontWeight: 700, marginBottom: 6 } }, 'การดำเนินการ *'),
+          h('select', { value: _bom.action, onChange: this.setBoxOpenActionField('action'), style: { width: '100%', padding: '9px 10px', borderRadius: 8, border: '1px solid #E3EBF2', marginBottom: 12, fontSize: 13 } },
+            h('option', { value: '' }, '— เลือกการดำเนินการ —'),
+            h('option', { value: 'เรียกคืนกล่องและเปลี่ยนกล่องใหม่แล้ว' }, 'เรียกคืนกล่องและเปลี่ยนกล่องใหม่แล้ว'),
+            h('option', { value: 'ยังไม่เปลี่ยน — ติดตามอาการ/ปริมาณยาคงเหลืออยู่' }, 'ยังไม่เปลี่ยน — ติดตามอาการ/ปริมาณยาคงเหลืออยู่'),
+            h('option', { value: 'อื่นๆ (ระบุในหมายเหตุ)' }, 'อื่นๆ (ระบุในหมายเหตุ)'),
+          ),
+          h('div', { style: { fontSize: 12, fontWeight: 700, marginBottom: 6 } }, 'หมายเหตุ (ถ้ามี)'),
+          h('textarea', { value: _bom.note, onChange: this.setBoxOpenActionField('note'), rows: 3, style: { width: '100%', padding: '9px 10px', borderRadius: 8, border: '1px solid #E3EBF2', marginBottom: 8, fontSize: 13, resize: 'vertical' } }),
+          st.boxOpenActionModalError && h('div', { style: { color: '#B42121', fontSize: 12, marginBottom: 8 } }, st.boxOpenActionModalError),
+          h('div', { style: { display: 'flex', gap: 10, marginTop: 8 } },
+            h('button', { onClick: () => this.closeBoxOpenActionModal(), style: { flex: 1, padding: '10px', borderRadius: 8, border: '1px solid #E3EBF2', background: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 13 } }, 'ยกเลิก'),
+            h('button', { onClick: () => this.saveBoxOpenResolution(), style: { flex: 1, padding: '10px', borderRadius: 8, border: 'none', background: '#0A8C79', color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 13 } }, 'บันทึก'),
           ),
         ),
       ) : null;
