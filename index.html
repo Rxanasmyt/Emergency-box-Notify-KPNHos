@@ -2448,6 +2448,9 @@ select:focus-visible, textarea:focus-visible, [role="button"]:focus-visible {
   <!-- Change-password modal (React-rendered) -->
   {{ changePwModalEl }}
 
+  <!-- Expiry-alert resolve modal (React-rendered) -->
+  {{ expiryActionModalEl }}
+
   <!-- Add-user modal -->
   <sc-if value="{{ showAddUser }}" hint-placeholder-val="{{ false }}">
     <div style="position: fixed; inset: 0; background: rgba(14,42,60,.5); backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; z-index: 200; animation: overlayIn .2s ease both;" onClick="{{ closeAddUser }}">
@@ -2628,6 +2631,11 @@ class Component extends DCLogic {
     expiryAlerts: [],
     showExpiryBanner: false,
     _dismissedAlertKeys: [],
+    // expiry_actions — closes the loop on an alert: acknowledge -> record
+    // what was actually done. Keyed by the same boxId+drugName+expiry triple
+    // as the Firestore doc id (see firebase-sync.js's _expiryActionId).
+    expiryActions: {},
+    expiryActionModal: null,
     canInstall: false,
     // QR public view — read URL synchronously at construction so no login-screen flash on scan
     publicView: (() => { try { const p = new URLSearchParams(window.location.search); return p.get('view') === 'box' && !!p.get('id'); } catch (_) { return false; } })(),
@@ -3082,6 +3090,12 @@ class Component extends DCLogic {
     return 'none';
   }
   _canVerifyReg() { const r = this.state.currentUser && this.state.currentUser.role; return r === 'pharmacist' || r === 'admin'; }
+  // Must match firebase-sync.js's _expiryActionId exactly — both derive the
+  // same Firestore doc id from the same (box, drug, lot expiry) triple.
+  _expiryActionKey(boxId, drugName, expiry) {
+    const clean = s => String(s || '').replace(/[\/\s]+/g, '_');
+    return `${clean(boxId)}__${clean(drugName)}__${clean(expiry)}`;
+  }
   drugNameToId(name) {
     const n = (name || '').toLowerCase();
     if (n.includes('adrenaline') || n.includes('epinephrine')) return 'adrenaline';
@@ -3790,6 +3804,57 @@ class Component extends DCLogic {
       this.setState(s => ({ kpiInvestigations: [entry, ...(s.kpiInvestigations || [])], kpiInvDate: '', kpiInvDesc: '', kpiInvOutcome: '', kpiInvMsg: '✅ บันทึกแล้ว' }));
     } catch (err) {
       this.setState({ kpiInvMsg: '⚠️ บันทึกไม่สำเร็จ — ' + ((err && err.message) || '') });
+    }
+  }
+  // Closes the loop on a near-expiry/expired LINE alert: acknowledge it was
+  // seen, then record the concrete action taken. Gated to pharmacist/admin
+  // (same role check as Stage 2 verification, _canVerifyReg) — this is a
+  // clinical-risk decision, not a routine data-entry task any logged-in
+  // role should be able to sign off on. Every other role still SEES the
+  // status (rendered below in renderVals) so nothing is hidden, just not
+  // actionable by them — same "view open, act gated" split as the History
+  // screen's own view-vs-export split.
+  async ackExpiryAlert(a) {
+    if (!this._canVerifyReg()) return;
+    if (!window.EB_Sync || !window.EB_Sync.syncExpiryAction) return;
+    try {
+      await window.EB_Sync.syncExpiryAction(a.boxId, a.drugName, a.expiry, {
+        status: 'acknowledged', severity: a.status,
+        ackBy: this.state.currentUser.name, ackAt: `${this.isoOf(this.TODAY)} ${this.nowTime()}`,
+      });
+      this.flash(`รับทราบแจ้งเตือน ${a.boxId} · ${a.drugName} แล้ว`);
+    } catch (err) {
+      this.flash('⚠️ บันทึกการรับทราบไม่สำเร็จ — ' + ((err && err.message) || ''));
+    }
+  }
+  openResolveExpiryModal(a) {
+    if (!this._canVerifyReg()) return;
+    this.setState({ expiryActionModal: { boxId: a.boxId, drugName: a.drugName, expiry: a.expiry, severity: a.status, action: '', note: '' }, expiryActionModalError: '' });
+  }
+  closeExpiryActionModal() { this.setState({ expiryActionModal: null, expiryActionModalError: '' }); }
+  setExpiryActionField(field) {
+    return (e) => { const v = e.target.value; this.setState(s => ({ expiryActionModal: s.expiryActionModal ? { ...s.expiryActionModal, [field]: v } : null })); };
+  }
+  // await+check the write before flashing success/closing the modal — same
+  // pattern every other admin write in this app follows (see CLAUDE.md's
+  // Submit Flow section on why logging/closing before confirming a write
+  // landed would leave a false trail on a network drop).
+  async saveExpiryResolution() {
+    const m = this.state.expiryActionModal;
+    if (!m || !this._canVerifyReg()) return;
+    const action = (m.action || '').trim();
+    if (!action) { this.setState({ expiryActionModalError: 'กรุณาเลือกการดำเนินการ' }); return; }
+    if (!window.EB_Sync || !window.EB_Sync.syncExpiryAction) return;
+    try {
+      await window.EB_Sync.syncExpiryAction(m.boxId, m.drugName, m.expiry, {
+        status: 'resolved', severity: m.severity, action, note: (m.note || '').trim(),
+        resolvedBy: this.state.currentUser.name, resolvedAt: `${this.isoOf(this.TODAY)} ${this.nowTime()}`,
+      });
+      this.logAction({ cat: 'other', action: 'บันทึกการจัดการยาใกล้หมดอายุ', eb: m.boxId, dept: '—', drug: `${m.drugName}: ${action}${m.note ? ' — ' + m.note : ''}` });
+      this.setState({ expiryActionModal: null, expiryActionModalError: '' });
+      this.flash('บันทึกการดำเนินการแล้ว');
+    } catch (err) {
+      this.setState({ expiryActionModalError: '⚠️ บันทึกไม่สำเร็จ — ' + ((err && err.message) || '') });
     }
   }
   exportKpiCSV() {
@@ -4638,6 +4703,7 @@ class Component extends DCLogic {
       aFilter: 'all', aQuery: '', aDatePreset: 'all', aFiscalYear: 0, aDateFrom: '', aDateTo: '',
       boxHist: {},
       expiryAlerts: [], showExpiryBanner: false, _dismissedAlertKeys: [],
+      expiryActions: {}, expiryActionModal: null,
       auditLog: null,
     });
     this._syncChipStates();
@@ -6239,21 +6305,72 @@ td.l{text-align:left;padding-left:4px}
     const expd = alerts.filter(a => a.status === 'expired' || a.status === 'expired_today').length;
     const crit = alerts.filter(a => a.status === 'critical').length;
     vals.expiryAlertSummary = (expd ? `หมดอายุแล้ว/วันนี้ ${expd} รายการ · ` : '') + (crit ? `วิกฤต ${crit} รายการ · ` : '') + `ทั้งหมด ${alerts.length} รายการ`;
-    vals.expiryAlertListEl = alerts.length ? h('div', { style: { marginTop: 10, display: 'flex', flexDirection: 'column', gap: 5 } },
+    // Closes the loop on a LINE/dashboard alert: each row's action state
+    // (none/acknowledged/resolved) lives in expiryActions, keyed the same
+    // way as the Firestore doc id (box+drug+lot-expiry) — see
+    // firebase-sync.js's _expiryActionId for why this triple, not just
+    // box+drug, is the right incident key.
+    const _expActions = st.expiryActions || {};
+    const _canActOnExpiry = this._canVerifyReg();
+    vals.expiryAlertListEl = alerts.length ? h('div', { style: { marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 } },
       ...alerts.slice(0, 6).map((a, i) => {
         const _isExpired = a.status === 'expired' || a.status === 'expired_today';
         const _isDanger = _isExpired || a.status === 'critical';
         const _col = _isExpired ? '#B42121' : a.status === 'critical' ? '#C2410C' : '#B5740F';
         const _bg  = _isExpired ? 'rgba(180,33,33,.08)' : a.status === 'critical' ? 'rgba(194,65,12,.07)' : 'rgba(181,116,15,.07)';
         const _daysText = a.daysLeft < 0 ? `หมดอายุแล้ว ${-a.daysLeft} วัน` : a.daysLeft === 0 ? 'หมดอายุวันนี้' : `เหลือ ${a.daysLeft} วัน`;
-        return h('div', { key: a.boxId + '_' + a.drugName + '_' + i, style: { display: 'flex', alignItems: 'center', gap: 10, background: _bg, borderRadius: 8, padding: '6px 10px', fontSize: 12.5 } },
-          h('span', { style: { fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: _col, flexShrink: 0 } }, a.boxId),
-          h('span', { style: { flex: 1, color: '#5A2A00', fontWeight: _isDanger ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, a.drugName + (a.isHAD ? ' ⚠ HAD' : '')),
-          h('span', { style: { fontWeight: 700, color: _col, flexShrink: 0 } }, _daysText),
+        const _actId = this._expiryActionKey(a.boxId, a.drugName, a.expiry);
+        const _act = _expActions[_actId];
+        const _actStatus = _act ? _act.status : 'none';
+        return h('div', { key: _actId, style: { background: _bg, borderRadius: 8, padding: '6px 10px' } },
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5 } },
+            h('span', { style: { fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: _col, flexShrink: 0 } }, a.boxId),
+            h('span', { style: { flex: 1, color: '#5A2A00', fontWeight: _isDanger ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, a.drugName + (a.isHAD ? ' ⚠ HAD' : '')),
+            h('span', { style: { fontWeight: 700, color: _col, flexShrink: 0 } }, _daysText),
+          ),
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, fontSize: 11 } },
+            _actStatus === 'resolved'
+              ? h('span', { style: { color: '#0A8C79', fontWeight: 700 } }, `✅ ดำเนินการแล้ว: ${_act.action}${_act.note ? ' — ' + _act.note : ''} (${_act.resolvedBy || '—'})`)
+              : _actStatus === 'acknowledged'
+                ? h('span', { style: { color: '#B5740F', fontWeight: 700 } }, `🟡 รับทราบแล้ว โดย ${_act.ackBy || '—'} — รอบันทึกการดำเนินการ`)
+                : h('span', { style: { color: '#9AAAB8', fontWeight: 600 } }, '🔴 ยังไม่รับทราบ'),
+            _canActOnExpiry && h('div', { style: { display: 'flex', gap: 6, marginLeft: 'auto' } },
+              _actStatus === 'none' && h('button', { onClick: () => this.ackExpiryAlert(a), style: { fontSize: 10.5, padding: '3px 9px', borderRadius: 6, border: '1px solid #B5740F', background: '#fff', color: '#B5740F', cursor: 'pointer', fontWeight: 700 } }, 'รับทราบ'),
+              _actStatus !== 'resolved' && h('button', { onClick: () => this.openResolveExpiryModal(a), style: { fontSize: 10.5, padding: '3px 9px', borderRadius: 6, border: '1px solid #0A8C79', background: '#fff', color: '#0A8C79', cursor: 'pointer', fontWeight: 700 } }, 'บันทึกการดำเนินการ'),
+            ),
+          ),
         );
       }),
       alerts.length > 6 ? h('div', { style: { fontSize: 11.5, color: '#9AAAB8', textAlign: 'center', paddingTop: 3 } }, `...และอีก ${alerts.length - 6} รายการ`) : null,
     ) : null;
+    // Resolve-action modal — action type + optional free-text note. Only
+    // ever open for pharmacist/admin (openResolveExpiryModal itself is also
+    // gated, this is defense in depth matching every other modal in the app).
+    {
+      const _eam = st.expiryActionModal;
+      vals.expiryActionModalEl = _eam ? h('div', { style: { position: 'fixed', inset: 0, background: 'rgba(15,30,43,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400, padding: 16 }, onClick: (e) => { if (e.target === e.currentTarget) this.closeExpiryActionModal(); } },
+        h('div', { style: { background: '#fff', borderRadius: 14, padding: 22, width: 420, maxWidth: '100%', maxHeight: '90vh', overflowY: 'auto' } },
+          h('div', { style: { fontWeight: 700, fontSize: 15, marginBottom: 4 } }, 'บันทึกการดำเนินการ'),
+          h('div', { style: { fontSize: 12.5, color: '#64798C', marginBottom: 14 } }, `${_eam.boxId} · ${_eam.drugName}`),
+          h('div', { style: { fontSize: 12, fontWeight: 700, marginBottom: 6 } }, 'การดำเนินการ *'),
+          h('select', { value: _eam.action, onChange: this.setExpiryActionField('action'), style: { width: '100%', padding: '9px 10px', borderRadius: 8, border: '1px solid #E3EBF2', marginBottom: 12, fontSize: 13 } },
+            h('option', { value: '' }, '— เลือกการดำเนินการ —'),
+            h('option', { value: 'ใช้ก่อนหมดอายุ (จ่ายให้ผู้ป่วยแล้ว)' }, 'ใช้ก่อนหมดอายุ (จ่ายให้ผู้ป่วยแล้ว)'),
+            h('option', { value: 'เปลี่ยน/สับเปลี่ยนล็อตใหม่แล้ว' }, 'เปลี่ยน/สับเปลี่ยนล็อตใหม่แล้ว'),
+            h('option', { value: 'ทำลาย/ตัดจำหน่ายแล้ว' }, 'ทำลาย/ตัดจำหน่ายแล้ว'),
+            h('option', { value: 'ส่งคืนบริษัท/เภสัชกรกลางแล้ว' }, 'ส่งคืนบริษัท/เภสัชกรกลางแล้ว'),
+            h('option', { value: 'อื่นๆ (ระบุในหมายเหตุ)' }, 'อื่นๆ (ระบุในหมายเหตุ)'),
+          ),
+          h('div', { style: { fontSize: 12, fontWeight: 700, marginBottom: 6 } }, 'หมายเหตุ (ถ้ามี)'),
+          h('textarea', { value: _eam.note, onChange: this.setExpiryActionField('note'), rows: 3, style: { width: '100%', padding: '9px 10px', borderRadius: 8, border: '1px solid #E3EBF2', marginBottom: 8, fontSize: 13, resize: 'vertical' } }),
+          st.expiryActionModalError && h('div', { style: { color: '#B42121', fontSize: 12, marginBottom: 8 } }, st.expiryActionModalError),
+          h('div', { style: { display: 'flex', gap: 10, marginTop: 8 } },
+            h('button', { onClick: () => this.closeExpiryActionModal(), style: { flex: 1, padding: '10px', borderRadius: 8, border: '1px solid #E3EBF2', background: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 13 } }, 'ยกเลิก'),
+            h('button', { onClick: () => this.saveExpiryResolution(), style: { flex: 1, padding: '10px', borderRadius: 8, border: 'none', background: '#0A8C79', color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 13 } }, 'บันทึก'),
+          ),
+        ),
+      ) : null;
+    }
     // lastSentDate is written by GitHub Actions to Firestore — read it from there, not localStorage
     const _fsLastSent = st._fsLastSentDate || '';
     vals.notifyLastSentText = _fsLastSent ? `ส่งแจ้งเตือนล่าสุด: ${_fsLastSent}` : 'ยังไม่มีข้อมูลการส่งล่าสุด';

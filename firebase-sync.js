@@ -1,6 +1,6 @@
 (function(){'use strict';
 let db=null,component=null,unsubscribers=[],_usersUnsub=null,_publicListening=false;
-const C={boxes:'boxes',audit:'audit_log',users:'users',boxDrugs:'box_drugs',usageLog:'usage_log',appSettings:'app_settings',kpiEvents:'kpi_events',kpiInvestigations:'kpi_investigations'};
+const C={boxes:'boxes',audit:'audit_log',users:'users',boxDrugs:'box_drugs',usageLog:'usage_log',appSettings:'app_settings',kpiEvents:'kpi_events',kpiInvestigations:'kpi_investigations',expiryActions:'expiry_actions'};
 
 // Called from componentDidMount — signs in anonymously and starts users listener
 // so login can authenticate against ALL users in Firestore from any device
@@ -74,12 +74,24 @@ function initFirebaseSync(comp){
   db=window.EB_Firebase.db;component=comp;
   console.log('[Sync] Initializing full sync...');
   seedIfEmpty()
-    .then(()=>{listenBoxes();listenAudit();listenBoxDrugs();console.log('[Sync] All listeners active.');})
+    .then(()=>{listenBoxes();listenAudit();listenBoxDrugs();_listenExpiryActionsInternal();console.log('[Sync] All listeners active.');})
     .catch(err=>{
       // seedIfEmpty has its own try/catch, but guard here as well
       console.warn('[Sync] Seed error, starting listeners anyway:',err.message);
-      listenBoxes();listenAudit();listenBoxDrugs();
+      listenBoxes();listenAudit();listenBoxDrugs();_listenExpiryActionsInternal();
     });
+}
+// Keeps the dashboard's near-expiry alert list annotated with each
+// incident's acknowledge/resolve status — started/stopped alongside
+// boxes/audit/boxDrugs (not screen-scoped like the KPI listeners) since the
+// dashboard, not an admin-only screen, is where this needs to be live.
+function _listenExpiryActionsInternal(){
+  const unsub=listenExpiryActions((rows,err)=>{
+    if(err||!component)return;
+    const byId={};rows.forEach(r=>{byId[r.id]=r;});
+    component.setState({expiryActions:byId});
+  });
+  unsubscribers.push(unsub);
 }
 
 // Called on logout — stops boxes/audit/boxDrugs; users listener stays active for next login
@@ -653,6 +665,42 @@ function fetchBoxHistory(boxId){
       return rows;
     }).catch(err=>{console.warn('[Sync] fetchBoxHistory failed:',err.message);return [];});
 }
+// Closes the loop on a near-expiry/expired LINE alert: one doc per (box,
+// drug, lot expiry) "incident" — the same triple findExpiringDrugs() (in
+// notify.js) uses to build each alert row, so a lot's status naturally stays
+// tied to the SAME doc across days as long as it's the same physical lot,
+// and automatically starts a fresh doc if that lot is ever replaced (a
+// different expiry date is a genuinely different incident, not a follow-up
+// on the old one). Deliberately mutable ('none' -> 'acknowledged' ->
+// 'resolved'), unlike audit_log/kpi_events — see firestore.rules' comment
+// on this collection for why.
+function _expiryActionId(boxId,drugName,expiry){
+  // Firestore doc IDs can't contain '/'; drug names in this app never do,
+  // but strip defensively rather than let a future drug name silently break
+  // this key.
+  const clean=s=>String(s||'').replace(/[\/\s]+/g,'_');
+  return `${clean(boxId)}__${clean(drugName)}__${clean(expiry)}`;
+}
+function syncExpiryAction(boxId,drugName,expiry,patch){
+  if(!db)return Promise.reject(new Error('no-db'));
+  const id=_expiryActionId(boxId,drugName,expiry);
+  return db.collection(C.expiryActions).doc(id).set({
+    boxId,drugName,expiry,...patch,updatedAt:firebase.firestore.FieldValue.serverTimestamp(),
+  },{merge:true}).catch(err=>{console.error('[Sync] syncExpiryAction failed:',err.message);throw err;});
+}
+// Real-time listener over the WHOLE collection — deliberately unfiltered.
+// Unlike kpi_events (one doc per instrumentation event, growing without
+// bound) this collection has at most one doc per currently-or-previously
+// flagged (box, drug, lot) triple, which for this app's fixed 10-box/10-drug
+// catalog is a small, naturally self-limiting set — there is no unbounded-
+// growth risk here to guard against with a date-range filter.
+function listenExpiryActions(cb){
+  if(!db)return ()=>{};
+  return db.collection(C.expiryActions).onSnapshot(snap=>{
+    const rows=[];snap.forEach(doc=>rows.push({id:doc.id,...doc.data()}));
+    cb(rows,null);
+  },err=>{console.warn('[Sync] listenExpiryActions error:',err.message);cb(null,err);});
+}
 function getDeptPins(){
   if(!db)return Promise.resolve({});
   return db.collection(C.appSettings).doc('dept_pins').get()
@@ -664,5 +712,5 @@ function syncDeptPins(pins){
   return db.collection(C.appSettings).doc('dept_pins').set(pins,{merge:true})
     .catch(err=>{console.error('[Sync] syncDeptPins failed:',err.message);throw err;});
 }
-window.EB_Sync={whenAuthReady,initUsersOnly,initFirebaseSync,startPublicSync,stopSync,stopAll,logAudit,syncBoxes,syncUsers,deleteUser,guardedAdminChangeTx,syncBoxDrugs,returnBoxAndDrugsTx,saveEditDrugsTx,logDrugUsageTx,listenUsageLog,listenAllUsageLog,getDeptPins,syncDeptPins,fetchAuditRange,fetchUsageLogRange,fetchBoxHistory,logKpiEvent,fetchKpiEvents,listenKpiEvents,logKpiInvestigation,fetchKpiInvestigations,listenKpiInvestigations};
+window.EB_Sync={whenAuthReady,initUsersOnly,initFirebaseSync,startPublicSync,stopSync,stopAll,logAudit,syncBoxes,syncUsers,deleteUser,guardedAdminChangeTx,syncBoxDrugs,returnBoxAndDrugsTx,saveEditDrugsTx,logDrugUsageTx,listenUsageLog,listenAllUsageLog,getDeptPins,syncDeptPins,fetchAuditRange,fetchUsageLogRange,fetchBoxHistory,logKpiEvent,fetchKpiEvents,listenKpiEvents,logKpiInvestigation,fetchKpiInvestigations,listenKpiInvestigations,syncExpiryAction,listenExpiryActions};
 })();

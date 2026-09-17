@@ -547,6 +547,11 @@ function buildFlexMessages(alerts, boxSummaries) {
               pill(dayText, dayBadgeColor),
             ],
           },
+          {
+            type: 'box', layout: 'vertical', margin: 'sm',
+            action: { type: 'uri', uri: `https://emergencyboxnotyfykpnhos.web.app/?view=box&id=${a.boxId}` },
+            contents: [{ type: 'text', text: `📦  ดูกล่อง ${a.boxId.toUpperCase()} →`, size: 'xs', color: '#1565C0', weight: 'bold', align: 'end' }],
+          },
         ],
       }],
     };

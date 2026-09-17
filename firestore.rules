@@ -64,5 +64,20 @@ service cloud.firestore {
       allow read, create: if isAuth();
       allow update, delete: if false;
     }
+    // expiry_actions: closes the loop on a near-expiry/expired LINE alert —
+    // one doc per (box, drug, lot expiry) "incident", tracking whether a
+    // pharmacist has acknowledged it and, later, what concrete action was
+    // taken (used before expiry, swapped the lot, disposed, returned to
+    // supplier, etc.). Unlike audit_log/kpi_events this is NOT append-only —
+    // the same incident's status legitimately transitions
+    // none -> acknowledged -> resolved as work happens, same "ticket" shape
+    // as a box document itself. Delete is still blocked so a resolved
+    // incident's record can't be wiped after the fact; a correction is a new
+    // update (status can move back to 'acknowledged' if a resolution needs
+    // revising), never a deletion.
+    match /expiry_actions/{incidentId} {
+      allow read, create, update: if isAuth();
+      allow delete: if false;
+    }
   }
 }
