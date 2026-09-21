@@ -4002,10 +4002,28 @@ class Component extends DCLogic {
     if (!this._canVerifyReg()) return;
     if (!window.EB_Sync || !window.EB_Sync.syncExpiryAction) return;
     try {
-      await window.EB_Sync.syncExpiryAction(a.boxId, a.drugName, a.expiry, {
+      const _existing = this.state.expiryActions && this.state.expiryActions[this._expiryActionKey(a.boxId, a.drugName, a.expiry)];
+      const patch = {
         status: 'acknowledged', severity: a.status,
         ackBy: this.state.currentUser.name, ackAt: `${this.isoOf(this.TODAY)} ${this.nowTime()}`,
-      });
+      };
+      // Stamp firstSeenAt here too, not only from check-expiry.js's daily
+      // cron — found by audit: the cron only ever stamps firstSeenAt on a
+      // doc that's still unresolved by the time it runs (`actionStatus !==
+      // 'resolved'`, a deliberate guard against downgrading an already-
+      // acknowledged incident, see the Daily "Still Unresolved" Reminder
+      // section in CLAUDE.md). An alert acknowledged AND resolved the same
+      // day it first appeared — before the next cron run — would never get
+      // a firstSeenAt at all, silently dropping it out of KPI 1.4's pool
+      // forever (_kpiResolutionRows requires the start field to be truthy)
+      // and systematically excluding exactly the fastest-resolved,
+      // best-performing incidents from that metric. Acknowledging is always
+      // the first step of this workflow (resolving requires an existing
+      // acknowledged doc), so stamping here — only if a real firstSeenAt
+      // isn't already recorded — closes the gap without ever overwriting an
+      // earlier, more accurate cron-recorded date.
+      if (!(_existing && _existing.firstSeenAt)) patch.firstSeenAt = this.isoOf(this.TODAY);
+      await window.EB_Sync.syncExpiryAction(a.boxId, a.drugName, a.expiry, patch);
       this.flash(`รับทราบแจ้งเตือน ${a.boxId} · ${a.drugName} แล้ว`);
     } catch (err) {
       this.flash('⚠️ บันทึกการรับทราบไม่สำเร็จ — ' + ((err && err.message) || ''));
