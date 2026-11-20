@@ -2801,6 +2801,31 @@ class Component extends DCLogic {
   addDays(iso, n) { const d = this.parse(iso); if (!d) return null; d.setDate(d.getDate() + n); return d; }
   fmt(d) { if (!d || isNaN(d.getTime())) return '—'; return `${d.getDate()} ${this.TH_MONTHS[d.getMonth()]} ${d.getFullYear() + 543}`; }
   fmtISO(iso) { return iso ? this.fmt(this.parse(iso)) : '—'; }
+  // Small "ค.ศ. YYYY" readout shown beside a date-entry field whose value a
+  // user is meant to copy off a physical drug package (always printed in
+  // ค.ศ.) — this app already stores/computes every date as Gregorian (a
+  // native <input type="date"> always reports a Gregorian ISO value via
+  // e.target.value regardless of what calendar its own picker UI displays),
+  // so this is purely a visual double-check for the person typing, never a
+  // data-format change. Added on direct request: a native Android date
+  // picker in Thai locale can display the Buddhist year (e.g. 2569) while
+  // the drug box prints 2026 — nothing in this app can force the native
+  // picker's own UI to show a given calendar era (that's OS/browser chrome,
+  // outside any web page's control), so showing the resolved ค.ศ. year as
+  // plain text next to the field is the safe, targeted fix instead of
+  // replacing the native picker app-wide.
+  _ceYearBadge(iso) {
+    if (!iso) return null;
+    // React.createElement directly, NOT the bare `h` alias — this method is
+    // a plain class method, outside renderVals()'s function scope where
+    // `const h = React.createElement` is defined locally; `h` does not
+    // exist here. Confirmed by a real crash when this called `h(...)`
+    // directly (ReferenceError: h is not defined), caught by the Playwright
+    // harness before shipping — the existing renderVals() crash boundary
+    // silently swallowed it into the stale-vals fallback, so this would
+    // have broken every single render in production with no visible error.
+    return React.createElement('span', { style: { fontSize: 10.5, color: '#78909C', fontWeight: 600, whiteSpace: 'nowrap' } }, `ค.ศ. ${iso.slice(0, 4)}`);
+  }
   returnDateISO(expiry) { const d = this.addDays(expiry, -15); if (!d) return ''; const m = String(d.getMonth()+1).padStart(2,'0'); const day = String(d.getDate()).padStart(2,'0'); return `${d.getFullYear()}-${m}-${day}`; }
   daysBetween(d) { if (!d || isNaN(+d)) return 0; return Math.round((d - this.TODAY) / 86400000); }
   isoOf(d) { if (!d || isNaN(d.getTime())) return ''; return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
@@ -7576,6 +7601,7 @@ td.l{text-align:left;padding-left:4px}
             onChange: (e) => { this._regTouched = true; this.setState({ regMfg: e.target.value, regPrinted: false }); },
             style: { width: '100%', height: 46, border: '1.5px solid #DBE4EB', borderRadius: 11, padding: '0 14px', fontSize: 14, color: '#15242E', background: '#fff' },
           }),
+          this._ceYearBadge(st.regMfg) ? h('div', { style: { marginTop: 5 } }, this._ceYearBadge(st.regMfg)) : null,
         )
       : h(React.Fragment, null,
           h('label', { style: { display: 'block', fontSize: 12.5, fontWeight: 600, color: '#4A5C6A', marginBottom: 7 } }, 'วันที่ผลิต (Lot) · ผู้จัดเตรียม'),
@@ -7627,7 +7653,7 @@ td.l{text-align:left;padding-left:4px}
             h('span', { style: { fontSize: 13, fontWeight: _isPast || lotIsMin ? 600 : 400, color: _isPast ? '#B91C1C' : lotIsMin ? '#C2410C' : '#4A5C6A' } }, this.fmtISO(lot.expiry) || '— ไม่มีวันหมดอายุ'),
           );
         }
-        return h('div', { key: li, style: { display: 'flex', alignItems: 'center', gap: 8, marginTop: li > 0 ? 6 : 0 } },
+        return h('div', { key: li, style: { display: 'flex', alignItems: 'center', gap: 8, marginTop: li > 0 ? 6 : 0, flexWrap: 'wrap', rowGap: 4 } },
           h('span', { style: { fontSize: 10.5, color: '#9AAAB8', fontWeight: 600, width: 42, textAlign: 'right', flexShrink: 0 } }, `Lot ${li + 1}`),
           h('div', { style: { display: 'flex', alignItems: 'center', gap: 2, background: '#F7FAFC', border: '1.5px solid #DBE4EB', borderRadius: 9, overflow: 'hidden', height: 38 } },
             h('button', { onClick: () => this.setLotField(st.regEB, i, li, 'qty', Math.max(0, (lot.qty || 0) - 1)), style: { width: 32, height: '100%', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 18, fontWeight: 700, color: '#7B8D9C', display: 'flex', alignItems: 'center', justifyContent: 'center' } }, '−'),
@@ -7637,6 +7663,7 @@ td.l{text-align:left;padding-left:4px}
           ),
           h('input', { type: 'date', value: lot.expiry, onChange: (e) => this.setLotField(st.regEB, i, li, 'expiry', e.target.value),
             style: (() => { const _today = this.isoOf(this.TODAY); const _isPast = lot.expiry && lot.expiry < _today; return { width: 152, height: 38, border: _isPast ? '1.5px solid #E03E3E' : lotIsMin ? '1.5px solid #EFB789' : '1.5px solid #DBE4EB', borderRadius: 9, padding: '0 10px', fontSize: 13, color: _isPast ? '#B91C1C' : lotIsMin ? '#C2410C' : '#15242E', fontWeight: _isPast || lotIsMin ? 600 : 400, background: _isPast ? '#FEF2F2' : lotIsMin ? '#FFFBF7' : '#fff', flexShrink: 0 }; })() }),
+          this._ceYearBadge(lot.expiry),
           d.lots.length > 1 ? h('button', { onClick: () => this.removeLot(st.regEB, i, li), title: 'ลบ Lot นี้', style: { width: 30, height: 30, flexShrink: 0, border: 'none', borderRadius: 7, background: '#FCEDED', color: '#E03E3E', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700 } }, '×') : null,
         );
       });
@@ -8211,7 +8238,7 @@ td.l{text-align:left;padding-left:4px}
         const lotIsMin = lot.expiry === dExp && isNearDrug;
         const status = lot.expiry ? this.statusOf(lot.expiry) : null;
         if (editing) {
-          return h('div', { key: li, style: { display: 'flex', alignItems: 'center', gap: 6, marginTop: li > 0 ? 5 : 0 } },
+          return h('div', { key: li, style: { display: 'flex', alignItems: 'center', gap: 6, marginTop: li > 0 ? 5 : 0, flexWrap: 'wrap', rowGap: 4 } },
             h('span', { style: { fontSize: 10, color: '#9AAAB8', width: 34, textAlign: 'right', flexShrink: 0 } }, 'Lot '+(li+1)),
             h('div', { style: { display: 'flex', alignItems: 'center', gap: 1, background: '#F7FAFC', border: '1.5px solid #DBE4EB', borderRadius: 8, overflow: 'hidden', height: 34 } },
               h('button', { onClick: () => this.setLotField(box.id, i, li, 'qty', Math.max(0, (lot.qty||0)-1)), style: { width: 28, height: '100%', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 16, fontWeight: 700, color: '#7B8D9C' } }, '−'),
@@ -8221,6 +8248,7 @@ td.l{text-align:left;padding-left:4px}
             ),
             h('input', { type: 'date', value: lot.expiry, onChange: (e) => this.setLotField(box.id, i, li, 'expiry', e.target.value),
               style: { width: 140, height: 34, border: '1.5px solid #DBE4EB', borderRadius: 8, padding: '0 8px', fontSize: 12.5, color: '#15242E', flexShrink: 0 } }),
+            this._ceYearBadge(lot.expiry),
             d.lots.length > 1 ? h('button', { onClick: () => this.removeLot(box.id, i, li), style: { width: 26, height: 26, flexShrink: 0, border: 'none', borderRadius: 6, background: '#FCEDED', color: '#E03E3E', cursor: 'pointer', fontSize: 13, fontWeight: 700 } }, '×') : null,
           );
         }
