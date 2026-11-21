@@ -162,6 +162,7 @@
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
   @keyframes slideInRight { 0% { opacity: 0; transform: translateX(24px); } 60% { transform: translateX(-2px); } 100% { opacity: 1; transform: translateX(0); } }
   @keyframes scaleIn { 0% { opacity: 0; transform: scale(.92); } 60% { transform: scale(1.02); } 100% { opacity: 1; transform: scale(1); } }
+  @keyframes loginIconPopCentered { 0% { opacity: 0; transform: translate(-50%,-50%) scale(.92); } 60% { transform: translate(-50%,-50%) scale(1.02); } 100% { opacity: 1; transform: translate(-50%,-50%) scale(1); } }
   @keyframes barIn { 0% { transform: scaleX(0); } 70% { transform: scaleX(1.03); } 100% { transform: scaleX(1); } }
   @keyframes barUp { 0% { transform: scaleY(0); } 70% { transform: scaleY(1.04); } 100% { transform: scaleY(1); } }
   @keyframes pulseRed { 0% { box-shadow: 0 0 0 0 rgba(224,62,62,.4); } 70% { box-shadow: 0 0 0 10px rgba(224,62,62,0); } 100% { box-shadow: 0 0 0 0 rgba(224,62,62,0); } }
@@ -226,9 +227,9 @@
      3 small nodes orbiting it — the icon-halo mirrors the sibling app's own
      kept `.login-appicon::before` spin exactly, just at our icon's scale */
   .login-icon-halo {
-    position: absolute; inset: -6px; border-radius: 50%; z-index: 0;
+    position: absolute; inset: -9px; border-radius: 50%; z-index: 0;
     background: conic-gradient(from 0deg, #35D694, #f7a68b, #fff, #35D694);
-    filter: blur(9px); opacity: .68; animation: loginAuroraSpin 7s linear infinite;
+    filter: blur(12px); opacity: .68; animation: loginAuroraSpin 7s linear infinite;
   }
   @keyframes loginOrbitSpin { to { transform: rotate(360deg); } }
   .login-orbit { position: absolute; inset: 0; animation: loginOrbitSpin 9s linear infinite; pointer-events: none; z-index: 0; }
@@ -1437,14 +1438,14 @@ select:focus-visible, textarea:focus-visible, [role="button"]:focus-visible {
     <!-- CENTER: the actual login card -->
     <div class="login-center" style="flex-shrink: 0; width: 420px; max-width: 100%; animation: fadeUp .6s cubic-bezier(.34,1.56,.64,1) .15s both;">
       <div style="text-align: center; margin-bottom: 22px;">
-        <div style="position: relative; width: 92px; height: 92px; margin: 0 auto 16px;">
+        <div style="position: relative; width: 128px; height: 128px; margin: 0 auto 16px;">
           <div class="login-icon-halo" aria-hidden="true"></div>
           <div class="login-orbit" aria-hidden="true">
-            <span class="login-orbit-dot" style="transform: translate(-50%,-50%) rotate(0deg) translateX(44px);"></span>
-            <span class="login-orbit-dot" style="transform: translate(-50%,-50%) rotate(120deg) translateX(44px);"></span>
-            <span class="login-orbit-dot" style="transform: translate(-50%,-50%) rotate(240deg) translateX(44px);"></span>
+            <span class="login-orbit-dot" style="transform: translate(-50%,-50%) rotate(0deg) translateX(61px);"></span>
+            <span class="login-orbit-dot" style="transform: translate(-50%,-50%) rotate(120deg) translateX(61px);"></span>
+            <span class="login-orbit-dot" style="transform: translate(-50%,-50%) rotate(240deg) translateX(61px);"></span>
           </div>
-          <img src="./icons/icon-192.svg" width="58" height="58" alt="Emergency Box Notify" style="position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); z-index: 1; display: block; border-radius: 16px; box-shadow: 0 12px 30px rgba(22,140,132,.35); animation: scaleIn .5s cubic-bezier(.34,1.56,.64,1) .25s both;">
+          <img src="./icons/icon-192.svg" width="88" height="88" alt="Emergency Box Notify" style="position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); z-index: 1; display: block; border-radius: 20px; box-shadow: 0 14px 34px rgba(22,140,132,.4); animation: loginIconPopCentered .5s cubic-bezier(.34,1.56,.64,1) .25s both;">
         </div>
         <div class="login-brand-name">
           <span class="login-shine-text">Krongpinang</span>
