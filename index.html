@@ -138,7 +138,7 @@
 <helmet>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Sora:wght@600;700;800&family=Bai+Jamjuree:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; }
@@ -194,6 +194,7 @@
      this file's other indefinite animations (pulseRed/kpiPulseDot/etc). */
   @keyframes loginHaloPulse { 0%,100% { transform: scale(1); opacity: .5; } 50% { transform: scale(1.18); opacity: .8; } }
   @keyframes loginSparkRise { 0% { transform: translateY(0); opacity: 0; } 12% { opacity: .85; } 80% { opacity: .3; } 100% { transform: translateY(-140px); opacity: 0; } }
+  @keyframes laLightGlow { 0%, 100% { opacity: .12; } 50% { opacity: .32; } }
   @keyframes loginRailDrop { 0%, 4% { top: 0%; opacity: 0; } 12% { opacity: 1; } 88% { opacity: 1; } 96%, 100% { top: 100%; opacity: 0; } }
   /* Login screen styled to match this hospital's sibling pharmacy app
      (OPD-DRUG-STOCK-MANAGER): a Sora display font, a warm coral accent
@@ -239,21 +240,33 @@
      → app name as a coral-gradient + white tag pair underneath, mirroring
      the sibling app's own Krongpinang/Hospital + Drug-Substock/OPD-IPD
      hierarchy exactly, with this app's own real name in the tag slot */
-  .login-brand-name { font-family: 'Sora', 'IBM Plex Sans Thai', sans-serif; font-weight: 800; line-height: 1.05; letter-spacing: -.01em; }
-  .login-brand-name .login-shine-text { font-size: 32px; }
+  .login-brand-name { font-family: 'Sora', 'Bai Jamjuree', sans-serif; font-weight: 800; line-height: 1.02; letter-spacing: -.01em; }
+  .login-brand-name .login-shine-text { font-size: 34px; }
   .login-brand-sub {
-    display: block; font-family: 'Sora', 'IBM Plex Sans Thai', sans-serif; font-weight: 700; font-size: 15px;
-    letter-spacing: .35em; margin-right: -.35em; margin-top: 4px; text-transform: uppercase;
+    display: block; font-family: 'Sora', 'Bai Jamjuree', sans-serif; font-weight: 700; font-size: 16px;
+    letter-spacing: .35em; margin-right: -.35em; margin-top: 6px; text-transform: uppercase;
     color: #FFC9B3; text-shadow: 0 2px 10px rgba(0,30,32,.7);
   }
-  .login-brand-tag { margin-top: 10px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .login-brand-tag { margin-top: 14px; display: flex; flex-direction: column; align-items: center; gap: 3px; }
   .login-brand-tag-1 {
-    font-family: 'Sora', 'IBM Plex Sans Thai', sans-serif; font-size: 16px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+    font-family: 'Sora', 'Bai Jamjuree', sans-serif; font-size: 18px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase;
     background: linear-gradient(90deg, #fff, #FFD9C9 50%, #fff); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: #FFB08F;
   }
   .login-brand-tag-2 {
-    font-family: 'Sora', 'IBM Plex Sans Thai', sans-serif; font-size: 11px; font-weight: 700; letter-spacing: .32em; margin-left: .32em;
-    text-transform: uppercase; color: rgba(255,255,255,.85);
+    font-family: 'Sora', 'Bai Jamjuree', sans-serif; font-size: 12px; font-weight: 700; letter-spacing: .2em; margin-left: .2em;
+    text-transform: uppercase; color: rgba(255,255,255,.92);
+  }
+  /* On mobile the login-center column IS essentially the full viewport width
+     (same as the sibling app's own single-column mobile layout), so vw-based
+     clamp sizing here mirrors their exact clamp() values safely — on desktop
+     this card stays a fixed 420px column regardless of viewport width, so
+     the fixed px sizes above are used there instead to avoid the title
+     scaling off the huge end of a wide monitor's viewport width. */
+  @media (max-width: 768px) {
+    .login-brand-name .login-shine-text { font-size: clamp(38px, 11.5vw, 54px); }
+    .login-brand-sub { font-size: clamp(18px, 5.6vw, 26px); }
+    .login-brand-tag-1 { font-size: clamp(19px, 6vw, 26px); }
+    .login-brand-tag-2 { font-size: clamp(12px, 3.6vw, 16px); }
   }
   /* a brief sheen sweep across the manual-guide pill button — same trick as
      the brand-title shine, just as a translating overlay rather than a
@@ -1297,40 +1310,69 @@ select:focus-visible, textarea:focus-visible, [role="button"]:focus-visible {
 
 <!-- ===================== LOGIN ===================== -->
 <sc-if value="{{ notAuthed }}" hint-placeholder-val="{{ true }}">
-<div class="login-wrap" style="position: relative; min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; background: radial-gradient(120% 100% at 14% -10%, #1A6FA3 0%, #168C84 46%, #14506E 100%); color: #fff; overflow-x: hidden; font-family: 'IBM Plex Sans Thai', sans-serif;">
+<div class="login-wrap" style="position: relative; min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; background: radial-gradient(120% 100% at 14% -10%, #1A6FA3 0%, #168C84 46%, #14506E 100%); color: #fff; overflow-x: hidden; font-family: 'Bai Jamjuree', 'IBM Plex Sans Thai', sans-serif;">
 
   <!-- fine film-grain texture for depth — purely decorative, static (not
        animated), very low opacity -->
   <div class="login-noise" aria-hidden="true"></div>
 
-  <!-- ambient backdrop art: converging perspective lines toward a glowing
-       halo, two soft "beam" strips, and a few slow rising sparks — masked so
-       it fades out toward the card content instead of competing with it.
-       Decorative only (aria-hidden), slow 7-9s loops, reuses the existing
-       `breathe` keyframe for the beams rather than a near-duplicate. -->
-  <div aria-hidden="true" style="position: absolute; inset: 0; overflow: hidden; pointer-events: none; -webkit-mask-image: radial-gradient(160% 160% at 50% 0%, #000 60%, transparent 100%); mask-image: radial-gradient(160% 160% at 50% 0%, #000 60%, transparent 100%); opacity: .62;">
+  <!-- ambient backdrop art: a hospital-lobby ceiling drawn in perspective —
+       converging wood-look slats, two teal ceiling beams, a reception-wall
+       niche with a warm glow behind it, glowing ceiling light strips, a
+       floor reflection, and a few slow rising sparks. Pure vector art
+       (aria-hidden, decorative only), matching this hospital's own sibling
+       pharmacy app's login backdrop (same wood-ceiling-+-teal-beam idea,
+       re-expressed as static SVG since this app has no React component
+       tree to render one from). Masked so it fades at the very edges but
+       stays visible behind the card/footer; slow 4-9s loops only, all
+       halted by the existing app-wide `prefers-reduced-motion` rule. -->
+  <div aria-hidden="true" style="position: absolute; inset: 0; overflow: hidden; pointer-events: none; -webkit-mask-image: radial-gradient(160% 160% at 50% 0%, #000 60%, transparent 100%); mask-image: radial-gradient(160% 160% at 50% 0%, #000 60%, transparent 100%); opacity: .7;">
     <svg viewBox="0 0 1000 800" preserveAspectRatio="xMidYMin slice" style="width: 100%; height: 100%;">
       <defs>
+        <linearGradient id="laWood" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#e9b27a"/><stop offset="1" stop-color="#8a5a35"/>
+        </linearGradient>
+        <linearGradient id="laTeal" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#19b3ad"/><stop offset="1" stop-color="#0a6f6c"/>
+        </linearGradient>
+        <linearGradient id="laFloor" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#0b2a2b" stop-opacity="0"/><stop offset="1" stop-color="#0b2a2b" stop-opacity=".4"/>
+        </linearGradient>
         <radialGradient id="loginHaloGrad" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stop-color="#FFD9C9" stop-opacity=".55"/>
+          <stop offset="0%" stop-color="#FFD9C9" stop-opacity=".6"/>
           <stop offset="100%" stop-color="#FFD9C9" stop-opacity="0"/>
         </radialGradient>
       </defs>
-      <g stroke="#ffffff" stroke-opacity=".13" stroke-width="1">
-        <line x1="500" y1="40" x2="0" y2="800"/><line x1="500" y1="40" x2="77" y2="800"/>
-        <line x1="500" y1="40" x2="154" y2="800"/><line x1="500" y1="40" x2="231" y2="800"/>
-        <line x1="500" y1="40" x2="308" y2="800"/><line x1="500" y1="40" x2="385" y2="800"/>
-        <line x1="500" y1="40" x2="462" y2="800"/><line x1="500" y1="40" x2="538" y2="800"/>
-        <line x1="500" y1="40" x2="615" y2="800"/><line x1="500" y1="40" x2="692" y2="800"/>
-        <line x1="500" y1="40" x2="769" y2="800"/><line x1="500" y1="40" x2="846" y2="800"/>
-        <line x1="500" y1="40" x2="923" y2="800"/><line x1="500" y1="40" x2="1000" y2="800"/>
+      <!-- teal ceiling beams, left + right, in perspective -->
+      <path d="M-200 -20 L180 -20 L436 170 L360 170 Z" fill="url(#laTeal)" opacity=".55"/>
+      <path d="M820 -20 L1200 -20 L640 170 L564 170 Z" fill="url(#laTeal)" opacity=".55"/>
+      <!-- wood-look ceiling slats, converging toward the reception wall -->
+      <g fill="url(#laWood)" stroke="rgba(30,18,8,.4)" stroke-width="1" opacity=".5">
+        <path d="M-420 -20 L-394 -20 L321 170 L316 170 Z"/><path d="M-374 -20 L-348 -20 L330 170 L325 170 Z"/><path d="M-328 -20 L-302 -20 L340 170 L334 170 Z"/><path d="M-282 -20 L-256 -20 L349 170 L344 170 Z"/><path d="M-236 -20 L-210 -20 L358 170 L353 170 Z"/><path d="M-190 -20 L-164 -20 L367 170 L362 170 Z"/><path d="M-144 -20 L-118 -20 L376 170 L371 170 Z"/><path d="M-98 -20 L-72 -20 L386 170 L380 170 Z"/><path d="M-52 -20 L-26 -20 L395 170 L390 170 Z"/><path d="M-6 -20 L20 -20 L404 170 L399 170 Z"/><path d="M40 -20 L66 -20 L413 170 L408 170 Z"/><path d="M86 -20 L112 -20 L422 170 L417 170 Z"/><path d="M132 -20 L158 -20 L432 170 L426 170 Z"/><path d="M178 -20 L204 -20 L441 170 L436 170 Z"/><path d="M224 -20 L250 -20 L450 170 L445 170 Z"/><path d="M270 -20 L296 -20 L459 170 L454 170 Z"/><path d="M316 -20 L342 -20 L468 170 L463 170 Z"/><path d="M362 -20 L388 -20 L478 170 L472 170 Z"/><path d="M408 -20 L434 -20 L487 170 L482 170 Z"/><path d="M454 -20 L480 -20 L496 170 L491 170 Z"/><path d="M500 -20 L526 -20 L505 170 L500 170 Z"/><path d="M546 -20 L572 -20 L514 170 L509 170 Z"/><path d="M592 -20 L618 -20 L524 170 L518 170 Z"/><path d="M638 -20 L664 -20 L533 170 L528 170 Z"/><path d="M684 -20 L710 -20 L542 170 L537 170 Z"/><path d="M730 -20 L756 -20 L551 170 L546 170 Z"/><path d="M776 -20 L802 -20 L560 170 L555 170 Z"/><path d="M822 -20 L848 -20 L570 170 L564 170 Z"/><path d="M868 -20 L894 -20 L579 170 L574 170 Z"/><path d="M914 -20 L940 -20 L588 170 L583 170 Z"/><path d="M960 -20 L986 -20 L597 170 L592 170 Z"/><path d="M1006 -20 L1032 -20 L606 170 L601 170 Z"/><path d="M1052 -20 L1078 -20 L616 170 L610 170 Z"/><path d="M1098 -20 L1124 -20 L625 170 L620 170 Z"/><path d="M1144 -20 L1170 -20 L634 170 L629 170 Z"/><path d="M1190 -20 L1216 -20 L643 170 L638 170 Z"/><path d="M1236 -20 L1262 -20 L652 170 L647 170 Z"/><path d="M1282 -20 L1308 -20 L662 170 L656 170 Z"/><path d="M1328 -20 L1354 -20 L671 170 L666 170 Z"/><path d="M1374 -20 L1400 -20 L680 170 L675 170 Z"/><path d="M1420 -20 L1446 -20 L689 170 L684 170 Z"/>
       </g>
-      <rect x="430" y="40" width="26" height="760" fill="#5FD0C5" opacity=".13" style="animation: breathe 7s ease-in-out infinite;"/>
-      <rect x="544" y="40" width="26" height="760" fill="#5FD0C5" opacity=".13" style="animation: breathe 7s ease-in-out .6s infinite;"/>
-      <circle cx="500" cy="140" r="170" fill="url(#loginHaloGrad)" style="animation: loginHaloPulse 9s ease-in-out infinite;"/>
-      <circle cx="470" cy="620" r="3.5" fill="#BFEFE8" style="animation: loginSparkRise 7s ease-in infinite;"/>
-      <circle cx="540" cy="680" r="2.5" fill="#BFEFE8" style="animation: loginSparkRise 7s ease-in 4s infinite;"/>
-      <circle cx="500" cy="560" r="3" fill="#BFEFE8" style="animation: loginSparkRise 7s ease-in 8s infinite;"/>
+      <!-- reception back wall niche: base + vertical slats + teal corner posts -->
+      <rect x="360" y="170" width="280" height="200" fill="#c98f5a" opacity=".3"/>
+      <g fill="#7a4d2b" opacity=".35">
+        <rect x="374" y="170" width="9" height="200"/><rect x="390" y="170" width="9" height="200"/><rect x="406" y="170" width="9" height="200"/><rect x="422" y="170" width="9" height="200"/><rect x="438" y="170" width="9" height="200"/><rect x="454" y="170" width="9" height="200"/><rect x="470" y="170" width="9" height="200"/><rect x="486" y="170" width="9" height="200"/><rect x="502" y="170" width="9" height="200"/><rect x="518" y="170" width="9" height="200"/><rect x="534" y="170" width="9" height="200"/><rect x="550" y="170" width="9" height="200"/><rect x="566" y="170" width="9" height="200"/><rect x="582" y="170" width="9" height="200"/><rect x="598" y="170" width="9" height="200"/><rect x="614" y="170" width="9" height="200"/>
+      </g>
+      <rect x="340" y="170" width="20" height="200" fill="#14a29d" opacity=".4"/>
+      <rect x="640" y="170" width="20" height="200" fill="#14a29d" opacity=".4"/>
+      <!-- warm glow behind the app icon/logo -->
+      <circle cx="500" cy="170" r="160" fill="url(#loginHaloGrad)" style="animation: loginHaloPulse 9s ease-in-out infinite;"/>
+      <!-- glowing ceiling light strips, perspective-scaled -->
+      <g fill="#fff">
+        <path d="M194 10 L206 10 L441 160 L439 160 Z" style="animation: laLightGlow 4s ease-in-out infinite; animation-delay:0s;"/>
+        <path d="M344 10 L356 10 L471 160 L469 160 Z" style="animation: laLightGlow 4s ease-in-out infinite; animation-delay:.7s;"/>
+        <path d="M494 10 L506 10 L501 160 L499 160 Z" style="animation: laLightGlow 4s ease-in-out infinite; animation-delay:1.4s;"/>
+        <path d="M644 10 L656 10 L531 160 L529 160 Z" style="animation: laLightGlow 4s ease-in-out infinite; animation-delay:2.1s;"/>
+        <path d="M794 10 L806 10 L561 160 L559 160 Z" style="animation: laLightGlow 4s ease-in-out infinite; animation-delay:2.8s;"/>
+      </g>
+      <!-- floor reflection -->
+      <rect x="0" y="470" width="1000" height="330" fill="url(#laFloor)"/>
+      <!-- drifting sparks -->
+      <circle cx="470" cy="620" r="3.5" fill="#FFD9C9" style="animation: loginSparkRise 7s ease-in infinite;"/>
+      <circle cx="540" cy="680" r="2.5" fill="#FFD9C9" style="animation: loginSparkRise 7s ease-in 4s infinite;"/>
+      <circle cx="500" cy="560" r="3" fill="#FFD9C9" style="animation: loginSparkRise 7s ease-in 8s infinite;"/>
     </svg>
   </div>
 
@@ -1357,7 +1399,7 @@ select:focus-visible, textarea:focus-visible, [role="button"]:focus-visible {
         <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 18px;">
           <span style="width: 34px; height: 34px; flex-shrink: 0; border-radius: 10px; background: rgba(255,255,255,.12); display: flex; align-items: center; justify-content: center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3z" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/></svg></span>
           <div>
-            <div style="font-family: 'Sora', sans-serif; font-size: 15px; font-weight: 700;">ใช้งานแอปนี้อย่างไร</div>
+            <div style="font-family: 'Sora', 'Bai Jamjuree', sans-serif; font-size: 15px; font-weight: 700;">ใช้งานแอปนี้อย่างไร</div>
             <div style="font-size: 11.5px; color: rgba(255,255,255,.6);">งานประจำวันของห้องยา</div>
           </div>
         </div>
@@ -1423,7 +1465,7 @@ select:focus-visible, textarea:focus-visible, [role="button"]:focus-visible {
         <div style="display: flex; align-items: center; gap: 11px; margin-bottom: 5px;">
           <div style="width: 40px; height: 40px; flex-shrink: 0; border-radius: 12px; background: linear-gradient(140deg, #fff, #d8e6dc); color: #0D6E66; display: flex; align-items: center; justify-content: center; font-size: 17px; box-shadow: 0 4px 14px -4px rgba(0,0,0,.35);">🔒</div>
           <div style="min-width: 0;">
-            <h2 style="margin: 0; font-family: 'Sora', sans-serif; font-size: 19.5px; font-weight: 700; letter-spacing: -.3px; color: #fff; line-height: 1.25;">เข้าสู่ระบบ</h2>
+            <h2 style="margin: 0; font-family: 'Sora', 'Bai Jamjuree', sans-serif; font-size: 19.5px; font-weight: 700; letter-spacing: -.3px; color: #fff; line-height: 1.25;">เข้าสู่ระบบ</h2>
             <div style="font-size: 10.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: rgba(255,255,255,.5); margin-top: 1px;">บัญชีเจ้าหน้าที่ห้องยา</div>
           </div>
         </div>
@@ -1469,7 +1511,7 @@ select:focus-visible, textarea:focus-visible, [role="button"]:focus-visible {
         <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px;">
           <span style="width: 34px; height: 34px; flex-shrink: 0; border-radius: 10px; background: rgba(255,255,255,.12); display: flex; align-items: center; justify-content: center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="3.5" y="3.5" width="17" height="17" rx="4.5" stroke="#fff" stroke-width="1.7"/><path d="M8 8h8M8 12h8M8 16h5" stroke="#fff" stroke-width="1.7" stroke-linecap="round"/></svg></span>
           <div>
-            <div style="font-family: 'Sora', sans-serif; font-size: 15px; font-weight: 700;">ภาพรวมการทำงาน</div>
+            <div style="font-family: 'Sora', 'Bai Jamjuree', sans-serif; font-size: 15px; font-weight: 700;">ภาพรวมการทำงาน</div>
             <div style="font-size: 11.5px; color: rgba(255,255,255,.6);">สิ่งที่ระบบดูแลให้โดยอัตโนมัติ</div>
           </div>
         </div>
@@ -6787,7 +6829,7 @@ td.l{text-align:left;padding-left:4px}
       className: 'login-submit-btn',
       onClick: () => this.doLogin(),
       disabled: st.locked,
-      style: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9, width: '100%', height: 52, border: 'none', borderRadius: 13, fontFamily: "'Sora', sans-serif", fontSize: 15.5, fontWeight: 600, color: '#fff', cursor: st.locked ? 'not-allowed' : 'pointer', background: st.locked ? '#A7B8C6' : 'linear-gradient(135deg, #1A6FA3, #168C84, #1A6FA3)', backgroundSize: st.locked ? '100% 100%' : '200% 200%', animation: st.locked ? 'none' : 'gradientShift 4s ease infinite', boxShadow: st.locked ? 'none' : '0 8px 28px rgba(26,111,163,.35), 0 2px 6px rgba(22,140,132,.15)', transition: 'transform .25s cubic-bezier(.34,1.56,.64,1), box-shadow .25s cubic-bezier(.34,1.56,.64,1)' },
+      style: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9, width: '100%', height: 52, border: 'none', borderRadius: 13, fontFamily: "'Sora', 'Bai Jamjuree', sans-serif", fontSize: 15.5, fontWeight: 600, color: '#fff', cursor: st.locked ? 'not-allowed' : 'pointer', background: st.locked ? '#A7B8C6' : 'linear-gradient(135deg, #1A6FA3, #168C84, #1A6FA3)', backgroundSize: st.locked ? '100% 100%' : '200% 200%', animation: st.locked ? 'none' : 'gradientShift 4s ease infinite', boxShadow: st.locked ? 'none' : '0 8px 28px rgba(26,111,163,.35), 0 2px 6px rgba(22,140,132,.15)', transition: 'transform .25s cubic-bezier(.34,1.56,.64,1), box-shadow .25s cubic-bezier(.34,1.56,.64,1)' },
     }, h('span', null, st.locked ? 'บัญชีถูกล็อก' : 'เข้าสู่ระบบ'),
        st.locked ? null : h('span', { style: { display: 'flex' }, dangerouslySetInnerHTML: { __html: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 12h13m0 0l-5-5m5 5l-5 5" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' } }));
 
