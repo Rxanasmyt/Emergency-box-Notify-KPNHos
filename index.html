@@ -138,7 +138,7 @@
 <helmet>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Kanit:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
 <style>
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; }
@@ -195,42 +195,75 @@
   @keyframes loginHaloPulse { 0%,100% { transform: scale(1); opacity: .5; } 50% { transform: scale(1.18); opacity: .8; } }
   @keyframes loginSparkRise { 0% { transform: translateY(0); opacity: 0; } 12% { opacity: .85; } 80% { opacity: .3; } 100% { transform: translateY(-140px); opacity: 0; } }
   @keyframes loginRailDrop { 0%, 4% { top: 0%; opacity: 0; } 12% { opacity: 1; } 88% { opacity: 1; } 96%, 100% { top: 100%; opacity: 0; } }
-  /* Login screen "premium AI product" pass — animated conic-gradient border
-     on the hero sign-in card, a pulsing glow ring behind the app icon, and a
-     fine noise/grain texture for cinematic depth. All still slow (6-9s)
-     ambient loops, automatically halted app-wide by the existing
-     `prefers-reduced-motion` rule, and built from the app's own existing
-     brand hues only (green/blue/teal/mint) — no new accent color. */
+  /* Login screen styled to match this hospital's sibling pharmacy app
+     (OPD-DRUG-STOCK-MANAGER): a Sora display font, a warm coral accent
+     (#f7a68b, that app's own "one non-teal color") used sparingly for the
+     brand tag-line and card accent bar, and — a real lesson ported from
+     that app's own commit history, not just its screenshot — a continuous
+     *pulsing* glow/spin on the login card was tried there and rejected by
+     its real hospital admin as "too SaaS/playful, not official"; it now
+     uses a fixed, non-animated 2-tone top bar instead. We mirror that
+     restraint here: the card's border accent is a static bar, not a
+     spinning gradient ring, while the icon's own halo (which that app DID
+     keep, as a continuous — not pulsing — conic-gradient spin) stays a
+     slow smooth rotation, not a breathing pulse. Still built from this
+     app's own existing brand hues plus that one coral accent; everything
+     here is automatically halted app-wide by the existing
+     `prefers-reduced-motion` rule. */
   @keyframes loginAuroraSpin { to { transform: rotate(360deg); } }
-  @keyframes loginIconGlow { 0%,100% { opacity: .55; transform: scale(1); } 50% { opacity: .95; transform: scale(1.1); } }
-  .login-aurora-wrap { position: relative; border-radius: 22px; padding: 1.6px; isolation: isolate; overflow: hidden; box-shadow: 0 0 46px rgba(53,214,148,.2), 0 24px 60px rgba(0,0,0,.3); }
-  .login-aurora-wrap::before {
-    content: ''; position: absolute; inset: -40%; z-index: 0;
-    background: conic-gradient(from 0deg, #35D694, #1A6FA3 30%, #168C84 55%, #6FE3C0 80%, #35D694 100%);
-    animation: loginAuroraSpin 7s linear infinite;
+  .login-aurora-wrap { position: relative; border-radius: 22px; box-shadow: 0 0 46px rgba(53,214,148,.18), 0 24px 60px rgba(0,0,0,.3); }
+  .login-aurora-wrap > .login-glass-card { position: relative; z-index: 1; background: rgba(9,38,52,.88); overflow: hidden; }
+  .login-aurora-wrap > .login-glass-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; z-index: 2;
+    background: linear-gradient(90deg, #35D694, #f7a68b 50%, #35D694);
   }
-  .login-aurora-wrap > .login-glass-card { position: relative; z-index: 1; background: rgba(9,38,52,.88); }
   .login-noise {
     position: absolute; inset: 0; pointer-events: none; z-index: 0; opacity: .05; mix-blend-mode: overlay;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
   }
-  .login-icon-glow {
-    position: absolute; left: 50%; top: 50%; width: 90px; height: 90px; transform: translate(-50%,-50%);
-    border-radius: 50%; background: radial-gradient(circle, rgba(111,227,192,.55), transparent 70%);
-    filter: blur(6px); animation: loginIconGlow 5s ease-in-out infinite; pointer-events: none; z-index: 0;
+  /* a continuous (non-breathing) conic-gradient spin behind the icon, plus
+     3 small nodes orbiting it — the icon-halo mirrors the sibling app's own
+     kept `.login-appicon::before` spin exactly, just at our icon's scale */
+  .login-icon-halo {
+    position: absolute; inset: -6px; border-radius: 50%; z-index: 0;
+    background: conic-gradient(from 0deg, #35D694, #f7a68b, #fff, #35D694);
+    filter: blur(9px); opacity: .68; animation: loginAuroraSpin 7s linear infinite;
   }
-  /* thin pulsing "energy core" ring outside the glow, and 3 small nodes
-     orbiting the icon badge — a tech/AI product motif, built from the same
-     mint accent already used everywhere else on this screen */
   @keyframes loginOrbitSpin { to { transform: rotate(360deg); } }
-  .login-icon-ring {
-    position: absolute; inset: 2px; border-radius: 50%; border: 1.5px solid rgba(111,227,192,.4);
-    animation: loginHaloPulse 5s ease-in-out infinite reverse; pointer-events: none; z-index: 0;
-  }
   .login-orbit { position: absolute; inset: 0; animation: loginOrbitSpin 9s linear infinite; pointer-events: none; z-index: 0; }
   .login-orbit-dot {
     position: absolute; left: 50%; top: 50%; width: 5px; height: 5px; border-radius: 50%;
     background: #6FE3C0; box-shadow: 0 0 9px 1px rgba(111,227,192,.85);
+  }
+  /* brand lockup: hospital name (big, sheen) → "HOSPITAL" (coral, spaced)
+     → app name as a coral-gradient + white tag pair underneath, mirroring
+     the sibling app's own Krongpinang/Hospital + Drug-Substock/OPD-IPD
+     hierarchy exactly, with this app's own real name in the tag slot */
+  .login-brand-name { font-family: 'Sora', 'IBM Plex Sans Thai', sans-serif; font-weight: 800; line-height: 1.05; letter-spacing: -.01em; }
+  .login-brand-name .login-shine-text { font-size: 32px; }
+  .login-brand-sub {
+    display: block; font-family: 'Sora', 'IBM Plex Sans Thai', sans-serif; font-weight: 700; font-size: 15px;
+    letter-spacing: .35em; margin-right: -.35em; margin-top: 4px; text-transform: uppercase;
+    color: #FFC9B3; text-shadow: 0 2px 10px rgba(0,30,32,.7);
+  }
+  .login-brand-tag { margin-top: 10px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .login-brand-tag-1 {
+    font-family: 'Sora', 'IBM Plex Sans Thai', sans-serif; font-size: 16px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+    background: linear-gradient(90deg, #fff, #FFD9C9 50%, #fff); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: #FFB08F;
+  }
+  .login-brand-tag-2 {
+    font-family: 'Sora', 'IBM Plex Sans Thai', sans-serif; font-size: 11px; font-weight: 700; letter-spacing: .32em; margin-left: .32em;
+    text-transform: uppercase; color: rgba(255,255,255,.85);
+  }
+  /* a brief sheen sweep across the manual-guide pill button — same trick as
+     the brand-title shine, just as a translating overlay rather than a
+     background-position scroll, matching the sibling app's own manual-link
+     button treatment */
+  @keyframes loginBtnSheen { 0%, 15% { transform: translateX(-120%); } 55%, 100% { transform: translateX(120%); } }
+  .login-manual-btn::after {
+    content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+    background: linear-gradient(100deg, transparent 35%, rgba(255,255,255,.35) 50%, transparent 65%);
+    animation: loginBtnSheen 5s ease-in-out infinite;
   }
   /* a slow iridescent hue-drift on the two ambient background blobs —
      gives the whole canvas a gently "living" quality instead of a flat
@@ -471,7 +504,7 @@ input[type="date"] { min-height: 46px; }
 .login-shine-text { color: #fff; }
 @supports ((-webkit-background-clip: text) or (background-clip: text)) {
   .login-shine-text {
-    background: linear-gradient(100deg, #fff 0 40%, #BFEFE8 50%, #fff 60% 100%);
+    background: linear-gradient(100deg, #fff 0 40%, #FFD9C9 50%, #fff 60% 100%);
     background-size: 250% 100%;
     -webkit-background-clip: text;
     background-clip: text;
@@ -1264,7 +1297,7 @@ select:focus-visible, textarea:focus-visible, [role="button"]:focus-visible {
 
 <!-- ===================== LOGIN ===================== -->
 <sc-if value="{{ notAuthed }}" hint-placeholder-val="{{ true }}">
-<div class="login-wrap" style="position: relative; min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; background: linear-gradient(160deg, #14506E 0%, #1A6FA3 48%, #168C84 100%); color: #fff; overflow-x: hidden; font-family: 'IBM Plex Sans Thai', sans-serif;">
+<div class="login-wrap" style="position: relative; min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; background: radial-gradient(120% 100% at 14% -10%, #1A6FA3 0%, #168C84 46%, #14506E 100%); color: #fff; overflow-x: hidden; font-family: 'IBM Plex Sans Thai', sans-serif;">
 
   <!-- fine film-grain texture for depth — purely decorative, static (not
        animated), very low opacity -->
@@ -1324,7 +1357,7 @@ select:focus-visible, textarea:focus-visible, [role="button"]:focus-visible {
         <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 18px;">
           <span style="width: 34px; height: 34px; flex-shrink: 0; border-radius: 10px; background: rgba(255,255,255,.12); display: flex; align-items: center; justify-content: center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3z" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/></svg></span>
           <div>
-            <div style="font-family: 'Kanit', sans-serif; font-size: 15px; font-weight: 700;">ใช้งานแอปนี้อย่างไร</div>
+            <div style="font-family: 'Sora', sans-serif; font-size: 15px; font-weight: 700;">ใช้งานแอปนี้อย่างไร</div>
             <div style="font-size: 11.5px; color: rgba(255,255,255,.6);">งานประจำวันของห้องยา</div>
           </div>
         </div>
@@ -1363,8 +1396,7 @@ select:focus-visible, textarea:focus-visible, [role="button"]:focus-visible {
     <div class="login-center" style="flex-shrink: 0; width: 420px; max-width: 100%; animation: fadeUp .6s cubic-bezier(.34,1.56,.64,1) .15s both;">
       <div style="text-align: center; margin-bottom: 22px;">
         <div style="position: relative; width: 92px; height: 92px; margin: 0 auto 16px;">
-          <div class="login-icon-glow"></div>
-          <div class="login-icon-ring" aria-hidden="true"></div>
+          <div class="login-icon-halo" aria-hidden="true"></div>
           <div class="login-orbit" aria-hidden="true">
             <span class="login-orbit-dot" style="transform: translate(-50%,-50%) rotate(0deg) translateX(44px);"></span>
             <span class="login-orbit-dot" style="transform: translate(-50%,-50%) rotate(120deg) translateX(44px);"></span>
@@ -1372,19 +1404,23 @@ select:focus-visible, textarea:focus-visible, [role="button"]:focus-visible {
           </div>
           <img src="./icons/icon-192.svg" width="58" height="58" alt="Emergency Box Notify" style="position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); z-index: 1; display: block; border-radius: 16px; box-shadow: 0 12px 30px rgba(22,140,132,.35); animation: scaleIn .5s cubic-bezier(.34,1.56,.64,1) .25s both;">
         </div>
-        <div style="display: flex; align-items: baseline; justify-content: center; gap: 8px; flex-wrap: wrap;">
-          <span class="login-shine-text" style="font-family: 'Kanit', sans-serif; font-size: 29px; font-weight: 800; letter-spacing: -.5px;">Emergency Box</span>
-          <span style="font-family: 'Kanit', sans-serif; font-size: 16px; font-weight: 700; color: #6FE3C0; letter-spacing: 1.5px; text-transform: uppercase; text-shadow: 0 0 14px rgba(111,227,192,.55);">Notify</span>
+        <div class="login-brand-name">
+          <span class="login-shine-text">Krongpinang</span>
+          <span class="login-brand-sub">Hospital</span>
         </div>
-        <div style="font-size: 12.5px; color: rgba(255,255,255,.65); margin-top: 4px;">ฝ่ายเภสัชกรรม โรงพยาบาลกรงปินัง · จังหวัดยะลา</div>
-        <a href="./manual.html" target="_blank" rel="noopener" style="display: inline-flex; align-items: center; gap: 7px; margin-top: 14px; padding: 8px 16px; border-radius: 20px; border: 1.5px solid rgba(255,255,255,.28); background: rgba(255,255,255,.08); color: #fff; font-size: 12.5px; font-weight: 600; text-decoration: none; transition: background .2s, transform .2s;" style-hover="background: rgba(255,255,255,.16); transform: translateY(-1px);">
+        <div class="login-brand-tag">
+          <span class="login-brand-tag-1">Emergency Box</span>
+          <span class="login-brand-tag-2">Notify</span>
+        </div>
+        <div style="font-size: 12.5px; color: rgba(255,255,255,.65); margin-top: 9px;">ฝ่ายเภสัชกรรม โรงพยาบาลกรงปินัง · จังหวัดยะลา</div>
+        <a href="./manual.html" target="_blank" rel="noopener" class="login-manual-btn" style="position: relative; overflow: hidden; display: inline-flex; align-items: center; gap: 7px; margin-top: 14px; padding: 8px 16px; border-radius: 20px; border: 1.5px solid rgba(255,255,255,.28); background: rgba(255,255,255,.08); color: #fff; font-size: 12.5px; font-weight: 600; text-decoration: none; transition: background .2s, transform .2s;" style-hover="background: rgba(255,255,255,.16); transform: translateY(-1px);">
           📘 คู่มือการใช้งานฉบับสมบูรณ์ <span>→</span>
         </a>
       </div>
 
       <div class="login-aurora-wrap">
       <div class="login-glass-card" style="padding: 30px 28px;">
-        <h2 style="margin: 0; font-family: 'Kanit', sans-serif; font-size: 22px; font-weight: 700; letter-spacing: -.3px; color: #fff;">เข้าสู่ระบบ</h2>
+        <h2 style="margin: 0; font-family: 'Sora', sans-serif; font-size: 22px; font-weight: 700; letter-spacing: -.3px; color: #fff;">เข้าสู่ระบบ</h2>
         <p style="margin: 6px 0 22px; font-size: 13.5px; color: rgba(255,255,255,.6);">ลงชื่อเข้าใช้ด้วยบัญชีเจ้าหน้าที่ห้องยา</p>
 
         {{ loginAlertEl }}
@@ -1427,7 +1463,7 @@ select:focus-visible, textarea:focus-visible, [role="button"]:focus-visible {
         <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px;">
           <span style="width: 34px; height: 34px; flex-shrink: 0; border-radius: 10px; background: rgba(255,255,255,.12); display: flex; align-items: center; justify-content: center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="3.5" y="3.5" width="17" height="17" rx="4.5" stroke="#fff" stroke-width="1.7"/><path d="M8 8h8M8 12h8M8 16h5" stroke="#fff" stroke-width="1.7" stroke-linecap="round"/></svg></span>
           <div>
-            <div style="font-family: 'Kanit', sans-serif; font-size: 15px; font-weight: 700;">ภาพรวมการทำงาน</div>
+            <div style="font-family: 'Sora', sans-serif; font-size: 15px; font-weight: 700;">ภาพรวมการทำงาน</div>
             <div style="font-size: 11.5px; color: rgba(255,255,255,.6);">สิ่งที่ระบบดูแลให้โดยอัตโนมัติ</div>
           </div>
         </div>
@@ -6745,7 +6781,7 @@ td.l{text-align:left;padding-left:4px}
       className: 'login-submit-btn',
       onClick: () => this.doLogin(),
       disabled: st.locked,
-      style: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9, width: '100%', height: 52, border: 'none', borderRadius: 13, fontFamily: "'Kanit', sans-serif", fontSize: 15.5, fontWeight: 600, color: '#fff', cursor: st.locked ? 'not-allowed' : 'pointer', background: st.locked ? '#A7B8C6' : 'linear-gradient(135deg, #1A6FA3, #168C84, #1A6FA3)', backgroundSize: st.locked ? '100% 100%' : '200% 200%', animation: st.locked ? 'none' : 'gradientShift 4s ease infinite', boxShadow: st.locked ? 'none' : '0 8px 28px rgba(26,111,163,.35), 0 2px 6px rgba(22,140,132,.15)', transition: 'transform .25s cubic-bezier(.34,1.56,.64,1), box-shadow .25s cubic-bezier(.34,1.56,.64,1)' },
+      style: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9, width: '100%', height: 52, border: 'none', borderRadius: 13, fontFamily: "'Sora', sans-serif", fontSize: 15.5, fontWeight: 600, color: '#fff', cursor: st.locked ? 'not-allowed' : 'pointer', background: st.locked ? '#A7B8C6' : 'linear-gradient(135deg, #1A6FA3, #168C84, #1A6FA3)', backgroundSize: st.locked ? '100% 100%' : '200% 200%', animation: st.locked ? 'none' : 'gradientShift 4s ease infinite', boxShadow: st.locked ? 'none' : '0 8px 28px rgba(26,111,163,.35), 0 2px 6px rgba(22,140,132,.15)', transition: 'transform .25s cubic-bezier(.34,1.56,.64,1), box-shadow .25s cubic-bezier(.34,1.56,.64,1)' },
     }, h('span', null, st.locked ? 'บัญชีถูกล็อก' : 'เข้าสู่ระบบ'),
        st.locked ? null : h('span', { style: { display: 'flex' }, dangerouslySetInnerHTML: { __html: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 12h13m0 0l-5-5m5 5l-5 5" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' } }));
 
