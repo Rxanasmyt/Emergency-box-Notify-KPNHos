@@ -219,6 +219,24 @@
     border-radius: 50%; background: radial-gradient(circle, rgba(111,227,192,.55), transparent 70%);
     filter: blur(6px); animation: loginIconGlow 5s ease-in-out infinite; pointer-events: none; z-index: 0;
   }
+  /* thin pulsing "energy core" ring outside the glow, and 3 small nodes
+     orbiting the icon badge — a tech/AI product motif, built from the same
+     mint accent already used everywhere else on this screen */
+  @keyframes loginOrbitSpin { to { transform: rotate(360deg); } }
+  .login-icon-ring {
+    position: absolute; inset: 2px; border-radius: 50%; border: 1.5px solid rgba(111,227,192,.4);
+    animation: loginHaloPulse 5s ease-in-out infinite reverse; pointer-events: none; z-index: 0;
+  }
+  .login-orbit { position: absolute; inset: 0; animation: loginOrbitSpin 9s linear infinite; pointer-events: none; z-index: 0; }
+  .login-orbit-dot {
+    position: absolute; left: 50%; top: 50%; width: 5px; height: 5px; border-radius: 50%;
+    background: #6FE3C0; box-shadow: 0 0 9px 1px rgba(111,227,192,.85);
+  }
+  /* a slow iridescent hue-drift on the two ambient background blobs —
+     gives the whole canvas a gently "living" quality instead of a flat
+     static gradient. Still governed by the app-wide prefers-reduced-motion
+     rule like every other animation on this screen. */
+  @keyframes loginHueDrift { 0% { filter: blur(6px) hue-rotate(0deg); } 100% { filter: blur(6px) hue-rotate(360deg); } }
   .login-wrap input[type="text"]:focus, .login-wrap input[type="password"]:focus {
     border-color: #35D694 !important; box-shadow: 0 0 0 4px rgba(53,214,148,.18) !important;
   }
@@ -1285,8 +1303,8 @@ select:focus-visible, textarea:focus-visible, [role="button"]:focus-visible {
 
   <!-- ambient texture: dot grid + two soft glow blobs, purely decorative -->
   <div style="position: absolute; inset: 0; pointer-events: none; background-image: radial-gradient(rgba(255,255,255,.07) 1px, transparent 1px); background-size: 28px 28px; opacity: .55;"></div>
-  <div style="position: absolute; top: -160px; left: -110px; width: 440px; height: 440px; border-radius: 50%; background: radial-gradient(circle, rgba(22,140,132,.38), transparent 70%); filter: blur(6px); animation: floatY 11s ease-in-out infinite; pointer-events: none;"></div>
-  <div style="position: absolute; bottom: -180px; right: -130px; width: 480px; height: 480px; border-radius: 50%; background: radial-gradient(circle, rgba(26,111,163,.32), transparent 70%); filter: blur(6px); animation: floatY 13s ease-in-out infinite reverse; pointer-events: none;"></div>
+  <div style="position: absolute; top: -160px; left: -110px; width: 440px; height: 440px; border-radius: 50%; background: radial-gradient(circle, rgba(22,140,132,.38), transparent 70%); filter: blur(6px); animation: floatY 11s ease-in-out infinite, loginHueDrift 22s linear infinite; pointer-events: none;"></div>
+  <div style="position: absolute; bottom: -180px; right: -130px; width: 480px; height: 480px; border-radius: 50%; background: radial-gradient(circle, rgba(26,111,163,.32), transparent 70%); filter: blur(6px); animation: floatY 13s ease-in-out infinite reverse, loginHueDrift 26s linear infinite reverse; pointer-events: none;"></div>
 
   <!-- top bar -->
   <div class="login-topbar" style="position: relative; display: flex; align-items: center; justify-content: space-between; padding: calc(22px + env(safe-area-inset-top, 0px)) 36px 22px;">
@@ -1344,12 +1362,21 @@ select:focus-visible, textarea:focus-visible, [role="button"]:focus-visible {
     <!-- CENTER: the actual login card -->
     <div class="login-center" style="flex-shrink: 0; width: 420px; max-width: 100%; animation: fadeUp .6s cubic-bezier(.34,1.56,.64,1) .15s both;">
       <div style="text-align: center; margin-bottom: 22px;">
-        <div style="position: relative; width: 58px; height: 58px; margin: 0 auto 14px;">
+        <div style="position: relative; width: 92px; height: 92px; margin: 0 auto 16px;">
           <div class="login-icon-glow"></div>
-          <img src="./icons/icon-192.svg" width="58" height="58" alt="Emergency Box" style="position: relative; z-index: 1; display: block; border-radius: 16px; box-shadow: 0 12px 30px rgba(22,140,132,.35); animation: scaleIn .5s cubic-bezier(.34,1.56,.64,1) .25s both;">
+          <div class="login-icon-ring" aria-hidden="true"></div>
+          <div class="login-orbit" aria-hidden="true">
+            <span class="login-orbit-dot" style="transform: translate(-50%,-50%) rotate(0deg) translateX(44px);"></span>
+            <span class="login-orbit-dot" style="transform: translate(-50%,-50%) rotate(120deg) translateX(44px);"></span>
+            <span class="login-orbit-dot" style="transform: translate(-50%,-50%) rotate(240deg) translateX(44px);"></span>
+          </div>
+          <img src="./icons/icon-192.svg" width="58" height="58" alt="Emergency Box Notify" style="position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); z-index: 1; display: block; border-radius: 16px; box-shadow: 0 12px 30px rgba(22,140,132,.35); animation: scaleIn .5s cubic-bezier(.34,1.56,.64,1) .25s both;">
         </div>
-        <div class="login-shine-text" style="font-family: 'Kanit', sans-serif; font-size: 25px; font-weight: 800; letter-spacing: -.4px;">Emergency Box</div>
-        <div style="font-size: 12.5px; color: rgba(255,255,255,.65); margin-top: 3px;">ฝ่ายเภสัชกรรม โรงพยาบาลกรงปินัง · จังหวัดยะลา</div>
+        <div style="display: flex; align-items: baseline; justify-content: center; gap: 8px; flex-wrap: wrap;">
+          <span class="login-shine-text" style="font-family: 'Kanit', sans-serif; font-size: 29px; font-weight: 800; letter-spacing: -.5px;">Emergency Box</span>
+          <span style="font-family: 'Kanit', sans-serif; font-size: 16px; font-weight: 700; color: #6FE3C0; letter-spacing: 1.5px; text-transform: uppercase; text-shadow: 0 0 14px rgba(111,227,192,.55);">Notify</span>
+        </div>
+        <div style="font-size: 12.5px; color: rgba(255,255,255,.65); margin-top: 4px;">ฝ่ายเภสัชกรรม โรงพยาบาลกรงปินัง · จังหวัดยะลา</div>
         <a href="./manual.html" target="_blank" rel="noopener" style="display: inline-flex; align-items: center; gap: 7px; margin-top: 14px; padding: 8px 16px; border-radius: 20px; border: 1.5px solid rgba(255,255,255,.28); background: rgba(255,255,255,.08); color: #fff; font-size: 12.5px; font-weight: 600; text-decoration: none; transition: background .2s, transform .2s;" style-hover="background: rgba(255,255,255,.16); transform: translateY(-1px);">
           📘 คู่มือการใช้งานฉบับสมบูรณ์ <span>→</span>
         </a>
