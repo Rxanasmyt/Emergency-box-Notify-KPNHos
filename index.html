@@ -242,20 +242,21 @@
      the sibling app's own Krongpinang/Hospital + Drug-Substock/OPD-IPD
      hierarchy exactly, with this app's own real name in the tag slot */
   .login-brand-name { font-family: 'Sora', 'Bai Jamjuree', sans-serif; font-weight: 800; line-height: 1.02; letter-spacing: -.01em; }
-  .login-brand-name .login-shine-text { font-size: 34px; }
+  .login-brand-name .login-shine-text { font-size: 42px; }
   .login-brand-sub {
-    display: block; font-family: 'Sora', 'Bai Jamjuree', sans-serif; font-weight: 700; font-size: 16px;
-    letter-spacing: .35em; margin-right: -.35em; margin-top: 6px; text-transform: uppercase;
-    color: #FFC9B3; text-shadow: 0 2px 10px rgba(0,30,32,.7);
+    display: block; font-family: 'Sora', 'Bai Jamjuree', sans-serif; font-weight: 800; font-size: 19px;
+    letter-spacing: .35em; margin-right: -.35em; margin-top: 7px; text-transform: uppercase;
+    color: #FFDCCB; text-shadow: 0 2px 12px rgba(0,30,32,.85), 0 0 22px rgba(255,176,143,.3);
   }
-  .login-brand-tag { margin-top: 14px; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  .login-brand-tag { margin-top: 16px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
   .login-brand-tag-1 {
-    font-family: 'Sora', 'Bai Jamjuree', sans-serif; font-size: 18px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase;
+    font-family: 'Sora', 'Bai Jamjuree', sans-serif; font-size: 27px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase;
     background: linear-gradient(90deg, #fff, #FFD9C9 50%, #fff); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: #FFB08F;
+    filter: drop-shadow(0 2px 12px rgba(0,20,22,.55));
   }
   .login-brand-tag-2 {
-    font-family: 'Sora', 'Bai Jamjuree', sans-serif; font-size: 12px; font-weight: 700; letter-spacing: .2em; margin-left: .2em;
-    text-transform: uppercase; color: rgba(255,255,255,.92);
+    font-family: 'Sora', 'Bai Jamjuree', sans-serif; font-size: 15.5px; font-weight: 800; letter-spacing: .22em; margin-left: .22em;
+    text-transform: uppercase; color: #fff; text-shadow: 0 2px 10px rgba(0,30,32,.8);
   }
   /* On mobile the login-center column IS essentially the full viewport width
      (same as the sibling app's own single-column mobile layout), so vw-based
@@ -264,10 +265,10 @@
      the fixed px sizes above are used there instead to avoid the title
      scaling off the huge end of a wide monitor's viewport width. */
   @media (max-width: 768px) {
-    .login-brand-name .login-shine-text { font-size: clamp(38px, 11.5vw, 54px); }
-    .login-brand-sub { font-size: clamp(18px, 5.6vw, 26px); }
-    .login-brand-tag-1 { font-size: clamp(19px, 6vw, 26px); }
-    .login-brand-tag-2 { font-size: clamp(12px, 3.6vw, 16px); }
+    .login-brand-name .login-shine-text { font-size: clamp(44px, 13vw, 60px); }
+    .login-brand-sub { font-size: clamp(20px, 6.2vw, 28px); }
+    .login-brand-tag-1 { font-size: clamp(26px, 7.6vw, 34px); }
+    .login-brand-tag-2 { font-size: clamp(14px, 4.2vw, 18px); }
   }
   /* a brief sheen sweep across the manual-guide pill button — same trick as
      the brand-title shine, just as a translating overlay rather than a
@@ -523,7 +524,7 @@ input[type="date"] { min-height: 46px; }
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
-    filter: drop-shadow(0 1px 8px rgba(0,30,32,.45));
+    filter: drop-shadow(0 2px 14px rgba(0,16,18,.6));
     animation: shimmer 6s linear infinite;
   }
 }
@@ -1437,7 +1438,7 @@ select:focus-visible, textarea:focus-visible, [role="button"]:focus-visible {
 
     <!-- CENTER: the actual login card -->
     <div class="login-center" style="flex-shrink: 0; width: 420px; max-width: 100%; animation: fadeUp .6s cubic-bezier(.34,1.56,.64,1) .15s both;">
-      <div style="text-align: center; margin-bottom: 22px;">
+      <div style="text-align: center; margin-bottom: 22px; position: relative; padding: 14px 10px 4px; background: radial-gradient(62% 58% at 50% 42%, rgba(3,26,30,.42), rgba(3,26,30,0) 72%);">
         <div style="position: relative; width: 128px; height: 128px; margin: 0 auto 16px;">
           <div class="login-icon-halo" aria-hidden="true"></div>
           <div class="login-orbit" aria-hidden="true">
