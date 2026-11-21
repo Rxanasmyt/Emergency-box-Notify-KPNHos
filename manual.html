@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#14506E">
+<title>คู่มือการใช้งาน — Emergency Box</title>
+<meta name="description" content="คู่มือการใช้งานฉบับสมบูรณ์ ระบบ Emergency Box Notify ฝ่ายเภสัชกรรม โรงพยาบาลกรงปินัง">
+<link rel="icon" href="./icons/icon-192.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#14506E; --blue:#1A6FA3; --teal:#168C84; --green:#35D694; --mint:#6FE3C0;
+    --ink:#15242E; --muted:#5A6B79; --faint:#8A99A6; --line:#E2E9F0; --card:#fff; --bg:#F3F7FA;
+    --danger:#E03E3E; --warn:#D97706;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:'IBM Plex Sans Thai',sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased;}
+  a{color:var(--blue);}
+  code{font-family:'IBM Plex Mono',monospace;font-size:.92em;background:#EEF3F7;padding:1px 6px;border-radius:5px;color:#0D4F7A;}
+
+  /* ---------- top bar ---------- */
+  .m-topbar{position:sticky;top:0;z-index:40;background:linear-gradient(135deg,var(--navy),var(--blue) 60%,var(--teal));color:#fff;padding:14px 20px;display:flex;align-items:center;gap:12px;box-shadow:0 4px 18px rgba(20,80,110,.25);}
+  .m-topbar img{width:34px;height:34px;border-radius:9px;flex-shrink:0;}
+  .m-topbar .m-ttl{font-size:15.5px;font-weight:700;line-height:1.2;}
+  .m-topbar .m-sub{font-size:11.5px;color:rgba(255,255,255,.75);margin-top:1px;}
+  .m-topbar .m-actions{margin-left:auto;display:flex;gap:8px;}
+  .m-btn{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 13px;border-radius:9px;border:1.5px solid rgba(255,255,255,.3);background:rgba(255,255,255,.1);color:#fff;font-size:12.5px;font-weight:600;text-decoration:none;cursor:pointer;font-family:inherit;white-space:nowrap;transition:background .18s;}
+  .m-btn:hover{background:rgba(255,255,255,.2);}
+
+  /* ---------- shell: sidebar + content ---------- */
+  .m-shell{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:250px 1fr;gap:28px;padding:22px 20px 70px;}
+  .m-toc{position:sticky;top:76px;align-self:start;max-height:calc(100vh - 96px);overflow-y:auto;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;}
+  .m-toc-group{margin-bottom:14px;}
+  .m-toc-group:last-child{margin-bottom:0;}
+  .m-toc-label{font-size:10.5px;font-weight:700;color:var(--faint);text-transform:uppercase;letter-spacing:.06em;padding:0 8px;margin-bottom:6px;}
+  .m-toc a{display:block;padding:7px 9px;border-radius:8px;font-size:13px;color:var(--ink);text-decoration:none;font-weight:500;}
+  .m-toc a:hover{background:#EEF5FA;color:var(--blue);}
+
+  .m-main section{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:24px 26px;margin-bottom:18px;scroll-margin-top:84px;}
+  .m-sec-head{display:flex;align-items:flex-start;gap:12px;margin-bottom:14px;}
+  .m-sec-icon{width:40px;height:40px;flex-shrink:0;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:19px;background:#EEF5FA;color:var(--blue);}
+  .m-sec-head h2{margin:0;font-size:18.5px;font-weight:700;color:var(--navy);letter-spacing:-.2px;}
+  .m-sec-head p{margin:3px 0 0;font-size:12.8px;color:var(--muted);}
+  h3.m-sub{font-size:14.5px;font-weight:700;color:var(--ink);margin:18px 0 8px;}
+  .m-main p{font-size:13.8px;color:#36454F;margin:0 0 10px;}
+  .m-main ul,.m-main ol{margin:0 0 10px;padding-left:20px;font-size:13.8px;color:#36454F;}
+  .m-main li{margin-bottom:5px;}
+
+  /* numbered step cards (mirrors the login screen's own timeline styling) */
+  .m-steps{position:relative;display:flex;flex-direction:column;gap:14px;margin:14px 0;}
+  .m-steps::before{content:'';position:absolute;left:15px;top:16px;bottom:16px;width:2px;background:linear-gradient(180deg,var(--green),var(--blue));}
+  .m-step{display:flex;gap:13px;position:relative;z-index:1;}
+  .m-step .n{width:30px;height:30px;flex-shrink:0;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,.15);}
+  .m-step .t{font-size:13.8px;font-weight:700;color:var(--ink);}
+  .m-step .d{font-size:13px;color:var(--muted);margin-top:2px;}
+
+  /* role chips */
+  .m-roles{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin:14px 0;}
+  .m-role{border-radius:12px;padding:13px 14px;border:1.5px solid var(--line);}
+  .m-role .rn{font-size:13.5px;font-weight:700;display:flex;align-items:center;gap:7px;}
+  .m-role .rd{font-size:12px;color:var(--muted);margin-top:4px;line-height:1.5;}
+  .dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+
+  /* flow diagram (stage pills joined by an arrow) */
+  .m-flow{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:16px 0;}
+  .m-flow .pill{display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 16px;border-radius:12px;background:#F7FAFC;border:1.5px solid var(--line);min-width:120px;text-align:center;}
+  .m-flow .pill .ic{font-size:20px;}
+  .m-flow .pill .lb{font-size:12.5px;font-weight:700;color:var(--ink);}
+  .m-flow .pill .sl{font-size:10.5px;color:var(--muted);}
+  .m-flow .arrow{color:var(--faint);font-size:18px;flex-shrink:0;}
+  .m-flow .pill.active{border-color:var(--teal);background:#E7F6F3;}
+  .m-flow .pill.danger{border-color:#F4C9C9;background:#FCEDED;}
+
+  .m-callout{display:flex;gap:10px;padding:12px 14px;border-radius:12px;margin:14px 0;font-size:13px;line-height:1.55;}
+  .m-callout.info{background:#E8F0F6;color:#0D4F7A;border:1px solid #C3DDEC;}
+  .m-callout.warn{background:#FFF3CD;color:#7A4E00;border:1px solid #FFC107;}
+  .m-callout.danger{background:#FCEDED;color:#8C1F1F;border:1px solid #F4C9C9;}
+  .m-callout .ic{flex-shrink:0;font-size:16px;}
+
+  table.m-table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13px;}
+  table.m-table th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);padding:8px 10px;border-bottom:2px solid var(--line);}
+  table.m-table td{padding:9px 10px;border-bottom:1px solid var(--line);color:#36454F;vertical-align:top;}
+  table.m-table tr:last-child td{border-bottom:none;}
+
+  .m-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;}
+  .m-badge.g{background:#D1FAE5;color:#065F46;} .m-badge.y{background:#FEF3C7;color:#92400E;}
+  .m-badge.r{background:#FEE2E2;color:#991B1B;} .m-badge.b{background:#DBEAFE;color:#1D4ED8;}
+
+  .m-back{position:fixed;left:18px;bottom:18px;z-index:30;}
+  .m-faq details{border:1px solid var(--line);border-radius:10px;padding:10px 13px;margin-bottom:8px;}
+  .m-faq summary{cursor:pointer;font-weight:700;font-size:13.5px;color:var(--ink);}
+  .m-faq summary::marker{color:var(--blue);}
+  .m-faq p{margin-top:8px;}
+
+  .m-toc-toggle{display:none;}
+
+  @media (max-width: 900px){
+    .m-shell{grid-template-columns:1fr;padding:16px 14px 60px;}
+    .m-toc{position:static;max-height:none;}
+    .m-toc-group{display:none;}
+    .m-toc{padding:4px;}
+    .m-toc-toggle{display:block;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:14px;font-weight:700;color:var(--navy);font-family:inherit;}
+    .m-toc.open .m-toc-group{display:block;}
+    .m-toc.open{padding:10px;}
+    .m-topbar{flex-wrap:wrap;row-gap:10px;padding:12px 16px;}
+    .m-topbar .m-sub{display:none;}
+    .m-topbar .m-ttl{font-size:14px;}
+    .m-topbar .m-actions{margin-left:0;width:100%;}
+    .m-topbar .m-actions .m-btn{flex:1;justify-content:center;}
+  }
+  @media print{
+    .m-topbar,.m-toc,.m-back{display:none !important;}
+    .m-shell{grid-template-columns:1fr;max-width:100%;padding:0;}
+    .m-main section{break-inside:avoid;border:none;box-shadow:none;padding:10px 0;}
+    body{background:#fff;}
+  }
+</style>
+</head>
+<body>
+
+<div class="m-topbar">
+  <img src="./icons/icon-192.svg" alt="Emergency Box">
+  <div>
+    <div class="m-ttl">คู่มือการใช้งานฉบับสมบูรณ์</div>
+    <div class="m-sub">Emergency Box Notify · ฝ่ายเภสัชกรรม โรงพยาบาลกรงปินัง</div>
+  </div>
+  <div class="m-actions">
+    <button class="m-btn" onclick="window.print()">🖨️ พิมพ์คู่มือ</button>
+    <a class="m-btn" href="./index.html">← กลับหน้าเข้าสู่ระบบ</a>
+  </div>
+</div>
+
+<div class="m-shell">
+  <button class="m-toc-toggle" onclick="document.getElementById('mtoc').classList.toggle('open')">📑 สารบัญ (แตะเพื่อเปิด/ปิด)</button>
+  <nav class="m-toc" id="mtoc">
+    <div class="m-toc-group">
+      <div class="m-toc-label">ภาพรวม</div>
+      <a href="#about">เกี่ยวกับระบบ</a>
+      <a href="#roles">บทบาทผู้ใช้งาน</a>
+      <a href="#login">เข้าสู่ระบบ</a>
+      <a href="#dashboard">แดชบอร์ด</a>
+    </div>
+    <div class="m-toc-group">
+      <div class="m-toc-label">งานหลักของห้องยา</div>
+      <a href="#register">ลงทะเบียนกล่อง (2 ขั้นตอน)</a>
+      <a href="#dispense">จ่ายออก</a>
+      <a href="#return">รับคืน</a>
+      <a href="#print">พิมพ์ฉลากกล่อง</a>
+    </div>
+    <div class="m-toc-group">
+      <div class="m-toc-label">สำหรับหน่วยงาน (QR)</div>
+      <a href="#qr">สแกน QR บันทึกใช้ยา</a>
+    </div>
+    <div class="m-toc-group">
+      <div class="m-toc-label">แจ้งเตือน &amp; ติดตาม</div>
+      <a href="#expiry">แจ้งเตือนยาใกล้หมดอายุ</a>
+      <a href="#boxopen">กล่องถูกเปิดใช้งาน</a>
+      <a href="#history">ประวัติ / Audit Log</a>
+    </div>
+    <div class="m-toc-group">
+      <div class="m-toc-label">ผู้ดูแลระบบ</div>
+      <a href="#users">จัดการผู้ใช้งาน</a>
+      <a href="#pins">ตั้งค่า PIN หน่วยงาน</a>
+      <a href="#kpi">KPI Dashboard</a>
+    </div>
+    <div class="m-toc-group">
+      <div class="m-toc-label">อื่น ๆ</div>
+      <a href="#install">ติดตั้งเป็นแอป (PWA)</a>
+      <a href="#faq">คำถามที่พบบ่อย</a>
+    </div>
+  </nav>
+
+  <main class="m-main">
+
+    <section id="about">
+      <div class="m-sec-head"><div class="m-sec-icon">📦</div><div><h2>เกี่ยวกับระบบ</h2><p>Emergency Box Notify คืออะไร และช่วยงานห้องยาอย่างไร</p></div></div>
+      <p><strong>Emergency Box Notify</strong> เป็นระบบติดตามกล่องยาฉุกเฉิน (Emergency Box / EB) ของฝ่ายเภสัชกรรม ใช้ติดตามวงจรของกล่องยาตั้งแต่ <strong>ลงทะเบียน → จ่ายออกให้หน่วยงาน → ใช้งาน → รับคืน</strong> พร้อมแจ้งเตือนยาใกล้หมดอายุล่วงหน้า บันทึกทุกการทำรายการไว้ใน Audit Log และมี KPI Dashboard ให้ผู้บริหารติดตามคุณภาพงานแบบเรียลไทม์</p>
+      <p>ข้อมูลทั้งหมดซิงค์แบบเรียลไทม์ผ่าน Firestore — เปิดจากเครื่องไหนก็เห็นข้อมูลล่าสุดตรงกันทันที ไม่ต้องกดรีเฟรช (ยกเว้นกรณีระบบแจ้งว่าการเชื่อมต่อขาดหาย จะมีแถบแจ้งเตือนสีแดงให้กดรีเฟรชหน้า)</p>
+      <div class="m-callout info"><span class="ic">💡</span><div>กล่อง EB ทุกกล่องมีรหัสคงที่ (เช่น EB-1 ถึง EB-10) และมี QR Code ติดอยู่ที่ตัวกล่อง สแกนแล้วดูสถานะล่าสุดได้ทันทีโดยไม่ต้องเข้าสู่ระบบ (ดูหัวข้อ "สแกน QR บันทึกใช้ยา")</div></div>
+    </section>
+
+    <section id="roles">
+      <div class="m-sec-head"><div class="m-sec-icon">🛡️</div><div><h2>บทบาทผู้ใช้งาน (RBAC)</h2><p>แต่ละบทบาทเห็นและทำอะไรได้บ้าง</p></div></div>
+      <div class="m-roles">
+        <div class="m-role"><div class="rn"><span class="dot" style="background:#B42121"></span>ผู้ดูแลระบบ (Admin)</div><div class="rd">ทำได้ทุกอย่าง รวมถึงจัดการผู้ใช้งาน ตั้งค่า PIN หน่วยงาน ดู KPI Dashboard และ Export CSV/PDF</div></div>
+        <div class="m-role"><div class="rn"><span class="dot" style="background:#1A6FA3"></span>เภสัชกร (Pharmacist)</div><div class="rd">ตรวจสอบ/ยืนยันการลงทะเบียน (Stage 2) จ่ายออก รับคืน รับทราบ/บันทึกการแก้ไขแจ้งเตือนต่าง ๆ</div></div>
+        <div class="m-role"><div class="rn"><span class="dot" style="background:#7C5CD6"></span>จพ.เภสัชกรรม (Technician)</div><div class="rd">จัดเตรียมข้อมูลลงทะเบียน (Stage 1) พิมพ์ฉลาก จ่ายออก รับคืน</div></div>
+        <div class="m-role"><div class="rn"><span class="dot" style="background:#169C7F"></span>พยาบาล / หน่วยงาน (Nurse)</div><div class="rd">ดูได้อย่างเดียว — แดชบอร์ดและสถานะกล่อง ไม่สามารถลงทะเบียน/จ่าย/รับคืนได้</div></div>
+      </div>
+      <div class="m-callout info"><span class="ic">ℹ️</span><div>การดูประวัติ/Audit Log เปิดให้ทุกบทบาทดูได้ — มีเฉพาะการ <strong>Export เป็นไฟล์ CSV/PDF</strong> เท่านั้นที่จำกัดไว้สำหรับ Admin</div></div>
+    </section>
+
+    <section id="login">
+      <div class="m-sec-head"><div class="m-sec-icon">🔑</div><div><h2>เข้าสู่ระบบ</h2><p>Username / Password ที่เจ้าหน้าที่ห้องยาได้รับจากผู้ดูแลระบบ</p></div></div>
+      <div class="m-steps">
+        <div class="m-step"><div class="n">1</div><div><div class="t">กรอก Username และรหัสผ่าน</div><div class="d">กดไอคอนรูปตาเพื่อสลับแสดง/ซ่อนรหัสผ่าน ระบบจะเตือนหาก Caps Lock เปิดอยู่</div></div></div>
+        <div class="m-step"><div class="n">2</div><div><div class="t">ติ๊ก "จดจำการเข้าใช้" (ถ้าต้องการ)</div><div class="d">สำหรับเครื่องส่วนตัว ไม่แนะนำสำหรับคอมพิวเตอร์ที่ใช้งานร่วมกันหลายคน</div></div></div>
+        <div class="m-step"><div class="n">3</div><div><div class="t">กด "เข้าสู่ระบบ"</div><div class="d">หากพิมพ์รหัสผ่านผิดติดต่อกัน 5 ครั้ง บัญชีจะถูกล็อกชั่วคราวตามชื่อผู้ใช้นั้น ๆ (ไม่กระทบบัญชีอื่นบนเครื่องเดียวกัน)</div></div></div>
+      </div>
+      <div class="m-callout warn"><span class="ic">⏱️</span><div>หากไม่มีการใช้งานเป็นเวลานาน ระบบจะแสดงหน้าต่างนับถอยหลังก่อนออกจากระบบอัตโนมัติเพื่อความปลอดภัยของข้อมูลผู้ป่วย หากมีงานที่ยังไม่ได้บันทึกค้างอยู่ จะมีข้อความเตือนเพิ่มเติมในหน้าต่างนั้น</div></div>
+    </section>
+
+    <section id="dashboard">
+      <div class="m-sec-head"><div class="m-sec-icon">📊</div><div><h2>แดชบอร์ด</h2><p>ภาพรวมสถานะกล่องทั้งหมดในที่เดียว</p></div></div>
+      <p>หน้าแรกหลังเข้าสู่ระบบ แสดงสรุปจำนวนกล่องทั้งหมด กล่องที่ถูกจ่ายออกอยู่ กล่องที่ต้องรับคืนด่วน และยาที่ใกล้หมดอายุ พร้อมทางลัดไปยังงานที่ต้องทำ ได้แก่:</p>
+      <ul>
+        <li><strong>กล่องรอตรวจสอบ (Stage 2)</strong> — รายการกล่องที่ จพ. จัดเตรียมเสร็จแล้ว รอเภสัชกร/Admin ตรวจสอบและยืนยัน</li>
+        <li><strong>กล่องถูกตีกลับ</strong> — กล่องที่เภสัชกรตีกลับให้ จพ. แก้ไขข้อมูล พร้อมเหตุผล</li>
+        <li><strong>แจ้งเตือนยาใกล้หมดอายุ</strong> — พร้อมปุ่มรับทราบ/บันทึกการดำเนินการ (ดูหัวข้อ "แจ้งเตือนยาใกล้หมดอายุ")</li>
+        <li><strong>กล่องถูกเปิดใช้งานแล้ว</strong> — กล่องที่หน่วยงานปลายทางเริ่มใช้ยาแล้ว ต้องเตรียมสำรอง/เปลี่ยนกล่อง</li>
+      </ul>
+      <div class="m-callout info"><span class="ic">💡</span><div>ทางลัดเหล่านี้จะไม่แสดงสำหรับบทบาทพยาบาล/หน่วยงาน เนื่องจากไม่มีสิทธิ์ดำเนินการต่อ</div></div>
+    </section>
+
+    <section id="register">
+      <div class="m-sec-head"><div class="m-sec-icon">📋</div><div><h2>ลงทะเบียนกล่อง (2 ขั้นตอน)</h2><p>จพ. จัดเตรียม → เภสัชกร/Admin ตรวจสอบและยืนยัน</p></div></div>
+      <p>ทุกกล่องต้องผ่าน 2 ขั้นตอนก่อนจึงจะ "พร้อมจ่าย" ได้ — ออกแบบมาเพื่อให้มีคนที่สองตรวจทานข้อมูลจริงก่อนนำกล่องไปใช้งาน</p>
+      <div class="m-flow">
+        <div class="pill"><span class="ic">⚪</span><span class="lb">ยังไม่เตรียม</span></div>
+        <span class="arrow">→</span>
+        <div class="pill active"><span class="ic">🟡</span><span class="lb">เตรียมแล้ว</span><span class="sl">รอตรวจสอบ</span></div>
+        <span class="arrow">→</span>
+        <div class="pill active"><span class="ic">🟢</span><span class="lb">ยืนยันแล้ว</span><span class="sl">พร้อมจ่าย</span></div>
+      </div>
+      <h3 class="m-sub">ขั้นตอนที่ 1 — จัดเตรียม (จพ. / เภสัชกร / Admin ทำได้)</h3>
+      <div class="m-steps">
+        <div class="m-step"><div class="n">1</div><div><div class="t">เลือกกล่องจากหน้าภาพรวม</div><div class="d">หน้า "ลงทะเบียน" จะแสดงการ์ดทุกกล่องพร้อมสถานะสี เรียงกล่องที่ต้องทำก่อน (ตีกลับ → รอตรวจสอบ → ยังไม่เตรียม → ยืนยันแล้ว) ไว้บนสุด</div></div></div>
+        <div class="m-step"><div class="n">2</div><div><div class="t">กรอกวันที่ผลิต และจำนวน/วันหมดอายุของยาแต่ละชนิด</div><div class="d">เพิ่ม Lot ได้มากกว่า 1 รายการต่อยาหนึ่งชนิด ชื่อ "ผู้จัดเตรียม" จะถูกระบุเป็นชื่อผู้ใช้ที่ล็อกอินอยู่โดยอัตโนมัติ แก้ไขเองไม่ได้ เพื่อความถูกต้องของผู้รับผิดชอบ</div></div></div>
+        <div class="m-step"><div class="n">3</div><div><div class="t">พิมพ์ฉลาก EB (ถ้าต้องการ) แล้วกดบันทึก</div><div class="d">หากเลือกระบบไร้กระดาษ ติ๊ก "ข้ามการพิมพ์" ได้ — กล่องจะเข้าสถานะ "เตรียมแล้ว รอตรวจสอบ" ทันที</div></div></div>
+      </div>
+      <h3 class="m-sub">ขั้นตอนที่ 2 — ตรวจสอบ/ยืนยัน (เภสัชกร / Admin เท่านั้น)</h3>
+      <div class="m-steps">
+        <div class="m-step"><div class="n">1</div><div><div class="t">ตรวจสอบข้อมูลที่ จพ. กรอกไว้เทียบกับกล่องจริง</div><div class="d">ข้อมูลในขั้นนี้เป็นแบบอ่านอย่างเดียว แก้ไขไม่ได้ (ถ้าผิดให้ใช้ปุ่ม "ตีกลับให้แก้ไข" แทน)</div></div></div>
+        <div class="m-step"><div class="n">2</div><div><div class="t">ติ๊ก "ยืนยันแล้ว" ให้ครบทุกชนิดยา</div><div class="d">ต้องติ๊กครบทุกรายการจึงจะบันทึกได้ — ไม่สามารถยืนยันแบบข้ามบางชนิดยาได้</div></div></div>
+        <div class="m-step"><div class="n">3</div><div><div class="t">กดบันทึก</div><div class="d">กล่องเข้าสถานะ "ยืนยันแล้ว — พร้อมจ่าย" ทันที</div></div></div>
+      </div>
+      <div class="m-callout danger"><span class="ic">🔴</span><div><strong>ตีกลับให้แก้ไข:</strong> หากเภสัชกรพบข้อมูลผิด สามารถกด "ตีกลับ" พร้อมระบุเหตุผลได้ กล่องจะกลับไปสถานะ "ยังไม่เตรียม" พร้อมแสดงเหตุผลเป็นแถบสีแดงให้ จพ. เห็นตอนแก้ไขรอบถัดไป</div></div>
+      <div class="m-callout warn"><span class="ic">⚠️</span><div>กล่องที่ "เตรียมแล้ว" แต่ยังไม่ถูกยืนยัน (Stage 2) <strong>จะจ่ายออกให้หน่วยงานไม่ได้เด็ดขาด</strong> ไม่ว่ากรณีใด ๆ — ต้องผ่านการตรวจสอบจากเภสัชกร/Admin ก่อนเสมอ</div></div>
+    </section>
+
+    <section id="dispense">
+      <div class="m-sec-head"><div class="m-sec-icon">📤</div><div><h2>จ่ายออก</h2><p>จ่ายกล่อง EB ให้หน่วยงานปลายทาง</p></div></div>
+      <div class="m-steps">
+        <div class="m-step"><div class="n">1</div><div><div class="t">เลือกกล่องที่สถานะ "พร้อมจ่าย" จากหน้าภาพรวม</div><div class="d">กล่องที่ยังไม่ผ่านการยืนยัน หรือถูกจ่ายออกอยู่แล้ว จะไม่สามารถเลือกได้</div></div></div>
+        <div class="m-step"><div class="n">2</div><div><div class="t">เลือกหน่วยงานปลายทาง (ER / Ward / LR)</div><div class="d">ชื่อ "ผู้จ่าย" ระบุเป็นชื่อผู้ใช้ที่ล็อกอินอยู่โดยอัตโนมัติ</div></div></div>
+        <div class="m-step"><div class="n">3</div><div><div class="t">(ถ้ามี) เลือก "สลับกล่อง" เพื่อจ่ายและรับคืนพร้อมกันในครั้งเดียว</div><div class="d">ใช้เมื่อหน่วยงานนำกล่องเก่ามาคืนพร้อมรับกล่องใหม่ในคราวเดียว</div></div></div>
+        <div class="m-step"><div class="n">4</div><div><div class="t">กดบันทึก</div><div class="d">ระบบจะคำนวณ "วันครบกำหนดส่งคืน" (15 วันก่อนวันหมดอายุของยาที่ใกล้หมดอายุที่สุดในกล่อง) ให้อัตโนมัติ</div></div></div>
+      </div>
+    </section>
+
+    <section id="return">
+      <div class="m-sec-head"><div class="m-sec-icon">📥</div><div><h2>รับคืน</h2><p>รับกล่อง EB กลับเข้าห้องยา</p></div></div>
+      <div class="m-steps">
+        <div class="m-step"><div class="n">1</div><div><div class="t">เลือกกล่องที่ "จ่ายออกอยู่" จากหน้าภาพรวม</div><div class="d">การ์ดจะแสดงจำนวนวันที่จ่ายออกไปแล้ว และเปลี่ยนเป็นสีแดง/กะพริบเมื่อเกินกำหนดส่งคืนหรือมียาใกล้หมดอายุ เพื่อช่วยจัดลำดับความสำคัญ</div></div></div>
+        <div class="m-step"><div class="n">2</div><div><div class="t">กดบันทึกรับคืน</div><div class="d">ชื่อ "ผู้รับคืน" ระบุเป็นชื่อผู้ใช้ที่ล็อกอินอยู่โดยอัตโนมัติ</div></div></div>
+      </div>
+      <div class="m-callout info"><span class="ic">🔄</span><div>กล่องที่รับคืนแล้วจะ<strong>กลับไปสถานะ "ยังไม่เตรียม" โดยอัตโนมัติ</strong> — ต้องผ่านขั้นตอนลงทะเบียน 2 ขั้นตอนใหม่ทั้งหมด (เติมยา + ตรวจสอบยืนยัน) ก่อนจึงจะจ่ายออกครั้งต่อไปได้ เพื่อให้แน่ใจว่ากล่องที่เคยถูกเปิดใช้บางส่วนจะถูกตรวจนับและเติมให้ครบก่อนนำไปใช้ซ้ำเสมอ</div></div>
+    </section>
+
+    <section id="print">
+      <div class="m-sec-head"><div class="m-sec-icon">🖨️</div><div><h2>พิมพ์ฉลากกล่อง</h2><p>สำหรับระบบที่ยังใช้ฉลากกระดาษควบคู่ไปกับระบบ</p></div></div>
+      <p>ในขั้นตอนลงทะเบียน Stage 1 สามารถกดพิมพ์ฉลาก EB ได้ — ระบบจะสร้างไฟล์ PDF ให้พิมพ์ลงกระดาษ A4 แนวนอน (เนื้อหาฉลากขนาด A5 อยู่ครึ่งขวาของหน้า อีกครึ่งเว้นว่างไว้ตัดแบ่ง) ซึ่งพิมพ์ได้แน่นอนบนเครื่องพิมพ์ทั่วไป</p>
+      <p>หากต้องการใช้ระบบไร้กระดาษเต็มรูปแบบ ให้ติ๊ก <strong>"ข้ามการพิมพ์"</strong> ในหน้าลงทะเบียน Stage 1 — ช่อง "ผู้ตรวจสอบ" บนฉลากจะเว้นว่างไว้ให้เภสัชกรเซ็นด้วยมือหลังตรวจกล่องจริงเสมอ ไม่ว่าจะเลือกพิมพ์หรือไม่ก็ตาม</p>
+    </section>
+
+    <section id="qr">
+      <div class="m-sec-head"><div class="m-sec-icon">📱</div><div><h2>สแกน QR บันทึกใช้ยา (ไร้กระดาษ)</h2><p>สำหรับเจ้าหน้าที่หน่วยงาน ER / Ward / LR — ไม่ต้องเข้าสู่ระบบ</p></div></div>
+      <p>ทุกกล่อง EB มี QR Code ติดอยู่บนฉลาก สแกนด้วยกล้องมือถือทั่วไปเพื่อเปิดหน้าสถานะกล่องแบบเรียลไทม์ โดยไม่ต้องล็อกอินเข้าระบบ</p>
+      <div class="m-steps">
+        <div class="m-step"><div class="n">1</div><div><div class="t">สแกน QR Code ที่ตัวกล่อง</div><div class="d">จะเห็นสถานะกล่อง รายการยา/ล็อต และวันหมดอายุล่าสุดทันที</div></div></div>
+        <div class="m-step"><div class="n">2</div><div><div class="t">ขณะกล่องถูกจ่ายออกอยู่ กดปุ่ม "เปิดใช้งานกล่อง"</div><div class="d">ใส่รหัส PIN ประจำหน่วยงาน (ได้รับจากผู้ดูแลระบบ) เพื่อยืนยันตัวตนของหน่วยงานที่บันทึก</div></div></div>
+        <div class="m-step"><div class="n">3</div><div><div class="t">เลือกยา/ล็อตที่ใช้ ระบุจำนวน HN และชื่อผู้ป่วย</div><div class="d">ระบบจะตรวจสอบจำนวนคงเหลือให้อัตโนมัติ ไม่สามารถบันทึกเกินจำนวนที่มีจริงในกล่องได้</div></div></div>
+        <div class="m-step"><div class="n">4</div><div><div class="t">ตรวจทานหน้ายืนยัน แล้วกด "ยืนยันบันทึก"</div><div class="d">มีหน้าตรวจทานก่อนบันทึกจริงเสมอ เพื่อป้องกันการกดผิดยา/ผิดจำนวน</div></div></div>
+      </div>
+      <div class="m-callout warn"><span class="ic">🔔</span><div>การใช้ยาครั้งแรกของรอบ (หลังจ่ายออก) จะส่ง<strong>แจ้งเตือนทันทีเข้า LINE กลุ่มห้องยา</strong> ว่ากล่องถูกเปิดใช้งานแล้ว เพื่อให้ห้องยาเตรียมกล่องสำรอง/แผนเปลี่ยนกล่องได้ทัน — การใช้ยาครั้งถัดไปในรอบเดียวกันจะไม่ส่งซ้ำ</div></div>
+      <div class="m-callout info"><span class="ic">🔒</span><div>รหัส PIN เป็นเพียงการยืนยันตัวตนของหน่วยงานเพื่อบันทึกชื่อผู้ทำรายการเท่านั้น ไม่ใช่รหัสผ่านเข้าระบบ — หากใส่ผิดติดต่อกัน 5 ครั้ง ระบบจะล็อกหน่วยงานนั้นชั่วคราว</div></div>
+    </section>
+
+    <section id="expiry">
+      <div class="m-sec-head"><div class="m-sec-icon">⏰</div><div><h2>แจ้งเตือนยาใกล้หมดอายุ</h2><p>แจ้งเตือนอัตโนมัติผ่าน LINE และ Email ทุกวัน</p></div></div>
+      <p>ระบบตรวจสอบยาใกล้หมดอายุทุกวันเวลา 09:00 น. (ล่วงหน้าตามจำนวนวันที่ตั้งค่าไว้ ค่าเริ่มต้น 60 วัน) และส่งสรุปเข้า LINE กลุ่มห้องยาและ Email ผู้ที่เกี่ยวข้อง</p>
+      <table class="m-table">
+        <tr><th>การกระทำ</th><th>ใครทำได้</th><th>ผลลัพธ์</th></tr>
+        <tr><td><span class="m-badge y">รับทราบ</span></td><td>เภสัชกร / Admin</td><td>บันทึกว่าได้เห็นแจ้งเตือนนี้แล้ว</td></tr>
+        <tr><td><span class="m-badge g">บันทึกการดำเนินการ</span></td><td>เภสัชกร / Admin</td><td>ระบุว่าทำอย่างไรกับยาล็อตนั้น (ใช้ก่อนหมดอายุ / สลับล็อต / ทิ้ง / คืนบริษัท ฯลฯ) พร้อมหมายเหตุ</td></tr>
+      </table>
+      <div class="m-callout warn"><span class="ic">🔁</span><div>หากยังไม่ "บันทึกการดำเนินการ" ระบบจะ<strong>เตือนซ้ำทุกวัน</strong>จนกว่าจะปิดรายการ — และนับจำนวนวันที่ค้างไว้ให้ดูด้วย เพื่อไม่ให้รายการเสี่ยงถูกลืม</div></div>
+      <p>การกดลิงก์จากข้อความ LINE จะพาเข้าแอปและเลื่อนไปยังรายการนั้นบนแดชบอร์ดโดยอัตโนมัติ (ต้องเข้าสู่ระบบก่อน) พร้อมไฮไลต์ให้เห็นชัดว่าเป็นรายการที่กดมาจากข้อความแจ้งเตือน</p>
+    </section>
+
+    <section id="boxopen">
+      <div class="m-sec-head"><div class="m-sec-icon">📦</div><div><h2>กล่องถูกเปิดใช้งาน</h2><p>ติดตามกล่องที่เริ่มถูกใช้ยาแล้วระหว่างจ่ายออก</p></div></div>
+      <p>เมื่อหน่วยงานบันทึกใช้ยาผ่าน QR เป็นครั้งแรกของรอบ กล่องนั้นจะขึ้นในรายการ "กล่องถูกเปิดใช้งานแล้ว" บนแดชบอร์ด เภสัชกร/Admin สามารถ "รับทราบ" และ "บันทึกการดำเนินการ" (เช่น เตรียมกล่องสำรอง/สลับกล่องแล้ว) ได้แบบเดียวกับแจ้งเตือนยาใกล้หมดอายุ</p>
+    </section>
+
+    <section id="history">
+      <div class="m-sec-head"><div class="m-sec-icon">📜</div><div><h2>ประวัติ / Audit Log</h2><p>ย้อนดูได้ว่าใครทำอะไร เมื่อไหร่</p></div></div>
+      <p>หน้า "ประวัติ" บันทึกทุกการทำรายการในระบบ ทุกบทบาทดูได้ สามารถกรองตามช่วงวันที่ (วันนี้ / 7 วัน / เดือนนี้ / ปีงบประมาณ / กำหนดเอง) และประเภทรายการ (จ่าย / รับคืน / ลงทะเบียน / แก้ไข / เข้าออกระบบ / ผู้ใช้)</p>
+      <div class="m-callout info"><span class="ic">📤</span><div>การ Export เป็นไฟล์ CSV จำกัดไว้สำหรับ Admin เท่านั้น ระบบจะดึงข้อมูลให้ครบถ้วนเสมอแม้เลือกช่วงเวลาย้อนหลังนานกว่าที่แสดงบนหน้าจอปกติ</div></div>
+    </section>
+
+    <section id="users">
+      <div class="m-sec-head"><div class="m-sec-icon">👤</div><div><h2>จัดการผู้ใช้งาน</h2><p>สำหรับ Admin เท่านั้น</p></div></div>
+      <ul>
+        <li><strong>เพิ่มผู้ใช้ใหม่</strong> — กำหนดชื่อ-สกุล, username, รหัสผ่านตั้งต้น, บทบาท และหน่วยงาน</li>
+        <li><strong>เปลี่ยนบทบาท / ระงับบัญชี / ลบผู้ใช้</strong> — ทำได้จากตารางผู้ใช้งาน</li>
+        <li><strong>เปลี่ยนรหัสผ่าน</strong> — Admin ตั้งรหัสผ่านใหม่ให้ผู้ใช้ได้โดยตรง</li>
+      </ul>
+      <div class="m-callout warn"><span class="ic">🛡️</span><div>ระบบจะ<strong>ไม่ยอมให้ลด/ระงับ/ลบแอดมินคนสุดท้าย</strong>ที่ยังใช้งานอยู่ เพื่อป้องกันไม่ให้ไม่มีใครเข้าถึงสิทธิ์ผู้ดูแลระบบได้เลย</div></div>
+    </section>
+
+    <section id="pins">
+      <div class="m-sec-head"><div class="m-sec-icon">🔢</div><div><h2>ตั้งค่า PIN หน่วยงาน</h2><p>สำหรับ Admin เท่านั้น — ใช้กับหน้าสแกน QR บันทึกใช้ยา</p></div></div>
+      <p>ตั้ง/เปลี่ยนรหัส PIN (4-8 หลัก) แยกตามหน่วยงาน ER / Ward / LR ได้จากหน้า "การแจ้งเตือน / ตั้งค่า" — หน้าจอจะไม่แสดงรหัส PIN เดิมเพื่อความปลอดภัย แสดงเพียงสถานะว่าตั้งไว้แล้วหรือยัง</p>
+      <div class="m-callout info"><span class="ic">ℹ️</span><div>PIN นี้เป็นการยืนยันตัวตนของหน่วยงานเพื่อระบุผู้บันทึกเท่านั้น ไม่ใช่ตัวป้องกันข้อมูลระดับฐานข้อมูล — ควรเปลี่ยนรหัสเป็นระยะและไม่แชร์ให้บุคคลภายนอก</div></div>
+    </section>
+
+    <section id="kpi">
+      <div class="m-sec-head"><div class="m-sec-icon">📈</div><div><h2>KPI Dashboard</h2><p>สำหรับ Admin — ตัวชี้วัดคุณภาพงานแบบเรียลไทม์</p></div></div>
+      <p>รวมตัวชี้วัดสำคัญของงานห้องยาไว้ในที่เดียว เช่น ร้อยละความพร้อมใช้งานของกล่องฉุกเฉิน เวลาเฉลี่ยในการตรวจสอบ/ยืนยัน จำนวนครั้งที่ถูกตีกลับ และอัตราความสำเร็จของการบันทึกข้อมูล โดยอัปเดตแบบเรียลไทม์ไม่ต้องกดรีเฟรช สามารถเลือกช่วงเวลาที่ต้องการดู และ Export เป็น CSV หรือ PDF ได้</p>
+    </section>
+
+    <section id="install">
+      <div class="m-sec-head"><div class="m-sec-icon">📲</div><div><h2>ติดตั้งเป็นแอป (PWA)</h2><p>ใช้งานเหมือนแอปทั่วไปโดยไม่ต้องเปิดเบราว์เซอร์</p></div></div>
+      <p>ระบบรองรับการติดตั้งเป็นแอปบนมือถือ/คอมพิวเตอร์ (Progressive Web App) — มองหาปุ่ม "ติดตั้งแอป" ในเมนูด้านข้างหลังเข้าสู่ระบบ หรือใช้ตัวเลือก "เพิ่มลงหน้าจอหลัก" ของเบราว์เซอร์ หลังติดตั้งแล้วจะมีไอคอนแยกต่างหากเปิดใช้งานได้รวดเร็วเหมือนแอปทั่วไป พร้อมใช้งานได้แม้สัญญาณอินเทอร์เน็ตไม่เสถียรบางส่วน (ข้อมูลจะซิงค์เมื่อสัญญาณกลับมา)</p>
+    </section>
+
+    <section id="faq">
+      <div class="m-sec-head"><div class="m-sec-icon">❓</div><div><h2>คำถามที่พบบ่อย</h2><p>ปัญหาที่พบบ่อยและวิธีแก้เบื้องต้น</p></div></div>
+      <div class="m-faq">
+        <details><summary>ลืมรหัสผ่าน ต้องทำอย่างไร?</summary><p>ติดต่อผู้ดูแลระบบ (Admin) ให้ตั้งรหัสผ่านใหม่ให้จากหน้า "จัดการผู้ใช้งาน"</p></details>
+        <details><summary>เข้าสู่ระบบไม่ได้ ขึ้นว่า "บัญชีถูกล็อก"?</summary><p>เกิดจากพิมพ์รหัสผ่านผิดติดต่อกันหลายครั้ง ระบบจะปลดล็อกอัตโนมัติเมื่อครบเวลาที่แจ้งไว้บนหน้าจอ หรือให้ Admin ช่วยตรวจสอบบัญชี</p></details>
+        <details><summary>ทำไมจ่ายกล่องนี้ไม่ได้ ทั้งที่ จพ. เตรียมข้อมูลเสร็จแล้ว?</summary><p>กล่องที่ "เตรียมแล้ว" (Stage 1) แต่ยังไม่ผ่านการตรวจสอบยืนยันจากเภสัชกร/Admin (Stage 2) จะยังจ่ายออกไม่ได้เสมอ ต้องรอให้ผ่าน Stage 2 ก่อน</p></details>
+        <details><summary>หน้าจอขึ้นแถบสีแดง "การเชื่อมต่อขาดหาย"?</summary><p>หมายถึงการเชื่อมต่อแบบเรียลไทม์กับฐานข้อมูลหยุดทำงาน (เครือข่ายมีปัญหา) ให้กดปุ่ม "รีเฟรชหน้า" บนแถบแจ้งเตือนนั้นเพื่อเชื่อมต่อใหม่</p></details>
+        <details><summary>กดยืนยัน/บันทึกไม่ได้ ปุ่มไม่มีปฏิกิริยา?</summary><p>ตรวจสอบว่ากรอกข้อมูลที่จำเป็นครบทุกช่องหรือยัง (เช่น ยืนยันครบทุกชนิดยาใน Stage 2) และตรวจสอบสัญญาณอินเทอร์เน็ต</p></details>
+        <details><summary>สแกน QR แล้วหน้าเว็บบอกว่ากล่องยังไม่ได้จ่ายออก ใช้ปุ่ม "เปิดใช้งานกล่อง" ไม่ได้?</summary><p>ปุ่มนี้จะใช้ได้เฉพาะขณะกล่องถูกจ่ายออกอยู่เท่านั้น หากกล่องยังอยู่ในห้องยา ให้ติดต่อห้องยาให้ดำเนินการจ่ายออกก่อน</p></details>
+      </div>
+    </section>
+
+    <p style="text-align:center;font-size:11.5px;color:var(--faint);margin-top:28px;">จัดทำโดย ภก.อนัส มะยีแต · เภสัชกร ฝ่ายเภสัชกรรมและคุ้มครองผู้บริโภค · © 2569 โรงพยาบาลกรงปินัง</p>
+  </main>
+</div>
+
+</body>
+</html>
