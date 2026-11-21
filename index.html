@@ -1191,7 +1191,7 @@ select:focus-visible, textarea:focus-visible, [role="button"]:focus-visible {
 
 <!-- ===================== LOGIN ===================== -->
 <sc-if value="{{ notAuthed }}" hint-placeholder-val="{{ true }}">
-<div class="login-wrap" style="position: relative; min-height: 100vh; display: flex; flex-direction: column; background: linear-gradient(160deg, #0A2730 0%, #0D3A3A 48%, #0F4A3C 100%); color: #fff; overflow-x: hidden; font-family: 'IBM Plex Sans Thai', sans-serif;">
+<div class="login-wrap" style="position: relative; min-height: 100vh; display: flex; flex-direction: column; background: linear-gradient(160deg, #14506E 0%, #1A6FA3 48%, #168C84 100%); color: #fff; overflow-x: hidden; font-family: 'IBM Plex Sans Thai', sans-serif;">
 
   <!-- ambient texture: dot grid + two soft glow blobs, purely decorative -->
   <div style="position: absolute; inset: 0; pointer-events: none; background-image: radial-gradient(rgba(255,255,255,.07) 1px, transparent 1px); background-size: 28px 28px; opacity: .55;"></div>
@@ -1249,9 +1249,7 @@ select:focus-visible, textarea:focus-visible, [role="button"]:focus-visible {
     <!-- CENTER: the actual login card -->
     <div class="login-center" style="flex-shrink: 0; width: 420px; max-width: 100%; animation: fadeUp .6s cubic-bezier(.34,1.56,.64,1) .15s both;">
       <div style="text-align: center; margin-bottom: 22px;">
-        <div style="width: 58px; height: 58px; margin: 0 auto 14px; border-radius: 16px; background: linear-gradient(150deg, #1A6FA3, #169C7F); display: flex; align-items: center; justify-content: center; box-shadow: 0 12px 30px rgba(22,140,132,.35); animation: scaleIn .5s cubic-bezier(.34,1.56,.64,1) .25s both;">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><rect x="4.5" y="10" width="15" height="10" rx="2.5" stroke="#fff" stroke-width="1.9"/><path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="#fff" stroke-width="1.9" stroke-linecap="round"/><circle cx="12" cy="15" r="1.6" fill="#fff"/></svg>
-        </div>
+        <img src="./icons/icon-192.svg" width="58" height="58" alt="Emergency Box" style="display: block; margin: 0 auto 14px; border-radius: 16px; box-shadow: 0 12px 30px rgba(22,140,132,.35); animation: scaleIn .5s cubic-bezier(.34,1.56,.64,1) .25s both;">
         <div style="font-size: 22px; font-weight: 700; letter-spacing: -.3px;">Emergency Box</div>
         <div style="font-size: 12.5px; color: rgba(255,255,255,.65); margin-top: 3px;">ฝ่ายเภสัชกรรม โรงพยาบาลกรงปินัง · จังหวัดยะลา</div>
       </div>
