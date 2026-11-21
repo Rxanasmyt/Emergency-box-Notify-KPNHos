@@ -537,11 +537,18 @@ input[type="date"] { min-height: 46px; }
   .dash-bot-grid { grid-template-columns: 1fr; }
   .detail-grid { grid-template-columns: 1fr; }
   .perm-matrix { grid-template-columns: repeat(2,1fr); }
-  /* Login: center card is the only thing a tablet is reliably wide enough
-     for alongside two 340px side panels — drop the side panels rather than
-     letting 3 columns squeeze into an uncomfortable, truncated layout. */
-  .login-side-panel { display: none !important; }
-  .login-cols { justify-content: center !important; }
+  /* Login: a tablet isn't reliably wide enough for 3 side-by-side columns,
+     but the side panels' content ("how to use this app" / "what the system
+     does") is exactly what a first-time viewer needs to understand the app
+     before logging in — reported directly ("อยากให้... ทุกคนเห็นหน้า login
+     แล้วเข้าใจการทำงานของแอพ"), and hiding it entirely (the previous
+     behavior) meant it was unreachable on any narrow screen at all. Instead
+     of 3 columns, wrap them: the login card stays first/above the fold (the
+     actual task), with both context panels stacked full-width below it,
+     reachable by scrolling down. */
+  .login-cols { flex-wrap: wrap !important; justify-content: center !important; align-items: center !important; }
+  .login-center { order: 1; }
+  .login-side-panel { order: 2; flex: 1 1 100% !important; max-width: 640px !important; margin: 0 auto; }
 }
 
 /* ===== Mobile (max 768px) ===== */
@@ -603,14 +610,15 @@ input[type="date"] { min-height: 46px; }
   .role-summary-grid { grid-template-columns: repeat(2,1fr) !important; gap: 10px !important; }
   .perm-matrix { grid-template-columns: repeat(2,1fr) !important; gap: 10px !important; }
 
-  /* Login: 3 columns -> just the center login card, full width.
-     The how-to-use / feature-overview side panels are genuinely secondary
-     content (context, not the task) — hiding them on a phone keeps the
-     actual login task (the one thing that matters on a small screen) short
-     and above the fold, rather than stacking 3 tall cards vertically. */
-  .login-side-panel { display: none !important; }
-  .login-cols { padding: 0 18px 32px !important; gap: 0 !important; }
+  /* Login: the login card stays first/full-width so the actual task (the
+     one thing that matters on a small screen) is still immediately visible
+     without scrolling — but the how-to-use / feature-overview panels are no
+     longer hidden entirely (see the 1080px breakpoint's own comment above
+     for why): they stack full-width below it instead, reachable by
+     scrolling down, same as the 1080px breakpoint's behavior. */
+  .login-cols { padding: 0 18px 28px !important; gap: 20px !important; }
   .login-center { width: 100% !important; }
+  .login-side-panel { max-width: 100% !important; }
   .login-topbar { padding: calc(16px + env(safe-area-inset-top, 0px)) 18px !important; }
   .login-footer-bar { font-size: 11px !important; padding: 0 18px calc(18px + env(safe-area-inset-bottom, 0px)) !important; }
 
@@ -1405,10 +1413,12 @@ select:focus-visible, textarea:focus-visible, [role="button"]:focus-visible {
             <div style="font-size: 11.5px; color: rgba(255,255,255,.6);">งานประจำวันของห้องยา</div>
           </div>
         </div>
-        <div style="display: flex; flex-direction: column; gap: 16px; position: relative;">
-          <!-- connecting timeline rail behind the 3 numbered dots (26px dot → center at 13px) -->
-          <div style="position: absolute; left: 13px; top: 13px; bottom: 13px; width: 2px; background: linear-gradient(180deg, rgba(53,214,148,.55), rgba(26,111,163,.4)); z-index: 0;"></div>
-          <div style="display: flex; gap: 12px; position: relative; z-index: 1; animation: slideInRight .5s cubic-bezier(.34,1.56,.64,1) .25s both;">
+        <div style="display: flex; flex-direction: column; gap: 15px; position: relative;">
+          <!-- connecting timeline rail behind the 4 numbered dots (26px dot → center at 13px), with a slow continuous traveling dot — a steady flow cue, not a breathing pulse, matching this app's own "official, not playful" motion discipline for a hospital system -->
+          <div style="position: absolute; left: 13px; top: 13px; bottom: 13px; width: 2px; background: linear-gradient(180deg, rgba(53,214,148,.6), rgba(255,217,201,.5), rgba(26,111,163,.45)); z-index: 0;">
+            <span style="position: absolute; left: -2.5px; width: 7px; height: 7px; border-radius: 50%; background: #fff; box-shadow: 0 0 7px rgba(255,255,255,.9); animation: loginRailDrop 3.4s ease-in-out infinite;"></span>
+          </div>
+          <div style="display: flex; gap: 12px; position: relative; z-index: 1; animation: slideInRight .5s cubic-bezier(.34,1.56,.64,1) .2s both;">
             <span style="width: 26px; height: 26px; flex-shrink: 0; border-radius: 50%; background: #fff; color: #14506E; display: flex; align-items: center; justify-content: center; font-size: 12.5px; font-weight: 700; box-shadow: 0 2px 8px rgba(0,0,0,.2);">1</span>
             <div>
               <div style="font-size: 13.5px; font-weight: 600;">ลงทะเบียนกล่อง (2 ขั้นตอน)</div>
@@ -1416,21 +1426,33 @@ select:focus-visible, textarea:focus-visible, [role="button"]:focus-visible {
               <span style="display: inline-block; margin-top: 6px; padding: 2px 9px; border-radius: 20px; background: rgba(111,227,192,.16); color: #6FE3C0; font-size: 10.5px; font-weight: 700;">จพ. → เภสัชกร/Admin</span>
             </div>
           </div>
-          <div style="display: flex; gap: 12px; position: relative; z-index: 1; animation: slideInRight .5s cubic-bezier(.34,1.56,.64,1) .4s both;">
+          <div style="display: flex; gap: 12px; position: relative; z-index: 1; animation: slideInRight .5s cubic-bezier(.34,1.56,.64,1) .32s both;">
             <span style="width: 26px; height: 26px; flex-shrink: 0; border-radius: 50%; background: #fff; color: #14506E; display: flex; align-items: center; justify-content: center; font-size: 12.5px; font-weight: 700; box-shadow: 0 2px 8px rgba(0,0,0,.2);">2</span>
             <div>
-              <div style="font-size: 13.5px; font-weight: 600;">จ่ายออก / รับคืน EB</div>
-              <div style="font-size: 12px; color: rgba(255,255,255,.62); margin-top: 2px; line-height: 1.6;">เลือกหน่วยงาน บันทึกผู้จ่าย/ผู้รับ ระบบคำนวณวันครบกำหนดส่งคืนให้อัตโนมัติ</div>
+              <div style="font-size: 13.5px; font-weight: 600;">จ่ายออกให้หน่วยงาน</div>
+              <div style="font-size: 12px; color: rgba(255,255,255,.62); margin-top: 2px; line-height: 1.6;">เลือกหน่วยงานปลายทาง ระบบคำนวณวันครบกำหนดส่งคืนให้อัตโนมัติ</div>
               <span style="display: inline-block; margin-top: 6px; padding: 2px 9px; border-radius: 20px; background: rgba(111,227,192,.16); color: #6FE3C0; font-size: 10.5px; font-weight: 700;">ทุกหน่วยงาน (ER/Ward/LR)</span>
             </div>
           </div>
-          <div style="display: flex; gap: 12px; position: relative; z-index: 1; animation: slideInRight .5s cubic-bezier(.34,1.56,.64,1) .55s both;">
+          <div style="display: flex; gap: 12px; position: relative; z-index: 1; animation: slideInRight .5s cubic-bezier(.34,1.56,.64,1) .44s both;">
             <span style="width: 26px; height: 26px; flex-shrink: 0; border-radius: 50%; background: #fff; color: #14506E; display: flex; align-items: center; justify-content: center; font-size: 12.5px; font-weight: 700; box-shadow: 0 2px 8px rgba(0,0,0,.2);">3</span>
             <div>
               <div style="font-size: 13.5px; font-weight: 600;">สแกน QR บันทึกใช้ยา (paperless)</div>
               <div style="font-size: 12px; color: rgba(255,255,255,.62); margin-top: 2px; line-height: 1.6;">หน่วยงานสแกนที่กล่องเพื่อบันทึกการใช้ยาโดยไม่ต้องใช้กระดาษ</div>
               <span style="display: inline-block; margin-top: 6px; padding: 2px 9px; border-radius: 20px; background: rgba(111,227,192,.16); color: #6FE3C0; font-size: 10.5px; font-weight: 700;">ไม่ต้องล็อกอิน</span>
             </div>
+          </div>
+          <div style="display: flex; gap: 12px; position: relative; z-index: 1; animation: slideInRight .5s cubic-bezier(.34,1.56,.64,1) .56s both;">
+            <span style="width: 26px; height: 26px; flex-shrink: 0; border-radius: 50%; background: #fff; color: #14506E; display: flex; align-items: center; justify-content: center; font-size: 12.5px; font-weight: 700; box-shadow: 0 2px 8px rgba(0,0,0,.2);">4</span>
+            <div>
+              <div style="font-size: 13.5px; font-weight: 600;">รับคืนเข้าห้องยา</div>
+              <div style="font-size: 12px; color: rgba(255,255,255,.62); margin-top: 2px; line-height: 1.6;">กล่องกลับเข้าสถานะ "ยังไม่เตรียม" โดยอัตโนมัติ — ต้องผ่านขั้นที่ 1 ใหม่ก่อนจ่ายออกอีกครั้ง</div>
+              <span style="display: inline-block; margin-top: 6px; padding: 2px 9px; border-radius: 20px; background: rgba(111,227,192,.16); color: #6FE3C0; font-size: 10.5px; font-weight: 700;">จพ. / เภสัชกร</span>
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; position: relative; z-index: 1; margin: 2px 0 0 1px; font-size: 11px; font-weight: 600; color: rgba(255,255,255,.55);">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="flex-shrink: 0;"><path d="M4 12a8 8 0 0 1 14-5M20 12a8 8 0 0 1-14 5M14 4l4 3-4 3M10 20l-4-3 4-3" stroke="rgba(255,255,255,.55)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            วนกลับไปขั้นตอนที่ 1 — ทุกกล่องผ่านวงจรนี้ซ้ำได้ไม่จำกัด
           </div>
         </div>
       </div>
@@ -1515,6 +1537,24 @@ select:focus-visible, textarea:focus-visible, [role="button"]:focus-visible {
           <div>
             <div style="font-family: 'Sora', 'Bai Jamjuree', sans-serif; font-size: 15px; font-weight: 700;">ภาพรวมการทำงาน</div>
             <div style="font-size: 11.5px; color: rgba(255,255,255,.6);">สิ่งที่ระบบดูแลให้โดยอัตโนมัติ</div>
+          </div>
+        </div>
+        <!-- quick-stat strip — a compact "dashboard preview" feel for anyone
+             sizing up the system before ever logging in (fixed, descriptive
+             facts about the app itself, not live Firestore data — this
+             screen never authenticates) -->
+        <div style="display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-bottom: 16px;">
+          <div style="text-align: center; padding: 9px 4px; border-radius: 10px; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.08);">
+            <div style="font-family: 'Sora', 'Bai Jamjuree', sans-serif; font-size: 18px; font-weight: 800; color: #6FE3C0;">10</div>
+            <div style="font-size: 10px; color: rgba(255,255,255,.58); margin-top: 1px;">กล่อง EB</div>
+          </div>
+          <div style="text-align: center; padding: 9px 4px; border-radius: 10px; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.08);">
+            <div style="font-family: 'Sora', 'Bai Jamjuree', sans-serif; font-size: 18px; font-weight: 800; color: #6FE3C0;">4</div>
+            <div style="font-size: 10px; color: rgba(255,255,255,.58); margin-top: 1px;">บทบาทผู้ใช้</div>
+          </div>
+          <div style="text-align: center; padding: 9px 4px; border-radius: 10px; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.08);">
+            <div style="font-family: 'Sora', 'Bai Jamjuree', sans-serif; font-size: 18px; font-weight: 800; color: #6FE3C0;">24/7</div>
+            <div style="font-size: 10px; color: rgba(255,255,255,.58); margin-top: 1px;">ซิงค์เรียลไทม์</div>
           </div>
         </div>
         <div style="display: flex; flex-direction: column; gap: 4px; position: relative;">
