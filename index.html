@@ -188,6 +188,13 @@
   @keyframes chipPop { 0% { transform: scale(.88); } 50% { transform: scale(1.06); } 100% { transform: scale(1); } }
   @keyframes successPop { 0% { transform: scale(0); } 60% { transform: scale(1.2); } 100% { transform: scale(1); } }
   @keyframes gradientShift { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+  /* Login screen backdrop art — a soft glow pulsing near the vanishing
+     point, a few sparks rising slowly, and a droplet traveling down the
+     "flow map" rail. All slow (6-12s) ambient loops, same restraint as
+     this file's other indefinite animations (pulseRed/kpiPulseDot/etc). */
+  @keyframes loginHaloPulse { 0%,100% { transform: scale(1); opacity: .5; } 50% { transform: scale(1.18); opacity: .8; } }
+  @keyframes loginSparkRise { 0% { transform: translateY(0); opacity: 0; } 12% { opacity: .85; } 80% { opacity: .3; } 100% { transform: translateY(-140px); opacity: 0; } }
+  @keyframes loginRailDrop { 0%, 4% { top: 0%; opacity: 0; } 12% { opacity: 1; } 88% { opacity: 1; } 96%, 100% { top: 100%; opacity: 0; } }
 
   /* ===== 8 UI/UX animation improvements ===== */
   @keyframes pageEnter { 0% { opacity:0; transform:translateY(14px) scale(.99); } 60% { transform:translateY(-2px) scale(1.002); } 100% { opacity:1; transform:none; } }
@@ -407,6 +414,25 @@ input[type="date"] { min-height: 46px; }
   -webkit-backdrop-filter: blur(18px);
   box-shadow: 0 24px 60px rgba(0,0,0,.28);
 }
+/* Login screen brand-name shine — a slow gradient sweep clipped to the
+   text itself. Plain white by default (the fallback that actually ships
+   if a browser lacks background-clip:text support); @supports upgrades it
+   to the clipped gradient + sweep so an unsupported browser never ends up
+   with invisible (transparent-on-transparent) text. Reuses the existing
+   `shimmer` keyframe (already used elsewhere in this file for its own
+   background-position sweep) rather than defining a near-duplicate. */
+.login-shine-text { color: #fff; }
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .login-shine-text {
+    background: linear-gradient(100deg, #fff 0 40%, #BFEFE8 50%, #fff 60% 100%);
+    background-size: 250% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    filter: drop-shadow(0 1px 8px rgba(0,30,32,.45));
+    animation: shimmer 6s linear infinite;
+  }
+}
 
 /* ===== Tablet (max 1080px) ===== */
 @media (max-width: 1080px) {
@@ -490,8 +516,8 @@ input[type="date"] { min-height: 46px; }
   .login-side-panel { display: none !important; }
   .login-cols { padding: 0 18px 32px !important; gap: 0 !important; }
   .login-center { width: 100% !important; }
-  .login-topbar { padding: 16px 18px !important; }
-  .login-footer-bar { font-size: 11px !important; padding: 0 18px 18px !important; }
+  .login-topbar { padding: calc(16px + env(safe-area-inset-top, 0px)) 18px !important; }
+  .login-footer-bar { font-size: 11px !important; padding: 0 18px calc(18px + env(safe-area-inset-bottom, 0px)) !important; }
 
   /* Notify settings */
   .notify-email-grid { grid-template-columns: 1fr !important; }
@@ -1191,7 +1217,38 @@ select:focus-visible, textarea:focus-visible, [role="button"]:focus-visible {
 
 <!-- ===================== LOGIN ===================== -->
 <sc-if value="{{ notAuthed }}" hint-placeholder-val="{{ true }}">
-<div class="login-wrap" style="position: relative; min-height: 100vh; display: flex; flex-direction: column; background: linear-gradient(160deg, #14506E 0%, #1A6FA3 48%, #168C84 100%); color: #fff; overflow-x: hidden; font-family: 'IBM Plex Sans Thai', sans-serif;">
+<div class="login-wrap" style="position: relative; min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; background: linear-gradient(160deg, #14506E 0%, #1A6FA3 48%, #168C84 100%); color: #fff; overflow-x: hidden; font-family: 'IBM Plex Sans Thai', sans-serif;">
+
+  <!-- ambient backdrop art: converging perspective lines toward a glowing
+       halo, two soft "beam" strips, and a few slow rising sparks — masked so
+       it fades out toward the card content instead of competing with it.
+       Decorative only (aria-hidden), slow 7-9s loops, reuses the existing
+       `breathe` keyframe for the beams rather than a near-duplicate. -->
+  <div aria-hidden="true" style="position: absolute; inset: 0; overflow: hidden; pointer-events: none; -webkit-mask-image: radial-gradient(120% 90% at 50% 0%, #000 42%, transparent 92%); mask-image: radial-gradient(120% 90% at 50% 0%, #000 42%, transparent 92%); opacity: .55;">
+    <svg viewBox="0 0 1000 800" preserveAspectRatio="xMidYMin slice" style="width: 100%; height: 100%;">
+      <defs>
+        <radialGradient id="loginHaloGrad" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#8FF0E0" stop-opacity=".55"/>
+          <stop offset="100%" stop-color="#8FF0E0" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <g stroke="#ffffff" stroke-opacity=".09" stroke-width="1">
+        <line x1="500" y1="40" x2="0" y2="800"/><line x1="500" y1="40" x2="77" y2="800"/>
+        <line x1="500" y1="40" x2="154" y2="800"/><line x1="500" y1="40" x2="231" y2="800"/>
+        <line x1="500" y1="40" x2="308" y2="800"/><line x1="500" y1="40" x2="385" y2="800"/>
+        <line x1="500" y1="40" x2="462" y2="800"/><line x1="500" y1="40" x2="538" y2="800"/>
+        <line x1="500" y1="40" x2="615" y2="800"/><line x1="500" y1="40" x2="692" y2="800"/>
+        <line x1="500" y1="40" x2="769" y2="800"/><line x1="500" y1="40" x2="846" y2="800"/>
+        <line x1="500" y1="40" x2="923" y2="800"/><line x1="500" y1="40" x2="1000" y2="800"/>
+      </g>
+      <rect x="430" y="40" width="26" height="760" fill="#5FD0C5" opacity=".13" style="animation: breathe 7s ease-in-out infinite;"/>
+      <rect x="544" y="40" width="26" height="760" fill="#5FD0C5" opacity=".13" style="animation: breathe 7s ease-in-out .6s infinite;"/>
+      <circle cx="500" cy="140" r="170" fill="url(#loginHaloGrad)" style="animation: loginHaloPulse 9s ease-in-out infinite;"/>
+      <circle cx="470" cy="620" r="3.5" fill="#BFEFE8" style="animation: loginSparkRise 7s ease-in infinite;"/>
+      <circle cx="540" cy="680" r="2.5" fill="#BFEFE8" style="animation: loginSparkRise 7s ease-in 4s infinite;"/>
+      <circle cx="500" cy="560" r="3" fill="#BFEFE8" style="animation: loginSparkRise 7s ease-in 8s infinite;"/>
+    </svg>
+  </div>
 
   <!-- ambient texture: dot grid + two soft glow blobs, purely decorative -->
   <div style="position: absolute; inset: 0; pointer-events: none; background-image: radial-gradient(rgba(255,255,255,.07) 1px, transparent 1px); background-size: 28px 28px; opacity: .55;"></div>
@@ -1199,10 +1256,10 @@ select:focus-visible, textarea:focus-visible, [role="button"]:focus-visible {
   <div style="position: absolute; bottom: -180px; right: -130px; width: 480px; height: 480px; border-radius: 50%; background: radial-gradient(circle, rgba(26,111,163,.32), transparent 70%); filter: blur(6px); animation: floatY 13s ease-in-out infinite reverse; pointer-events: none;"></div>
 
   <!-- top bar -->
-  <div class="login-topbar" style="position: relative; display: flex; align-items: center; justify-content: space-between; padding: 22px 36px;">
+  <div class="login-topbar" style="position: relative; display: flex; align-items: center; justify-content: space-between; padding: calc(22px + env(safe-area-inset-top, 0px)) 36px 22px;">
     <div style="display: flex; align-items: center; gap: 9px; font-size: 12.5px; font-weight: 600; color: rgba(255,255,255,.78);">
-      <span style="width: 8px; height: 8px; border-radius: 50%; background: #35D694; box-shadow: 0 0 0 4px rgba(53,214,148,.2);"></span>
-      ออนไลน์
+      <span style="width: 8px; height: 8px; border-radius: 50%; background: {{ pubOffline ? '#E8A33D' : '#35D694' }}; box-shadow: 0 0 0 4px {{ pubOffline ? 'rgba(232,163,61,.2)' : 'rgba(53,214,148,.2)' }};"></span>
+      {{ pubOffline ? 'ออฟไลน์' : 'ออนไลน์' }}
     </div>
     <div style="font-size: 12px; font-weight: 600; color: rgba(255,255,255,.5); letter-spacing: .3px;">เวอร์ชัน 2.0</div>
   </div>
@@ -1220,26 +1277,31 @@ select:focus-visible, textarea:focus-visible, [role="button"]:focus-visible {
             <div style="font-size: 11.5px; color: rgba(255,255,255,.6);">งานประจำวันของห้องยา</div>
           </div>
         </div>
-        <div style="display: flex; flex-direction: column; gap: 16px;">
-          <div style="display: flex; gap: 12px; animation: slideInRight .5s cubic-bezier(.34,1.56,.64,1) .25s both;">
-            <span style="width: 26px; height: 26px; flex-shrink: 0; border-radius: 8px; background: rgba(53,214,148,.18); color: #6FE3C0; display: flex; align-items: center; justify-content: center; font-size: 12.5px; font-weight: 700;">1</span>
+        <div style="display: flex; flex-direction: column; gap: 16px; position: relative;">
+          <!-- connecting timeline rail behind the 3 numbered dots (26px dot → center at 13px) -->
+          <div style="position: absolute; left: 13px; top: 13px; bottom: 13px; width: 2px; background: linear-gradient(180deg, rgba(53,214,148,.55), rgba(26,111,163,.4)); z-index: 0;"></div>
+          <div style="display: flex; gap: 12px; position: relative; z-index: 1; animation: slideInRight .5s cubic-bezier(.34,1.56,.64,1) .25s both;">
+            <span style="width: 26px; height: 26px; flex-shrink: 0; border-radius: 50%; background: #fff; color: #14506E; display: flex; align-items: center; justify-content: center; font-size: 12.5px; font-weight: 700; box-shadow: 0 2px 8px rgba(0,0,0,.2);">1</span>
             <div>
               <div style="font-size: 13.5px; font-weight: 600;">ลงทะเบียนกล่อง (2 ขั้นตอน)</div>
               <div style="font-size: 12px; color: rgba(255,255,255,.62); margin-top: 2px; line-height: 1.6;">จพ. จัดเตรียม → เภสัชกร/Admin ตรวจสอบและยืนยันก่อนพร้อมจ่าย</div>
+              <span style="display: inline-block; margin-top: 6px; padding: 2px 9px; border-radius: 20px; background: rgba(111,227,192,.16); color: #6FE3C0; font-size: 10.5px; font-weight: 700;">จพ. → เภสัชกร/Admin</span>
             </div>
           </div>
-          <div style="display: flex; gap: 12px; animation: slideInRight .5s cubic-bezier(.34,1.56,.64,1) .4s both;">
-            <span style="width: 26px; height: 26px; flex-shrink: 0; border-radius: 8px; background: rgba(53,214,148,.18); color: #6FE3C0; display: flex; align-items: center; justify-content: center; font-size: 12.5px; font-weight: 700;">2</span>
+          <div style="display: flex; gap: 12px; position: relative; z-index: 1; animation: slideInRight .5s cubic-bezier(.34,1.56,.64,1) .4s both;">
+            <span style="width: 26px; height: 26px; flex-shrink: 0; border-radius: 50%; background: #fff; color: #14506E; display: flex; align-items: center; justify-content: center; font-size: 12.5px; font-weight: 700; box-shadow: 0 2px 8px rgba(0,0,0,.2);">2</span>
             <div>
               <div style="font-size: 13.5px; font-weight: 600;">จ่ายออก / รับคืน EB</div>
               <div style="font-size: 12px; color: rgba(255,255,255,.62); margin-top: 2px; line-height: 1.6;">เลือกหน่วยงาน บันทึกผู้จ่าย/ผู้รับ ระบบคำนวณวันครบกำหนดส่งคืนให้อัตโนมัติ</div>
+              <span style="display: inline-block; margin-top: 6px; padding: 2px 9px; border-radius: 20px; background: rgba(111,227,192,.16); color: #6FE3C0; font-size: 10.5px; font-weight: 700;">ทุกหน่วยงาน (ER/Ward/LR)</span>
             </div>
           </div>
-          <div style="display: flex; gap: 12px; animation: slideInRight .5s cubic-bezier(.34,1.56,.64,1) .55s both;">
-            <span style="width: 26px; height: 26px; flex-shrink: 0; border-radius: 8px; background: rgba(53,214,148,.18); color: #6FE3C0; display: flex; align-items: center; justify-content: center; font-size: 12.5px; font-weight: 700;">3</span>
+          <div style="display: flex; gap: 12px; position: relative; z-index: 1; animation: slideInRight .5s cubic-bezier(.34,1.56,.64,1) .55s both;">
+            <span style="width: 26px; height: 26px; flex-shrink: 0; border-radius: 50%; background: #fff; color: #14506E; display: flex; align-items: center; justify-content: center; font-size: 12.5px; font-weight: 700; box-shadow: 0 2px 8px rgba(0,0,0,.2);">3</span>
             <div>
               <div style="font-size: 13.5px; font-weight: 600;">สแกน QR บันทึกใช้ยา (paperless)</div>
               <div style="font-size: 12px; color: rgba(255,255,255,.62); margin-top: 2px; line-height: 1.6;">หน่วยงานสแกนที่กล่องเพื่อบันทึกการใช้ยาโดยไม่ต้องใช้กระดาษ</div>
+              <span style="display: inline-block; margin-top: 6px; padding: 2px 9px; border-radius: 20px; background: rgba(111,227,192,.16); color: #6FE3C0; font-size: 10.5px; font-weight: 700;">ไม่ต้องล็อกอิน</span>
             </div>
           </div>
         </div>
@@ -1250,7 +1312,7 @@ select:focus-visible, textarea:focus-visible, [role="button"]:focus-visible {
     <div class="login-center" style="flex-shrink: 0; width: 420px; max-width: 100%; animation: fadeUp .6s cubic-bezier(.34,1.56,.64,1) .15s both;">
       <div style="text-align: center; margin-bottom: 22px;">
         <img src="./icons/icon-192.svg" width="58" height="58" alt="Emergency Box" style="display: block; margin: 0 auto 14px; border-radius: 16px; box-shadow: 0 12px 30px rgba(22,140,132,.35); animation: scaleIn .5s cubic-bezier(.34,1.56,.64,1) .25s both;">
-        <div style="font-size: 22px; font-weight: 700; letter-spacing: -.3px;">Emergency Box</div>
+        <div class="login-shine-text" style="font-size: 22px; font-weight: 700; letter-spacing: -.3px;">Emergency Box</div>
         <div style="font-size: 12.5px; color: rgba(255,255,255,.65); margin-top: 3px;">ฝ่ายเภสัชกรรม โรงพยาบาลกรงปินัง · จังหวัดยะลา</div>
       </div>
 
@@ -1301,22 +1363,29 @@ select:focus-visible, textarea:focus-visible, [role="button"]:focus-visible {
             <div style="font-size: 11.5px; color: rgba(255,255,255,.6);">สิ่งที่ระบบดูแลให้โดยอัตโนมัติ</div>
           </div>
         </div>
-        <div style="display: flex; flex-direction: column; gap: 4px;">
-          <div style="display: flex; align-items: center; gap: 12px; padding: 10px 2px; border-bottom: 1px solid rgba(255,255,255,.08);">
+        <div style="display: flex; flex-direction: column; gap: 4px; position: relative;">
+          <!-- flow-map rail connecting the 4 feature icon tiles (34px tile → center at 17px), with a droplet traveling down it -->
+          <div style="position: absolute; left: 17px; top: 17px; bottom: 17px; width: 2px; background: linear-gradient(180deg, rgba(255,255,255,.22), rgba(255,255,255,.06)); z-index: 0;">
+            <span style="position: absolute; left: -2px; width: 6px; height: 6px; border-radius: 50%; background: #6FE3C0; box-shadow: 0 0 6px rgba(111,227,192,.85); animation: loginRailDrop 2.6s ease-in infinite;"></span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px; padding: 10px 2px; border-bottom: 1px solid rgba(255,255,255,.08); position: relative; z-index: 1;">
             <span style="width: 34px; height: 34px; flex-shrink: 0; border-radius: 10px; background: rgba(255,255,255,.08); display: flex; align-items: center; justify-content: center;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6z" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/><path d="M10 20a2 2 0 0 0 4 0" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg></span>
             <div><div style="font-size: 13px; font-weight: 600;">แจ้งเตือนยาใกล้หมดอายุ</div><div style="font-size: 11.5px; color: rgba(255,255,255,.58);">ล่วงหน้า 15 วัน ผ่าน LINE และ Email</div></div>
           </div>
-          <div style="display: flex; align-items: center; gap: 12px; padding: 10px 2px; border-bottom: 1px solid rgba(255,255,255,.08);">
+          <div style="display: flex; align-items: center; gap: 12px; padding: 10px 2px; border-bottom: 1px solid rgba(255,255,255,.08); position: relative; z-index: 1;">
             <span style="width: 34px; height: 34px; flex-shrink: 0; border-radius: 10px; background: rgba(255,255,255,.08); display: flex; align-items: center; justify-content: center;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3z" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/></svg></span>
             <div><div style="font-size: 13px; font-weight: 600;">สิทธิ์ตามบทบาท (RBAC)</div><div style="font-size: 11.5px; color: rgba(255,255,255,.58);">Admin · เภสัชกร · จพ. · พยาบาล แยกสิทธิ์ชัดเจน</div></div>
           </div>
-          <div style="display: flex; align-items: center; gap: 12px; padding: 10px 2px; border-bottom: 1px solid rgba(255,255,255,.08);">
+          <div style="display: flex; align-items: center; gap: 12px; padding: 10px 2px; border-bottom: 1px solid rgba(255,255,255,.08); position: relative; z-index: 1;">
             <span style="width: 34px; height: 34px; flex-shrink: 0; border-radius: 10px; background: rgba(255,255,255,.08); display: flex; align-items: center; justify-content: center;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M9 3h6l1 3h3v3l-2 1 2 10H5L7 10l-2-1V6h3l1-3z" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg></span>
             <div><div style="font-size: 13px; font-weight: 600;">Audit Log ทุกการทำรายการ</div><div style="font-size: 11.5px; color: rgba(255,255,255,.58);">ย้อนดูได้ว่าใครทำอะไร เมื่อไหร่</div></div>
           </div>
-          <div style="display: flex; align-items: center; gap: 12px; padding: 10px 2px;">
+          <div style="display: flex; align-items: center; gap: 12px; padding: 10px 2px; position: relative; z-index: 1;">
             <span style="width: 34px; height: 34px; flex-shrink: 0; border-radius: 10px; background: rgba(255,255,255,.08); display: flex; align-items: center; justify-content: center;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M4 20V10M11 20V4M18 20v-7" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg></span>
             <div><div style="font-size: 13px; font-weight: 600;">KPI Dashboard</div><div style="font-size: 11.5px; color: rgba(255,255,255,.58);">ตัวชี้วัดคุณภาพแบบเรียลไทม์</div></div>
+          </div>
+          <div style="margin-top: 10px; text-align: center; position: relative; z-index: 1;">
+            <span style="display: inline-block; padding: 6px 14px; border: 1.5px dashed rgba(111,227,192,.5); border-radius: 20px; font-size: 11px; font-weight: 600; color: #6FE3C0;">ครบ 1 รอบ: ลงทะเบียน → จ่าย → ใช้ → รับคืน</span>
           </div>
         </div>
       </div>
@@ -1324,7 +1393,7 @@ select:focus-visible, textarea:focus-visible, [role="button"]:focus-visible {
   </div>
 
   <!-- footer -->
-  <div class="login-footer-bar" style="position: relative; text-align: center; padding: 0 24px 24px; font-size: 11.5px; line-height: 1.7; color: rgba(255,255,255,.5);">
+  <div class="login-footer-bar" style="position: relative; text-align: center; padding: 0 24px calc(24px + env(safe-area-inset-bottom, 0px)); font-size: 11.5px; line-height: 1.7; color: rgba(255,255,255,.5);">
     จัดทำโดย ภก.อนัส มะยีแต · เภสัชกร ฝ่ายเภสัชกรรมและคุ้มครองผู้บริโภค · © 2569 โรงพยาบาลกรงปินัง · เวอร์ชัน 2.0
   </div>
 </div>
@@ -6547,6 +6616,13 @@ td.l{text-align:left;padding-left:4px}
 
     // ===== LOGIN SCREEN =====
     vals.loginUser = st.loginUser;
+    // Login screen's "ออนไลน์/ออฟไลน์" status pill reuses the SAME real
+    // navigator.onLine-backed flag the public QR page's offline banner
+    // already relies on (state.pubOffline, kept live by the 'online'/
+    // 'offline' listeners registered unconditionally in componentDidMount)
+    // — no new listener needed, this flag is already maintained for the
+    // whole app's lifetime, including before login.
+    vals.pubOffline = !!st.pubOffline;
     vals.setLoginUser = (e) => {
       const v = e.target.value;
       const lockState = this._loadLockStateFor(v.trim().toLowerCase());
