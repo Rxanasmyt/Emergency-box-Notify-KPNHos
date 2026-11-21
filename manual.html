@@ -86,6 +86,15 @@
   table.m-table td{padding:9px 10px;border-bottom:1px solid var(--line);color:#36454F;vertical-align:top;}
   table.m-table tr:last-child td{border-bottom:none;}
 
+  /* real app screenshots — a bordered, slightly elevated "device frame" card
+     so a screenshot reads as a distinct illustration, not a stray image
+     floating in the body text */
+  .m-shot{margin:16px 0;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#F7FAFC;box-shadow:0 2px 10px rgba(20,40,55,.07);}
+  .m-shot img{display:block;width:100%;height:auto;}
+  .m-shot figcaption{font-size:12px;color:var(--muted);padding:9px 14px;border-top:1px solid var(--line);background:#fff;}
+  .m-shot-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin:16px 0;}
+  .m-shot-row .m-shot{margin:0;}
+
   .m-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;}
   .m-badge.g{background:#D1FAE5;color:#065F46;} .m-badge.y{background:#FEF3C7;color:#92400E;}
   .m-badge.r{background:#FEE2E2;color:#991B1B;} .m-badge.b{background:#DBEAFE;color:#1D4ED8;}
@@ -202,6 +211,7 @@
         <div class="m-step"><div class="n">3</div><div><div class="t">กด "เข้าสู่ระบบ"</div><div class="d">หากพิมพ์รหัสผ่านผิดติดต่อกัน 5 ครั้ง บัญชีจะถูกล็อกชั่วคราวตามชื่อผู้ใช้นั้น ๆ (ไม่กระทบบัญชีอื่นบนเครื่องเดียวกัน)</div></div></div>
       </div>
       <div class="m-callout warn"><span class="ic">⏱️</span><div>หากไม่มีการใช้งานเป็นเวลานาน ระบบจะแสดงหน้าต่างนับถอยหลังก่อนออกจากระบบอัตโนมัติเพื่อความปลอดภัยของข้อมูลผู้ป่วย หากมีงานที่ยังไม่ได้บันทึกค้างอยู่ จะมีข้อความเตือนเพิ่มเติมในหน้าต่างนั้น</div></div>
+      <figure class="m-shot"><img src="./manual-assets/01-login.jpg" alt="หน้าจอเข้าสู่ระบบ Emergency Box Notify"><figcaption>หน้าจอเข้าสู่ระบบ — กรอก Username/รหัสผ่าน แล้วกด "เข้าสู่ระบบ"</figcaption></figure>
     </section>
 
     <section id="dashboard">
@@ -214,6 +224,10 @@
         <li><strong>กล่องถูกเปิดใช้งานแล้ว</strong> — กล่องที่หน่วยงานปลายทางเริ่มใช้ยาแล้ว ต้องเตรียมสำรอง/เปลี่ยนกล่อง</li>
       </ul>
       <div class="m-callout info"><span class="ic">💡</span><div>ทางลัดเหล่านี้จะไม่แสดงสำหรับบทบาทพยาบาล/หน่วยงาน เนื่องจากไม่มีสิทธิ์ดำเนินการต่อ</div></div>
+      <figure class="m-shot"><img src="./manual-assets/02-dashboard.jpg" alt="หน้าจอแดชบอร์ดภาพรวม Emergency Box"><figcaption>แดชบอร์ด — สรุปจำนวนกล่อง, กล่องรอตรวจสอบ, กล่องถูกตีกลับ, และยาใกล้หมดอายุที่ต้องดำเนินการ</figcaption></figure>
+      <h3 class="m-sub">รายละเอียดกล่อง EB</h3>
+      <p>คลิกเมนู "รายละเอียดกล่อง EB" (หรือทางลัดจากแดชบอร์ด) เพื่อดูข้อมูลเต็มของกล่องใดกล่องหนึ่ง — รายการยา/ล็อตครบทุกชนิด วันหมดอายุ วงแหวนนับถอยหลังวันครบกำหนดส่งคืน และประวัติการจ่าย/รับคืนของกล่องนั้นโดยเฉพาะ</p>
+      <figure class="m-shot"><img src="./manual-assets/08-detail.jpg" alt="หน้าจอรายละเอียดกล่อง Emergency Box"><figcaption>รายละเอียดกล่อง EB — รายการยา/ล็อตพร้อมวันหมดอายุ, วงแหวนนับถอยหลัง และประวัติกล่อง</figcaption></figure>
     </section>
 
     <section id="register">
@@ -226,18 +240,21 @@
         <span class="arrow">→</span>
         <div class="pill active"><span class="ic">🟢</span><span class="lb">ยืนยันแล้ว</span><span class="sl">พร้อมจ่าย</span></div>
       </div>
+      <figure class="m-shot"><img src="./manual-assets/03-register-landing.jpg" alt="หน้าจอภาพรวมเลือกกล่องสำหรับลงทะเบียน"><figcaption>หน้าภาพรวมลงทะเบียน — การ์ดแต่ละกล่องแสดงสถานะสี เรียงกล่องที่ต้องทำก่อนไว้บนสุด (ตีกลับ → รอตรวจสอบ → ยังไม่เตรียม → ยืนยันแล้ว)</figcaption></figure>
       <h3 class="m-sub">ขั้นตอนที่ 1 — จัดเตรียม (จพ. / เภสัชกร / Admin ทำได้)</h3>
       <div class="m-steps">
         <div class="m-step"><div class="n">1</div><div><div class="t">เลือกกล่องจากหน้าภาพรวม</div><div class="d">หน้า "ลงทะเบียน" จะแสดงการ์ดทุกกล่องพร้อมสถานะสี เรียงกล่องที่ต้องทำก่อน (ตีกลับ → รอตรวจสอบ → ยังไม่เตรียม → ยืนยันแล้ว) ไว้บนสุด</div></div></div>
         <div class="m-step"><div class="n">2</div><div><div class="t">กรอกวันที่ผลิต และจำนวน/วันหมดอายุของยาแต่ละชนิด</div><div class="d">เพิ่ม Lot ได้มากกว่า 1 รายการต่อยาหนึ่งชนิด ชื่อ "ผู้จัดเตรียม" จะถูกระบุเป็นชื่อผู้ใช้ที่ล็อกอินอยู่โดยอัตโนมัติ แก้ไขเองไม่ได้ เพื่อความถูกต้องของผู้รับผิดชอบ</div></div></div>
         <div class="m-step"><div class="n">3</div><div><div class="t">พิมพ์ฉลาก EB (ถ้าต้องการ) แล้วกดบันทึก</div><div class="d">หากเลือกระบบไร้กระดาษ ติ๊ก "ข้ามการพิมพ์" ได้ — กล่องจะเข้าสถานะ "เตรียมแล้ว รอตรวจสอบ" ทันที</div></div></div>
       </div>
+      <figure class="m-shot"><img src="./manual-assets/04-register-stage1.jpg" alt="หน้าจอจัดเตรียมกล่อง Stage 1 กรอกวันที่ผลิตและจำนวนยา"><figcaption>Stage 1 — กรอกวันที่ผลิต จำนวน และวันหมดอายุของยาแต่ละชนิด/ล็อต (มีตัวเลขปี ค.ศ. กำกับให้ตรวจทานตัวเลขปีง่ายขึ้น)</figcaption></figure>
       <h3 class="m-sub">ขั้นตอนที่ 2 — ตรวจสอบ/ยืนยัน (เภสัชกร / Admin เท่านั้น)</h3>
       <div class="m-steps">
         <div class="m-step"><div class="n">1</div><div><div class="t">ตรวจสอบข้อมูลที่ จพ. กรอกไว้เทียบกับกล่องจริง</div><div class="d">ข้อมูลในขั้นนี้เป็นแบบอ่านอย่างเดียว แก้ไขไม่ได้ (ถ้าผิดให้ใช้ปุ่ม "ตีกลับให้แก้ไข" แทน)</div></div></div>
         <div class="m-step"><div class="n">2</div><div><div class="t">ติ๊ก "ยืนยันแล้ว" ให้ครบทุกชนิดยา</div><div class="d">ต้องติ๊กครบทุกรายการจึงจะบันทึกได้ — ไม่สามารถยืนยันแบบข้ามบางชนิดยาได้</div></div></div>
         <div class="m-step"><div class="n">3</div><div><div class="t">กดบันทึก</div><div class="d">กล่องเข้าสถานะ "ยืนยันแล้ว — พร้อมจ่าย" ทันที</div></div></div>
       </div>
+      <figure class="m-shot"><img src="./manual-assets/05-register-stage2.jpg" alt="หน้าจอตรวจสอบและยืนยันกล่อง Stage 2"><figcaption>Stage 2 — เภสัชกร/Admin ตรวจทานข้อมูลที่ จพ. กรอก (อ่านอย่างเดียว) แล้วติ๊กยืนยันทีละชนิดยา</figcaption></figure>
       <div class="m-callout danger"><span class="ic">🔴</span><div><strong>ตีกลับให้แก้ไข:</strong> หากเภสัชกรพบข้อมูลผิด สามารถกด "ตีกลับ" พร้อมระบุเหตุผลได้ กล่องจะกลับไปสถานะ "ยังไม่เตรียม" พร้อมแสดงเหตุผลเป็นแถบสีแดงให้ จพ. เห็นตอนแก้ไขรอบถัดไป</div></div>
       <div class="m-callout warn"><span class="ic">⚠️</span><div>กล่องที่ "เตรียมแล้ว" แต่ยังไม่ถูกยืนยัน (Stage 2) <strong>จะจ่ายออกให้หน่วยงานไม่ได้เด็ดขาด</strong> ไม่ว่ากรณีใด ๆ — ต้องผ่านการตรวจสอบจากเภสัชกร/Admin ก่อนเสมอ</div></div>
     </section>
@@ -250,6 +267,7 @@
         <div class="m-step"><div class="n">3</div><div><div class="t">(ถ้ามี) เลือก "สลับกล่อง" เพื่อจ่ายและรับคืนพร้อมกันในครั้งเดียว</div><div class="d">ใช้เมื่อหน่วยงานนำกล่องเก่ามาคืนพร้อมรับกล่องใหม่ในคราวเดียว</div></div></div>
         <div class="m-step"><div class="n">4</div><div><div class="t">กดบันทึก</div><div class="d">ระบบจะคำนวณ "วันครบกำหนดส่งคืน" (15 วันก่อนวันหมดอายุของยาที่ใกล้หมดอายุที่สุดในกล่อง) ให้อัตโนมัติ</div></div></div>
       </div>
+      <figure class="m-shot"><img src="./manual-assets/06-dispense-landing.jpg" alt="หน้าจอเลือกกล่องเพื่อจ่ายออก"><figcaption>หน้าจ่ายออก — เฉพาะกล่องที่ "ยืนยันแล้ว" (Stage 2 ผ่าน) และยังไม่ได้จ่ายออกเท่านั้นที่เลือกได้</figcaption></figure>
     </section>
 
     <section id="return">
@@ -258,6 +276,7 @@
         <div class="m-step"><div class="n">1</div><div><div class="t">เลือกกล่องที่ "จ่ายออกอยู่" จากหน้าภาพรวม</div><div class="d">การ์ดจะแสดงจำนวนวันที่จ่ายออกไปแล้ว และเปลี่ยนเป็นสีแดง/กะพริบเมื่อเกินกำหนดส่งคืนหรือมียาใกล้หมดอายุ เพื่อช่วยจัดลำดับความสำคัญ</div></div></div>
         <div class="m-step"><div class="n">2</div><div><div class="t">กดบันทึกรับคืน</div><div class="d">ชื่อ "ผู้รับคืน" ระบุเป็นชื่อผู้ใช้ที่ล็อกอินอยู่โดยอัตโนมัติ</div></div></div>
       </div>
+      <figure class="m-shot"><img src="./manual-assets/07-return-landing.jpg" alt="หน้าจอเลือกกล่องเพื่อรับคืน"><figcaption>หน้ารับคืน — กล่องที่ค้างรับคืนนานกว่า/ใกล้ยาหมดอายุจะเรียงขึ้นบนสุดพร้อมป้ายจำนวนวันค้าง</figcaption></figure>
       <div class="m-callout info"><span class="ic">🔄</span><div>กล่องที่รับคืนแล้วจะ<strong>กลับไปสถานะ "ยังไม่เตรียม" โดยอัตโนมัติ</strong> — ต้องผ่านขั้นตอนลงทะเบียน 2 ขั้นตอนใหม่ทั้งหมด (เติมยา + ตรวจสอบยืนยัน) ก่อนจึงจะจ่ายออกครั้งต่อไปได้ เพื่อให้แน่ใจว่ากล่องที่เคยถูกเปิดใช้บางส่วนจะถูกตรวจนับและเติมให้ครบก่อนนำไปใช้ซ้ำเสมอ</div></div>
     </section>
 
@@ -275,6 +294,11 @@
         <div class="m-step"><div class="n">2</div><div><div class="t">ขณะกล่องถูกจ่ายออกอยู่ กดปุ่ม "เปิดใช้งานกล่อง"</div><div class="d">ใส่รหัส PIN ประจำหน่วยงาน (ได้รับจากผู้ดูแลระบบ) เพื่อยืนยันตัวตนของหน่วยงานที่บันทึก</div></div></div>
         <div class="m-step"><div class="n">3</div><div><div class="t">เลือกยา/ล็อตที่ใช้ ระบุจำนวน HN และชื่อผู้ป่วย</div><div class="d">ระบบจะตรวจสอบจำนวนคงเหลือให้อัตโนมัติ ไม่สามารถบันทึกเกินจำนวนที่มีจริงในกล่องได้</div></div></div>
         <div class="m-step"><div class="n">4</div><div><div class="t">ตรวจทานหน้ายืนยัน แล้วกด "ยืนยันบันทึก"</div><div class="d">มีหน้าตรวจทานก่อนบันทึกจริงเสมอ เพื่อป้องกันการกดผิดยา/ผิดจำนวน</div></div></div>
+      </div>
+      <div class="m-shot-row">
+        <figure class="m-shot"><img src="./manual-assets/12-qr-box-view.jpg" alt="หน้าสถานะกล่องหลังสแกน QR"><figcaption>1. สแกน QR แล้วเห็นสถานะกล่องทันที — ไม่ต้องล็อกอิน</figcaption></figure>
+        <figure class="m-shot"><img src="./manual-assets/13-qr-pin-modal.jpg" alt="หน้าต่างกรอกรหัส PIN หน่วยงาน"><figcaption>2. กรอกรหัส PIN ประจำหน่วยงานเพื่อยืนยันตัวตน</figcaption></figure>
+        <figure class="m-shot"><img src="./manual-assets/14-qr-usage-form.jpg" alt="แบบฟอร์มบันทึกการใช้ยา"><figcaption>3. เลือกยา/ล็อตที่ใช้ ระบุจำนวนและ HN ผู้ป่วย</figcaption></figure>
       </div>
       <div class="m-callout warn"><span class="ic">🔔</span><div>การใช้ยาครั้งแรกของรอบ (หลังจ่ายออก) จะส่ง<strong>แจ้งเตือนทันทีเข้า LINE กลุ่มห้องยา</strong> ว่ากล่องถูกเปิดใช้งานแล้ว เพื่อให้ห้องยาเตรียมกล่องสำรอง/แผนเปลี่ยนกล่องได้ทัน — การใช้ยาครั้งถัดไปในรอบเดียวกันจะไม่ส่งซ้ำ</div></div>
       <div class="m-callout info"><span class="ic">🔒</span><div>รหัส PIN เป็นเพียงการยืนยันตัวตนของหน่วยงานเพื่อบันทึกชื่อผู้ทำรายการเท่านั้น ไม่ใช่รหัสผ่านเข้าระบบ — หากใส่ผิดติดต่อกัน 5 ครั้ง ระบบจะล็อกหน่วยงานนั้นชั่วคราว</div></div>
@@ -301,6 +325,7 @@
       <div class="m-sec-head"><div class="m-sec-icon">📜</div><div><h2>ประวัติ / Audit Log</h2><p>ย้อนดูได้ว่าใครทำอะไร เมื่อไหร่</p></div></div>
       <p>หน้า "ประวัติ" บันทึกทุกการทำรายการในระบบ ทุกบทบาทดูได้ สามารถกรองตามช่วงวันที่ (วันนี้ / 7 วัน / เดือนนี้ / ปีงบประมาณ / กำหนดเอง) และประเภทรายการ (จ่าย / รับคืน / ลงทะเบียน / แก้ไข / เข้าออกระบบ / ผู้ใช้)</p>
       <div class="m-callout info"><span class="ic">📤</span><div>การ Export เป็นไฟล์ CSV จำกัดไว้สำหรับ Admin เท่านั้น ระบบจะดึงข้อมูลให้ครบถ้วนเสมอแม้เลือกช่วงเวลาย้อนหลังนานกว่าที่แสดงบนหน้าจอปกติ</div></div>
+      <figure class="m-shot"><img src="./manual-assets/09-history.jpg" alt="หน้าจอทะเบียนจ่าย-รับคืน Emergency Box"><figcaption>ประวัติ/Audit Log — กรองตามช่วงวันที่และค้นหาได้ พร้อมปุ่มส่งออก CSV (เฉพาะ Admin)</figcaption></figure>
     </section>
 
     <section id="users">
@@ -311,6 +336,7 @@
         <li><strong>เปลี่ยนรหัสผ่าน</strong> — Admin ตั้งรหัสผ่านใหม่ให้ผู้ใช้ได้โดยตรง</li>
       </ul>
       <div class="m-callout warn"><span class="ic">🛡️</span><div>ระบบจะ<strong>ไม่ยอมให้ลด/ระงับ/ลบแอดมินคนสุดท้าย</strong>ที่ยังใช้งานอยู่ เพื่อป้องกันไม่ให้ไม่มีใครเข้าถึงสิทธิ์ผู้ดูแลระบบได้เลย</div></div>
+      <figure class="m-shot"><img src="./manual-assets/10-users.jpg" alt="หน้าจอจัดการผู้ใช้งานระบบและสิทธิ์ตามบทบาท"><figcaption>จัดการผู้ใช้งาน — ตารางผู้ใช้ทั้งหมด พร้อมตารางสิทธิ์การใช้งานตามบทบาท (RBAC) ด้านล่าง</figcaption></figure>
     </section>
 
     <section id="pins">
@@ -322,6 +348,7 @@
     <section id="kpi">
       <div class="m-sec-head"><div class="m-sec-icon">📈</div><div><h2>KPI Dashboard</h2><p>สำหรับ Admin — ตัวชี้วัดคุณภาพงานแบบเรียลไทม์</p></div></div>
       <p>รวมตัวชี้วัดสำคัญของงานห้องยาไว้ในที่เดียว เช่น ร้อยละความพร้อมใช้งานของกล่องฉุกเฉิน เวลาเฉลี่ยในการตรวจสอบ/ยืนยัน จำนวนครั้งที่ถูกตีกลับ และอัตราความสำเร็จของการบันทึกข้อมูล โดยอัปเดตแบบเรียลไทม์ไม่ต้องกดรีเฟรช สามารถเลือกช่วงเวลาที่ต้องการดู และ Export เป็น CSV หรือ PDF ได้</p>
+      <figure class="m-shot"><img src="./manual-assets/11-kpi.jpg" alt="หน้าจอ KPI Dashboard ตัวชี้วัดผลงานนวัตกรรม"><figcaption>KPI Dashboard — สรุปตัวชี้วัดผ่านเป้าหมาย พร้อมการ์ดรายตัวชี้วัด แนวโน้ม และปุ่มดูรายละเอียด</figcaption></figure>
     </section>
 
     <section id="install">
