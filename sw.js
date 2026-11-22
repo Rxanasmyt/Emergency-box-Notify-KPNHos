@@ -1,4 +1,4 @@
-const CACHE_NAME = 'eb-notify-v2.56.0';
+const CACHE_NAME = 'eb-notify-v2.57.0';
 const PRECACHE_URLS = ['./index.html','./support.js','./manifest.json','./icons/icon-192.svg','./icons/icon-512.svg','./icons/icon-192-maskable.svg','./icons/icon-512-maskable.svg','./firebase-init.js','./firebase-sync.js','./notify.js'];
 const CDN_PATTERNS = ['fonts.gstatic.com','unpkg.com/react','unpkg.com/react-dom','cdnjs.cloudflare.com','gstatic.com/firebasejs'];
 
@@ -14,6 +14,13 @@ self.addEventListener('fetch', event => {
   if (url.hostname.includes('firestore.googleapis.com') || url.hostname.includes('firebaseio.com') || url.hostname.includes('identitytoolkit.googleapis.com') || url.hostname.includes('securetoken.googleapis.com')) return;
   const isCDN = CDN_PATTERNS.some(p => url.href.includes(p));
   if (isCDN) { event.respondWith(cacheFirst(event.request)); return; }
+  // App code (our own .js files — firebase-sync.js, notify.js, support.js …) is
+  // network-first: these were cache-first under a fixed CACHE_NAME, so a phone
+  // that had visited once kept running the OLD firebase-sync.js against a NEW
+  // index.html indefinitely (e.g. the login screen's live box status never
+  // loaded because the cached firebase-sync.js had no startLoginBoxes). Large
+  // vendored libs, fonts and images stay cache-first.
+  if (url.origin === location.origin && /\.js$/i.test(url.pathname) && !url.pathname.includes('/vendor/')) { event.respondWith(networkFirst(event.request)); return; }
   if (url.origin === location.origin && /\.(js|svg|css|png|jpg|woff2?|ttf)$/i.test(url.pathname)) { event.respondWith(cacheFirst(event.request)); return; }
   event.respondWith(networkFirst(event.request));
 });
