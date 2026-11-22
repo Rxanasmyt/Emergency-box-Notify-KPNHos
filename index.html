@@ -229,8 +229,15 @@
   /* desktop only: enlarge both context panels (text, icons, padding scale together) */
   @media (min-width: 1081px) {
     .login-cols { justify-content: center !important; align-items: flex-start !important; gap: 56px !important; }
-    .login-side-panel { zoom: 1.18; flex: 0 1 293px !important; max-width: 293px !important; margin-top: 34px; }
+    .login-side-panel { zoom: 1.18; flex: 0 1 293px !important; max-width: 293px !important; margin-top: 0; }
   }
+  .login-live-wrap { margin-top: 14px; }
+  @media (min-width: 1081px) { .login-live-wrap { zoom: .85; } }
+  /* full-screen desktop (≥1081px wide): trim bottom gutter so the whole login
+     screen — including the live box status card — fits a 1080px-tall window
+     without scrolling; on shorter windows the side panels drop their 1.18 zoom */
+  @media (min-width: 1081px) { .login-cols { padding-bottom: 8px !important; } }
+  @media (min-width: 1081px) and (max-height: 1000px) { .login-side-panel { zoom: 1 !important; } .login-live-wrap { zoom: 1 !important; } }
   .login-feature-row { transition: background .2s; }
   .login-feature-row:hover { background: rgba(255,255,255,.07); }
   .login-icon-halo {
@@ -1550,50 +1557,30 @@ select:focus-visible, textarea:focus-visible, [role="button"]:focus-visible {
             <div style="font-size: 11.5px; color: rgba(255,255,255,.6);">สิ่งที่ระบบดูแลให้โดยอัตโนมัติ</div>
           </div>
         </div>
-        <!-- quick-stat strip — a compact "dashboard preview" feel for anyone
-             sizing up the system before ever logging in (fixed, descriptive
-             facts about the app itself, not live Firestore data — this
-             screen never authenticates) -->
-        <div style="display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-bottom: 16px;">
-          <div style="text-align: center; padding: 9px 4px; border-radius: 10px; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.08);">
-            <div style="font-family: 'Sora', 'Bai Jamjuree', sans-serif; font-size: 18px; font-weight: 800; color: #6FE3C0;">10</div>
-            <div style="font-size: 10px; color: rgba(255,255,255,.58); margin-top: 1px;">กล่อง EB</div>
-          </div>
-          <div style="text-align: center; padding: 9px 4px; border-radius: 10px; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.08);">
-            <div style="font-family: 'Sora', 'Bai Jamjuree', sans-serif; font-size: 18px; font-weight: 800; color: #6FE3C0;">4</div>
-            <div style="font-size: 10px; color: rgba(255,255,255,.58); margin-top: 1px;">บทบาทผู้ใช้</div>
-          </div>
-          <div style="text-align: center; padding: 9px 4px; border-radius: 10px; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.08);">
-            <div style="font-family: 'Sora', 'Bai Jamjuree', sans-serif; font-size: 18px; font-weight: 800; color: #6FE3C0;">24/7</div>
-            <div style="font-size: 10px; color: rgba(255,255,255,.58); margin-top: 1px;">ซิงค์เรียลไทม์</div>
-          </div>
-        </div>
         <div style="display: flex; flex-direction: column; gap: 4px; position: relative;">
           <!-- flow-map rail connecting the 4 feature icon tiles (34px tile → center at 17px), with a droplet traveling down it -->
           <div style="position: absolute; left: 28px; top: 28px; bottom: 17px; width: 2px; background: linear-gradient(180deg, rgba(255,255,255,.22), rgba(255,255,255,.06)); z-index: 0;">
             <span style="position: absolute; left: -2px; width: 6px; height: 6px; border-radius: 50%; background: #6FE3C0; box-shadow: 0 0 6px rgba(111,227,192,.85); animation: loginRailDrop 2.6s ease-in infinite;"></span>
           </div>
-          <div class="login-feature-row" style="display: flex; align-items: center; gap: 12px; padding: 12px 8px; border-radius: 12px; border-bottom: 1px solid rgba(255,255,255,.08); position: relative; z-index: 1;">
+          <div class="login-feature-row" style="display: flex; align-items: center; gap: 12px; padding: 8px 8px; border-radius: 12px; border-bottom: 1px solid rgba(255,255,255,.08); position: relative; z-index: 1;">
             <span style="width: 40px; height: 40px; flex-shrink: 0; border-radius: 12px; background: rgba(255,255,255,.12); display: flex; align-items: center; justify-content: center;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6z" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/><path d="M10 20a2 2 0 0 0 4 0" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg></span>
             <div><div style="font-size: 13px; font-weight: 600;">แจ้งเตือนยาใกล้หมดอายุ</div><div style="font-size: 11.5px; color: rgba(255,255,255,.58);">ล่วงหน้า 15 วัน ผ่าน LINE และ Email</div></div><svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="flex-shrink: 0; margin-left: auto; opacity: .45;"><path d="M9 6l6 6-6 6" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </div>
-          <div class="login-feature-row" style="display: flex; align-items: center; gap: 12px; padding: 12px 8px; border-radius: 12px; border-bottom: 1px solid rgba(255,255,255,.08); position: relative; z-index: 1;">
+          <div class="login-feature-row" style="display: flex; align-items: center; gap: 12px; padding: 8px 8px; border-radius: 12px; border-bottom: 1px solid rgba(255,255,255,.08); position: relative; z-index: 1;">
             <span style="width: 40px; height: 40px; flex-shrink: 0; border-radius: 12px; background: rgba(255,255,255,.12); display: flex; align-items: center; justify-content: center;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3z" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/></svg></span>
             <div><div style="font-size: 13px; font-weight: 600;">สิทธิ์ตามบทบาท (RBAC)</div><div style="font-size: 11.5px; color: rgba(255,255,255,.58);">Admin · เภสัชกร · จพ. · พยาบาล แยกสิทธิ์ชัดเจน</div></div><svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="flex-shrink: 0; margin-left: auto; opacity: .45;"><path d="M9 6l6 6-6 6" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </div>
-          <div class="login-feature-row" style="display: flex; align-items: center; gap: 12px; padding: 12px 8px; border-radius: 12px; border-bottom: 1px solid rgba(255,255,255,.08); position: relative; z-index: 1;">
+          <div class="login-feature-row" style="display: flex; align-items: center; gap: 12px; padding: 8px 8px; border-radius: 12px; border-bottom: 1px solid rgba(255,255,255,.08); position: relative; z-index: 1;">
             <span style="width: 40px; height: 40px; flex-shrink: 0; border-radius: 12px; background: rgba(255,255,255,.12); display: flex; align-items: center; justify-content: center;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M9 3h6l1 3h3v3l-2 1 2 10H5L7 10l-2-1V6h3l1-3z" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg></span>
             <div><div style="font-size: 13px; font-weight: 600;">Audit Log ทุกการทำรายการ</div><div style="font-size: 11.5px; color: rgba(255,255,255,.58);">ย้อนดูได้ว่าใครทำอะไร เมื่อไหร่</div></div><svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="flex-shrink: 0; margin-left: auto; opacity: .45;"><path d="M9 6l6 6-6 6" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </div>
-          <div class="login-feature-row" style="display: flex; align-items: center; gap: 12px; padding: 12px 8px; border-radius: 12px; position: relative; z-index: 1;">
+          <div class="login-feature-row" style="display: flex; align-items: center; gap: 12px; padding: 8px 8px; border-radius: 12px; position: relative; z-index: 1;">
             <span style="width: 40px; height: 40px; flex-shrink: 0; border-radius: 12px; background: rgba(255,255,255,.12); display: flex; align-items: center; justify-content: center;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M4 20V10M11 20V4M18 20v-7" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg></span>
             <div><div style="font-size: 13px; font-weight: 600;">KPI Dashboard</div><div style="font-size: 11.5px; color: rgba(255,255,255,.58);">ตัวชี้วัดคุณภาพแบบเรียลไทม์</div></div><svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="flex-shrink: 0; margin-left: auto; opacity: .45;"><path d="M9 6l6 6-6 6" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </div>
-          <div style="margin-top: 10px; text-align: center; position: relative; z-index: 1;">
-            <span style="display: inline-block; padding: 6px 14px; border: 1.5px dashed rgba(111,227,192,.5); border-radius: 20px; font-size: 11px; font-weight: 600; color: #6FE3C0;">ครบ 1 รอบ: ลงทะเบียน → จ่าย → ใช้ → รับคืน</span>
-          </div>
         </div>
       </div>
+      <div class="login-live-wrap">{{ loginBoxesEl }}</div>
     </div>
   </div>
 
@@ -2908,6 +2895,8 @@ class Component extends DCLogic {
     // flips true on listenBoxes()'s first onSnapshot callback — see
     // showInitialBoxesLoading in renderVals() for why this exists
     boxesSynced: false,
+    // login-screen live box status (see EB_Sync.startLoginBoxes)
+    loginBoxes: [], loginBoxesSynced: false, loginBoxesError: false,
     // set by firebase-sync.js's _onListenerError when boxes/audit_log/
     // box_drugs/users onSnapshot hits a TERMINAL error (Firestore's SDK
     // already retries transient blips internally, so this only fires when a
@@ -3863,6 +3852,7 @@ class Component extends DCLogic {
     } else {
       // Start users listener immediately so any device can login with any account
       if (window.EB_Sync) window.EB_Sync.initUsersOnly(this);
+      if (window.EB_Sync && window.EB_Sync.startLoginBoxes) window.EB_Sync.startLoginBoxes(this);
     }
   }
   // listenUsers() keeps state.users live for every logged-in device, but
@@ -5195,6 +5185,7 @@ class Component extends DCLogic {
     }));
     // anon auth already started in componentDidMount — just start remaining Firestore sync
     if (window.EB_Sync) {
+      if (window.EB_Sync.stopLoginBoxes) window.EB_Sync.stopLoginBoxes(); // authenticated listenBoxes() takes over
       window.EB_Sync.initFirebaseSync(this);
       this._syncT = setTimeout(() => { if (window.EB_Sync) window.EB_Sync.syncUsers(updatedU).catch(() => console.warn('[Login] lastLogin write failed')); }, 1500);
     }
@@ -5283,7 +5274,10 @@ class Component extends DCLogic {
     clearTimeout(this._lockT); clearTimeout(this._t); clearTimeout(this._a);
     clearTimeout(this._saveSuccessT); clearTimeout(this._ghT);
     clearInterval(this._idleCountI); clearInterval(this._notifyInterval); clearInterval(this._lockCountI);
-    if (window.EB_Sync) window.EB_Sync.stopSync();
+    if (window.EB_Sync) {
+      window.EB_Sync.stopSync();
+      if (window.EB_Sync.startLoginBoxes) window.EB_Sync.startLoginBoxes(this);
+    }
     this._stopKpiListeners();
     this.BOXES = [];
     this.BOX_DRUGS = {};
@@ -6876,6 +6870,60 @@ td.l{text-align:left;padding-left:4px}
 
     vals.rememberBoxEl = h('span', { key: 'rm_' + st.remember, style: { width: 20, height: 20, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', border: st.remember ? '1.5px solid #1A6FA3' : '1.5px solid #C4D0DA', background: st.remember ? '#1A6FA3' : '#fff' } },
       st.remember ? h('span', { style: { display: 'flex' }, dangerouslySetInnerHTML: { __html: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></svg>' } }) : null);
+
+    // ===== Login-screen live box status (all boxes, no login required) =====
+    // Fed by EB_Sync.startLoginBoxes (boxes collection only, non-personal
+    // fields). Shows stage/location/department/nearest expiry per box.
+    {
+      const _lb = st.loginBoxes || [];
+      const _lbInfo = (b) => {
+        const out = !!(b.dispense && !b.receiver);
+        const stage = b.registeredAt ? 'verified' : (b.preparedAt ? 'prepared' : 'none');
+        let badge;
+        if (out) badge = { t: 'จ่ายออก', c: '#FFC27A', bg: 'rgba(238,138,43,.18)' };
+        else if (stage === 'verified') badge = { t: 'พร้อมจ่าย', c: '#6FE3C0', bg: 'rgba(53,214,148,.16)' };
+        else if (stage === 'prepared') badge = { t: 'รอตรวจสอบ', c: '#FFE08A', bg: 'rgba(245,185,74,.16)' };
+        else if (b.rejectedAt) badge = { t: 'ตีกลับ', c: '#FF9D9D', bg: 'rgba(224,62,62,.2)' };
+        else badge = { t: 'ยังไม่จัดเตรียม', c: 'rgba(255,255,255,.62)', bg: 'rgba(255,255,255,.09)' };
+        const loc = out ? (b.dept || '—') : 'ห้องยา';
+        const hasExp = !!b.expiry && stage !== 'none';
+        const st2 = hasExp ? this.statusOf(b.expiry) : null;
+        const expColor = !st2 ? 'rgba(255,255,255,.4)' : st2.key === 'critical' ? '#FF9D9D' : st2.key === 'warning' ? '#FFD08A' : 'rgba(255,255,255,.72)';
+        return { out, stage, badge, loc, hasExp, st2, expColor };
+      };
+      const _lbCount = { ready: 0, out: 0, pending: 0 };
+      _lb.forEach(b => { const i = _lbInfo(b); if (i.out) _lbCount.out++; else if (i.stage === 'verified') _lbCount.ready++; else _lbCount.pending++; });
+      const _lbPill = (n, label, color) => h('span', { key: label, style: { display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'rgba(255,255,255,.75)' } },
+        h('span', { style: { width: 7, height: 7, borderRadius: '50%', background: color } }), `${label} `, h('b', { style: { color: '#fff' } }, n));
+      let _lbBody;
+      if (st.loginBoxesError && !st.loginBoxesSynced) {
+        _lbBody = h('div', { style: { fontSize: 12, color: 'rgba(255,255,255,.6)', padding: '14px 4px' } }, 'ไม่สามารถโหลดสถานะกล่องได้ในขณะนี้ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
+      } else if (!st.loginBoxesSynced) {
+        _lbBody = h('div', { style: { fontSize: 12, color: 'rgba(255,255,255,.6)', padding: '14px 4px' } }, 'กำลังโหลดสถานะกล่อง…');
+      } else if (!_lb.length) {
+        _lbBody = h('div', { style: { fontSize: 12, color: 'rgba(255,255,255,.6)', padding: '14px 4px' } }, 'ยังไม่มีข้อมูลกล่อง');
+      } else {
+        _lbBody = h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 7 } },
+          _lb.map(b => {
+            const i = _lbInfo(b);
+            return h('div', { key: b.id, title: b.nearDrug ? 'ยาที่ใกล้หมดอายุสุด: ' + b.nearDrug : '', style: { minWidth: 0, padding: '7px 9px', borderRadius: 10, background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.09)' } },
+              h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 } },
+                h('span', { style: { fontFamily: "'Sora','Bai Jamjuree',sans-serif", fontSize: 13, fontWeight: 800, color: '#fff' } }, b.id),
+                h('span', { style: { fontSize: 10.5, fontWeight: 700, color: i.badge.c, background: i.badge.bg, padding: '2px 7px', borderRadius: 20, whiteSpace: 'nowrap' } }, i.badge.t)),
+              h('div', { style: { fontSize: 10.5, marginTop: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'rgba(255,255,255,.7)' } },
+                (i.out ? '📤 ' : '🏥 ') + i.loc + ' · ', h('span', { style: { color: i.expColor } }, i.hasExp ? `Exp ${(() => { const d = this.parse(b.expiry); return d ? d.getDate() + ' ' + this.TH_MONTHS[d.getMonth()] + ' ' + String((d.getFullYear() + 543) % 100).padStart(2, '0') : '—'; })()}` : 'Exp —')));
+          }));
+      }
+      vals.loginBoxesEl = h('div', { className: 'login-glass-card', style: { padding: '16px 16px 14px' } },
+        h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 10 } },
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+            h('span', { style: { width: 8, height: 8, borderRadius: '50%', background: st.loginBoxesError ? '#E8A33D' : '#35D694', boxShadow: st.loginBoxesError ? '0 0 0 4px rgba(232,163,61,.2)' : '0 0 0 4px rgba(53,214,148,.2)' } }),
+            h('span', { style: { fontFamily: "'Sora','Bai Jamjuree',sans-serif", fontSize: 14, fontWeight: 700 } }, 'สถานะกล่อง EB แบบเรียลไทม์')),
+          h('span', { style: { fontSize: 10.5, color: 'rgba(255,255,255,.5)' } }, `${_lb.length || 0} กล่อง`)),
+        st.loginBoxesSynced && _lb.length ? h('div', { style: { display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 10 } },
+          _lbPill(_lbCount.ready, 'พร้อมจ่าย', '#35D694'), _lbPill(_lbCount.out, 'จ่ายออก', '#EE8A2B'), _lbPill(_lbCount.pending, 'รอดำเนินการ', '#F5B94A')) : null,
+        _lbBody);
+    }
 
     vals.loginBtnEl = h('button', {
       key: 'lb_' + st.locked,

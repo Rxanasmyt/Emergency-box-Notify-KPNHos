@@ -1,5 +1,5 @@
 (function(){'use strict';
-let db=null,component=null,unsubscribers=[],_usersUnsub=null,_publicListening=false;
+let db=null,component=null,unsubscribers=[],_usersUnsub=null,_publicListening=false,_loginBoxesUnsub=null,_loginBoxesGen=0;
 const C={boxes:'boxes',audit:'audit_log',users:'users',boxDrugs:'box_drugs',usageLog:'usage_log',appSettings:'app_settings',kpiEvents:'kpi_events',kpiInvestigations:'kpi_investigations',expiryActions:'expiry_actions',boxOpenActions:'box_open_actions'};
 
 // Called from componentDidMount — signs in anonymously and starts users listener
@@ -105,12 +105,43 @@ function _listenBoxOpenActionsInternal(){
   unsubscribers.push(unsub);
 }
 
+
+// Login-screen live box status (no login yet). Reads ONLY the boxes
+// collection and copies just the non-personal fields the login screen shows
+// (stage/location/department/nearest expiry) — never preparer/checker names,
+// drugs or lots. Gated on whenAuthReady() (page-boot Firestore access must
+// wait for anonymous sign-in), stopped the moment a login succeeds (the
+// authenticated listenBoxes() takes over), restarted on logout.
+function startLoginBoxes(comp){
+  if(!window.EB_Firebase||!comp)return;
+  if(_loginBoxesUnsub)return;
+  const gen=++_loginBoxesGen;
+  whenAuthReady().then(()=>{
+    if(gen!==_loginBoxesGen||_loginBoxesUnsub)return; // stopped or restarted while waiting for auth
+    const ldb=window.EB_Firebase.db;
+    _loginBoxesUnsub=ldb.collection(C.boxes).onSnapshot(snap=>{
+      const boxes=[];
+      snap.forEach(doc=>{
+        const d=doc.data();
+        boxes.push({id:doc.id,dept:d.dept||'',dispense:d.dispense||'',receiver:d.receiver||'',expiry:d.expiry||'',nearDrug:d.nearDrug||'',preparedAt:d.preparedAt||'',registeredAt:d.registeredAt||'',rejectedAt:d.rejectedAt||''});
+      });
+      boxes.sort((a,b)=>{const n=(x)=>parseInt(x.replace(/\D/g,''),10)||0;return n(a.id)-n(b.id);});
+      comp.setState({loginBoxes:boxes,loginBoxesSynced:true,loginBoxesError:false});
+    },err=>{console.warn('[Sync] Login boxes error:',err.message);comp.setState({loginBoxesError:true});});
+  }).catch(()=>{if(gen===_loginBoxesGen)comp.setState({loginBoxesError:true});});
+}
+function stopLoginBoxes(){
+  _loginBoxesGen++;
+  if(_loginBoxesUnsub){_loginBoxesUnsub();_loginBoxesUnsub=null;}
+}
+
 // Called on logout — stops boxes/audit/boxDrugs; users listener stays active for next login
 function stopSync(){unsubscribers.forEach(fn=>fn());unsubscribers=[];_publicListening=false;}
 
 // Called on componentWillUnmount — stops everything
 function stopAll(){
   stopSync();
+  stopLoginBoxes();
   _publicListening=false;
   if(_usersUnsub){_usersUnsub();_usersUnsub=null;}
   component=null;
@@ -756,5 +787,5 @@ function syncDeptPins(pins){
   return db.collection(C.appSettings).doc('dept_pins').set(pins,{merge:true})
     .catch(err=>{console.error('[Sync] syncDeptPins failed:',err.message);throw err;});
 }
-window.EB_Sync={whenAuthReady,initUsersOnly,initFirebaseSync,startPublicSync,stopSync,stopAll,logAudit,syncBoxes,syncUsers,deleteUser,guardedAdminChangeTx,syncBoxDrugs,returnBoxAndDrugsTx,saveEditDrugsTx,logDrugUsageTx,listenUsageLog,listenAllUsageLog,getDeptPins,syncDeptPins,fetchAuditRange,fetchUsageLogRange,fetchBoxHistory,logKpiEvent,fetchKpiEvents,listenKpiEvents,logKpiInvestigation,fetchKpiInvestigations,listenKpiInvestigations,syncExpiryAction,listenExpiryActions,syncBoxOpenAction,listenBoxOpenActions};
+window.EB_Sync={startLoginBoxes,stopLoginBoxes,whenAuthReady,initUsersOnly,initFirebaseSync,startPublicSync,stopSync,stopAll,logAudit,syncBoxes,syncUsers,deleteUser,guardedAdminChangeTx,syncBoxDrugs,returnBoxAndDrugsTx,saveEditDrugsTx,logDrugUsageTx,listenUsageLog,listenAllUsageLog,getDeptPins,syncDeptPins,fetchAuditRange,fetchUsageLogRange,fetchBoxHistory,logKpiEvent,fetchKpiEvents,listenKpiEvents,logKpiInvestigation,fetchKpiInvestigations,listenKpiInvestigations,syncExpiryAction,listenExpiryActions,syncBoxOpenAction,listenBoxOpenActions};
 })();
