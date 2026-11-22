@@ -126,7 +126,11 @@ function startLoginBoxes(comp){
         boxes.push({id:doc.id,dept:d.dept||'',dispense:d.dispense||'',receiver:d.receiver||'',expiry:d.expiry||'',nearDrug:d.nearDrug||'',preparedAt:d.preparedAt||'',registeredAt:d.registeredAt||'',rejectedAt:d.rejectedAt||''});
       });
       boxes.sort((a,b)=>{const n=(x)=>parseInt(x.replace(/\D/g,''),10)||0;return n(a.id)-n(b.id);});
-      comp.setState({loginBoxes:boxes,loginBoxesSynced:true,loginBoxesError:false});
+      // fromCache=true means the SDK is serving local data because it can't reach
+      // the server right now — the login screen labels that so a stale status
+      // is never mistaken for live.
+      let at='';try{at=new Date().toLocaleTimeString('en-GB',{timeZone:'Asia/Bangkok',hour:'2-digit',minute:'2-digit',hour12:false});}catch(_){}
+      comp.setState({loginBoxes:boxes,loginBoxesSynced:true,loginBoxesError:false,loginBoxesAt:at,loginBoxesCached:!!(snap.metadata&&snap.metadata.fromCache)});
     },err=>{console.warn('[Sync] Login boxes error:',err.message);comp.setState({loginBoxesError:true});});
   }).catch(()=>{if(gen===_loginBoxesGen)comp.setState({loginBoxesError:true});});
 }

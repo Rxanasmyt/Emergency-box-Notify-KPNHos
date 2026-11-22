@@ -1,4 +1,4 @@
-const CACHE_NAME = 'eb-notify-v2.57.0';
+const CACHE_NAME = 'eb-notify-v2.58.0';
 const PRECACHE_URLS = ['./index.html','./support.js','./manifest.json','./icons/icon-192.svg','./icons/icon-512.svg','./icons/icon-192-maskable.svg','./icons/icon-512-maskable.svg','./firebase-init.js','./firebase-sync.js','./notify.js'];
 const CDN_PATTERNS = ['fonts.gstatic.com','unpkg.com/react','unpkg.com/react-dom','cdnjs.cloudflare.com','gstatic.com/firebasejs'];
 
@@ -12,6 +12,8 @@ self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   if (event.request.method !== 'GET') return;
   if (url.hostname.includes('firestore.googleapis.com') || url.hostname.includes('firebaseio.com') || url.hostname.includes('identitytoolkit.googleapis.com') || url.hostname.includes('securetoken.googleapis.com')) return;
+  // sw.js itself is polled by the page (new-version check) with cache-busting URLs — never cache it.
+  if (url.origin === location.origin && url.pathname.endsWith('/sw.js')) return;
   const isCDN = CDN_PATTERNS.some(p => url.href.includes(p));
   if (isCDN) { event.respondWith(cacheFirst(event.request)); return; }
   // App code (our own .js files — firebase-sync.js, notify.js, support.js …) is

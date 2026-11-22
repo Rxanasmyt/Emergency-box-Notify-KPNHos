@@ -63,6 +63,19 @@ while ((match = scriptRe.exec(html))) {
   }
 }
 
+// index.html's APP_VERSION must equal sw.js's CACHE_NAME suffix, or the login
+// screen's "new version available" check would loop / never fire.
+{
+  const swSrc = fs.readFileSync(path.join(__dirname, '..', '..', 'sw.js'), 'utf8');
+  const swV = /CACHE_NAME\s*=\s*'eb-notify-v([\d.]+)'/.exec(swSrc);
+  const appV = /get APP_VERSION\(\)\s*\{\s*return '([\d.]+)'/.exec(html);
+  if (!swV || !appV || swV[1] !== appV[1]) {
+    console.error(`❌ version mismatch: sw.js CACHE_NAME=${swV && swV[1]} vs index.html APP_VERSION=${appV && appV[1]} — bump both together.`);
+    process.exit(1);
+  }
+  console.log(`✅ app version in sync: ${appV[1]}`);
+}
+
 if (!count) {
   console.error('❌ no inline <script> tags found in index.html — the extraction regex may be broken, or index.html was restructured. Fix this check, do not just ignore it.');
   process.exit(1);
