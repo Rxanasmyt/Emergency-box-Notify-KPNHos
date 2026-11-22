@@ -31,7 +31,7 @@
 <meta name="theme-color" content="#1A6FA3">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="EB Notify">
 <link rel="manifest" href="./manifest.json">
 <script>
@@ -142,6 +142,16 @@
 <style>
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; }
+  /* iOS installed-app (standalone) status bar: "black-translucent" lets the
+     login screen's gradient run under the clock/battery instead of a white
+     band. Everywhere else (authenticated app, public QR page) a solid brand
+     strip + matching body padding keeps white status-bar text readable and
+     the layout below it unchanged. env(safe-area-inset-top) is 0 outside iOS
+     standalone, so this is a no-op in a normal browser tab. */
+  body::before { content: ''; position: fixed; top: 0; left: 0; right: 0; height: env(safe-area-inset-top, 0px); background: #14506E; z-index: 99999; pointer-events: none; }
+  body:has(.login-wrap)::before { display: none; }
+  body:not(:has(.login-wrap)) { padding-top: env(safe-area-inset-top, 0px); }
+  body:not(:has(.login-wrap)) .app-wrap { height: calc(100vh - env(safe-area-inset-top, 0px)) !important; }
   body { font-family: 'IBM Plex Sans Thai', sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
 
   /* ===== Scrollbar ===== */
