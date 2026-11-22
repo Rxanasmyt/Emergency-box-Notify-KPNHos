@@ -89,7 +89,7 @@ function _listenExpiryActionsInternal(){
   const unsub=listenExpiryActions((rows,err)=>{
     if(err||!component)return;
     const byId={};rows.forEach(r=>{byId[r.id]=r;});
-    component.setState({expiryActions:byId});
+    component.setState({expiryActions:byId,expiryActionsSynced:true});
   });
   unsubscribers.push(unsub);
 }
@@ -100,7 +100,7 @@ function _listenBoxOpenActionsInternal(){
   const unsub=listenBoxOpenActions((rows,err)=>{
     if(err||!component)return;
     const byId={};rows.forEach(r=>{byId[r.id]=r;});
-    component.setState({boxOpenActions:byId});
+    component.setState({boxOpenActions:byId,boxOpenActionsSynced:true});
   });
   unsubscribers.push(unsub);
 }
@@ -270,6 +270,7 @@ function listenBoxDrugs(){
     const bd={};snap.forEach(doc=>{const d=doc.data();const boxId=d.boxId||doc.id;if(boxId&&d.drugs)bd[boxId]=d.drugs;});
     // always update BOX_DRUGS — authoritative source for current Firestore data
     component.BOX_DRUGS=bd;
+    component.setState({boxDrugsSynced:true}); // first-snapshot marker — gates the post-login "today's tasks" check
     // block state update entirely only while user is actively editing drug lots on the
     // Detail screen (editDrugs=true) — that editor has its own conflict check at save time.
     // this prevents listener from clobbering in-progress drug edits

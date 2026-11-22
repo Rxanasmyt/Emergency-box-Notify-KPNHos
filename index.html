@@ -308,6 +308,7 @@
   /* ===== Login on phones: smooth + fills the screen ===== */
   .login-wrap button, .login-wrap a, .login-wrap input { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
   .login-opt-btn { padding: 4px 2px !important; }
+  @media (pointer: coarse), (max-width: 1080px) { .login-intent-chip { padding: 8px 12px !important; font-size: 12px !important; min-height: 36px; } }
   @media (pointer: coarse), (max-width: 1080px) { .login-opt-btn { padding: 10px 2px !important; min-height: 44px; } }
   /* no white rubber-band flash when over-scrolling the login screen */
   html:has(.login-wrap) { background: #14506E; overscroll-behavior-y: none; }
@@ -2844,6 +2845,9 @@ select:focus-visible, textarea:focus-visible, [role="button"]:focus-visible {
   <!-- Change-password modal (React-rendered) -->
   {{ changePwModalEl }}
 
+  <!-- Post-login "today's tasks" blocking modal (React-rendered) -->
+  {{ todayTasksEl }}
+
   <!-- Expiry-alert resolve modal (React-rendered) -->
   {{ expiryActionModalEl }}
 
@@ -2943,6 +2947,9 @@ class Component extends DCLogic {
     // login-screen live box status (see EB_Sync.startLoginBoxes)
     loginBoxes: [], loginBoxesSynced: false, loginBoxesError: false,
     forgotOpen: false,
+    // post-login "today's tasks" gate (see _maybeOpenTasks) + login-screen intent chip
+    tasksOpen: false, tasksAcked: {}, tasksBusy: false, loginIntent: '',
+    boxDrugsSynced: false, expiryActionsSynced: false, boxOpenActionsSynced: false,
     newVersion: '', loginBoxesAt: '', loginBoxesCached: false,
     // set by firebase-sync.js's _onListenerError when boxes/audit_log/
     // box_drugs/users onSnapshot hits a TERMINAL error (Firestore's SDK
@@ -3108,7 +3115,7 @@ class Component extends DCLogic {
   // and daysLeft shown in the alert banner could differ by ±1 from what
   // register/detail screens compute for the very same lot.
   // Must equal sw.js's CACHE_NAME suffix — .github/scripts/check-syntax.js fails the deploy if they differ.
-  get APP_VERSION() { return '2.58.0'; }
+  get APP_VERSION() { return '2.59.0'; }
   get TODAY() { const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Bangkok' })); d.setHours(0,0,0,0); return d; }
 
   DRUGS = [
@@ -3309,7 +3316,7 @@ class Component extends DCLogic {
         this._pubPinLockT = setTimeout(() => {
           try { sessionStorage.removeItem(this._pubPinLockKey(dept)); sessionStorage.removeItem(this._pubPinAttemptsKey(dept)); } catch (_) {}
           clearInterval(this._pubPinLockCountI);
-    clearTimeout(this._verT); clearInterval(this._verI);
+    clearTimeout(this._verT); clearInterval(this._verI); clearTimeout(this._tasksFallbackT);
           this.setState({ pubPinLocked: false, pubPinAttempts: 0, pubPinError: '', pubPinLockCountdown: 0 });
         }, remaining);
         this._pubPinLockCountI = setInterval(() => { this.setState(s => ({ pubPinLockCountdown: Math.max(0, s.pubPinLockCountdown - 1) })); }, 1000);
@@ -3935,6 +3942,128 @@ class Component extends DCLogic {
     } else if (me.role !== this.state.currentUser.role) {
       this.setState({ currentUser: { ...this.state.currentUser, role: me.role } });
     }
+    this._maybeOpenTasks(false);
+  }
+
+  // ---------- post-login "งานที่ต้องจัดการวันนี้" gate ----------
+  // Every login, once the first snapshots of boxes / box_drugs / expiry_actions /
+  // box_open_actions have all landed (or an 8s fallback fires), collect the work
+  // that is still outstanding for THIS user's role. If any exists a blocking
+  // modal opens and the user must press "รับทราบ" on at least one item before
+  // continuing (item-level acks by a pharmacist/admin write the real
+  // expiry_actions / box_open_actions ack; everyone's acknowledgement is also
+  // written to audit_log). Nothing here is persisted "dismissed" — it
+  // reappears on every login while tasks remain, by request.
+  _collectTodayTasks() {
+    const u = this.state.currentUser;
+    if (!u) return [];
+    const verifier = this._canVerifyReg(), nurse = u.role === 'nurse';
+    const myDept = String(u.dept || '').toUpperCase();
+    const deptMatch = (d) => { const x = String(d || '').toUpperCase(); return !!myDept && !!x && (myDept.includes(x) || x.includes(myDept)); };
+    const expA = this.state.expiryActions || {}, boxA = this.state.boxOpenActions || {};
+    const tasks = [];
+    let alerts = this.state.expiryAlerts || [];
+    try { if (window.EB_Notify) alerts = window.EB_Notify.findExpiringDrugs(this, window.EB_Notify.loadSettings().thresholdDays); } catch (_) {}
+    alerts.forEach(a => {
+      const expired = a.status === 'expired' || a.status === 'expired_today';
+      if (!(expired || a.status === 'critical')) return;
+      if (nurse && !deptMatch(a.dept)) return;
+      const act = expA[this._expiryActionKey(a.boxId, a.drugName, a.expiry)];
+      const s = act ? act.status : 'none';
+      if (s === 'resolved') return;
+      tasks.push({
+        key: `exp|${a.boxId}|${a.drugName}|${a.expiry}`, group: 'expiry', boxId: a.boxId, sort: a.daysLeft,
+        title: a.drugName + (a.isHAD ? ' ⚠ HAD' : ''),
+        detail: a.daysLeft < 0 ? `หมดอายุแล้ว ${-a.daysLeft} วัน` : a.daysLeft === 0 ? 'หมดอายุวันนี้' : `เหลือ ${a.daysLeft} วันถึงวันหมดอายุ · ถึงกำหนดส่งคืนแล้ว`,
+        sub: s === 'acknowledged' ? `🟡 รับทราบแล้วโดย ${act.ackBy || '—'} — รอบันทึกการดำเนินการ` : '🔴 ยังไม่รับทราบ',
+        color: expired ? '#B42121' : '#C2410C', real: verifier && s === 'none' ? 'expiry' : null, a, goto: 'expiry',
+      });
+    });
+    this.BOXES.forEach(b => {
+      const out = !!(b.dispense && !b.receiver);
+      if (verifier && out && b.openedAt) {
+        const act = boxA[this._boxOpenActionKey(b.id, b.openedAt)];
+        const s = act ? act.status : 'none';
+        if (s !== 'resolved') tasks.push({
+          key: `open|${b.id}|${b.openedAt}`, group: 'open', boxId: b.id, sort: 0,
+          title: `เปิดใช้งานแล้ว — ต้องเรียกคืน/เปลี่ยนกล่อง (${b.dept || '—'})`, detail: `เปิดเมื่อ ${this.fmtISO(b.openedAt)}`,
+          sub: s === 'acknowledged' ? `🟡 รับทราบแล้วโดย ${act.ackBy || '—'}` : '🔴 ยังไม่รับทราบ',
+          color: '#C2410C', real: s === 'none' ? 'boxopen' : null, goto: 'boxopen', openedAt: b.openedAt,
+        });
+      }
+      if (out && (verifier || (nurse && deptMatch(b.dept)))) {
+        const d = this.parse(b.dispense);
+        const daysOut = d ? -this.daysBetween(d) : 0;
+        if (daysOut > 30) tasks.push({
+          key: `long|${b.id}`, group: 'long', boxId: b.id, sort: -daysOut,
+          title: `กล่องอยู่ที่ ${b.dept || '—'} นานเกิน 30 วัน`, detail: `จ่ายออกมาแล้ว ${daysOut} วัน — ควรรับคืน`, sub: '', color: '#B5740F', real: null, goto: verifier ? 'return' : null,
+        });
+      }
+      if (!nurse && this._regStage(b) === 'none' && b.rejectedAt) tasks.push({
+        key: `rej|${b.id}`, group: 'rejected', boxId: b.id, sort: 0,
+        title: 'ถูกตีกลับให้แก้ไข', detail: b.rejectedReason || 'ไม่ได้ระบุเหตุผล', sub: '', color: '#B42121', real: null, goto: 'fix',
+      });
+      if (verifier && this._regStage(b) === 'prepared') tasks.push({
+        key: `pend|${b.id}`, group: 'pending', boxId: b.id, sort: 0,
+        title: 'จพ. จัดเตรียมเสร็จ — รอตรวจสอบ', detail: `เตรียมโดย ${b.preparer || '—'}`, sub: '', color: '#B5740F', real: null, goto: 'verify',
+      });
+    });
+    const order = { expiry: 0, open: 1, long: 2, rejected: 3, pending: 4 };
+    tasks.sort((x, y) => (order[x.group] - order[y.group]) || (x.sort - y.sort) || String(x.boxId).localeCompare(String(y.boxId), undefined, { numeric: true }));
+    return tasks;
+  }
+  _maybeOpenTasks(force) {
+    if (this._tasksChecked) return;
+    const st = this.state;
+    if (!st.authed || !st.currentUser) return;
+    if (!force && !(st.boxesSynced && st.boxDrugsSynced && st.expiryActionsSynced && st.boxOpenActionsSynced)) return;
+    this._tasksChecked = true;
+    clearTimeout(this._tasksFallbackT);
+    this._tasks = this._collectTodayTasks();
+    if (this._tasks.length) this.setState({ tasksOpen: true, tasksAcked: {}, tasksBusy: false });
+    else this._applyLoginIntent();
+  }
+  async ackTask(key) {
+    if (this.state.tasksBusy || this.state.tasksAcked[key]) return;
+    const t = (this._tasks || []).find(x => x.key === key);
+    if (!t) return;
+    this.setState({ tasksBusy: true });
+    let ok = true;
+    try {
+      if (t.real === 'expiry') ok = await this.ackExpiryAlert(t.a);
+      else if (t.real === 'boxopen') { const b = this.BOXES.find(x => x.id === t.boxId); ok = b ? await this.ackBoxOpen(b) : false; }
+    } catch (_) { ok = false; }
+    this.setState(s => ({ tasksBusy: false, tasksAcked: ok === false ? s.tasksAcked : { ...s.tasksAcked, [key]: true } }));
+  }
+  async ackAllTasks() {
+    for (const t of (this._tasks || [])) { if (!this.state.tasksAcked[t.key]) await this.ackTask(t.key); }
+  }
+  finishTasks(gotoKey) {
+    const n = Object.keys(this.state.tasksAcked || {}).length;
+    if (n < 1) return; // the whole point: at least one explicit acknowledgement first
+    this.logAction({ cat: 'other', action: 'รับทราบงานค้างวันนี้', eb: '—', dept: '—', drug: `${n}/${(this._tasks || []).length} รายการ` });
+    this.setState({ tasksOpen: false });
+    const t = gotoKey ? (this._tasks || []).find(x => x.key === gotoKey) : null;
+    if (t) { this.setState({ loginIntent: '' }); this._gotoTask(t); } else this._applyLoginIntent();
+  }
+  _gotoTask(t) {
+    if (!t) return;
+    if (t.goto === 'expiry') this._armHighlightAlert('expiry', { boxId: t.boxId, drugName: t.a.drugName, expiry: t.a.expiry });
+    else if (t.goto === 'boxopen') this._armHighlightAlert('boxopen', { boxId: t.boxId, openedAt: t.openedAt });
+    else if (t.goto === 'verify' || t.goto === 'fix') {
+      if (this.go('entry') === false) return;
+      this.go2('register'); this.setState({ screen: 'entry' }); this.selectRegBox(t.boxId, { force: true });
+    } else if (t.goto === 'return') { if (this.go('entry') !== false) this.go2('return'); }
+  }
+  // The login screen's urgent chips ("⚠️ เกินกำหนด" / "🔴 ตีกลับ" / "🟡 รอตรวจ") store an intent;
+  // once the user is in (and past the tasks gate) jump straight to that kind of item.
+  _applyLoginIntent() {
+    const k = this.state.loginIntent;
+    if (!k) return;
+    this.setState({ loginIntent: '' });
+    const group = { overdue: 'expiry', rejected: 'rejected', pending: 'pending' }[k];
+    const t = (this._tasks || []).find(x => x.group === group);
+    if (t) this._gotoTask(t);
   }
   componentWillUnmount() {
     (this._idleEvents || []).forEach(ev => window.removeEventListener(ev, this._resetIdle, true));
@@ -4408,8 +4537,8 @@ class Component extends DCLogic {
   // actionable by them — same "view open, act gated" split as the History
   // screen's own view-vs-export split.
   async ackExpiryAlert(a) {
-    if (!this._canVerifyReg()) return;
-    if (!window.EB_Sync || !window.EB_Sync.syncExpiryAction) return;
+    if (!this._canVerifyReg()) return false;
+    if (!window.EB_Sync || !window.EB_Sync.syncExpiryAction) return false;
     try {
       const _existing = this.state.expiryActions && this.state.expiryActions[this._expiryActionKey(a.boxId, a.drugName, a.expiry)];
       const patch = {
@@ -4488,8 +4617,10 @@ class Component extends DCLogic {
         ackBy: this.state.currentUser.name, ackAt: `${this.isoOf(this.TODAY)} ${this.nowTime()}`,
       });
       this.flash(`รับทราบการเปิดใช้งาน ${box.id} แล้ว`);
+      return true;
     } catch (err) {
       this.flash('⚠️ บันทึกการรับทราบไม่สำเร็จ — ' + ((err && err.message) || ''));
+      return false;
     }
   }
   openResolveBoxOpenModal(box) {
@@ -5278,6 +5409,9 @@ class Component extends DCLogic {
     // anon auth already started in componentDidMount — just start remaining Firestore sync
     if (window.EB_Sync) {
       if (window.EB_Sync.stopLoginBoxes) window.EB_Sync.stopLoginBoxes(); // authenticated listenBoxes() takes over
+      this._tasksChecked = false; this._tasks = [];
+      clearTimeout(this._tasksFallbackT);
+      this._tasksFallbackT = setTimeout(() => this._maybeOpenTasks(true), 8000);
       window.EB_Sync.initFirebaseSync(this);
       this._syncT = setTimeout(() => { if (window.EB_Sync) window.EB_Sync.syncUsers(updatedU).catch(() => console.warn('[Login] lastLogin write failed')); }, 1500);
     }
@@ -5366,6 +5500,7 @@ class Component extends DCLogic {
     clearTimeout(this._lockT); clearTimeout(this._t); clearTimeout(this._a);
     clearTimeout(this._saveSuccessT); clearTimeout(this._ghT);
     clearInterval(this._idleCountI); clearInterval(this._notifyInterval); clearInterval(this._lockCountI);
+    clearTimeout(this._tasksFallbackT); this._tasksChecked = false; this._tasks = [];
     if (window.EB_Sync) {
       window.EB_Sync.stopSync();
       if (window.EB_Sync.startLoginBoxes) window.EB_Sync.startLoginBoxes(this);
@@ -5378,6 +5513,7 @@ class Component extends DCLogic {
     this.setState({
       authed: false, currentUser: null, loginUser: '', loginPass: '', showPass: false, screen: 'dashboard',
       boxesSynced: false,
+      tasksOpen: false, tasksAcked: {}, tasksBusy: false, loginIntent: '', boxDrugsSynced: false, expiryActionsSynced: false, boxOpenActionsSynced: false,
       loginError: '', attempts: 0, locked: false, lockCountdown: 0,
       idleWarn: false,
       formMode: 'register',
@@ -6923,6 +7059,58 @@ td.l{text-align:left;padding-left:4px}
     // "ลืมรหัสผ่าน?" used to be a dead href="#" link (clicked → page jump to
     // top, nothing else). This app has no self-service reset — only an admin
     // can change a password (openChangePw) — so say exactly that.
+    // ===== Post-login "งานที่ต้องจัดการวันนี้" blocking modal =====
+    vals.todayTasksEl = null;
+    if (st.tasksOpen && st.authed) {
+      const _tk = this._tasks || [];
+      const _acked = st.tasksAcked || {};
+      const _ackedN = Object.keys(_acked).length;
+      const _verifier = this._canVerifyReg();
+      const _groups = [
+        ['expiry', '⏰', 'ยาถึงกำหนดส่งคืน / ใกล้หมดอายุ'],
+        ['open', '📦', 'กล่องถูกเปิดใช้งาน — รอเรียกคืน/เปลี่ยน'],
+        ['long', '📤', 'กล่องค้างที่หน่วยงานนานเกิน 30 วัน'],
+        ['rejected', '🔴', 'กล่องที่ถูกตีกลับให้แก้ไข'],
+        ['pending', '🟡', 'รอเภสัชกร/แอดมินตรวจสอบ'],
+      ];
+      const _btn = (extra) => Object.assign({ fontFamily: 'inherit', cursor: 'pointer', borderRadius: 10, fontSize: 13, fontWeight: 700, minHeight: 40, padding: '0 14px', border: 'none', whiteSpace: 'nowrap' }, extra);
+      const _row = (t) => {
+        const done = !!_acked[t.key];
+        return h('div', { key: t.key, style: { display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 12, background: done ? '#F0FAF6' : '#FBF7F2', border: `1px solid ${done ? '#BFE5D6' : '#F0E2CF'}`, flexWrap: 'wrap' } },
+          h('span', { style: { fontFamily: "'IBM Plex Mono', monospace", fontWeight: 800, fontSize: 13, color: t.color, flexShrink: 0, minWidth: 48 } }, t.boxId),
+          h('div', { style: { flex: '1 1 160px', minWidth: 0 } },
+            h('div', { style: { fontSize: 13, fontWeight: 700, color: '#2A3440', lineHeight: 1.35 } }, t.title),
+            h('div', { style: { fontSize: 12, color: t.color, fontWeight: 600, marginTop: 1 } }, t.detail),
+            t.sub ? h('div', { style: { fontSize: 11.5, color: '#7B8D9C', marginTop: 2 } }, t.sub) : null),
+          h('div', { style: { display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 } },
+            done ? h('span', { style: { fontSize: 12, fontWeight: 700, color: '#0A8C79' } }, '✅ รับทราบแล้ว') : null,
+            done && t.goto ? h('button', { type: 'button', onClick: () => this.finishTasks(t.key), style: _btn({ background: '#1A6FA3', color: '#fff', minHeight: 36, fontSize: 12.5 }) }, 'ไปจัดการ →') : null,
+            !done ? h('button', { type: 'button', disabled: st.tasksBusy, onClick: () => this.ackTask(t.key), style: _btn({ background: '#E8F2F8', color: '#1A6FA3', opacity: st.tasksBusy ? .55 : 1 }) }, 'รับทราบ') : null));
+      };
+      vals.todayTasksEl = h('div', { role: 'dialog', 'aria-modal': 'true', 'aria-label': 'งานที่ต้องจัดการวันนี้', style: { position: 'fixed', inset: 0, zIndex: 1200, background: 'rgba(10,25,38,.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 12, boxSizing: 'border-box' } },
+        h('div', { style: { background: '#fff', borderRadius: 18, width: 600, maxWidth: '100%', maxHeight: '92vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 30px 80px rgba(0,0,0,.4)' } },
+          h('div', { style: { padding: '18px 20px 14px', background: 'linear-gradient(135deg,#FFF4E0,#FFE9D6)', borderBottom: '1px solid #F0D9BE' } },
+            h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
+              h('span', { style: { fontSize: 24 } }, '📋'),
+              h('div', { style: { flex: 1 } },
+                h('div', { style: { fontSize: 17, fontWeight: 800, color: '#7A3B00' } }, 'งานที่ต้องจัดการวันนี้'),
+                h('div', { style: { fontSize: 12.5, color: '#9A5A18', marginTop: 2 } }, `ยังมีงานค้าง ${_tk.length} รายการ · กด “รับทราบ” อย่างน้อย 1 รายการก่อนใช้งานต่อ`)),
+              h('span', { style: { minWidth: 32, height: 32, borderRadius: 16, background: '#E03E3E', color: '#fff', fontWeight: 800, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 6px' } }, _tk.length))),
+          h('div', { style: { padding: '14px 16px', overflowY: 'auto', WebkitOverflowScrolling: 'touch', flex: 1 } },
+            ..._groups.map(([g, ic, label]) => {
+              const rows = _tk.filter(t => t.group === g);
+              if (!rows.length) return null;
+              return h('div', { key: g, style: { marginBottom: 14 } },
+                h('div', { style: { fontSize: 12.5, fontWeight: 800, color: '#5A6B79', margin: '0 2px 6px' } }, `${ic} ${label} (${rows.length})`),
+                h('div', { style: { display: 'flex', flexDirection: 'column', gap: 6 } }, ...rows.map(_row)));
+            }),
+            _verifier ? null : h('div', { style: { fontSize: 11.5, color: '#7B8D9C', margin: '2px 2px 4px', lineHeight: 1.5 } }, 'ℹ️ บทบาทของคุณรับทราบได้อย่างเดียว — การรับทราบจะถูกบันทึกในประวัติการใช้งาน การบันทึกการดำเนินการเป็นหน้าที่เภสัชกร/แอดมิน')),
+          h('div', { style: { padding: '12px 16px calc(12px + env(safe-area-inset-bottom, 0px))', borderTop: '1px solid #EEF2F6', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', background: '#FAFCFE' } },
+            h('span', { style: { fontSize: 12, color: _ackedN ? '#0A8C79' : '#9A5A18', fontWeight: 700, flex: '1 1 120px' } }, _ackedN ? `รับทราบแล้ว ${_ackedN}/${_tk.length}` : 'ยังไม่ได้รับทราบรายการใด'),
+            _ackedN < _tk.length ? h('button', { type: 'button', disabled: st.tasksBusy, onClick: () => this.ackAllTasks(), style: _btn({ background: '#E8F2F8', color: '#1A6FA3', opacity: st.tasksBusy ? .55 : 1 }) }, 'รับทราบทั้งหมด') : null,
+            h('button', { type: 'button', disabled: _ackedN < 1 || st.tasksBusy, onClick: () => this.finishTasks(), style: _btn({ background: _ackedN < 1 ? '#C9D3DC' : '#168C84', color: '#fff', cursor: _ackedN < 1 ? 'not-allowed' : 'pointer' }) }, 'เข้าใช้งานต่อ →'))));
+    }
+
     vals.appVersion = this.APP_VERSION;
     vals.newVersionEl = (st.newVersion && !st.authed) ? h('button', { key: 'newver', type: 'button', onClick: () => this.reloadForNewVersion(), style: { position: 'relative', zIndex: 5, margin: '0 18px 6px', padding: '11px 14px', minHeight: 44, borderRadius: 12, border: '1px solid rgba(255,208,138,.55)', background: 'rgba(245,185,74,.2)', color: '#FFE9C2', fontSize: 13.5, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer', textAlign: 'center' } },
       `🔄 มีเวอร์ชันใหม่ (${st.newVersion}) — แตะเพื่อโหลดใหม่ · ตอนนี้ใช้ ${this.APP_VERSION}`) : null;
@@ -7024,11 +7212,15 @@ td.l{text-align:left;padding-left:4px}
         if (i.stage === 'none' && b.rejectedAt) _lbUrgent.rejected++;
       });
       const _lbUrgentTotal = _lbUrgent.overdue + _lbUrgent.pending + _lbUrgent.rejected;
+      const _chip = (k, n, label, bg, col) => n ? h('button', { key: k, type: 'button', className: 'login-intent-chip', 'aria-pressed': st.loginIntent === k, onClick: () => this.setState(s2 => ({ loginIntent: s2.loginIntent === k ? '' : k })), style: { fontSize: 10.5, fontWeight: 700, padding: '3px 8px', borderRadius: 20, background: bg, color: col, border: st.loginIntent === k ? '1.5px solid #fff' : '1.5px solid transparent', cursor: 'pointer', fontFamily: 'inherit', boxShadow: st.loginIntent === k ? '0 0 0 3px rgba(255,255,255,.18)' : 'none' } }, `${label} ${n}`) : null;
       const _lbUrgentEl = st.loginBoxesSynced && _lb.length ? (_lbUrgentTotal
-        ? h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 8 } },
-            _lbUrgent.overdue ? h('span', { key: 'o', style: { fontSize: 10.5, fontWeight: 700, padding: '3px 8px', borderRadius: 20, background: 'rgba(224,62,62,.22)', color: '#FFB3B3' } }, `⚠️ เกินกำหนด ${_lbUrgent.overdue}`) : null,
-            _lbUrgent.rejected ? h('span', { key: 'r', style: { fontSize: 10.5, fontWeight: 700, padding: '3px 8px', borderRadius: 20, background: 'rgba(224,62,62,.18)', color: '#FFB3B3' } }, `🔴 ตีกลับ ${_lbUrgent.rejected}`) : null,
-            _lbUrgent.pending ? h('span', { key: 'p', style: { fontSize: 10.5, fontWeight: 700, padding: '3px 8px', borderRadius: 20, background: 'rgba(245,185,74,.2)', color: '#FFE08A' } }, `🟡 รอตรวจ ${_lbUrgent.pending}`) : null)
+        ? h('div', { style: { marginBottom: 8 } },
+            h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 5 } },
+              _chip('overdue', _lbUrgent.overdue, '⚠️ เกินกำหนด', 'rgba(224,62,62,.22)', '#FFB3B3'),
+              _chip('rejected', _lbUrgent.rejected, '🔴 ตีกลับ', 'rgba(224,62,62,.18)', '#FFB3B3'),
+              _chip('pending', _lbUrgent.pending, '🟡 รอตรวจ', 'rgba(245,185,74,.2)', '#FFE08A')),
+            h('div', { style: { fontSize: 10.5, marginTop: 5, color: st.loginIntent ? '#6FE3C0' : 'rgba(255,255,255,.5)' } },
+              st.loginIntent ? '✓ เข้าสู่ระบบแล้วจะพาไปที่รายการนี้ทันที' : 'แตะเพื่อให้พาไปที่รายการหลังเข้าสู่ระบบ'))
         : h('div', { style: { fontSize: 11.5, color: '#6FE3C0', marginBottom: 10, fontWeight: 600 } }, '✅ ไม่มีรายการเร่งด่วน')) : null;
       const _lbStale = !!(st.loginBoxesCached || st.pubOffline);
       const _lbAtEl = st.loginBoxesSynced ? h('div', { style: { fontSize: 10.5, marginTop: 9, textAlign: 'right', color: _lbStale ? '#FFD08A' : 'rgba(255,255,255,.45)' } },
