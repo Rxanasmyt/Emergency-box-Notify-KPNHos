@@ -1540,12 +1540,13 @@ select:focus-visible, textarea:focus-visible, [role="button"]:focus-visible {
         {{ capsWarnEl }}
 
         <div style="display: flex; align-items: center; justify-content: space-between; margin: 14px 0 20px;">
-          <button onClick="{{ toggleRemember }}" style="display: flex; align-items: center; gap: 9px; background: none; border: none; cursor: pointer; padding: 0; font-family: inherit;">
+          <button type="button" onClick="{{ toggleRemember }}" style="display: flex; align-items: center; gap: 9px; background: none; border: none; cursor: pointer; padding: 0; font-family: inherit;">
             {{ rememberBoxEl }}
             <span style="font-size: 13px; color: rgba(255,255,255,.75);">จดจำการเข้าใช้</span>
           </button>
-          <a href="#" style="font-size: 13px; color: #6FE3C0; font-weight: 600; text-decoration: none;">ลืมรหัสผ่าน?</a>
+          <button type="button" onClick="{{ toggleForgot }}" style="font-size: 13px; color: #6FE3C0; font-weight: 600; background: none; border: none; padding: 0; cursor: pointer; font-family: inherit;">ลืมรหัสผ่าน?</button>
         </div>
+        {{ forgotEl }}
 
         {{ loginBtnEl }}
 
@@ -2907,6 +2908,7 @@ class Component extends DCLogic {
     boxesSynced: false,
     // login-screen live box status (see EB_Sync.startLoginBoxes)
     loginBoxes: [], loginBoxesSynced: false, loginBoxesError: false,
+    forgotOpen: false,
     // set by firebase-sync.js's _onListenerError when boxes/audit_log/
     // box_drugs/users onSnapshot hits a TERMINAL error (Firestore's SDK
     // already retries transient blips internally, so this only fires when a
@@ -5138,7 +5140,14 @@ class Component extends DCLogic {
     // listeners (every boxes/audit_log/box_drugs change then fires twice).
     // Mirrors addUser()'s this._addingUser guard for the same reason.
     if (this._loggingIn) return;
-    let u = this.state.users.find(x => x.username.toLowerCase() === this.state.loginUser.trim().toLowerCase());
+    // Empty fields are a typo, not a failed attempt — don't burn one of the 5
+    // lockout attempts (clicking "เข้าสู่ระบบ" on a blank form 5 times used to
+    // lock the typed username out for 15 minutes).
+    if (!(this.state.loginUser || '').trim() || !(this.state.loginPass || '').trim()) {
+      this.setState({ loginError: 'กรุณากรอกรหัสพนักงานและรหัสผ่านให้ครบ' });
+      return;
+    }
+    let u = this.state.users.find(x => (x.username || '').toLowerCase() === this.state.loginUser.trim().toLowerCase());
     if (!u) {
       if (this.state.users.length === 0) {
         this.setState({ loginError: this.state.authInitError
@@ -5156,7 +5165,16 @@ class Component extends DCLogic {
     const inputPw = this.state.loginPass;
     if (!inputPw.trim()) { this._failLogin(); return; }
     this._loggingIn = true;
-    const inputHash = await this.hashPw(inputPw.trim());
+    let inputHash;
+    try { inputHash = await this.hashPw(inputPw.trim()); }
+    catch (_) {
+      // crypto.subtle is undefined outside a secure context (plain http, e.g. a
+      // LAN IP) — without this the throw left _loggingIn true forever and every
+      // later click on "เข้าสู่ระบบ" silently did nothing.
+      this._loggingIn = false;
+      this.setState({ loginError: 'ไม่สามารถตรวจสอบรหัสผ่านได้ — กรุณาเปิดแอพผ่านลิงก์ https ของโรงพยาบาล' });
+      return;
+    }
     // re-fetch user after async gap — state may have changed (password reset, suspension)
     const uFresh = this.state.users.find(x => x.username === u.username);
     if (!uFresh || uFresh.status === 'suspended') { this._loggingIn = false; this._failLogin(); return; }
@@ -6838,6 +6856,12 @@ td.l{text-align:left;padding-left:4px}
       this.setState({ loginUser: v, loginError: '', ...lockState });
     };
     vals.toggleRemember = () => this.setState(s => ({ remember: !s.remember }));
+    // "ลืมรหัสผ่าน?" used to be a dead href="#" link (clicked → page jump to
+    // top, nothing else). This app has no self-service reset — only an admin
+    // can change a password (openChangePw) — so say exactly that.
+    vals.toggleForgot = () => this.setState(s => ({ forgotOpen: !s.forgotOpen }));
+    vals.forgotEl = st.forgotOpen ? h('div', { key: 'forgot', style: { margin: '-8px 0 16px', padding: '11px 13px', borderRadius: 12, background: 'rgba(111,227,192,.1)', border: '1px solid rgba(111,227,192,.28)', fontSize: 12.5, lineHeight: 1.55, color: 'rgba(255,255,255,.85)' } },
+      '🔑 ระบบนี้ไม่มีการรีเซ็ตรหัสผ่านด้วยตนเอง — กรุณาติดต่อผู้ดูแลระบบ (แอดมิน) ของฝ่ายเภสัชกรรมเพื่อให้ตั้งรหัสผ่านใหม่ให้') : null;
 
     // password field (type switches → render as element keyed by showPass)
     vals.passFieldEl = h('input', {
