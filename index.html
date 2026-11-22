@@ -226,6 +226,8 @@
   /* a continuous (non-breathing) conic-gradient spin behind the icon, plus
      3 small nodes orbiting it — the icon-halo mirrors the sibling app's own
      kept `.login-appicon::before` spin exactly, just at our icon's scale */
+  .login-feature-row { transition: background .2s; }
+  .login-feature-row:hover { background: rgba(255,255,255,.07); }
   .login-icon-halo {
     position: absolute; inset: -9px; border-radius: 50%; z-index: 0;
     background: conic-gradient(from 0deg, #35D694, #f7a68b, #fff, #35D694);
@@ -1421,7 +1423,8 @@ select:focus-visible, textarea:focus-visible, [role="button"]:focus-visible {
           <div style="display: flex; gap: 12px; position: relative; z-index: 1; animation: slideInRight .5s cubic-bezier(.34,1.56,.64,1) .2s both;">
             <span style="width: 26px; height: 26px; flex-shrink: 0; border-radius: 50%; background: #fff; color: #14506E; display: flex; align-items: center; justify-content: center; font-size: 12.5px; font-weight: 700; box-shadow: 0 2px 8px rgba(0,0,0,.2);">1</span>
             <div>
-              <div style="font-size: 13.5px; font-weight: 600;">ลงทะเบียนกล่อง (2 ขั้นตอน)</div>
+              <span style="display: inline-block; margin-bottom: 4px; padding: 2px 9px; border-radius: 6px; background: #7C5CD6; color: #fff; font-size: 10.5px; font-weight: 800; letter-spacing: .02em;">ลงทะเบียน</span>
+              <div style="font-size: 14.5px; font-weight: 600;">ลงทะเบียนกล่อง (2 ขั้นตอน)</div>
               <div style="font-size: 12px; color: rgba(255,255,255,.62); margin-top: 2px; line-height: 1.6;">จพ. จัดเตรียม → เภสัชกร/Admin ตรวจสอบและยืนยันก่อนพร้อมจ่าย</div>
               <span style="display: inline-block; margin-top: 6px; padding: 2px 9px; border-radius: 20px; background: rgba(111,227,192,.16); color: #6FE3C0; font-size: 10.5px; font-weight: 700;">จพ. → เภสัชกร/Admin</span>
             </div>
@@ -1429,7 +1432,8 @@ select:focus-visible, textarea:focus-visible, [role="button"]:focus-visible {
           <div style="display: flex; gap: 12px; position: relative; z-index: 1; animation: slideInRight .5s cubic-bezier(.34,1.56,.64,1) .32s both;">
             <span style="width: 26px; height: 26px; flex-shrink: 0; border-radius: 50%; background: #fff; color: #14506E; display: flex; align-items: center; justify-content: center; font-size: 12.5px; font-weight: 700; box-shadow: 0 2px 8px rgba(0,0,0,.2);">2</span>
             <div>
-              <div style="font-size: 13.5px; font-weight: 600;">จ่ายออกให้หน่วยงาน</div>
+              <span style="display: inline-block; margin-bottom: 4px; padding: 2px 9px; border-radius: 6px; background: #1A6FA3; color: #fff; font-size: 10.5px; font-weight: 800; letter-spacing: .02em;">จ่ายออก</span>
+              <div style="font-size: 14.5px; font-weight: 600;">จ่ายออกให้หน่วยงาน</div>
               <div style="font-size: 12px; color: rgba(255,255,255,.62); margin-top: 2px; line-height: 1.6;">เลือกหน่วยงานปลายทาง ระบบคำนวณวันครบกำหนดส่งคืนให้อัตโนมัติ</div>
               <span style="display: inline-block; margin-top: 6px; padding: 2px 9px; border-radius: 20px; background: rgba(111,227,192,.16); color: #6FE3C0; font-size: 10.5px; font-weight: 700;">ทุกหน่วยงาน (ER/Ward/LR)</span>
             </div>
@@ -1437,7 +1441,8 @@ select:focus-visible, textarea:focus-visible, [role="button"]:focus-visible {
           <div style="display: flex; gap: 12px; position: relative; z-index: 1; animation: slideInRight .5s cubic-bezier(.34,1.56,.64,1) .44s both;">
             <span style="width: 26px; height: 26px; flex-shrink: 0; border-radius: 50%; background: #fff; color: #14506E; display: flex; align-items: center; justify-content: center; font-size: 12.5px; font-weight: 700; box-shadow: 0 2px 8px rgba(0,0,0,.2);">3</span>
             <div>
-              <div style="font-size: 13.5px; font-weight: 600;">สแกน QR บันทึกใช้ยา (paperless)</div>
+              <span style="display: inline-block; margin-bottom: 4px; padding: 2px 9px; border-radius: 6px; background: #F5B94A; color: #3a2200; font-size: 10.5px; font-weight: 800; letter-spacing: .02em;">ใช้งาน</span>
+              <div style="font-size: 14.5px; font-weight: 600;">สแกน QR บันทึกใช้ยา (paperless)</div>
               <div style="font-size: 12px; color: rgba(255,255,255,.62); margin-top: 2px; line-height: 1.6;">หน่วยงานสแกนที่กล่องเพื่อบันทึกการใช้ยาโดยไม่ต้องใช้กระดาษ</div>
               <span style="display: inline-block; margin-top: 6px; padding: 2px 9px; border-radius: 20px; background: rgba(111,227,192,.16); color: #6FE3C0; font-size: 10.5px; font-weight: 700;">ไม่ต้องล็อกอิน</span>
             </div>
@@ -1445,7 +1450,8 @@ select:focus-visible, textarea:focus-visible, [role="button"]:focus-visible {
           <div style="display: flex; gap: 12px; position: relative; z-index: 1; animation: slideInRight .5s cubic-bezier(.34,1.56,.64,1) .56s both;">
             <span style="width: 26px; height: 26px; flex-shrink: 0; border-radius: 50%; background: #fff; color: #14506E; display: flex; align-items: center; justify-content: center; font-size: 12.5px; font-weight: 700; box-shadow: 0 2px 8px rgba(0,0,0,.2);">4</span>
             <div>
-              <div style="font-size: 13.5px; font-weight: 600;">รับคืนเข้าห้องยา</div>
+              <span style="display: inline-block; margin-bottom: 4px; padding: 2px 9px; border-radius: 6px; background: #169C7F; color: #fff; font-size: 10.5px; font-weight: 800; letter-spacing: .02em;">รับคืน</span>
+              <div style="font-size: 14.5px; font-weight: 600;">รับคืนเข้าห้องยา</div>
               <div style="font-size: 12px; color: rgba(255,255,255,.62); margin-top: 2px; line-height: 1.6;">กล่องกลับเข้าสถานะ "ยังไม่เตรียม" โดยอัตโนมัติ — ต้องผ่านขั้นที่ 1 ใหม่ก่อนจ่ายออกอีกครั้ง</div>
               <span style="display: inline-block; margin-top: 6px; padding: 2px 9px; border-radius: 20px; background: rgba(111,227,192,.16); color: #6FE3C0; font-size: 10.5px; font-weight: 700;">จพ. / เภสัชกร</span>
             </div>
@@ -1559,24 +1565,24 @@ select:focus-visible, textarea:focus-visible, [role="button"]:focus-visible {
         </div>
         <div style="display: flex; flex-direction: column; gap: 4px; position: relative;">
           <!-- flow-map rail connecting the 4 feature icon tiles (34px tile → center at 17px), with a droplet traveling down it -->
-          <div style="position: absolute; left: 17px; top: 17px; bottom: 17px; width: 2px; background: linear-gradient(180deg, rgba(255,255,255,.22), rgba(255,255,255,.06)); z-index: 0;">
+          <div style="position: absolute; left: 28px; top: 28px; bottom: 17px; width: 2px; background: linear-gradient(180deg, rgba(255,255,255,.22), rgba(255,255,255,.06)); z-index: 0;">
             <span style="position: absolute; left: -2px; width: 6px; height: 6px; border-radius: 50%; background: #6FE3C0; box-shadow: 0 0 6px rgba(111,227,192,.85); animation: loginRailDrop 2.6s ease-in infinite;"></span>
           </div>
-          <div style="display: flex; align-items: center; gap: 12px; padding: 10px 2px; border-bottom: 1px solid rgba(255,255,255,.08); position: relative; z-index: 1;">
-            <span style="width: 34px; height: 34px; flex-shrink: 0; border-radius: 10px; background: rgba(255,255,255,.08); display: flex; align-items: center; justify-content: center;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6z" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/><path d="M10 20a2 2 0 0 0 4 0" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg></span>
-            <div><div style="font-size: 13px; font-weight: 600;">แจ้งเตือนยาใกล้หมดอายุ</div><div style="font-size: 11.5px; color: rgba(255,255,255,.58);">ล่วงหน้า 15 วัน ผ่าน LINE และ Email</div></div>
+          <div class="login-feature-row" style="display: flex; align-items: center; gap: 12px; padding: 12px 8px; border-radius: 12px; border-bottom: 1px solid rgba(255,255,255,.08); position: relative; z-index: 1;">
+            <span style="width: 40px; height: 40px; flex-shrink: 0; border-radius: 12px; background: rgba(255,255,255,.12); display: flex; align-items: center; justify-content: center;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6z" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/><path d="M10 20a2 2 0 0 0 4 0" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+            <div><div style="font-size: 13px; font-weight: 600;">แจ้งเตือนยาใกล้หมดอายุ</div><div style="font-size: 11.5px; color: rgba(255,255,255,.58);">ล่วงหน้า 15 วัน ผ่าน LINE และ Email</div></div><svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="flex-shrink: 0; margin-left: auto; opacity: .45;"><path d="M9 6l6 6-6 6" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </div>
-          <div style="display: flex; align-items: center; gap: 12px; padding: 10px 2px; border-bottom: 1px solid rgba(255,255,255,.08); position: relative; z-index: 1;">
-            <span style="width: 34px; height: 34px; flex-shrink: 0; border-radius: 10px; background: rgba(255,255,255,.08); display: flex; align-items: center; justify-content: center;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3z" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/></svg></span>
-            <div><div style="font-size: 13px; font-weight: 600;">สิทธิ์ตามบทบาท (RBAC)</div><div style="font-size: 11.5px; color: rgba(255,255,255,.58);">Admin · เภสัชกร · จพ. · พยาบาล แยกสิทธิ์ชัดเจน</div></div>
+          <div class="login-feature-row" style="display: flex; align-items: center; gap: 12px; padding: 12px 8px; border-radius: 12px; border-bottom: 1px solid rgba(255,255,255,.08); position: relative; z-index: 1;">
+            <span style="width: 40px; height: 40px; flex-shrink: 0; border-radius: 12px; background: rgba(255,255,255,.12); display: flex; align-items: center; justify-content: center;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3z" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/></svg></span>
+            <div><div style="font-size: 13px; font-weight: 600;">สิทธิ์ตามบทบาท (RBAC)</div><div style="font-size: 11.5px; color: rgba(255,255,255,.58);">Admin · เภสัชกร · จพ. · พยาบาล แยกสิทธิ์ชัดเจน</div></div><svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="flex-shrink: 0; margin-left: auto; opacity: .45;"><path d="M9 6l6 6-6 6" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </div>
-          <div style="display: flex; align-items: center; gap: 12px; padding: 10px 2px; border-bottom: 1px solid rgba(255,255,255,.08); position: relative; z-index: 1;">
-            <span style="width: 34px; height: 34px; flex-shrink: 0; border-radius: 10px; background: rgba(255,255,255,.08); display: flex; align-items: center; justify-content: center;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M9 3h6l1 3h3v3l-2 1 2 10H5L7 10l-2-1V6h3l1-3z" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg></span>
-            <div><div style="font-size: 13px; font-weight: 600;">Audit Log ทุกการทำรายการ</div><div style="font-size: 11.5px; color: rgba(255,255,255,.58);">ย้อนดูได้ว่าใครทำอะไร เมื่อไหร่</div></div>
+          <div class="login-feature-row" style="display: flex; align-items: center; gap: 12px; padding: 12px 8px; border-radius: 12px; border-bottom: 1px solid rgba(255,255,255,.08); position: relative; z-index: 1;">
+            <span style="width: 40px; height: 40px; flex-shrink: 0; border-radius: 12px; background: rgba(255,255,255,.12); display: flex; align-items: center; justify-content: center;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M9 3h6l1 3h3v3l-2 1 2 10H5L7 10l-2-1V6h3l1-3z" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg></span>
+            <div><div style="font-size: 13px; font-weight: 600;">Audit Log ทุกการทำรายการ</div><div style="font-size: 11.5px; color: rgba(255,255,255,.58);">ย้อนดูได้ว่าใครทำอะไร เมื่อไหร่</div></div><svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="flex-shrink: 0; margin-left: auto; opacity: .45;"><path d="M9 6l6 6-6 6" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </div>
-          <div style="display: flex; align-items: center; gap: 12px; padding: 10px 2px; position: relative; z-index: 1;">
-            <span style="width: 34px; height: 34px; flex-shrink: 0; border-radius: 10px; background: rgba(255,255,255,.08); display: flex; align-items: center; justify-content: center;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M4 20V10M11 20V4M18 20v-7" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg></span>
-            <div><div style="font-size: 13px; font-weight: 600;">KPI Dashboard</div><div style="font-size: 11.5px; color: rgba(255,255,255,.58);">ตัวชี้วัดคุณภาพแบบเรียลไทม์</div></div>
+          <div class="login-feature-row" style="display: flex; align-items: center; gap: 12px; padding: 12px 8px; border-radius: 12px; position: relative; z-index: 1;">
+            <span style="width: 40px; height: 40px; flex-shrink: 0; border-radius: 12px; background: rgba(255,255,255,.12); display: flex; align-items: center; justify-content: center;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M4 20V10M11 20V4M18 20v-7" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg></span>
+            <div><div style="font-size: 13px; font-weight: 600;">KPI Dashboard</div><div style="font-size: 11.5px; color: rgba(255,255,255,.58);">ตัวชี้วัดคุณภาพแบบเรียลไทม์</div></div><svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="flex-shrink: 0; margin-left: auto; opacity: .45;"><path d="M9 6l6 6-6 6" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </div>
           <div style="margin-top: 10px; text-align: center; position: relative; z-index: 1;">
             <span style="display: inline-block; padding: 6px 14px; border: 1.5px dashed rgba(111,227,192,.5); border-radius: 20px; font-size: 11px; font-weight: 600; color: #6FE3C0;">ครบ 1 รอบ: ลงทะเบียน → จ่าย → ใช้ → รับคืน</span>
