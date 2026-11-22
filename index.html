@@ -279,7 +279,7 @@
      the fixed px sizes above are used there instead to avoid the title
      scaling off the huge end of a wide monitor's viewport width. */
   @media (max-width: 768px) {
-    .login-brand-name .login-shine-text { font-size: clamp(48px, 14.5vw, 66px); }
+    .login-brand-name .login-shine-text { font-size: clamp(36px, calc((100vw - 48px) / 7.4), 66px); }
     .login-brand-sub { font-size: clamp(24px, 8vw, 36px); }
     .login-brand-tag-1 { font-size: clamp(28px, 9vw, 40px); }
     .login-brand-tag-2 { font-size: clamp(16px, 5.4vw, 24px); }
