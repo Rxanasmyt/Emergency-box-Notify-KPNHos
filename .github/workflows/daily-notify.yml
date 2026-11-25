@@ -2,8 +2,24 @@ name: Daily Drug Expiry Notification
 
 on:
   schedule:
-    - cron: '0 2 * * *'   # 09:00 น. ไทย (UTC+7 → 02:00 UTC)
-  workflow_dispatch:        # กดรันมือได้จาก GitHub Actions tab
+    # สำรองเท่านั้น — GitHub เริ่มรัน schedule ช้า 6-10 ชม. จริง (09:00 → ~16:00-19:00 น.)
+    # ตัวหลักคือตัวตั้งเวลาภายนอก (cron-job.org) ที่สั่ง workflow_dispatch ตอน 09:00 น. ไทย
+    # และส่งซ้ำไม่ได้: สคริปต์เช็ค lastDailyRunDate ว่ารอบวันนี้ทำเสร็จแล้วหรือยัง
+    # ใช้นาทีที่ไม่ใช่ :00 เพราะต้นชั่วโมงเป๊ะ ๆ คือช่วงที่คิวของ GitHub แน่นที่สุด
+    - cron: '17 2 * * *'
+  workflow_dispatch:        # กดรันมือได้จาก GitHub Actions tab / ปุ่มในแอป / ตัวตั้งเวลาภายนอก
+    inputs:
+      source:
+        description: 'manual = ส่งทันทีเสมอ | scheduler = รอบประจำวันจากตัวตั้งเวลาภายนอก (ส่งวันละครั้ง)'
+        required: false
+        default: 'manual'
+        type: string
+
+# serialize runs so an external-scheduler run and a late GitHub-cron run can
+# never execute at the same time and both pass the once-per-day check
+concurrency:
+  group: daily-notify
+  cancel-in-progress: false
 
 jobs:
   notify:
@@ -46,3 +62,4 @@ jobs:
           EMAIL_PASS:                ${{ secrets.EMAIL_PASS }}
           EMAIL_TO:                  ${{ secrets.EMAIL_TO }}
           NOTIFY_DAYS_AHEAD:         ${{ vars.NOTIFY_DAYS_AHEAD || '60' }}
+          SOURCE:                    ${{ github.event.inputs.source || 'manual' }}

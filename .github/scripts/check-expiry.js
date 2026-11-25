@@ -42,8 +42,15 @@ let THRESHOLD_DAYS = isNaN(_rawDays) || _rawDays <= 0 ? 60 : Math.min(_rawDays, 
 const _todayISO = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok' }).format(new Date());
 const TODAY = new Date(_todayISO + 'T00:00:00');
 const TODAY_ISO = `${TODAY.getFullYear()}-${String(TODAY.getMonth()+1).padStart(2,'0')}-${String(TODAY.getDate()).padStart(2,'0')}`;
-// workflow_dispatch = user pressed button → always send; schedule = cron → dedup
-const IS_MANUAL = process.env.GITHUB_EVENT_NAME === 'workflow_dispatch';
+// workflow_dispatch = user pressed button → always send; schedule = cron → dedup.
+// An EXTERNAL scheduler (cron-job.org etc.) also reaches this script as a
+// workflow_dispatch — it passes SOURCE=scheduler so it is treated like the
+// cron (smart mode + once-per-day guard), NOT like a manual button press.
+// Why an external scheduler exists at all: GitHub's own `schedule:` trigger is
+// best-effort and in practice started this job 6-10 hours late (09:00 → ~16:00
+// -19:00 Thai time), so the "morning" LINE alert arrived in the evening.
+const IS_SCHEDULER_DISPATCH = process.env.SOURCE === 'scheduler';
+const IS_MANUAL = process.env.GITHUB_EVENT_NAME === 'workflow_dispatch' && !IS_SCHEDULER_DISPATCH;
 
 // Single read of app_settings/notifications — feeds both the dedup check
 // (lastSentDate) and the THRESHOLD_DAYS override below, instead of two
@@ -53,6 +60,18 @@ async function loadNotifySettingsDoc() {
     const doc = await db.collection('app_settings').doc('notifications').get();
     return doc.exists ? doc.data() : {};
   } catch { return {}; }
+}
+
+// Once-per-day marker for SCHEDULED runs (cron and external scheduler). The
+// external scheduler fires at 09:00; GitHub's own (late) cron stays as a backup
+// and must not send the same day's alert + reminder a second time. Manual
+// button presses neither read nor consume this marker, so an admin can always
+// force a send.
+async function markDailyRunDone() {
+  if (IS_MANUAL) return;
+  try {
+    await db.collection('app_settings').doc('notifications').set({ lastDailyRunDate: TODAY_ISO }, { merge: true });
+  } catch (err) { console.warn('⚠️  บันทึก lastDailyRunDate ล้มเหลว:', err.message); }
 }
 
 async function markSentToday() {
@@ -1365,6 +1384,10 @@ async function main() {
 
   // dedup: cron เช็คว่าส่งวันนี้ไปแล้วหรือยัง — กดปุ่มเองข้ามการเช็ค
   if (!IS_MANUAL) {
+    if ((_notifSettings.lastDailyRunDate || '') === TODAY_ISO) {
+      console.log(`⏭  รอบประจำวันของวันนี้ (${TODAY_ISO}) ทำเสร็จแล้ว — ข้ามการรันซ้ำ`);
+      process.exit(0);
+    }
     const lastSent = _notifSettings.lastSentDate || '';
     if (lastSent === TODAY_ISO) {
       console.log(`⏭  ส่งแจ้งเตือนไปแล้วในวันนี้ (${TODAY_ISO}) — ข้ามการส่งซ้ำ`);
@@ -1437,6 +1460,7 @@ async function main() {
     } else {
       console.log('⏭  ไม่ใช่วันจันทร์ — ไม่ส่งแจ้งเตือน');
     }
+    await markDailyRunDone();
     process.exit(0);
   }
 
@@ -1455,6 +1479,7 @@ async function main() {
 
   if (!shouldSend) {
     console.log('\n⏭  ไม่มียาวิกฤต และไม่ใช่วันจันทร์ — ข้ามการส่งแจ้งเตือนวันนี้');
+    await markDailyRunDone();
     process.exit(0);
   }
 
@@ -1485,6 +1510,7 @@ async function main() {
 
   if (lineResult || emailResult) {
     await markSentToday();
+    await markDailyRunDone();
     console.log(`\n✅ แจ้งเตือนสำเร็จ — บันทึก lastSentDate: ${TODAY_ISO}`);
   } else {
     console.log('\n⚠️  ไม่ได้ตั้งค่า secrets — ข้ามการแจ้งเตือน');
